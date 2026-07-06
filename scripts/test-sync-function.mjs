@@ -478,6 +478,157 @@ async function assertFrontendSummaryManagerHelpers() {
   assert(context.dom.summaryRecentTurns.value === 3 && context.dom.rangeEnd.value === 6, 'Summary manager should initialize default ranges.');
 }
 
+async function assertFrontendPromptSummaryEvents() {
+  const sources = await Promise.all([
+    '../src/app/66-prompt-viewer-events.js',
+    '../src/app/66-summary-manager-events.js',
+    '../src/app/66-prompt-summary-events.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function classList(initial = []) {
+    const values = new Set(initial);
+    return {
+      values,
+      add(...names) { names.forEach((name) => values.add(name)); },
+      remove(...names) { names.forEach((name) => values.delete(name)); },
+      contains(name) { return values.has(name); },
+    };
+  }
+  function el(initial = []) {
+    return {
+      listeners: {},
+      textContent: '',
+      innerHTML: '',
+      classList: classList(initial),
+      addEventListener(type, handler) {
+        this.listeners[type] = handler;
+      },
+    };
+  }
+
+  const events = [];
+  const timers = [];
+  const dom = {
+    viewPromptBtn: el(),
+    promptStageMainBtn: el(),
+    promptStageSecondBtn: el(),
+    promptViewerModal: el(['hidden']),
+    promptViewerCloseBtn: el(),
+    promptViewerBackdrop: el(),
+    promptViewerContent: el(),
+    copyPromptBtn: el(),
+    summarizeBtn: el(),
+    summaryManagerModal: el(['hidden']),
+    summaryManagerCloseBtn: el(),
+    summaryManagerBackdrop: el(),
+    modeRecentBtn: el(['bg-white/10', 'text-zinc-100']),
+    modeRangeBtn: el(),
+    modeRecentPanel: el(),
+    modeRangePanel: el(['hidden']),
+    previewRangeBtn: el(),
+    rangeStart: el(),
+    rangeEnd: el(),
+    rangePreview: el(),
+    summaryGenerateBtn: el(),
+  };
+  const conv = {
+    messages: [
+      { role: 'assistant', content: 'older main' },
+      { role: 'assistant', stage: 'second', content: 'skip second' },
+      { role: 'assistant', content: 'latest main' },
+    ],
+  };
+  const context = {
+    dom,
+    navigator: {
+      clipboard: {
+        async writeText(text) {
+          events.push('copy:' + text);
+        },
+      },
+    },
+    setTimeout(fn) {
+      timers.push(fn);
+    },
+    getActiveConv() {
+      return conv;
+    },
+    buildMessagesForAPI() {
+      return [{ role: 'user', content: 'main prompt' }];
+    },
+    buildMessagesForSecondStage(message) {
+      events.push('second-source:' + message.content);
+      return [{ role: 'system', content: 'second prompt for ' + message.content }];
+    },
+    formatPromptMessages(messages) {
+      return messages.map((message) => message.content).join('\n');
+    },
+    openSummaryManager() {
+      events.push('open-summary');
+    },
+    previewCustomRange() {
+      events.push('preview');
+    },
+    doGenerateSummary() {
+      events.push('generate');
+    },
+    t: (key) => ({ copied: 'copied', copy: 'copy', no_messages_to_send: 'empty' }[key] || key),
+    alert: (msg) => events.push('alert:' + msg),
+    console: { error() {} },
+    Array,
+    Set,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}`, context);
+  context.bindPromptAndSummaryWorkflowEvents();
+
+  dom.viewPromptBtn.listeners.click();
+  assert(!dom.promptViewerModal.classList.values.has('hidden'), 'Prompt viewer should open from the view prompt button.');
+  assert(dom.promptViewerContent.textContent === 'main prompt', 'Prompt viewer should render the main prompt by default.');
+  assert(dom.promptStageMainBtn.classList.values.has('text-amber-300'), 'Prompt viewer should mark the main stage active.');
+
+  dom.promptStageSecondBtn.listeners.click();
+  assert(events.includes('second-source:latest main'), 'Prompt viewer should use the latest main assistant message for second-stage prompts.');
+  assert(dom.promptViewerContent.textContent.includes('second prompt for latest main'), 'Prompt viewer should render second-stage prompts.');
+
+  dom.promptViewerCloseBtn.listeners.click();
+  assert(dom.promptViewerModal.classList.values.has('hidden'), 'Prompt viewer close button should hide the modal.');
+  dom.promptViewerModal.classList.remove('hidden');
+  dom.promptViewerBackdrop.listeners.click();
+  assert(dom.promptViewerModal.classList.values.has('hidden'), 'Prompt viewer backdrop should hide the modal.');
+
+  dom.copyPromptBtn.listeners.click();
+  await Promise.resolve();
+  assert(events.includes('copy:' + dom.promptViewerContent.textContent), 'Prompt viewer copy button should write the rendered prompt.');
+  assert(dom.copyPromptBtn.textContent === 'copied', 'Prompt viewer copy button should show copied feedback.');
+  timers[0]();
+  assert(dom.copyPromptBtn.textContent === 'copy', 'Prompt viewer copy button should restore its label.');
+
+  dom.summarizeBtn.listeners.click();
+  assert(events.includes('open-summary'), 'Summary button should open the summary manager.');
+
+  dom.modeRangeBtn.listeners.click();
+  assert(dom.modeRecentPanel.classList.values.has('hidden') && !dom.modeRangePanel.classList.values.has('hidden'), 'Summary manager should switch to range mode.');
+  assert(dom.modeRangeBtn.classList.values.has('text-zinc-100') && !dom.modeRecentBtn.classList.values.has('text-zinc-100'), 'Summary range mode should update active button styles.');
+
+  dom.rangePreview.innerHTML = 'stale';
+  dom.modeRecentBtn.listeners.click();
+  assert(!dom.modeRecentPanel.classList.values.has('hidden') && dom.modeRangePanel.classList.values.has('hidden'), 'Summary manager should switch back to recent mode.');
+  assert(dom.rangePreview.innerHTML === '', 'Summary recent mode should clear stale range preview.');
+
+  dom.previewRangeBtn.listeners.click();
+  dom.rangeStart.listeners.input();
+  dom.rangeEnd.listeners.input();
+  assert(events.filter((event) => event === 'preview').length === 3, 'Summary range preview controls should refresh previews.');
+
+  dom.summaryGenerateBtn.listeners.click();
+  assert(events.includes('generate'), 'Summary generate button should trigger summary generation.');
+
+  dom.summaryManagerModal.classList.remove('hidden');
+  dom.summaryManagerCloseBtn.listeners.click();
+  assert(dom.summaryManagerModal.classList.values.has('hidden'), 'Summary manager close button should hide the modal.');
+}
+
 async function assertFrontendApiConnectionHelpers() {
   const helperSource = await readFile(new URL('../src/app/31-api-connection-test-helpers.js', import.meta.url), 'utf8');
   const translations = {
@@ -2785,6 +2936,7 @@ async function main() {
   await assertFrontendSummaryService();
   await assertFrontendAutoSummarizationHelpers();
   await assertFrontendSummaryManagerHelpers();
+  await assertFrontendPromptSummaryEvents();
   await assertFrontendApiConnectionHelpers();
   await assertFrontendGenerationHelpers();
   await assertFrontendPromptMessageHelpers();
