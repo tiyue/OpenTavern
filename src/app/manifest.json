@@ -68,6 +68,7 @@
   "43-worldbook-entry-trigger-bindings.js",
   "43-worldbook-entry-editor-ui.js",
   "43-worldbook-entry-actions.js",
+  "43-worldbook-entry-list-helpers.js",
   "43-worldbook-list-ui.js",
   "43-worldbook-global-list-ui.js",
   "43-worldbook-import-export-ui.js",
