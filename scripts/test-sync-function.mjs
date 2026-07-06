@@ -747,6 +747,9 @@ async function assertFrontendNewChatPickerMultiSelection() {
     '../src/app/59-new-chat-picker-multi-bar.js',
     '../src/app/59-new-chat-picker-card-ui.js',
     '../src/app/59-new-chat-picker-static-events.js',
+    '../src/app/59-new-chat-picker-multi-session.js',
+    '../src/app/59-new-chat-picker-multi-controls.js',
+    '../src/app/59-new-chat-picker-multi-confirm.js',
     '../src/app/59-new-chat-picker-multi-ui.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
@@ -756,8 +759,11 @@ async function assertFrontendNewChatPickerMultiSelection() {
     Object,
     t: (key) => key,
   };
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__key = getNewChatPickerCharacterKey;\nthis.__createSession = createNewChatPickerSession;\nthis.__selected = getNewChatPickerSelectedCharacters;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__key = getNewChatPickerCharacterKey;\nthis.__createSession = createNewChatPickerSession;\nthis.__selected = getNewChatPickerSelectedCharacters;\nthis.__toggleText = updateNewChatPickerMultiToggleText;`, context);
   assert(context.__key({ name: ' Alpha ' }) === 'alpha', 'New chat picker character key should normalize names.');
+  const toggleBtn = { textContent: '' };
+  context.__toggleText(toggleBtn, true);
+  assert(toggleBtn.textContent === 'new_chat_multi_exit', 'New chat picker multi toggle should use exit label when enabled.');
 
   const characters = [
     { name: 'Alpha' },

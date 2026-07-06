@@ -9644,7 +9644,7 @@ function bindNewChatPickerStaticButtons(modal) {
         }
     });
 }
-// ==================== New Chat Picker Multi-select UI ====================
+// ==================== New Chat Picker Multi-select Session ====================
 function createNewChatPickerSession(modal, listContainer, characters) {
     return {
         modal,
@@ -9691,6 +9691,12 @@ function refreshNewChatPickerSessionMultiBar(session) {
     updateNewChatPickerMultiBar(session.multiSelectMode, session.selectedKeys.size);
 }
 
+function getNewChatPickerSelectedCharacters(session) {
+    return Array.from(session.selectedKeys)
+        .map(k => session.characters.find(c => getNewChatPickerCharacterKey(c) === k))
+        .filter(Boolean);
+}
+// ==================== New Chat Picker Multi-select Controls ====================
 function ensureNewChatPickerMultiControls(modal) {
     if (modal._multiControlsAdded) return;
 
@@ -9737,7 +9743,7 @@ function updateNewChatPickerMultiToggleText(toggleBtn, enabled) {
     const multiExitText = t('new_chat_multi_exit') || '退出多选模式';
     toggleBtn.textContent = enabled ? multiExitText : multiSelectText;
 }
-
+// ==================== New Chat Picker Multi-select Confirm Bar ====================
 function syncNewChatPickerGroupConfirmBar(session) {
     const modal = session.modal;
     const bottomArea = modal._multiBottomArea;
@@ -9793,12 +9799,8 @@ function createNewChatPickerGroupConfirmBar(modal) {
 
     return confirmBar;
 }
-
-function getNewChatPickerSelectedCharacters(session) {
-    return Array.from(session.selectedKeys)
-        .map(k => session.characters.find(c => getNewChatPickerCharacterKey(c) === k))
-        .filter(Boolean);
-}
+// ==================== New Chat Picker Multi-select UI ====================
+// Split into session, controls, and confirm bar helper chunks.
 function showNewChatCharacterPicker() {
     const modal = dom.newChatPickerModal;
     const listContainer = dom.newChatPickerList;
