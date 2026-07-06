@@ -735,7 +735,13 @@ async function assertFrontendPromptSummaryEvents() {
 }
 
 async function assertFrontendApiConnectionHelpers() {
-  const helperSource = await readFile(new URL('../src/app/31-api-connection-test-helpers.js', import.meta.url), 'utf8');
+  const helperSources = await Promise.all([
+    '../src/app/31-api-connection-test-config.js',
+    '../src/app/31-api-connection-endpoints.js',
+    '../src/app/31-api-connection-result-ui.js',
+    '../src/app/31-api-connection-response-helpers.js',
+    '../src/app/31-api-connection-test-helpers.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const translations = {
     api_test_success_title: 'Connection OK',
     api_test_models_prefix: 'Models ',
@@ -766,7 +772,7 @@ async function assertFrontendApiConnectionHelpers() {
     clearTimeout,
   };
 
-  vm.runInNewContext(`${helperSource}\nthis.__derive = deriveApiModelsEndpoint;\nthis.__collect = collectApiTestModelNames;\nthis.__readHttp = readApiTestHttpError;\nthis.__success = buildApiTestSuccessHtml;\nthis.__suggestions = buildApiTestSuggestions;`, context);
+  vm.runInNewContext(`${helperSources.join('\n')}\nthis.__derive = deriveApiModelsEndpoint;\nthis.__collect = collectApiTestModelNames;\nthis.__readHttp = readApiTestHttpError;\nthis.__success = buildApiTestSuccessHtml;\nthis.__suggestions = buildApiTestSuggestions;`, context);
 
   assert(context.__derive('https://api.example.com/v1/chat/completions') === 'https://api.example.com/v1/models', 'Models URL was not derived from chat completions endpoint.');
   assert(context.__derive('https://api.deepseek.com') === 'https://api.deepseek.com/v1/models', 'Models URL should add /v1 when the endpoint has no version.');

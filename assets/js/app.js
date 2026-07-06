@@ -4535,9 +4535,9 @@ function normalizeMessagesForOllamaCompatibility(messages) {
         return acc;
     }, []);
 }
-// ==================== API Connection Test Helpers ====================
+// ==================== API Connection Test Config ====================
 const API_CONNECTION_TEST_TIMEOUT_MS = 15000;
-
+// ==================== API Connection Test Endpoints ====================
 function deriveApiModelsEndpoint(raw) {
     var url = String(raw || '').trim().replace(/\/+$/, '');
     url = url.replace(/\/chat\/completions$/i, '');
@@ -4550,6 +4550,19 @@ function deriveApiModelsEndpoint(raw) {
     return url + '/models';
 }
 
+async function fetchApiTestWithTimeout(url, options) {
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, API_CONNECTION_TEST_TIMEOUT_MS);
+    try {
+        var resp = await fetch(url, Object.assign({}, options, { signal: controller.signal }));
+        clearTimeout(timer);
+        return resp;
+    } catch (e) {
+        clearTimeout(timer);
+        throw e;
+    }
+}
+// ==================== API Connection Test Result UI ====================
 function buildApiTestErrorHtml(title, details, suggestions, testedUrls) {
     var html = '<div class="bg-red-500/10 border border-red-500/30 rounded-lg p-2 text-red-300">';
     html += '<div class="font-semibold mb-1">' + title + '</div>';
@@ -4587,20 +4600,7 @@ function buildApiTestSuccessHtml(models) {
     html += '</div>';
     return html;
 }
-
-async function fetchApiTestWithTimeout(url, options) {
-    var controller = new AbortController();
-    var timer = setTimeout(function() { controller.abort(); }, API_CONNECTION_TEST_TIMEOUT_MS);
-    try {
-        var resp = await fetch(url, Object.assign({}, options, { signal: controller.signal }));
-        clearTimeout(timer);
-        return resp;
-    } catch (e) {
-        clearTimeout(timer);
-        throw e;
-    }
-}
-
+// ==================== API Connection Test Response Helpers ====================
 function collectApiTestModelNames(data) {
     if (data && Array.isArray(data.data)) {
         return data.data.map(function(model) {
@@ -4648,6 +4648,11 @@ function buildApiTestSuggestions(rawEndpoint) {
     suggestions.push(t('api_test_suggest_gateway'));
     return suggestions;
 }
+// API connection test helpers are split across:
+// - 31-api-connection-test-config.js
+// - 31-api-connection-endpoints.js
+// - 31-api-connection-result-ui.js
+// - 31-api-connection-response-helpers.js
 // ==================== API Connection Test ====================
 window.testMainApiConnection = function() {
     var epEl = document.getElementById('apiEndpoint');
