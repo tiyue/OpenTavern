@@ -345,7 +345,11 @@ async function assertFrontendSillyTavernPresetNormalizer() {
 }
 
 async function assertFrontendFileProtocolOPFSSilence() {
-  const opfsSource = await readFile(new URL('../src/app/20-storage-opfs.js', import.meta.url), 'utf8');
+  const opfsSources = await Promise.all([
+    '../src/app/20-storage-opfs-environment.js',
+    '../src/app/20-storage-opfs-io.js',
+    '../src/app/20-storage-opfs.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const warnings = [];
   const errors = [];
   const context = {
@@ -371,7 +375,7 @@ async function assertFrontendFileProtocolOPFSSilence() {
     JSON,
   };
 
-  vm.runInNewContext(`${opfsSource}\nthis.__opfs = OPFSStorage;`, context);
+  vm.runInNewContext(`${opfsSources.join('\n')}\nthis.__opfs = OPFSStorage;`, context);
 
   assert(await context.__opfs.loadAll() === null, 'OPFS load should return null on file://.');
   await context.__opfs.saveAll({ lastSaved: Date.now(), conversations: {} });

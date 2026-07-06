@@ -17,6 +17,8 @@
   "13-webgl-background.js",
   "13-webgl-theme.js",
   "20-storage.js",
+  "20-storage-opfs-environment.js",
+  "20-storage-opfs-io.js",
   "20-storage-opfs.js",
   "20-storage-idb.js",
   "20-storage-service-helpers.js",
