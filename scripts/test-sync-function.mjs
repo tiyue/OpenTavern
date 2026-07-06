@@ -170,9 +170,105 @@ async function assertFrontendSummaryService() {
   assert(capturedRequest.body.messages[1].content.includes('Assistant: world'), 'Summary assistant message was not labeled correctly.');
 }
 
+async function assertFrontendPublicCardAssets() {
+  const dataSource = await readFile(new URL('../src/app/60-public-card-data.js', import.meta.url), 'utf8');
+  const librarySource = await readFile(new URL('../src/app/60-public-card-library.js', import.meta.url), 'utf8');
+
+  const context = {
+    window: { location: { protocol: 'file:' } },
+    JSON,
+  };
+  vm.runInNewContext(`${dataSource}\n${librarySource}\nthis.__cards = getPublicCards();\nthis.__resolve = resolvePublicCardAssetUrl;`, context);
+
+  assert(Array.isArray(context.__cards), 'Public card library did not expose an array.');
+  assert(context.__cards.length >= 10, 'Public card library should contain bundled cards.');
+  assert(context.__resolve('/cards/Plana.png') === 'cards/Plana.png', 'File protocol should use relative card asset paths.');
+
+  context.window.location.protocol = 'http:';
+  assert(context.__resolve('/cards/Plana.png') === '/cards/Plana.png', 'HTTP protocol should preserve absolute card asset paths.');
+
+  const assetPaths = [];
+  context.__cards.forEach((card) => {
+    assert(card.previewImage, `Public card ${card.id || card.name} is missing a preview image.`);
+    assert(card.jsonUrl, `Public card ${card.id || card.name} is missing a JSON URL.`);
+    assetPaths.push(context.__resolve(card.previewImage), context.__resolve(card.jsonUrl));
+  });
+
+  for (const assetPath of assetPaths) {
+    const bytes = await readFile(new URL(`../${assetPath.replace(/^\/+/, '')}`, import.meta.url));
+    assert(bytes.byteLength > 0, `Public card asset is empty: ${assetPath}`);
+  }
+}
+
+async function assertFrontendI18nRuntime() {
+  const sources = await Promise.all([
+    '../src/app/12-i18n-core.js',
+    '../src/app/12-i18n-zh-cn.js',
+    '../src/app/12-i18n-zh-tw.js',
+    '../src/app/12-i18n-en.js',
+    '../src/app/12-i18n-runtime.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const context = {
+    state: { settings: { lang: 'en' } },
+  };
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__i18n = i18n;\nthis.__t = t;`, context);
+
+  assert(context.__i18n['zh-CN'], 'Simplified Chinese i18n dictionary was not loaded.');
+  assert(context.__i18n['zh-TW'], 'Traditional Chinese i18n dictionary was not loaded.');
+  assert(context.__i18n.en, 'English i18n dictionary was not loaded.');
+  assert(context.__t('settings') === 'Settings', 'English i18n lookup failed.');
+
+  context.state.settings.lang = 'missing-locale';
+  assert(context.__t('settings') === 'Settings', 'Unknown locale should fall back to English.');
+  assert(context.__t('missing_key_for_test') === 'missing_key_for_test', 'Missing i18n keys should fall back to the key name.');
+}
+
+async function assertFrontendFileProtocolOPFSSilence() {
+  const opfsSource = await readFile(new URL('../src/app/20-storage-opfs.js', import.meta.url), 'utf8');
+  const warnings = [];
+  const errors = [];
+  const context = {
+    location: { protocol: 'file:' },
+    window: { isSecureContext: false },
+    navigator: {
+      storage: {
+        getDirectory() {
+          throw new Error('OPFS should be skipped on file://.');
+        },
+        estimate() {
+          throw new Error('OPFS estimate should be skipped on file://.');
+        },
+      },
+    },
+    console: {
+      ...console,
+      warn: (...args) => warnings.push(args.join(' ')),
+      error: (...args) => errors.push(args.join(' ')),
+    },
+    Date,
+    Error,
+    JSON,
+  };
+
+  vm.runInNewContext(`${opfsSource}\nthis.__opfs = OPFSStorage;`, context);
+
+  assert(await context.__opfs.loadAll() === null, 'OPFS load should return null on file://.');
+  await context.__opfs.saveAll({ lastSaved: Date.now(), conversations: {} });
+  const info = await context.__opfs.getStorageInfo();
+  await context.__opfs.clear();
+
+  assert(info && info.backend === 'opfs' && info.used === 0, 'OPFS info should be empty on file://.');
+  assert(warnings.length === 0, `OPFS file:// path should not warn: ${warnings.join('\n')}`);
+  assert(errors.length === 0, `OPFS file:// path should not error: ${errors.join('\n')}`);
+}
+
 async function main() {
   await assertFrontendCloudSnapshot();
   await assertFrontendSummaryService();
+  await assertFrontendPublicCardAssets();
+  await assertFrontendI18nRuntime();
+  await assertFrontendFileProtocolOPFSSilence();
 
   const { db } = createMockD1();
   const env = { SYNC_DB: db };

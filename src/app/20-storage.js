@@ -21,5 +21,5 @@ function cacheUiTheme(theme) {
 // OPFS 是主后端（大容量）。
 // localStorage 是强快照兜底（pagehide 同步 + save 时尽力镜像）。
 // 加载时 OPFS 优先，失败或无数据则用 LS。
-// 保存时优先 OPFS，成功后顺便写 LS；OPFS 不可用则直接写 LS。
+// 保存时优先 OPFS，成功后顺便写 LS；OPFS 跳过时直接写 LS。
 // 所有记录带 lastSaved。

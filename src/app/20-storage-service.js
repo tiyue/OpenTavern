@@ -18,50 +18,29 @@ var StorageService = {
     _isSafariBrowser: null,
 
     _isQuotaError(e) {
-        if (!e) return false;
-        const msg = (e.message || '').toLowerCase();
-        return e.name === 'QuotaExceededError' ||
-               e.code === 22 ||
-               msg.includes('quota') ||
-               msg.includes('exceeded');
+        return storageIsQuotaError(e);
     },
 
     _isSafari() {
         if (this._isSafariBrowser !== null) return this._isSafariBrowser;
-        try {
-            const ua = navigator.userAgent || '';
-            const vendor = navigator.vendor || '';
-            const isAppleWebKit = /AppleWebKit/i.test(ua);
-            const isChromium = /CriOS|Chrome|Chromium|Edg|OPR|Firefox|FxiOS/i.test(ua);
-            this._isSafariBrowser = /Safari/i.test(ua) && /Apple/i.test(vendor) && isAppleWebKit && !isChromium;
-        } catch (_) {
-            this._isSafariBrowser = false;
-        }
+        this._isSafariBrowser = storageDetectSafari();
         return this._isSafariBrowser;
     },
 
     _hasUserData(data) {
-        return !!(data && (
-            Object.keys(data.conversations || {}).length > 0 ||
-            Object.keys(data.characters || {}).length > 0 ||
-            Object.keys(data.worldBooks || {}).length > 0
-        ));
+        return storageHasUserData(data);
     },
 
     _isValidSnapshot(data) {
-        return !!(data && (
-            this._hasUserData(data) ||
-            (data.settings && Object.keys(data.settings || {}).length > 0)
-        ));
+        return storageIsValidSnapshot(data);
     },
 
     _snapshotTime(data) {
-        const n = data && data.lastSaved ? Number(data.lastSaved) : 0;
-        return Number.isFinite(n) ? n : 0;
+        return storageSnapshotTime(data);
     },
 
     _cloneForPersist(data) {
-        return data ? JSON.parse(JSON.stringify(data)) : data;
+        return storageCloneForPersist(data);
     },
 
     _readLocalSnapshot() {
@@ -179,7 +158,12 @@ var StorageService = {
 
         try {
             if (!this._useOPFS) throw new Error('OPFS disabled by policy');
-            if (typeof location !== 'undefined' && location.protocol === 'file:') throw new Error('file-protocol');
+            if (storageIsFileProtocol()) {
+                this._opfsFailed = true;
+                this._opfsFailureReason = 'file:// mode uses IndexedDB/localStorage; OPFS is skipped.';
+                console.info('[Storage] file:// mode: using IndexedDB/localStorage; OPFS skipped.');
+                return;
+            }
             if (!window.isSecureContext) throw new Error('insecure-context');
             if (!navigator.storage || !navigator.storage.getDirectory) throw new Error('OPFS not supported');
 
@@ -205,7 +189,7 @@ var StorageService = {
         } catch (e) {
             this._opfsFailed = true;
             this._opfsFailureReason = e && e.message ? e.message : String(e);
-            console.warn('[Storage] OPFS unavailable; IndexedDB/localStorage remain canonical:', e && e.message);
+            console.info('[Storage] OPFS unavailable; IndexedDB/localStorage remain canonical:', e && e.message);
         }
     },
 
@@ -215,7 +199,7 @@ var StorageService = {
         const candidates = [];
 
         try {
-            if (this._opfsReadableAvailable || (navigator.storage && navigator.storage.getDirectory)) {
+            if (!storageIsFileProtocol() && (this._opfsReadableAvailable || (navigator.storage && navigator.storage.getDirectory))) {
                 const data = await OPFSStorage.loadAll();
                 if (this._isValidSnapshot(data)) candidates.push({ backend: 'opfs', data });
             }
@@ -270,7 +254,7 @@ var StorageService = {
     async _readNewestStoredSnapshotNoSync() {
         const candidates = [];
         try {
-            if (this._opfsReadableAvailable || (navigator.storage && navigator.storage.getDirectory)) {
+            if (!storageIsFileProtocol() && (this._opfsReadableAvailable || (navigator.storage && navigator.storage.getDirectory))) {
                 const d = await OPFSStorage.loadAll();
                 if (this._isValidSnapshot(d)) candidates.push({ backend: 'opfs', data: d });
             }
@@ -366,35 +350,7 @@ var StorageService = {
     },
 
     _handleQuotaExceeded(err, dataSnapshot) {
-        const now = Date.now();
-        if (this._lastQuotaAlert && now - this._lastQuotaAlert < 60000) return;
-        this._lastQuotaAlert = now;
-
-        try {
-            const ts = new Date().toISOString().replace(/[:.]/g, '-');
-            const backupName = `opentavern-backup-quota-${ts}.json`;
-            const toExport = dataSnapshot || {
-                settings: state ? getSafeSettingsForPersist() : {},
-                conversations: state ? state.conversations : {},
-                conversationOrder: state ? state.conversationOrder : [],
-                activeConvId: state ? state.activeConvId : null,
-                worldBooks: state ? (state.worldBooks || {}) : {},
-                characters: state ? (state.characters || {}) : {},
-                lastSaved: Date.now()
-            };
-            if (typeof downloadJsonFile === 'function') {
-                downloadJsonFile(toExport, backupName);
-            } else {
-                const blob = new Blob([JSON.stringify(toExport, null, 2)], {type:'application/json'});
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = backupName;
-                document.body.appendChild(a); a.click(); a.remove();
-            }
-        } catch (exportErr) {
-            console.error('[Storage] Auto backup export on quota fail failed:', exportErr);
-        }
-        try { alert('存储空间不足，已尝试导出当前数据备份。请保存备份文件后清理浏览器存储空间。'); } catch(_) {}
+        return handleStorageQuotaExceeded(this, err, dataSnapshot);
     },
 
     getBackend() {
@@ -403,117 +359,10 @@ var StorageService = {
     },
 
     async getStorageInfo() {
-        try {
-            let webllmUsed = 0;
-            try {
-                if (typeof getWebLLMUsedSize === 'function') webllmUsed = await getWebLLMUsedSize();
-            } catch (_) {}
-
-            let appUsed = 0;
-            try {
-                let current = this._lastSaveSnapshot || null;
-                if (!this._isValidSnapshot(current)) {
-                    const picked = await this._readNewestStoredSnapshotNoSync();
-                    current = picked && picked.data;
-                }
-                if (current) appUsed = new Blob([JSON.stringify(current)]).size || 0;
-            } catch (_) {}
-
-            let quota = null;
-            let originUsed = 0;
-            let persisted = null;
-            try {
-                if (navigator.storage && navigator.storage.estimate) {
-                    const est = await navigator.storage.estimate();
-                    quota = est.quota || null;
-                    originUsed = est.usage || 0;
-                }
-                if (navigator.storage && navigator.storage.persisted) {
-                    persisted = await navigator.storage.persisted();
-                }
-            } catch (_) {}
-
-            return {
-                backend: this.getBackend(),
-                used: appUsed,
-                webllmUsed,
-                totalUsed: appUsed + webllmUsed,
-                originUsed,
-                quota,
-                persisted,
-                idbAvailable: this._idbAvailable || ('indexedDB' in window),
-                idbLastError: this._idbFailureReason,
-                opfsAvailable: this._opfsReadableAvailable,
-                opfsMirrorAvailable: this._opfsMirrorAvailable,
-                opfsFailureReason: this._opfsFailureReason,
-                safariOpfsReadOnly: this._isSafari() && this._opfsReadableAvailable
-            };
-        } catch (e) {}
-        return { backend: this.getBackend(), used: 0, webllmUsed: 0, totalUsed: 0, originUsed: 0, quota: null, persisted: null };
+        return getStorageServiceInfo(this);
     },
 
     async clearAllData() {
-        let cleared = { opfs: false, idb: false, ls: false };
-        const emptyData = {
-            lastSaved: Date.now(),
-            conversations: {},
-            conversationOrder: [],
-            activeConvId: null,
-            worldBooks: {},
-            characters: {},
-            settings: {},
-            charactersMigrated: true
-        };
-
-        try {
-            if (typeof OPFSStorage !== 'undefined' && typeof OPFSStorage.saveAll === 'function' && this._opfsMirrorAvailable && !this._isSafari()) {
-                await OPFSStorage.saveAll(emptyData).catch(() => {});
-            }
-            if (typeof OPFSStorage !== 'undefined' && typeof OPFSStorage.clear === 'function') {
-                try { await OPFSStorage.clear(); } catch (_) {}
-            }
-            cleared.opfs = true;
-        } catch (e) { console.warn('[Storage] OPFS clear/reset error:', e); }
-
-        try {
-            if (typeof IDBStorage !== 'undefined' && typeof IDBStorage.clear === 'function') {
-                await IDBStorage.clear();
-                cleared.idb = true;
-            }
-        } catch (e) { console.warn('[Storage] IDB clear/reset error:', e); }
-
-        try {
-            localStorage.removeItem(STORAGE_KEY);
-            localStorage.removeItem('opentavern-last-backup');
-            Object.keys(localStorage).forEach(k => {
-                if (k.startsWith('opentavern')) localStorage.removeItem(k);
-            });
-            try {
-                localStorage.setItem(STORAGE_CLEAR_KEY, String(emptyData.lastSaved));
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(emptyData));
-            } catch (_) {}
-            cleared.ls = true;
-        } catch (e) {}
-
-        try {
-            if ('indexedDB' in window) {
-                await new Promise((resolve) => {
-                    const req = indexedDB.deleteDatabase('OpenTavernDB');
-                    req.onsuccess = req.onerror = req.onblocked = () => resolve();
-                });
-                cleared.legacyIdb = true;
-            }
-        } catch (e) { console.warn('[Storage] legacy IDB clear error:', e); }
-
-        try {
-            if (typeof clearWebLLMCache === 'function') {
-                await clearWebLLMCache({ silent: true });
-                cleared.webllm = true;
-            }
-        } catch (e) {}
-
-        console.log('[Storage] clearAllData result:', cleared);
-        if (typeof updateStorageInfo === 'function') setTimeout(() => updateStorageInfo(), 80);
-        return cleared;
+        return clearStorageServiceData(this);
     }
 };

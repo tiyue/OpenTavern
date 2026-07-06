@@ -103,21 +103,6 @@ init().then(function() {
         updateStorageStatusUI();
     }
 
-    // OPFS 不可用时的轻提示
-    if (StorageService && StorageService._opfsFailed &&
-        ((StorageService._opfsFailureReason || '').toLowerCase().includes('file') || (typeof location !== 'undefined' && location.protocol === 'file:'))) {
-        setTimeout(() => {
-            const hasModal = document.querySelector('.modal-overlay:not(.hidden)');
-            if (!hasModal) {
-                const tip = document.createElement('div');
-                tip.style.cssText = 'position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:#1e2937;color:#bae6fd;padding:8px 14px;border-radius:8px;font-size:12px;z-index:9999;border:1px solid #334155;';
-                tip.textContent = '提示：OPFS 不可用（file://），已使用 localStorage 强快照兜底。';
-                document.body.appendChild(tip);
-                setTimeout(() => tip.remove(), 5200);
-            }
-        }, 1200);
-    }
-
     showBackupReminderIfNeeded();
 
     // 旧的 IndexedDB 迁移提示已移除（不再使用 IDB）

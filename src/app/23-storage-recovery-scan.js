@@ -24,7 +24,7 @@ async function scanAllStorageBackends() {
     const candidates = [];
 
     try {
-        if (typeof OPFSStorage !== 'undefined' && OPFSStorage.loadAll) {
+        if (!storageIsFileProtocol() && typeof OPFSStorage !== 'undefined' && OPFSStorage.loadAll) {
             const data = await OPFSStorage.loadAll();
             if (data && (Object.keys(data.conversations || {}).length > 0 || data.lastSaved)) {
                 candidates.push(createStorageRecoveryCandidate('OPFS', data));

@@ -9,11 +9,15 @@ const OPFSStorage = {
     // 多个 saveAll() 调用会排队依次执行，而非同时争抢同一个文件句柄
     _writeLock: null,
 
+    _isFileProtocol() {
+        return typeof location !== 'undefined' && location.protocol === 'file:';
+    },
+
     async _getRoot() {
         if (this._root) return this._root;
 
         // 【Storage Fix】严格前置检查，避免在 file:// 或非安全上下文下触发 SecurityError
-        if (typeof location !== 'undefined' && location.protocol === 'file:') {
+        if (this._isFileProtocol()) {
             throw new Error('OPFS blocked on file:// protocol (open via http://localhost or deploy to HTTPS)');
         }
         if (!window.isSecureContext) {
@@ -65,6 +69,8 @@ const OPFSStorage = {
     },
 
     async loadAll() {
+        if (this._isFileProtocol()) return null;
+
         try {
             const root = await this._getRoot();
             let fileHandle;
@@ -97,6 +103,8 @@ const OPFSStorage = {
 
     // 【Fix Bug 2】公共入口：通过写锁串行化所有写入，防止并发 writable 冲突
     async saveAll(data) {
+        if (this._isFileProtocol()) return;
+
         const doWrite = () => this._doSaveAll(data);
         // 链式排队：等待上一个写入完成（无论成功或失败），然后执行本次写入
         const prev = this._writeLock || Promise.resolve();
@@ -129,6 +137,8 @@ const OPFSStorage = {
     },
 
     async getStorageInfo() {
+        if (this._isFileProtocol()) return { backend: 'opfs', used: 0, quota: null };
+
         // 【Storage Fix】优先返回 OPFS 中实际数据文件大小，而不是整个 origin 的 usage
         try {
             const est = (navigator.storage && navigator.storage.estimate) ? await navigator.storage.estimate() : { usage: 0, quota: null };
@@ -150,6 +160,8 @@ const OPFSStorage = {
     },
 
     async clear() {
+        if (this._isFileProtocol()) return;
+
         try {
             // 强制新鲜 root，避免缓存的 directory handle 导致删除不彻底
             const root = await navigator.storage.getDirectory();

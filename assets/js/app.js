@@ -599,9 +599,10 @@ function startWebLLMInitialization(forcedModelId) {
         });
     })();
 }
-// ==================== i18n ====================
-var i18n = {
-    'zh-CN': {
+// ==================== i18n Core ====================
+var i18n = {};
+// ==================== i18n zh-CN ====================
+i18n['zh-CN'] = {
         app_subtitle: 'AI 角色聊天',
         settings: '设置',
         settings_title: '设置',
@@ -952,7 +953,7 @@ var i18n = {
         // Phase 4 Storage & Backup (新增)
         storage_backend: '存储后端',
         storage_used_space: '已用空间',
-        storage_hint_ls: '当前使用 localStorage 强快照兜底（OPFS 不可用时）。',
+        storage_hint_ls: '本地文件模式会跳过 OPFS，使用 IndexedDB/localStorage 保存数据。',
         storage_hint_opfs: '正在使用 OPFS（容量大、性能好），localStorage 作为强快照兜底。',
         clear_opfs_data: '清除所有用户数据（OPFS + localStorage 快照，含 WebLLM 缓存）',
         storage_usage_calculating: '计算中...',
@@ -1041,8 +1042,9 @@ var i18n = {
         group_mention_hint: '选择后将在输入栏左侧显示指定角色（气泡），本轮回复将由该角色驱动',
         group_mention_no_group: '当前不是群组聊天',
         group_mention_insert: '指定 @'
-    },
-    'zh-TW': {
+};
+// ==================== i18n zh-TW ====================
+i18n['zh-TW'] = {
         app_subtitle: 'AI 角色聊天',
         settings: '設定',
         settings_title: '設定',
@@ -1393,7 +1395,7 @@ var i18n = {
         // Phase 4 Storage & Backup
         storage_backend: '儲存後端',
         storage_used_space: '已用空間',
-        storage_hint_ls: '目前使用 localStorage 強快照兜底（OPFS 不可用時）。',
+        storage_hint_ls: '本機檔案模式會略過 OPFS，使用 IndexedDB/localStorage 儲存資料。',
         storage_hint_opfs: '正在使用 OPFS（容量大、性能佳），localStorage 作為強快照兜底。',
         clear_opfs_data: '清除所有用戶資料（OPFS + localStorage 快照，含 WebLLM 快取）',
         storage_usage_calculating: '計算中...',
@@ -1435,8 +1437,9 @@ var i18n = {
         filter_all: '全部',
         filter_male: '男性向',
         filter_female: '女性向',
-    },
-    'en': {
+};
+// ==================== i18n en ====================
+i18n['en'] = {
         app_subtitle: 'AI Character Chat',
         settings: 'Settings',
         settings_title: 'Settings',
@@ -1786,7 +1789,7 @@ var i18n = {
         // Phase 4 Storage & Backup
         storage_backend: 'Storage Backend',
         storage_used_space: 'Used Space',
-        storage_hint_ls: 'Using localStorage strong snapshot fallback (when OPFS unavailable).',
+        storage_hint_ls: 'Local file mode skips OPFS and stores data with IndexedDB/localStorage.',
         storage_hint_opfs: 'Using OPFS (large capacity, good perf) + localStorage strong snapshot fallback.',
         clear_opfs_data: 'Clear ALL user data (OPFS + localStorage snapshot, incl. WebLLM)',
         storage_usage_calculating: 'Calculating...',
@@ -1855,9 +1858,9 @@ var i18n = {
         filter_all: 'All',
         filter_male: 'Male-oriented',
         filter_female: 'Female-oriented',
-    }
 };
-
+// i18n dictionaries are split across 12-i18n-core.js and 12-i18n-*.js.
+// ==================== i18n Runtime Helpers ====================
 function t(key) {
     var lang = state.settings.lang || 'zh-CN';
     var dict = i18n[lang];
@@ -2127,7 +2130,7 @@ function cacheUiTheme(theme) {
 // OPFS 是主后端（大容量）。
 // localStorage 是强快照兜底（pagehide 同步 + save 时尽力镜像）。
 // 加载时 OPFS 优先，失败或无数据则用 LS。
-// 保存时优先 OPFS，成功后顺便写 LS；OPFS 不可用则直接写 LS。
+// 保存时优先 OPFS，成功后顺便写 LS；OPFS 跳过时直接写 LS。
 // 所有记录带 lastSaved。
 // ==================== OPFS Storage（推荐新后端 - 容量大、可靠性高） ====================
 // 使用 Origin Private File System，适合 GitHub Pages / Cloudflare Pages 静态部署
@@ -2140,11 +2143,15 @@ const OPFSStorage = {
     // 多个 saveAll() 调用会排队依次执行，而非同时争抢同一个文件句柄
     _writeLock: null,
 
+    _isFileProtocol() {
+        return typeof location !== 'undefined' && location.protocol === 'file:';
+    },
+
     async _getRoot() {
         if (this._root) return this._root;
 
         // 【Storage Fix】严格前置检查，避免在 file:// 或非安全上下文下触发 SecurityError
-        if (typeof location !== 'undefined' && location.protocol === 'file:') {
+        if (this._isFileProtocol()) {
             throw new Error('OPFS blocked on file:// protocol (open via http://localhost or deploy to HTTPS)');
         }
         if (!window.isSecureContext) {
@@ -2196,6 +2203,8 @@ const OPFSStorage = {
     },
 
     async loadAll() {
+        if (this._isFileProtocol()) return null;
+
         try {
             const root = await this._getRoot();
             let fileHandle;
@@ -2228,6 +2237,8 @@ const OPFSStorage = {
 
     // 【Fix Bug 2】公共入口：通过写锁串行化所有写入，防止并发 writable 冲突
     async saveAll(data) {
+        if (this._isFileProtocol()) return;
+
         const doWrite = () => this._doSaveAll(data);
         // 链式排队：等待上一个写入完成（无论成功或失败），然后执行本次写入
         const prev = this._writeLock || Promise.resolve();
@@ -2260,6 +2271,8 @@ const OPFSStorage = {
     },
 
     async getStorageInfo() {
+        if (this._isFileProtocol()) return { backend: 'opfs', used: 0, quota: null };
+
         // 【Storage Fix】优先返回 OPFS 中实际数据文件大小，而不是整个 origin 的 usage
         try {
             const est = (navigator.storage && navigator.storage.estimate) ? await navigator.storage.estimate() : { usage: 0, quota: null };
@@ -2281,6 +2294,8 @@ const OPFSStorage = {
     },
 
     async clear() {
+        if (this._isFileProtocol()) return;
+
         try {
             // 强制新鲜 root，避免缓存的 directory handle 导致删除不彻底
             const root = await navigator.storage.getDirectory();
@@ -2449,6 +2464,202 @@ const IDBStorage = {
         }
     }
 };
+// ==================== StorageService Helpers ====================
+function storageIsQuotaError(e) {
+    if (!e) return false;
+    const msg = (e.message || '').toLowerCase();
+    return e.name === 'QuotaExceededError' ||
+           e.code === 22 ||
+           msg.includes('quota') ||
+           msg.includes('exceeded');
+}
+
+function storageDetectSafari() {
+    try {
+        const ua = navigator.userAgent || '';
+        const vendor = navigator.vendor || '';
+        const isAppleWebKit = /AppleWebKit/i.test(ua);
+        const isChromium = /CriOS|Chrome|Chromium|Edg|OPR|Firefox|FxiOS/i.test(ua);
+        return /Safari/i.test(ua) && /Apple/i.test(vendor) && isAppleWebKit && !isChromium;
+    } catch (_) {
+        return false;
+    }
+}
+
+function storageIsFileProtocol() {
+    return typeof location !== 'undefined' && location.protocol === 'file:';
+}
+
+function storageHasUserData(data) {
+    return !!(data && (
+        Object.keys(data.conversations || {}).length > 0 ||
+        Object.keys(data.characters || {}).length > 0 ||
+        Object.keys(data.worldBooks || {}).length > 0
+    ));
+}
+
+function storageIsValidSnapshot(data) {
+    return !!(data && (
+        storageHasUserData(data) ||
+        (data.settings && Object.keys(data.settings || {}).length > 0)
+    ));
+}
+
+function storageSnapshotTime(data) {
+    const n = data && data.lastSaved ? Number(data.lastSaved) : 0;
+    return Number.isFinite(n) ? n : 0;
+}
+
+function storageCloneForPersist(data) {
+    return data ? JSON.parse(JSON.stringify(data)) : data;
+}
+// ==================== StorageService Maintenance Helpers ====================
+function handleStorageQuotaExceeded(service, err, dataSnapshot) {
+    const now = Date.now();
+    if (service._lastQuotaAlert && now - service._lastQuotaAlert < 60000) return;
+    service._lastQuotaAlert = now;
+
+    try {
+        const ts = new Date().toISOString().replace(/[:.]/g, '-');
+        const backupName = `opentavern-backup-quota-${ts}.json`;
+        const toExport = dataSnapshot || {
+            settings: state ? getSafeSettingsForPersist() : {},
+            conversations: state ? state.conversations : {},
+            conversationOrder: state ? state.conversationOrder : [],
+            activeConvId: state ? state.activeConvId : null,
+            worldBooks: state ? (state.worldBooks || {}) : {},
+            characters: state ? (state.characters || {}) : {},
+            lastSaved: Date.now()
+        };
+        if (typeof downloadJsonFile === 'function') {
+            downloadJsonFile(toExport, backupName);
+        } else {
+            const blob = new Blob([JSON.stringify(toExport, null, 2)], {type:'application/json'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = backupName;
+            document.body.appendChild(a); a.click(); a.remove();
+        }
+    } catch (exportErr) {
+        console.error('[Storage] Auto backup export on quota fail failed:', exportErr);
+    }
+    try { alert('Storage quota is full. OpenTavern tried to export a backup. Save the backup file, then clear browser storage space.'); } catch(_) {}
+}
+
+async function getStorageServiceInfo(service) {
+    try {
+        let webllmUsed = 0;
+        try {
+            if (typeof getWebLLMUsedSize === 'function') webllmUsed = await getWebLLMUsedSize();
+        } catch (_) {}
+
+        let appUsed = 0;
+        try {
+            let current = service._lastSaveSnapshot || null;
+            if (!service._isValidSnapshot(current)) {
+                const picked = await service._readNewestStoredSnapshotNoSync();
+                current = picked && picked.data;
+            }
+            if (current) appUsed = new Blob([JSON.stringify(current)]).size || 0;
+        } catch (_) {}
+
+        let quota = null;
+        let originUsed = 0;
+        let persisted = null;
+        try {
+            if (navigator.storage && navigator.storage.estimate) {
+                const est = await navigator.storage.estimate();
+                quota = est.quota || null;
+                originUsed = est.usage || 0;
+            }
+            if (navigator.storage && navigator.storage.persisted) {
+                persisted = await navigator.storage.persisted();
+            }
+        } catch (_) {}
+
+        return {
+            backend: service.getBackend(),
+            used: appUsed,
+            webllmUsed,
+            totalUsed: appUsed + webllmUsed,
+            originUsed,
+            quota,
+            persisted,
+            idbAvailable: service._idbAvailable || ('indexedDB' in window),
+            idbLastError: service._idbFailureReason,
+            opfsAvailable: service._opfsReadableAvailable,
+            opfsMirrorAvailable: service._opfsMirrorAvailable,
+            opfsFailureReason: service._opfsFailureReason,
+            safariOpfsReadOnly: service._isSafari() && service._opfsReadableAvailable
+        };
+    } catch (e) {}
+    return { backend: service.getBackend(), used: 0, webllmUsed: 0, totalUsed: 0, originUsed: 0, quota: null, persisted: null };
+}
+
+async function clearStorageServiceData(service) {
+    let cleared = { opfs: false, idb: false, ls: false };
+    const emptyData = {
+        lastSaved: Date.now(),
+        conversations: {},
+        conversationOrder: [],
+        activeConvId: null,
+        worldBooks: {},
+        characters: {},
+        settings: {},
+        charactersMigrated: true
+    };
+
+    try {
+        if (typeof OPFSStorage !== 'undefined' && typeof OPFSStorage.saveAll === 'function' && service._opfsMirrorAvailable && !service._isSafari()) {
+            await OPFSStorage.saveAll(emptyData).catch(() => {});
+        }
+        if (typeof OPFSStorage !== 'undefined' && typeof OPFSStorage.clear === 'function') {
+            try { await OPFSStorage.clear(); } catch (_) {}
+        }
+        cleared.opfs = true;
+    } catch (e) { console.warn('[Storage] OPFS clear/reset error:', e); }
+
+    try {
+        if (typeof IDBStorage !== 'undefined' && typeof IDBStorage.clear === 'function') {
+            await IDBStorage.clear();
+            cleared.idb = true;
+        }
+    } catch (e) { console.warn('[Storage] IDB clear/reset error:', e); }
+
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem('opentavern-last-backup');
+        Object.keys(localStorage).forEach(k => {
+            if (k.startsWith('opentavern')) localStorage.removeItem(k);
+        });
+        try {
+            localStorage.setItem(STORAGE_CLEAR_KEY, String(emptyData.lastSaved));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(emptyData));
+        } catch (_) {}
+        cleared.ls = true;
+    } catch (e) {}
+
+    try {
+        if ('indexedDB' in window) {
+            await new Promise((resolve) => {
+                const req = indexedDB.deleteDatabase('OpenTavernDB');
+                req.onsuccess = req.onerror = req.onblocked = () => resolve();
+            });
+            cleared.legacyIdb = true;
+        }
+    } catch (e) { console.warn('[Storage] legacy IDB clear error:', e); }
+
+    try {
+        if (typeof clearWebLLMCache === 'function') {
+            await clearWebLLMCache({ silent: true });
+            cleared.webllm = true;
+        }
+    } catch (e) {}
+
+    console.log('[Storage] clearAllData result:', cleared);
+    if (typeof updateStorageInfo === 'function') setTimeout(() => updateStorageInfo(), 80);
+    return cleared;
+}
 // ==================== StorageService (IndexedDB primary + localStorage snapshot + optional OPFS mirror) ====================
 var StorageService = {
     _primaryBackend: 'idb',
@@ -2469,50 +2680,29 @@ var StorageService = {
     _isSafariBrowser: null,
 
     _isQuotaError(e) {
-        if (!e) return false;
-        const msg = (e.message || '').toLowerCase();
-        return e.name === 'QuotaExceededError' ||
-               e.code === 22 ||
-               msg.includes('quota') ||
-               msg.includes('exceeded');
+        return storageIsQuotaError(e);
     },
 
     _isSafari() {
         if (this._isSafariBrowser !== null) return this._isSafariBrowser;
-        try {
-            const ua = navigator.userAgent || '';
-            const vendor = navigator.vendor || '';
-            const isAppleWebKit = /AppleWebKit/i.test(ua);
-            const isChromium = /CriOS|Chrome|Chromium|Edg|OPR|Firefox|FxiOS/i.test(ua);
-            this._isSafariBrowser = /Safari/i.test(ua) && /Apple/i.test(vendor) && isAppleWebKit && !isChromium;
-        } catch (_) {
-            this._isSafariBrowser = false;
-        }
+        this._isSafariBrowser = storageDetectSafari();
         return this._isSafariBrowser;
     },
 
     _hasUserData(data) {
-        return !!(data && (
-            Object.keys(data.conversations || {}).length > 0 ||
-            Object.keys(data.characters || {}).length > 0 ||
-            Object.keys(data.worldBooks || {}).length > 0
-        ));
+        return storageHasUserData(data);
     },
 
     _isValidSnapshot(data) {
-        return !!(data && (
-            this._hasUserData(data) ||
-            (data.settings && Object.keys(data.settings || {}).length > 0)
-        ));
+        return storageIsValidSnapshot(data);
     },
 
     _snapshotTime(data) {
-        const n = data && data.lastSaved ? Number(data.lastSaved) : 0;
-        return Number.isFinite(n) ? n : 0;
+        return storageSnapshotTime(data);
     },
 
     _cloneForPersist(data) {
-        return data ? JSON.parse(JSON.stringify(data)) : data;
+        return storageCloneForPersist(data);
     },
 
     _readLocalSnapshot() {
@@ -2630,7 +2820,12 @@ var StorageService = {
 
         try {
             if (!this._useOPFS) throw new Error('OPFS disabled by policy');
-            if (typeof location !== 'undefined' && location.protocol === 'file:') throw new Error('file-protocol');
+            if (storageIsFileProtocol()) {
+                this._opfsFailed = true;
+                this._opfsFailureReason = 'file:// mode uses IndexedDB/localStorage; OPFS is skipped.';
+                console.info('[Storage] file:// mode: using IndexedDB/localStorage; OPFS skipped.');
+                return;
+            }
             if (!window.isSecureContext) throw new Error('insecure-context');
             if (!navigator.storage || !navigator.storage.getDirectory) throw new Error('OPFS not supported');
 
@@ -2656,7 +2851,7 @@ var StorageService = {
         } catch (e) {
             this._opfsFailed = true;
             this._opfsFailureReason = e && e.message ? e.message : String(e);
-            console.warn('[Storage] OPFS unavailable; IndexedDB/localStorage remain canonical:', e && e.message);
+            console.info('[Storage] OPFS unavailable; IndexedDB/localStorage remain canonical:', e && e.message);
         }
     },
 
@@ -2666,7 +2861,7 @@ var StorageService = {
         const candidates = [];
 
         try {
-            if (this._opfsReadableAvailable || (navigator.storage && navigator.storage.getDirectory)) {
+            if (!storageIsFileProtocol() && (this._opfsReadableAvailable || (navigator.storage && navigator.storage.getDirectory))) {
                 const data = await OPFSStorage.loadAll();
                 if (this._isValidSnapshot(data)) candidates.push({ backend: 'opfs', data });
             }
@@ -2721,7 +2916,7 @@ var StorageService = {
     async _readNewestStoredSnapshotNoSync() {
         const candidates = [];
         try {
-            if (this._opfsReadableAvailable || (navigator.storage && navigator.storage.getDirectory)) {
+            if (!storageIsFileProtocol() && (this._opfsReadableAvailable || (navigator.storage && navigator.storage.getDirectory))) {
                 const d = await OPFSStorage.loadAll();
                 if (this._isValidSnapshot(d)) candidates.push({ backend: 'opfs', data: d });
             }
@@ -2817,35 +3012,7 @@ var StorageService = {
     },
 
     _handleQuotaExceeded(err, dataSnapshot) {
-        const now = Date.now();
-        if (this._lastQuotaAlert && now - this._lastQuotaAlert < 60000) return;
-        this._lastQuotaAlert = now;
-
-        try {
-            const ts = new Date().toISOString().replace(/[:.]/g, '-');
-            const backupName = `opentavern-backup-quota-${ts}.json`;
-            const toExport = dataSnapshot || {
-                settings: state ? getSafeSettingsForPersist() : {},
-                conversations: state ? state.conversations : {},
-                conversationOrder: state ? state.conversationOrder : [],
-                activeConvId: state ? state.activeConvId : null,
-                worldBooks: state ? (state.worldBooks || {}) : {},
-                characters: state ? (state.characters || {}) : {},
-                lastSaved: Date.now()
-            };
-            if (typeof downloadJsonFile === 'function') {
-                downloadJsonFile(toExport, backupName);
-            } else {
-                const blob = new Blob([JSON.stringify(toExport, null, 2)], {type:'application/json'});
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = backupName;
-                document.body.appendChild(a); a.click(); a.remove();
-            }
-        } catch (exportErr) {
-            console.error('[Storage] Auto backup export on quota fail failed:', exportErr);
-        }
-        try { alert('存储空间不足，已尝试导出当前数据备份。请保存备份文件后清理浏览器存储空间。'); } catch(_) {}
+        return handleStorageQuotaExceeded(this, err, dataSnapshot);
     },
 
     getBackend() {
@@ -2854,118 +3021,11 @@ var StorageService = {
     },
 
     async getStorageInfo() {
-        try {
-            let webllmUsed = 0;
-            try {
-                if (typeof getWebLLMUsedSize === 'function') webllmUsed = await getWebLLMUsedSize();
-            } catch (_) {}
-
-            let appUsed = 0;
-            try {
-                let current = this._lastSaveSnapshot || null;
-                if (!this._isValidSnapshot(current)) {
-                    const picked = await this._readNewestStoredSnapshotNoSync();
-                    current = picked && picked.data;
-                }
-                if (current) appUsed = new Blob([JSON.stringify(current)]).size || 0;
-            } catch (_) {}
-
-            let quota = null;
-            let originUsed = 0;
-            let persisted = null;
-            try {
-                if (navigator.storage && navigator.storage.estimate) {
-                    const est = await navigator.storage.estimate();
-                    quota = est.quota || null;
-                    originUsed = est.usage || 0;
-                }
-                if (navigator.storage && navigator.storage.persisted) {
-                    persisted = await navigator.storage.persisted();
-                }
-            } catch (_) {}
-
-            return {
-                backend: this.getBackend(),
-                used: appUsed,
-                webllmUsed,
-                totalUsed: appUsed + webllmUsed,
-                originUsed,
-                quota,
-                persisted,
-                idbAvailable: this._idbAvailable || ('indexedDB' in window),
-                idbLastError: this._idbFailureReason,
-                opfsAvailable: this._opfsReadableAvailable,
-                opfsMirrorAvailable: this._opfsMirrorAvailable,
-                opfsFailureReason: this._opfsFailureReason,
-                safariOpfsReadOnly: this._isSafari() && this._opfsReadableAvailable
-            };
-        } catch (e) {}
-        return { backend: this.getBackend(), used: 0, webllmUsed: 0, totalUsed: 0, originUsed: 0, quota: null, persisted: null };
+        return getStorageServiceInfo(this);
     },
 
     async clearAllData() {
-        let cleared = { opfs: false, idb: false, ls: false };
-        const emptyData = {
-            lastSaved: Date.now(),
-            conversations: {},
-            conversationOrder: [],
-            activeConvId: null,
-            worldBooks: {},
-            characters: {},
-            settings: {},
-            charactersMigrated: true
-        };
-
-        try {
-            if (typeof OPFSStorage !== 'undefined' && typeof OPFSStorage.saveAll === 'function' && this._opfsMirrorAvailable && !this._isSafari()) {
-                await OPFSStorage.saveAll(emptyData).catch(() => {});
-            }
-            if (typeof OPFSStorage !== 'undefined' && typeof OPFSStorage.clear === 'function') {
-                try { await OPFSStorage.clear(); } catch (_) {}
-            }
-            cleared.opfs = true;
-        } catch (e) { console.warn('[Storage] OPFS clear/reset error:', e); }
-
-        try {
-            if (typeof IDBStorage !== 'undefined' && typeof IDBStorage.clear === 'function') {
-                await IDBStorage.clear();
-                cleared.idb = true;
-            }
-        } catch (e) { console.warn('[Storage] IDB clear/reset error:', e); }
-
-        try {
-            localStorage.removeItem(STORAGE_KEY);
-            localStorage.removeItem('opentavern-last-backup');
-            Object.keys(localStorage).forEach(k => {
-                if (k.startsWith('opentavern')) localStorage.removeItem(k);
-            });
-            try {
-                localStorage.setItem(STORAGE_CLEAR_KEY, String(emptyData.lastSaved));
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(emptyData));
-            } catch (_) {}
-            cleared.ls = true;
-        } catch (e) {}
-
-        try {
-            if ('indexedDB' in window) {
-                await new Promise((resolve) => {
-                    const req = indexedDB.deleteDatabase('OpenTavernDB');
-                    req.onsuccess = req.onerror = req.onblocked = () => resolve();
-                });
-                cleared.legacyIdb = true;
-            }
-        } catch (e) { console.warn('[Storage] legacy IDB clear error:', e); }
-
-        try {
-            if (typeof clearWebLLMCache === 'function') {
-                await clearWebLLMCache({ silent: true });
-                cleared.webllm = true;
-            }
-        } catch (e) {}
-
-        console.log('[Storage] clearAllData result:', cleared);
-        if (typeof updateStorageInfo === 'function') setTimeout(() => updateStorageInfo(), 80);
-        return cleared;
+        return clearStorageServiceData(this);
     }
 };
 // ==================== Backup Reminder ====================
@@ -3033,7 +3093,13 @@ function formatStorageMB(bytes) {
 }
 
 function getOPFSStatusText(info) {
-    if (!info || !info.opfsAvailable) return 'OPFS: \u4e0d\u53ef\u7528';
+    if (!info || !info.opfsAvailable) {
+        var reason = String(info && info.opfsFailureReason || '').toLowerCase();
+        if (reason.includes('file://') || (typeof location !== 'undefined' && location.protocol === 'file:')) {
+            return '\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\uff1a\u4f7f\u7528 IndexedDB/localStorage';
+        }
+        return 'OPFS \u672a\u542f\u7528\uff1a\u4f7f\u7528 IndexedDB/localStorage';
+    }
     if (info.opfsMirrorAvailable) return 'OPFS: \u955c\u50cf\u53ef\u5199';
     if (info.safariOpfsReadOnly) return 'OPFS: Safari \u4ec5\u4f5c\u6062\u590d\u6765\u6e90';
     return 'OPFS: \u4ec5\u4f5c\u6062\u590d\u6765\u6e90';
@@ -3702,7 +3768,7 @@ async function scanAllStorageBackends() {
     const candidates = [];
 
     try {
-        if (typeof OPFSStorage !== 'undefined' && OPFSStorage.loadAll) {
+        if (!storageIsFileProtocol() && typeof OPFSStorage !== 'undefined' && OPFSStorage.loadAll) {
             const data = await OPFSStorage.loadAll();
             if (data && (Object.keys(data.conversations || {}).length > 0 || data.lastSaved)) {
                 candidates.push(createStorageRecoveryCandidate('OPFS', data));
@@ -9660,10 +9726,20 @@ function getPublicCards() {
     return Array.isArray(PUBLIC_CARDS) ? PUBLIC_CARDS : [];
 }
 
+function resolvePublicCardAssetUrl(url) {
+    url = String(url || '');
+    if (!url) return '';
+    if (window.location && window.location.protocol === 'file:' && url.charAt(0) === '/') {
+        return url.replace(/^\/+/, '');
+    }
+    return url;
+}
+
 function findPublicCardById(id) {
     if (!id) return null;
     return getPublicCards().find(card => card && card.id === id) || null;
 }
+// ==================== Public Card Text Helpers ====================
 function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/[&<>"']/g, function (m) {
@@ -9694,7 +9770,7 @@ function openCardLibrary() {
     if (typeof setActiveTab === 'function') setActiveTab('public');
     return;
 }
-
+// ==================== Public Card List UI ====================
 function showCardLibraryListView() {
     if (dom.cardLibraryListView) dom.cardLibraryListView.classList.remove('hidden');
     if (dom.cardLibrarySearchContainer) dom.cardLibrarySearchContainer.classList.remove('hidden');
@@ -9709,11 +9785,7 @@ function showCardLibraryListView() {
     }
 }
 
-function showCardLibraryDetailView() {
-    if (dom.cardLibraryListView) dom.cardLibraryListView.classList.add('hidden');
-    if (dom.cardLibrarySearchContainer) dom.cardLibrarySearchContainer.classList.add('hidden');
-    if (dom.cardLibraryDetailView) dom.cardLibraryDetailView.classList.remove('hidden');
-}
+
 
 function createCardLibraryItem(card, query = '') {
     const item = document.createElement('div');
@@ -9723,7 +9795,7 @@ function createCardLibraryItem(card, query = '') {
     const imgWrap = document.createElement('div');
     imgWrap.className = 'w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-2xl overflow-hidden bg-zinc-900 border border-white/10';
     const img = document.createElement('img');
-    img.src = card.previewImage || '';
+    img.src = resolvePublicCardAssetUrl(card.previewImage);
     img.className = 'w-full h-full object-cover';
     img.alt = card.name || 'preview';
     img.loading = 'lazy';
@@ -9810,13 +9882,19 @@ function filterCardLibraryList(query) {
 
     updateCardLibraryCount(filtered.length, cards.length);
 }
+// ==================== Public Card Detail UI ====================
+function showCardLibraryDetailView() {
+    if (dom.cardLibraryListView) dom.cardLibraryListView.classList.add('hidden');
+    if (dom.cardLibrarySearchContainer) dom.cardLibrarySearchContainer.classList.add('hidden');
+    if (dom.cardLibraryDetailView) dom.cardLibraryDetailView.classList.remove('hidden');
+}
 
 function showCardLibraryDetail(card) {
     currentLibraryCard = card;
 
     // 填充详情
     if (dom.cardLibraryDetailImage) {
-        dom.cardLibraryDetailImage.src = card.previewImage || '';
+        dom.cardLibraryDetailImage.src = resolvePublicCardAssetUrl(card.previewImage);
         dom.cardLibraryDetailImage.alt = card.name || '';
         dom.cardLibraryDetailImage.onerror = function() {
             const wrap = dom.cardLibraryDetailImageWrap;
@@ -9866,11 +9944,11 @@ function showCardLibraryDetail(card) {
 
     showCardLibraryDetailView();
 }
-
+// ==================== Public Card Import Flow ====================
 async function importPublicCard(cardMeta) {
     const modal = dom.cardLibraryModal;
     try {
-        const res = await fetch(cardMeta.jsonUrl);
+        const res = await fetch(resolvePublicCardAssetUrl(cardMeta.jsonUrl));
         if (!res.ok) throw new Error('无法获取角色卡数据 (' + res.status + ')');
         const jsonData = await res.json();
 
@@ -9891,7 +9969,7 @@ async function importPublicCard(cardMeta) {
 
         // 3. 从公共库元数据附加预览图（关键修复：让从公共库导入的角色卡在“我的卡片”里能显示图片）
         if (cardMeta && cardMeta.previewImage) {
-            character.previewImage = cardMeta.previewImage;
+            character.previewImage = resolvePublicCardAssetUrl(cardMeta.previewImage);
         }
         if (cardMeta && cardMeta.author && !character.author) {
             character.author = cardMeta.author;
@@ -9941,33 +10019,27 @@ async function importPublicCard(cardMeta) {
 
 // 侧边栏按钮事件（在 DOM 就绪后绑定）
 // (old wireCardLibraryButton removed as public library on left is removed)
-// ==================== Refactored Homepage Card Library ====================
-// Default view is the card library with tab switching (My / Public)
-// Cards are 3:4 grid. My cards click -> direct to recent chat. Public click -> detail then import.
-
+// Public card library UI is split across 60-public-card-*-ui.js files.
+// ==================== Library View / Tab Rendering ====================
 function switchView(view) {
     currentView = view;
     const libraryV = document.getElementById('libraryView');
     const chatV = document.getElementById('chatView');
     if (!libraryV || !chatV) return;
 
-    const worldBookBlock = document.querySelector('#sidebar .glass.rounded-xl.px-3.py-2');
     const convListEl = document.getElementById('convList');
 
     if (view === 'library') {
         libraryV.classList.remove('hidden');
         chatV.classList.add('hidden');
-        // Full setup for library (grids + tabs)
         if (typeof renderLibrary === 'function') {
             renderLibrary();
         } else {
             if (typeof renderLibraryGrids === 'function') renderLibraryGrids();
             if (typeof setActiveTab === 'function') setActiveTab(activeLibraryTab || 'my');
         }
-        // In library: show all historical conversations on the left
         if (typeof renderConversationList === 'function') renderConversationList();
         if (convListEl) convListEl.style.display = '';
-        // Hide character card and world book in library view (per clarification: not in card library page)
         const charTitle = document.querySelector('#sidebar span[data-i18n="char_card_title"]');
         if (charTitle) {
             const charBlock = charTitle.closest('.glass');
@@ -9984,7 +10056,6 @@ function switchView(view) {
         libraryV.classList.add('hidden');
         chatV.classList.remove('hidden');
 
-        // In chat view: show character card and world book on left (per clarification)
         if (convListEl) convListEl.style.display = '';
         const charTitle = document.querySelector('#sidebar span[data-i18n="char_card_title"]');
         if (charTitle) {
@@ -9999,13 +10070,9 @@ function switchView(view) {
         const sidebar = document.getElementById('sidebar');
         if (sidebar) sidebar.classList.remove('library-mode');
 
-        // GitHub button and language switcher are in the chatTopBar and visible in main interface
-
-        // Force re-render conv list with filter for current character
         if (typeof renderConversationList === 'function') renderConversationList();
     }
 
-    // Update the sidebar close (×) button to act as return-to-library when in chat (mobile)
     if (typeof updateSidebarCloseButton === 'function') updateSidebarCloseButton();
 }
 
@@ -10029,44 +10096,14 @@ function setActiveTab(tab) {
     }
 }
 
-function loadOrCreateChatForCharacter(char) {
-    if (!char || !char.name) return;
-
-    currentCharacterName = char.name;
-
-    // Find most recent conv for this character
-    let recentConv = null;
-    let recentTime = 0;
-    Object.values(state.conversations || {}).forEach(conv => {
-        if (conv.character && conv.character.name === char.name) {
-            const t = conv.updated || conv.created || 0;
-            if (t > recentTime) {
-                recentTime = t;
-                recentConv = conv;
-            }
-        }
-    });
-
-    if (recentConv) {
-        loadConversation(recentConv.id);
-    } else {
-        // Create new
-        newConversation(char);
-    }
-
-    switchView('chat');
-}
-
 function renderLibrary() {
     const lib = document.getElementById('libraryView');
     const chat = document.getElementById('chatView');
     if (lib) lib.classList.remove('hidden');
     if (chat) chat.classList.add('hidden');
 
-    // Render grids
     renderLibraryGrids();
 
-    // Tab listeners (bind once)
     const tabMy = document.getElementById('tabMy');
     const tabPub = document.getElementById('tabPublic');
     if (tabMy && !tabMy._wired) {
@@ -10082,13 +10119,8 @@ function renderLibrary() {
         });
     }
 
-    // Initial tab
     setActiveTab(activeLibraryTab);
 
-    // Note: Create and Import actions are now provided as special cards in the "My Cards" grid (see renderMyCards).
-    // This reduces header bloat when selecting cards. No top buttons while browsing the library.
-
-    // Apply initial filter active style for search/filter bar
     document.querySelectorAll('#libraryView [data-filter]').forEach(b => {
         b.classList.remove('bg-amber-500/20', 'text-amber-300');
         if (b.dataset.filter === libraryFilter) {
@@ -10096,11 +10128,9 @@ function renderLibrary() {
         }
     });
 
-    // Sync search input value
     const libSearchSync = document.getElementById('librarySearch');
     if (libSearchSync) libSearchSync.value = librarySearchQuery || '';
 
-    // Hide character card and world book in card library page (left sidebar not needed in library view)
     const charTitle = document.querySelector('#sidebar span[data-i18n="char_card_title"]');
     if (charTitle) {
         const charBlock = charTitle.closest('.glass');
@@ -10111,9 +10141,34 @@ function renderLibrary() {
         const worldBlock = worldTitle.closest('.glass');
         if (worldBlock) worldBlock.style.display = 'none';
     }
-    // Additional selector for world book block
     const worldBlock2 = document.querySelector('#sidebar .glass.rounded-xl.px-3.py-2');
     if (worldBlock2) worldBlock2.style.display = 'none';
+}
+// ==================== Library Conversation Actions ====================
+function loadOrCreateChatForCharacter(char) {
+    if (!char || !char.name) return;
+
+    currentCharacterName = char.name;
+
+    let recentConv = null;
+    let recentTime = 0;
+    Object.values(state.conversations || {}).forEach(conv => {
+        if (conv.character && conv.character.name === char.name) {
+            const t = conv.updated || conv.created || 0;
+            if (t > recentTime) {
+                recentTime = t;
+                recentConv = conv;
+            }
+        }
+    });
+
+    if (recentConv) {
+        loadConversation(recentConv.id);
+    } else {
+        newConversation(char);
+    }
+
+    switchView('chat');
 }
 
 async function loadConversation(id) {
@@ -10122,46 +10177,35 @@ async function loadConversation(id) {
         stopGeneration();
     }
     saveCurrentConversation();
-    state.activeConvId = id;           // triggers granular renders via subscription
+    state.activeConvId = id;
 
-    // 切换对话时清理 @ 指定气泡（只在群聊输入时有意义）
     if (typeof clearPendingGroupMention === 'function') {
         const c = state.conversations[id];
         if (!c || !isGroupChat(c)) clearPendingGroupMention();
     }
 
-    // For chat-only conv list per character
     var c = state.conversations[id];
     if (c && c.character && c.character.name) {
         currentCharacterName = c.character.name;
     } else if (c && isGroupChat(c) && c.group && c.group.members && c.group.members.length > 0) {
-        // 群聊：设置到第一个成员的上下文，使群聊出现在对应角色的会话列表中
         currentCharacterName = c.group.members[0].character.name;
     }
 
-    // 切换对话时重置增量渲染状态和“显示全部消息”状态
     var newConv = getActiveConv();
     if (newConv) {
         newConv._showAllMessages = false;
-        newConv._lastRenderedVisibleCount = 0;   // 关键：重置增量计数，避免跨对话污染
+        newConv._lastRenderedVisibleCount = 0;
         newConv._historyWindow = 150;
         newConv._historyScrollHandler = null;
-        newConv._wiCache = null;                 // 切换对话时清除世界书缓存
+        newConv._wiCache = null;
     }
 
-    // 关键修复：load 其它对话时立即清空消息容器，根除旧 DOM 残留
     if (dom.messagesContainer) dom.messagesContainer.innerHTML = '';
 
     persistState();
-
-    // 显式通知 activeConvId 变更
     requestRender('activeConvId');
-
-    // 确保切换对话时进度条也实时更新
     renderTokenBar();
 
-    // 关键修复：切换到历史对话时，主动用当前阈值检查一次自动总结
-    // 解决用户打开旧对话后修改阈值（尤其是调低）却不触发的问题
     if (state.settings.summaryEnabled) {
         setTimeout(function() { autoSummarize(); }, 650);
     }
@@ -10190,6 +10234,9 @@ async function deleteConversation(id) {
     persistState();
     requestRender(['conversations', 'conversationOrder', 'activeConvId']);
 }
+// Library rendering is split across:
+// - 60-library-view-ui.js
+// - 60-library-conversation-actions.js
 function getCardOrientation(tags) {
     const t = (tags || []).join(' ').toLowerCase();
     const hasFemale = /女|female|futa|娘|女仆|姬/.test(t);
@@ -10411,7 +10458,7 @@ function renderPublicCards() {
         const preview = document.createElement('div');
         preview.className = 'aspect-[3/4] w-full overflow-hidden rounded-t-2xl bg-zinc-900';
         const img = document.createElement('img');
-        img.src = card.previewImage || '';
+        img.src = resolvePublicCardAssetUrl(card.previewImage);
         img.className = 'w-full h-full object-cover';
         img.alt = card.name;
         img.onerror = () => {
@@ -12142,13 +12189,11 @@ function updateAnnouncementLangButtons() {
         }
     });
 }
-// ==================== Dialog Workflow Events ====================
+// ==================== Character Import Modal Events ====================
 function bindCharacterImportModalEvents() {
-    // Import modal close
     dom.importCloseBtn.addEventListener('click', function() { dom.importModal.classList.add('hidden'); });
     dom.importBackdrop.addEventListener('click', function() { dom.importModal.classList.add('hidden'); });
 
-    // File import (supports .json and SillyTavern .png embedded cards)
     dom.importFileInput.addEventListener('change', async function(e) {
         var file = e.target.files[0];
         if (!file) return;
@@ -12162,7 +12207,6 @@ function bindCharacterImportModalEvents() {
             let attachedPreview = null;
 
             if (lowerName.endsWith('.png')) {
-                // For PNG cards, also capture the visual image itself as preview (so imported cards show their art)
                 attachedPreview = await new Promise(function(resolve, reject) {
                     var r = new FileReader();
                     r.onload = function() { resolve(r.result); };
@@ -12171,7 +12215,6 @@ function bindCharacterImportModalEvents() {
                 });
                 json = await extractCharaFromPng(file);
             } else {
-                // JSON path (original)
                 const text = await new Promise(function(resolve, reject) {
                     var r = new FileReader();
                     r.onload = function() { resolve(r.result); };
@@ -12191,7 +12234,6 @@ function bindCharacterImportModalEvents() {
             var hasMsgs = conv.messages.some(function(m) { return m.role !== 'system'; });
             if (hasMsgs) {
                 saveCurrentConversation();
-                // 捕获旧对话的世界书（legacy + 新 global）
                 var oldWorldInfo = conv.worldInfo ? JSON.parse(JSON.stringify(conv.worldInfo)) : null;
                 var oldWorldBookIds = Array.isArray(conv.worldBookIds) ? conv.worldBookIds.slice() : [];
 
@@ -12215,7 +12257,6 @@ function bindCharacterImportModalEvents() {
 
             currentCharacterName = character.name;
 
-            // ===== 自动导入角色卡内嵌的 character_book（支持 v1/v2/v3）并关联到当前对话 =====
             var embeddedBook = null;
             try {
                 embeddedBook = importCharacterBookFromCard(json, character.name);
@@ -12226,10 +12267,9 @@ function bindCharacterImportModalEvents() {
                     }
                 }
             } catch (e) {
-                console.warn('导入角色卡内嵌世界书失败（不影响角色导入）:', e);
+                console.warn('Failed to import embedded character book; character import continues:', e);
             }
 
-            // 注册到全局角色库
             if (character.name) {
                 const key = character.name.trim().toLowerCase();
                 if (!state.characters) state.characters = {};
@@ -12246,7 +12286,6 @@ function bindCharacterImportModalEvents() {
             conv.updated = Date.now();
             persistState();
 
-            // 让卡片库（如果可见或稍后返回）立刻看到新导入的卡；解决“导入后需刷新页面才显示”的问题
             if (typeof renderLibraryGrids === 'function') {
                 renderLibraryGrids();
             }
@@ -12258,7 +12297,7 @@ function bindCharacterImportModalEvents() {
             var successText = t('import_success') + character.name;
             if (embeddedBook) {
                 var entryCount = Object.keys(embeddedBook.entries || {}).length;
-                successText += '（已自动关联内嵌世界书 · ' + entryCount + ' 条目）';
+                successText += ' (embedded world book linked: ' + entryCount + ' entries)';
             }
             dom.importStatus.textContent = successText;
             dom.importStatus.className = 'text-xs text-emerald-400 mt-3 text-center';
@@ -12272,9 +12311,8 @@ function bindCharacterImportModalEvents() {
         }
     });
 }
-
+// ==================== Prompt Viewer / Summary Workflow Events ====================
 function bindPromptAndSummaryWorkflowEvents() {
-    // Prompt viewer
     var currentPromptViewerStage = 'main';
 
     function setPromptStageButtons(stage) {
@@ -12314,7 +12352,7 @@ function bindPromptAndSummaryWorkflowEvents() {
             dom.promptViewerContent.textContent = text || t('no_messages_to_send');
         } catch (err) {
             console.error('showFullPrompt error:', err);
-            alert('无法生成提示词预览：' + (err.message || err));
+            alert('鏃犳硶鐢熸垚鎻愮ず璇嶉瑙堬細' + (err.message || err));
         }
     }
 
@@ -12335,7 +12373,6 @@ function bindPromptAndSummaryWorkflowEvents() {
     dom.promptViewerCloseBtn.addEventListener('click', function() { dom.promptViewerModal.classList.add('hidden'); });
     dom.promptViewerBackdrop.addEventListener('click', function() { dom.promptViewerModal.classList.add('hidden'); });
 
-    // Copy prompt
     dom.copyPromptBtn.addEventListener('click', function() {
         var text = dom.promptViewerContent.textContent;
         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -12346,10 +12383,8 @@ function bindPromptAndSummaryWorkflowEvents() {
         }
     });
 
-    // 总结管理器入口（只保留主按钮）
     dom.summarizeBtn.addEventListener('click', openSummaryManager);
 
-    // 总结管理器内部事件绑定（只绑定一次）
     if (dom.summaryManagerCloseBtn) {
         dom.summaryManagerCloseBtn.addEventListener('click', function() {
             dom.summaryManagerModal.classList.add('hidden');
@@ -12361,7 +12396,6 @@ function bindPromptAndSummaryWorkflowEvents() {
         });
     }
 
-    // 模式切换
     if (dom.modeRecentBtn) {
         dom.modeRecentBtn.addEventListener('click', function() {
             dom.modeRecentPanel.classList.remove('hidden');
@@ -12380,7 +12414,6 @@ function bindPromptAndSummaryWorkflowEvents() {
         });
     }
 
-    // 自定义范围预览
     if (dom.previewRangeBtn) {
         dom.previewRangeBtn.addEventListener('click', previewCustomRange);
     }
@@ -12391,11 +12424,13 @@ function bindPromptAndSummaryWorkflowEvents() {
         dom.rangeEnd.addEventListener('input', previewCustomRange);
     }
 
-    // 生成总结按钮
     if (dom.summaryGenerateBtn) {
         dom.summaryGenerateBtn.addEventListener('click', doGenerateSummary);
     }
 }
+// Dialog workflow event wiring is split across:
+// - 66-character-import-events.js
+// - 66-prompt-summary-events.js
 // ==================== Message Actions ====================
 function deleteMessage(actualIdx) {
     var conv = getActiveConv();
@@ -13626,21 +13661,6 @@ init().then(function() {
         updateStorageInfo();
     } else if (typeof updateStorageStatusUI === 'function') {
         updateStorageStatusUI();
-    }
-
-    // OPFS 不可用时的轻提示
-    if (StorageService && StorageService._opfsFailed &&
-        ((StorageService._opfsFailureReason || '').toLowerCase().includes('file') || (typeof location !== 'undefined' && location.protocol === 'file:'))) {
-        setTimeout(() => {
-            const hasModal = document.querySelector('.modal-overlay:not(.hidden)');
-            if (!hasModal) {
-                const tip = document.createElement('div');
-                tip.style.cssText = 'position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:#1e2937;color:#bae6fd;padding:8px 14px;border-radius:8px;font-size:12px;z-index:9999;border:1px solid #334155;';
-                tip.textContent = '提示：OPFS 不可用（file://），已使用 localStorage 强快照兜底。';
-                document.body.appendChild(tip);
-                setTimeout(() => tip.remove(), 5200);
-            }
-        }, 1200);
     }
 
     showBackupReminderIfNeeded();

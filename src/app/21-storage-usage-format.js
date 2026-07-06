@@ -11,7 +11,13 @@ function formatStorageMB(bytes) {
 }
 
 function getOPFSStatusText(info) {
-    if (!info || !info.opfsAvailable) return 'OPFS: \u4e0d\u53ef\u7528';
+    if (!info || !info.opfsAvailable) {
+        var reason = String(info && info.opfsFailureReason || '').toLowerCase();
+        if (reason.includes('file://') || (typeof location !== 'undefined' && location.protocol === 'file:')) {
+            return '\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\uff1a\u4f7f\u7528 IndexedDB/localStorage';
+        }
+        return 'OPFS \u672a\u542f\u7528\uff1a\u4f7f\u7528 IndexedDB/localStorage';
+    }
     if (info.opfsMirrorAvailable) return 'OPFS: \u955c\u50cf\u53ef\u5199';
     if (info.safariOpfsReadOnly) return 'OPFS: Safari \u4ec5\u4f5c\u6062\u590d\u6765\u6e90';
     return 'OPFS: \u4ec5\u4f5c\u6062\u590d\u6765\u6e90';
