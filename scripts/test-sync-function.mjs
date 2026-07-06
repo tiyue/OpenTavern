@@ -283,6 +283,106 @@ async function assertFrontendSummaryService() {
   assert(capturedRequest.body.messages[1].content.includes('Assistant: world'), 'Summary assistant message was not labeled correctly.');
 }
 
+async function assertFrontendSummaryManagerHelpers() {
+  const sources = await Promise.all([
+    '../src/app/58-summary-manager-range-ui.js',
+    '../src/app/58-summary-manager-generation-ui.js',
+    '../src/app/58-summary-manager-open-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function classList(initial = []) {
+    const values = new Set(initial);
+    return {
+      values,
+      add(...names) { names.forEach((name) => values.add(name)); },
+      remove(...names) { names.forEach((name) => values.delete(name)); },
+      contains(name) { return values.has(name); },
+    };
+  }
+  function el(value = '') {
+    return {
+      value,
+      innerHTML: '',
+      textContent: '',
+      disabled: false,
+      classList: classList(),
+    };
+  }
+
+  const events = [];
+  const conv = {
+    messages: [
+      { role: 'system', content: 'hidden' },
+      { role: 'user', content: 'one' },
+      { role: 'assistant', content: 'two' },
+      { role: 'user', content: 'three' },
+      { role: 'assistant', content: 'four' },
+      { role: 'user', content: 'five' },
+      { role: 'assistant', content: 'six' },
+    ],
+  };
+  const context = {
+    dom: {
+      summaryRecentTurns: el('2'),
+      rangeStart: el('2'),
+      rangeEnd: el('3'),
+      rangePreview: el(),
+      modeRecentPanel: el(),
+      modeRangePanel: el(),
+      modeRecentBtn: el(),
+      modeRangeBtn: el(),
+      summaryManagerStatus: el(),
+      summaryGenerateBtn: el(),
+      summaryManagerModal: el(),
+    },
+    getActiveConv() { return conv; },
+    t: (key) => ({
+      summary_preview_count: 'Will summarize {n} messages',
+      summary_range_invalid: 'invalid',
+      summary_generating: 'generating',
+      nothing_to_archive: 'nothing',
+    }[key] || key),
+    alert: (msg) => events.push('alert:' + msg),
+    performSummarization(subset, startIdx, endIdx, cb) {
+      events.push('summarize:' + subset.length + ':' + startIdx + ':' + endIdx);
+      cb(null);
+    },
+    renderSummaryManagerList: () => events.push('list'),
+    renderTokenBar: () => events.push('token'),
+    requestRender: (keys) => events.push('render:' + keys.join(',')),
+    parseInt,
+    Math,
+    Array,
+    Set,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__regular = getSummaryManagerRegularMessages;\nthis.__recent = getRecentSummarySelection;\nthis.__custom = getCustomSummarySelection;\nthis.__preview = previewCustomRange;\nthis.__busy = setSummaryManagerGenerating;\nthis.__generate = doGenerateSummary;\nthis.__open = openSummaryManager;`, context);
+
+  const regular = context.__regular(conv);
+  assert(regular.length === 6 && regular[0].content === 'one', 'Summary manager should ignore system messages.');
+
+  const recent = context.__recent(regular);
+  assert(recent.subset.length === 4 && recent.startIdx === 2 && recent.endIdx === 5, 'Summary manager recent mode should select the last N turns.');
+
+  const custom = context.__custom(regular);
+  assert(custom.subset.map((msg) => msg.content).join(',') === 'two,three', 'Summary manager custom range should use 1-based bounds.');
+
+  context.__preview();
+  assert(context.dom.rangePreview.innerHTML.includes('Will summarize 2 messages') && context.dom.rangePreview.innerHTML.includes('Assistant: two'), 'Summary manager preview should render count and message snippets.');
+
+  context.__busy(true);
+  assert(context.dom.summaryManagerStatus.textContent === 'generating' && context.dom.summaryGenerateBtn.disabled === true, 'Summary manager should set generating UI state.');
+  context.__busy(false);
+
+  context.__generate();
+  assert(events.includes('summarize:4:2:5') && events.includes('list') && events.includes('token') && events.includes('render:activeConvId'), 'Summary manager generation should summarize the selected range and refresh UI.');
+  assert(context.dom.summaryGenerateBtn.disabled === false && context.dom.summaryManagerStatus.textContent === '', 'Summary manager generation should reset UI state.');
+
+  context.__open();
+  assert(!context.dom.summaryManagerModal.classList.values.has('hidden'), 'Summary manager should open the modal.');
+  assert(context.dom.summaryRecentTurns.value === 3 && context.dom.rangeEnd.value === 6, 'Summary manager should initialize default ranges.');
+}
+
 async function assertFrontendApiConnectionHelpers() {
   const helperSource = await readFile(new URL('../src/app/31-api-connection-test-helpers.js', import.meta.url), 'utf8');
   const translations = {
@@ -2588,6 +2688,7 @@ async function main() {
   await assertFrontendStateStoreDefaults();
   await assertFrontendCloudSnapshotApply();
   await assertFrontendSummaryService();
+  await assertFrontendSummaryManagerHelpers();
   await assertFrontendApiConnectionHelpers();
   await assertFrontendGenerationHelpers();
   await assertFrontendPromptMessageHelpers();
