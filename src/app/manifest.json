@@ -76,6 +76,7 @@
   "32-conversation-model.js",
   "32-group-chat-members.js",
   "32-group-chat-speakers.js",
+  "32-group-system-prompt.js",
   "32-group-chat-message-helpers.js",
   "32-group-chat-core.js",
   "32-group-mention-ui.js",

@@ -2222,6 +2222,70 @@ async function assertFrontendGroupChatCoreHelpers() {
   assert(context.__mention('hello @plana and @Arona', conv).name === 'Plana', 'Group mention parsing should resolve the first case-insensitive mention.');
 }
 
+async function assertFrontendConversationModelHelpers() {
+  const sources = await Promise.all([
+    '../src/app/41-world-info-constants.js',
+    '../src/app/40-character-prompt-helpers.js',
+    '../src/app/41-world-info-injection.js',
+    '../src/app/41-prompt-builder.js',
+    '../src/app/32-conversation-model.js',
+    '../src/app/32-group-chat-members.js',
+    '../src/app/32-group-chat-speakers.js',
+    '../src/app/32-group-system-prompt.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const context = {
+    state: {
+      settings: {
+        userName: 'Sensei',
+        lang: 'en',
+        systemPrompt: 'Custom {{user}}',
+        userDescription: 'User persona for {{char}}',
+        postHistoryInstructions: 'Post {{char}}',
+      },
+    },
+    makeId: () => 'conv-id',
+    Date: { now: () => 111 },
+    Array,
+    Object,
+    String,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__default = defaultConversation;\nthis.__groupPrompt = buildGroupSystemPrompt;\nthis.__pos = WI_POS;`, context);
+
+  const def = context.__default();
+  assert(def.id === 'conv-id' && def.title === 'New Chat' && Array.isArray(def.messages) && Array.isArray(def.worldBookIds), 'Default conversation should include stable chat storage fields.');
+  assert(def.created === 111 && def.updated === 111 && def.group === null, 'Default conversation should initialize timestamps and group state.');
+
+  const wi = {};
+  wi[context.__pos.BEFORE_CHAR] = [{ content: 'Lore before {{char}}' }];
+  wi[context.__pos.AFTER_CHAR] = [{ content: 'Lore after {{user}}' }];
+  const groupConv = {
+    _forcedSpeaker: { name: 'Plana' },
+    group: {
+      scenarioOverride: 'Scene for {{char}}',
+      members: [
+        { order: 1, character: { name: 'Arona', personality: 'Guide {{user}}' } },
+        { order: 0, character: { name: 'Plana', system_prompt: 'Plan {{user}}', description: 'Quiet' } },
+      ],
+    },
+  };
+  const groupPrompt = context.__groupPrompt(groupConv, wi);
+  assert(groupPrompt.startsWith('Lore before Plana'), 'Group system prompt should inject before-character world info for the focused speaker.');
+  assert(groupPrompt.includes('Custom Sensei') && groupPrompt.includes("User's Persona: User persona for Assistant"), 'Group system prompt should include user system prompt and persona.');
+  assert(groupPrompt.includes('Strict Rules') && groupPrompt.includes('Scene for Plana'), 'Group system prompt should use the configured language instructions and scenario override.');
+  assert(groupPrompt.includes('=== Plana ===') && groupPrompt.includes('System Prompt: Plan Sensei'), 'Group system prompt should render sorted member blocks.');
+  assert(groupPrompt.includes('本轮回复必须以 Plana 为主角') && groupPrompt.includes('Lore after Sensei'), 'Group system prompt should include forced-speaker guidance and after-character world info.');
+
+  const singlePrompt = context.__groupPrompt({
+    character: {
+      name: 'Solo',
+      personality: 'Kind',
+    },
+  }, null);
+  assert(singlePrompt.includes('Custom Sensei') && singlePrompt.includes('Personality: Kind'), 'Group system prompt should fall back to the single-character system prompt for non-groups.');
+}
+
 async function assertFrontendComfyUIHelpers() {
   const sources = await Promise.all([
     '../src/app/51-comfyui-errors.js',
@@ -3567,6 +3631,7 @@ async function main() {
   await assertFrontendWebLLMConfirmHelpers();
   await assertFrontendWebGPUDeviceHelpers();
   await assertFrontendGroupChatCoreHelpers();
+  await assertFrontendConversationModelHelpers();
   await assertFrontendComfyUIHelpers();
   await assertFrontendLibraryViewHelpers();
   await assertFrontendStateLifecycleHelpers();
