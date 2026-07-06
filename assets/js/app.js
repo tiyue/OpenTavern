@@ -2221,7 +2221,7 @@ async function probeOPFSStorageWritable(storage) {
 
     return storage._probePromise;
 }
-// ==================== OPFS Storage IO ====================
+// ==================== OPFS Storage Read/Write ====================
 async function loadAllOPFSStorage(storage) {
     if (storage._isFileProtocol()) return null;
 
@@ -2274,7 +2274,7 @@ async function doSaveAllOPFSStorage(storage, data) {
         throw e;
     }
 }
-
+// ==================== OPFS Storage Info ====================
 async function getOPFSStorageInfo(storage) {
     if (storage._isFileProtocol()) {
         return {
@@ -2306,6 +2306,27 @@ async function getOPFSStorageInfo(storage) {
     } catch (e) {}
     return { backend: 'opfs', used: 0, quota: null };
 }
+// ==================== OPFS Storage Clear ====================
+function createEmptyOPFSSnapshot() {
+    return {
+        lastSaved: Date.now(),
+        conversations: {},
+        characters: {},
+        worldBooks: {},
+        conversationOrder: [],
+        activeConvId: null,
+        settings: {}
+    };
+}
+
+async function resetOPFSStorageFile(root, fileName) {
+    try {
+        const fh = await root.getFileHandle(fileName, { create: true });
+        const w = await fh.createWritable();
+        await w.write(JSON.stringify(createEmptyOPFSSnapshot()));
+        await w.close();
+    } catch (_) {}
+}
 
 async function clearOPFSStorage(storage) {
     if (storage._isFileProtocol()) return;
@@ -2316,25 +2337,16 @@ async function clearOPFSStorage(storage) {
             await root.removeEntry(storage._fileName);
         } catch (removeErr) {
             if (removeErr && removeErr.name !== 'NotFoundError') {
-                try {
-                    const fh = await root.getFileHandle(storage._fileName, { create: true });
-                    const w = await fh.createWritable();
-                    await w.write(JSON.stringify({
-                        lastSaved: Date.now(),
-                        conversations: {},
-                        characters: {},
-                        worldBooks: {},
-                        conversationOrder: [],
-                        activeConvId: null,
-                        settings: {}
-                    }));
-                    await w.close();
-                } catch (_) {}
+                await resetOPFSStorageFile(root, storage._fileName);
             }
         }
         storage._root = null;
     } catch (e) {}
 }
+// OPFS IO implementations are split across:
+// - 20-storage-opfs-read-write.js
+// - 20-storage-opfs-info.js
+// - 20-storage-opfs-clear.js
 // ==================== OPFS Storage ====================
 const OPFSStorage = {
     _root: null,

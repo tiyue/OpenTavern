@@ -2394,6 +2394,9 @@ async function assertFrontendWorldBookGlobalListUIHelpers() {
 async function assertFrontendFileProtocolOPFSSilence() {
   const opfsSources = await Promise.all([
     '../src/app/20-storage-opfs-environment.js',
+    '../src/app/20-storage-opfs-read-write.js',
+    '../src/app/20-storage-opfs-info.js',
+    '../src/app/20-storage-opfs-clear.js',
     '../src/app/20-storage-opfs-io.js',
     '../src/app/20-storage-opfs.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
