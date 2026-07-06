@@ -7060,7 +7060,7 @@ function getFilteredWorldInfoEntries(wi, filter) {
     entries.sort(function(a, b) { return (b.order || 0) - (a.order || 0); });
     return entries;
 }
-// ==================== World Book Entry List Helpers ====================
+// ==================== World Book Entry List Header UI ====================
 function appendBackToWorldBookListRow(container) {
     var backRow = document.createElement('div');
     backRow.className = 'text-xs text-amber-400 px-2 py-1 mb-2 cursor-pointer hover:underline flex items-center gap-1';
@@ -7092,7 +7092,7 @@ function appendWorldBookAssociationRow(container) {
 
     if (linked) {
         assocRow.innerHTML = `
-            <span class="text-emerald-400">鉁?${t('world_book_linked')}</span>
+            <span class="text-emerald-400">&#10003; ${t('world_book_linked')}</span>
             <button class="px-2 py-0.5 text-[10px] rounded bg-red-500/10 text-red-400 hover:bg-red-500/20">${t('world_book_unlink')}</button>
         `;
         assocRow.querySelector('button').addEventListener('click', function() {
@@ -7137,7 +7137,7 @@ function appendWorldBookEntryListHeader(container) {
     appendWorldBookAssociationRow(container);
     appendDeleteWorldBookRow(container);
 }
-
+// ==================== World Book Entry List Row UI ====================
 function renderWorldBookEntryListEmpty(container) {
     var empty = document.createElement('div');
     empty.className = 'text-xs text-zinc-500 px-2 py-6 text-center';
@@ -7161,7 +7161,7 @@ function createWorldBookEntryListRow(entry, wi) {
             '</div>' +
             '<div class="flex items-center gap-1 text-[10px] text-right flex-shrink-0">' +
                 '<span class="tabular-nums text-zinc-400">' + (entry.order != null ? entry.order : 100) + '</span>' +
-                '<button class="wi-list-del opacity-40 hover:opacity-100 text-red-400 px-1" data-uid="' + uidStr + '">鉁?/button>' +
+                '<button class="wi-list-del opacity-40 hover:opacity-100 text-red-400 px-1" data-uid="' + uidStr + '">&times;</button>' +
             '</div>' +
         '</div>';
 
@@ -7194,6 +7194,8 @@ function createWorldBookEntryListRow(entry, wi) {
 
     return row;
 }
+// ==================== World Book Entry List Helpers ====================
+// Split into header and row helper chunks.
 function renderWIEntryList(filter) {
     var container = dom.wiEntryList;
     if (!container) return;

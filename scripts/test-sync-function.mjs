@@ -1261,6 +1261,49 @@ async function assertFrontendWorldBookEntryListFiltering() {
   assert(filtered.map((entry) => entry.uid).join(',') === 'high,secondary,low', 'World book entries were not filtered and sorted by order.');
 }
 
+async function assertFrontendWorldBookEntryListUIHelpers() {
+  const source = await readFile(new URL('../src/app/43-worldbook-entry-list-row-ui.js', import.meta.url), 'utf8');
+
+  function fakeElement() {
+    const toggle = { listeners: {}, addEventListener(type, handler) { this.listeners[type] = handler; } };
+    const del = { listeners: {}, addEventListener(type, handler) { this.listeners[type] = handler; } };
+    return {
+      className: '',
+      innerHTML: '',
+      textContent: '',
+      children: [],
+      listeners: {},
+      addEventListener(type, handler) { this.listeners[type] = handler; },
+      appendChild(child) { this.children.push(child); },
+      querySelector(selector) {
+        if (selector === '.wi-list-toggle') return toggle;
+        if (selector === '.wi-list-del') return del;
+        return null;
+      },
+    };
+  }
+
+  const emptyContainer = fakeElement();
+  const context = {
+    dom: { wiEntryStats: { textContent: '' } },
+    wiState: { selectedUid: 'e1' },
+    document: { createElement: fakeElement },
+    t: (key) => key,
+    escapeHtml: (value) => String(value),
+    String,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__empty = renderWorldBookEntryListEmpty;\nthis.__row = createWorldBookEntryListRow;`, context);
+
+  context.__empty(emptyContainer);
+  assert(emptyContainer.children.length === 1 && context.dom.wiEntryStats.textContent === '0 world_book_entry', 'World book entry empty state should update list stats.');
+
+  const row = context.__row({ uid: 'e1', comment: 'Memo', key: ['Kivotos'], order: 7 }, { entries: { e1: {} } });
+  assert(row.className.includes('bg-amber-500/10'), 'World book entry list row should mark the selected entry active.');
+  assert(row.innerHTML.includes('&times;</button>'), 'World book entry delete button should render a valid close control.');
+  assert(!row.innerHTML.includes('閴'), 'World book entry list row should not render mojibake button text.');
+}
+
 async function assertFrontendWorldBookEntryLiveHelpers() {
   const sources = await Promise.all([
     '../src/app/43-worldbook-entry-live-core.js',
@@ -1809,6 +1852,7 @@ async function main() {
   await assertFrontendWorldBookActivationHelpers();
   await assertFrontendWorldBookMatchingHelpers();
   await assertFrontendWorldBookEntryListFiltering();
+  await assertFrontendWorldBookEntryListUIHelpers();
   await assertFrontendWorldBookEntryLiveHelpers();
   await assertFrontendWorldBookEntryEditorHelpers();
   await assertFrontendFileProtocolOPFSSilence();

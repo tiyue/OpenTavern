@@ -106,6 +106,8 @@
   "43-worldbook-entry-editor-ui.js",
   "43-worldbook-entry-actions.js",
   "43-worldbook-entry-list-filter.js",
+  "43-worldbook-entry-list-header-ui.js",
+  "43-worldbook-entry-list-row-ui.js",
   "43-worldbook-entry-list-helpers.js",
   "43-worldbook-list-ui.js",
   "43-worldbook-global-list-ui.js",
