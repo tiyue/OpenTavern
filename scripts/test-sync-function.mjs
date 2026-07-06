@@ -407,6 +407,71 @@ async function assertFrontendGenerationHelpers() {
   assert(notifications.join(',') === 'isGenerating,isGenerating', 'Streaming HTTP error should notify begin and finish state changes.');
 }
 
+async function assertFrontendPromptMessageHelpers() {
+  const sources = await Promise.all([
+    '../src/app/41-prompt-depth-insert.js',
+    '../src/app/41-prompt-summary-messages.js',
+    '../src/app/41-prompt-history-messages.js',
+    '../src/app/41-prompt-outlet-resolution.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+  const context = {
+    normalizePromptRole(role) {
+      const r = String(role || '').toLowerCase();
+      return r === 'user' || r === 'assistant' ? r : 'system';
+    },
+    replacePlaceholders(text, charName, userName) {
+      return String(text || '').replace(/\{\{char\}\}/g, charName).replace(/\{\{user\}\}/g, userName);
+    },
+    parseInt,
+    isNaN,
+    Object,
+    Array,
+    String,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__insert = insertMessagesAtDepth;\nthis.__summary = buildPromptSummaryMessage;\nthis.__regular = getRegularPromptMessages;\nthis.__outlets = resolvePromptOutletPlaceholders;\nthis.__replace = replacePromptMessagePlaceholders;`, context);
+
+  const baseMessages = [
+    { role: 'system', content: 'sys' },
+    { role: 'user', content: 'u1' },
+    { role: 'assistant', content: 'a1' },
+  ];
+  context.__insert(baseMessages, [
+    { depth: 1, role: 1, content: 'hello {{char}}' },
+    { _depth: -1, role: 'assistant', content: 'bye {{user}}' },
+  ], 'Arona', 'Sensei');
+  assert(baseMessages.map((m) => `${m.role}:${m.content}`).join('|') === 'system:sys|user:u1|user:hello Arona|assistant:a1|assistant:bye Sensei', 'Prompt depth insertion changed order, roles, or placeholders.');
+
+  const summary = context.__summary([{ text: 'first' }, { text: 'second' }], 'en');
+  assert(summary.role === 'system' && summary.content.includes('Automatic summary') && summary.content.includes('first\n---\nsecond'), 'Prompt summary message was not built correctly.');
+  const zhSummary = context.__summary([{ text: '摘要' }], 'zh-CN');
+  assert(zhSummary.content.startsWith('[以下是先前对话的自动摘要，供上下文参考]\n'), 'Prompt summary Chinese header should stay readable.');
+
+  const conv = {
+    summaries: [{ coveredEnd: 1 }],
+    messages: [
+      { role: 'system', content: 'hidden' },
+      { role: 'user', content: 'old user' },
+      { role: 'assistant', content: 'old assistant' },
+      { role: 'user', content: 'visible one' },
+      { role: 'assistant', content: 'visible two' },
+      { role: 'user', content: 'visible three' },
+      { role: 'assistant', content: '' },
+    ],
+  };
+  const regular = context.__regular(conv, 2);
+  assert(regular.map((m) => m.content).join(',') === 'visible two,visible three', 'Prompt regular history should skip summarized messages and respect context length.');
+  regular[0].content = 'mutated';
+  assert(conv.messages[4].content === 'visible two', 'Prompt regular history should clone messages before outlet mutation.');
+
+  const outletMessages = [{ role: 'system', content: 'A {{outlet::Lore}} B {{outlet::Missing}} C {{char}}' }];
+  context.__outlets(outletMessages, {
+    Lore: [{ content: 'for {{user}}' }, { content: 'with {{char}}' }],
+  }, 'Arona', 'Sensei');
+  const replaced = context.__replace(outletMessages, 'Arona', 'Sensei');
+  assert(replaced[0].content === 'A for Sensei\n\nwith Arona B  C Arona', 'Prompt outlet resolution or final placeholder replacement changed.');
+}
+
 async function assertFrontendPublicCardAssets() {
   const dataSource = await readFile(new URL('../src/app/60-public-card-data.js', import.meta.url), 'utf8');
   const librarySource = await readFile(new URL('../src/app/60-public-card-library.js', import.meta.url), 'utf8');
@@ -1096,6 +1161,7 @@ async function main() {
   await assertFrontendSummaryService();
   await assertFrontendApiConnectionHelpers();
   await assertFrontendGenerationHelpers();
+  await assertFrontendPromptMessageHelpers();
   await assertFrontendPublicCardAssets();
   await assertFrontendPublicCardGridFiltering();
   await assertFrontendI18nRuntime();
