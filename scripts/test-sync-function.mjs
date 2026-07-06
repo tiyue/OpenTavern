@@ -2186,6 +2186,76 @@ async function assertFrontendWebGPUDeviceHelpers() {
   assert(context.__err(new Error('NO_WEBGPU')).includes('WebGPU'), 'WebGPU detection should map missing WebGPU to a user-facing message.');
 }
 
+async function assertFrontendWebLLMInitializationHelpers() {
+  const source = await readFile(new URL('../src/app/11-webllm-initialization-helpers.js', import.meta.url), 'utf8');
+
+  function classList(initial = []) {
+    const values = new Set(initial);
+    return {
+      values,
+      add(name) { values.add(name); },
+      remove(name) { values.delete(name); },
+      contains(name) { return values.has(name); },
+    };
+  }
+
+  const events = [];
+  const modal = { classList: classList() };
+  const context = {
+    state: { settings: { inferenceBackend: 'webllm' } },
+    StorageService: {
+      async getStorageInfo() {
+        return { quota: 100, used: 95 };
+      },
+    },
+    async showGlassConfirm(message) {
+      events.push('confirm:' + message.includes('900MB'));
+      return false;
+    },
+    async persistState(force) { events.push('persist:' + force); },
+    t: (key) => ({
+      webllm_init_failed: 'Failed {msg}',
+      webllm_init_success: 'Ready {model}',
+    }[key] || key),
+    alert: (msg) => events.push('alert:' + msg),
+    console: { log: (...args) => events.push(args.join(' ')) },
+    document: { getElementById: () => null },
+    Math,
+    Set,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__preflight = preflightWebLLMStorageQuota;\nthis.__progress = updateWebLLMInitializationProgress;\nthis.__cleanup = cleanupWebLLMProgressHandlers;\nthis.__reset = resetWebLLMProgressUI;\nthis.__finish = finishWebLLMInitialization;\nthis.__cancel = cancelWebLLMInitialization;`, context);
+
+  const allowed = await context.__preflight({ label: 'Model', sizeMB: 900 });
+  assert(allowed === false && context.state.settings.inferenceBackend === 'remote-api', 'WebLLM preflight should revert backend when storage confirmation is rejected.');
+  assert(events.includes('persist:true'), 'WebLLM preflight should persist rejected local backend selection.');
+
+  const elements = {
+    modal,
+    bar: { style: {} },
+    percent: { textContent: '' },
+    status: { textContent: '' },
+    cancelBtn: { onclick: () => {} },
+    detectBtn: { onclick: () => {} },
+    closeBtn: { onclick: () => {} },
+    backdrop: { onclick: () => {} },
+  };
+  context.__reset(elements);
+  assert(elements.bar.style.width === '0%' && elements.status.textContent === '正在准备下载...' && !modal.classList.values.has('hidden'), 'WebLLM reset helper should initialize progress UI.');
+
+  context.__progress(elements, { label: 'Demo' }, { progress: 0.42, text: 'Loading' });
+  assert(elements.bar.style.width === '42%' && elements.percent.textContent === '42%' && elements.status.textContent.includes('Demo'), 'WebLLM progress helper should update bar, percent, and status.');
+
+  context.__finish(elements, { label: 'Demo' }, false, 'bad');
+  assert(modal.classList.values.has('hidden') && events.includes('alert:Failed bad'), 'WebLLM finish helper should hide modal and alert failures.');
+  assert(elements.cancelBtn.onclick === null && elements.backdrop.onclick === null, 'WebLLM finish helper should clean handlers.');
+
+  elements.cancelBtn.onclick = () => {};
+  context.state.settings.inferenceBackend = 'webllm';
+  context.__cancel(elements);
+  assert(context.state.settings.inferenceBackend === 'remote-api' && elements.cancelBtn.onclick === null, 'WebLLM cancel helper should revert backend and clean handlers.');
+}
+
 async function assertFrontendGroupChatCoreHelpers() {
   const sources = await Promise.all([
     '../src/app/32-group-chat-members.js',
@@ -3736,6 +3806,7 @@ async function main() {
   await assertFrontendWorldBookMatchingHelpers();
   await assertFrontendWebLLMConfirmHelpers();
   await assertFrontendWebGPUDeviceHelpers();
+  await assertFrontendWebLLMInitializationHelpers();
   await assertFrontendGroupChatCoreHelpers();
   await assertFrontendConversationModelHelpers();
   await assertFrontendComfyUIHelpers();
