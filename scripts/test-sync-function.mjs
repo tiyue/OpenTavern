@@ -781,6 +781,70 @@ async function assertFrontendStateInitialization() {
   assert(persisted === true, 'initState should persist first character migration when user data exists.');
 }
 
+async function assertFrontendConversationImportHelpers() {
+  const source = await readFile(new URL('../src/app/63-conversation-import-helpers.js', import.meta.url), 'utf8');
+  let renderRequested = null;
+  let persistCount = 0;
+  const context = {
+    state: {
+      conversations: {
+        existing: { id: 'existing', messages: [{ role: 'user', content: 'old' }] },
+      },
+      conversationOrder: ['existing'],
+      activeConvId: null,
+      characters: {},
+      worldBooks: {},
+    },
+    makeId: () => 'new-id',
+    persistState: () => { persistCount += 1; },
+    requestRender: (key) => { renderRequested = key; },
+    updateStorageInfo() {},
+    renderLibraryGrids() {},
+    renderMyCards() {},
+    t: (key) => ({
+      import_conv_success: 'Imported ',
+      import_conv_success_suffix: ' conversation(s).',
+      import_conv_duplicate: ' duplicates',
+    }[key] || key),
+    JSON,
+    Object,
+    Array,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__records = getConversationImportRecords;\nthis.__import = importConversationRecords;\nthis.__apply = applySuccessfulConversationImport;\nthis.__message = buildConversationImportSuccessMessage;`, context);
+
+  const data = {
+    conversations: [
+      { id: 'existing', messages: [{ role: 'user', content: 'new' }], character: { name: 'Arona' } },
+      {
+        id: 'group',
+        messages: [{ role: 'assistant', content: 'group' }],
+        group: { members: [{ character: { name: 'Plana' } }] },
+      },
+    ],
+    characters: { top: { name: 'Top Card' } },
+    worldBooks: { wb1: { id: 'wb1', entries: [{ content: 'Kivotos' }] } },
+  };
+
+  const records = context.__records(data);
+  assert(records.length === 2, 'Conversation import records were not detected.');
+  const result = context.__import(records);
+  context.__apply(data, result);
+
+  assert(result.imported === 2, 'Conversation import did not count imported conversations.');
+  assert(result.skipped === 1, 'Conversation import did not count duplicated IDs.');
+  assert(context.state.conversations['new-id'].messages[0].content === 'new', 'Duplicated conversation was not assigned a new ID.');
+  assert(context.state.conversations.group.messages[0].content === 'group', 'Non-duplicated conversation was not imported.');
+  assert(context.state.characters.top.name === 'Top Card', 'Top-level imported character card was not preserved.');
+  assert(context.state.characters.arona.name === 'Arona', 'Single-chat character was not registered.');
+  assert(context.state.characters.plana.name === 'Plana', 'Group member character was not registered.');
+  assert(context.state.worldBooks.wb1.entries[0].content === 'Kivotos', 'World book was not imported.');
+  assert(context.state.activeConvId === 'group', 'Import should select the first imported conversation when no active conversation exists.');
+  assert(persistCount === 2, 'Successful import should persist before and after active conversation update.');
+  assert(renderRequested === 'activeConvId', 'Successful import should request active conversation render.');
+  assert(context.__message(2, 1).includes('duplicates'), 'Import success message should include duplicate count.');
+}
+
 async function main() {
   await assertFrontendCloudSnapshot();
   await assertFrontendSummaryService();
@@ -794,6 +858,7 @@ async function main() {
   await assertFrontendStorageServicePipeline();
   await assertFrontendStorageServiceFileProtocolStatus();
   await assertFrontendStateInitialization();
+  await assertFrontendConversationImportHelpers();
 
   const { db } = createMockD1();
   const env = { SYNC_DB: db };
