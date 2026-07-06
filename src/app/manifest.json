@@ -164,6 +164,7 @@
   "50-generation-cot-utils.js",
   "50-generation-api-request.js",
   "50-generation-stream-state.js",
+  "50-generation-response-stream.js",
   "50-generation-integrations.js",
   "51-comfyui-settings.js",
   "51-comfyui-workflow.js",

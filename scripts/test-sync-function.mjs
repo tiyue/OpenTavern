@@ -955,6 +955,7 @@ async function assertFrontendGenerationHelpers() {
     '../src/app/50-generation-cot-utils.js',
     '../src/app/50-generation-api-request.js',
     '../src/app/50-generation-stream-state.js',
+    '../src/app/50-generation-response-stream.js',
     '../src/app/50-generation-integrations.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const notifications = [];
@@ -987,6 +988,8 @@ async function assertFrontendGenerationHelpers() {
       async text() { return JSON.stringify({ error: { message: 'server exploded' } }); },
     }),
     AbortController,
+    TextDecoder,
+    TextEncoder,
     Error,
     JSON,
     String,
@@ -1051,6 +1054,53 @@ async function assertFrontendGenerationHelpers() {
   assert(streamErrorMessage === 'API Error 500: server exploded', 'Streaming HTTP error should preserve API error detail.');
   assert(context.state.isGenerating === false && context.state.abortController === null, 'Streaming HTTP error should clear active generation state.');
   assert(notifications.join(',') === 'isGenerating,isGenerating', 'Streaming HTTP error should notify begin and finish state changes.');
+
+  function streamResponseFromLines(lines) {
+    const encoder = new TextEncoder();
+    const chunks = lines.map((line) => encoder.encode(line));
+    let index = 0;
+    return {
+      ok: true,
+      body: {
+        getReader() {
+          return {
+            read() {
+              if (index < chunks.length) return Promise.resolve({ done: false, value: chunks[index++] });
+              return Promise.resolve({ done: true });
+            },
+          };
+        },
+      },
+    };
+  }
+
+  notifications.length = 0;
+  const tokenEvents = [];
+  let completedContent = '';
+  let completedCot = '';
+  context.state.settings.requestCotEnabled = true;
+  context.fetch = async () => streamResponseFromLines([
+    'data: {"choices":[{"delta":{"content":"Hel","reasoning_content":"R1"}}]}\n',
+    'data: {"choices":[{"delta":{"content":"lo","reasoning_content":"R2"}}]}\n',
+    'data: [DONE]\n',
+  ]);
+  await new Promise((resolve, reject) => {
+    context.__stream(
+      [{ role: 'user', content: 'hi' }],
+      (delta, content, cot) => tokenEvents.push({ delta, content, cot }),
+      (content, cot) => {
+        completedContent = content;
+        completedCot = cot;
+        resolve();
+      },
+      reject,
+      { requestCot: true }
+    );
+  });
+  assert(tokenEvents.length === 2 && tokenEvents[1].content === 'Hello', 'Streaming success should emit incremental content.');
+  assert(completedContent === 'Hello' && completedCot === 'R1R2', 'Streaming success should complete with content and CoT.');
+  assert(context.state.isGenerating === false && context.state.abortController === null, 'Streaming success should clear active generation state.');
+  assert(notifications.join(',') === 'isGenerating,isGenerating', 'Streaming success should notify begin and finish state changes.');
 }
 
 async function assertFrontendPromptMessageHelpers() {
