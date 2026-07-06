@@ -2,7 +2,7 @@
 async function importPublicCard(cardMeta) {
     const modal = dom.cardLibraryModal;
     try {
-        const res = await fetch(resolvePublicCardAssetUrl(cardMeta.jsonUrl));
+        const res = await fetch(resolvePublicCardJsonUrl(cardMeta));
         if (!res.ok) throw new Error('无法获取角色卡数据 (' + res.status + ')');
         const jsonData = await res.json();
 
@@ -23,7 +23,7 @@ async function importPublicCard(cardMeta) {
 
         // 3. 从公共库元数据附加预览图（关键修复：让从公共库导入的角色卡在“我的卡片”里能显示图片）
         if (cardMeta && cardMeta.previewImage) {
-            character.previewImage = resolvePublicCardAssetUrl(cardMeta.previewImage);
+            character.previewImage = resolvePublicCardImageUrl(cardMeta);
         }
         if (cardMeta && cardMeta.author && !character.author) {
             character.author = cardMeta.author;

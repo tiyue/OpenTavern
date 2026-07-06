@@ -10,7 +10,7 @@ function showCardLibraryDetail(card) {
 
     // 填充详情
     if (dom.cardLibraryDetailImage) {
-        dom.cardLibraryDetailImage.src = resolvePublicCardAssetUrl(card.previewImage);
+        dom.cardLibraryDetailImage.src = resolvePublicCardImageUrl(card);
         dom.cardLibraryDetailImage.alt = card.name || '';
         dom.cardLibraryDetailImage.onerror = function() {
             const wrap = dom.cardLibraryDetailImageWrap;

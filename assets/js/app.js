@@ -10061,18 +10061,34 @@ const PUBLIC_CARDS = [
     }
     // 新增的10张主目录角色卡已移至 cards/ 目录（使用干净文件名），路径统一为 /cards/ 前缀（与原有5张一致）。预览图路径已预填，缺少png时自动回退到字母占位符。
 ];
-// ==================== Public Card Library helpers ====================
-function getPublicCards() {
-    return Array.isArray(PUBLIC_CARDS) ? PUBLIC_CARDS : [];
+// ==================== Public Card Asset Helpers ====================
+function normalizePublicCardAssetPath(url) {
+    url = String(url || '').trim();
+    if (!url) return '';
+    if (/^(https?:|data:|blob:)/i.test(url)) return url;
+    return url.replace(/\\/g, '/').replace(/\/{2,}/g, '/');
 }
 
 function resolvePublicCardAssetUrl(url) {
-    url = String(url || '');
+    url = normalizePublicCardAssetPath(url);
     if (!url) return '';
+    if (/^(https?:|data:|blob:)/i.test(url)) return url;
     if (window.location && window.location.protocol === 'file:' && url.charAt(0) === '/') {
         return url.replace(/^\/+/, '');
     }
     return url;
+}
+
+function resolvePublicCardImageUrl(card) {
+    return resolvePublicCardAssetUrl(card && card.previewImage);
+}
+
+function resolvePublicCardJsonUrl(card) {
+    return resolvePublicCardAssetUrl(card && card.jsonUrl);
+}
+// ==================== Public Card Library helpers ====================
+function getPublicCards() {
+    return Array.isArray(PUBLIC_CARDS) ? PUBLIC_CARDS : [];
 }
 
 function findPublicCardById(id) {
@@ -10135,7 +10151,7 @@ function createCardLibraryItem(card, query = '') {
     const imgWrap = document.createElement('div');
     imgWrap.className = 'w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-2xl overflow-hidden bg-zinc-900 border border-white/10';
     const img = document.createElement('img');
-    img.src = resolvePublicCardAssetUrl(card.previewImage);
+    img.src = resolvePublicCardImageUrl(card);
     img.className = 'w-full h-full object-cover';
     img.alt = card.name || 'preview';
     img.loading = 'lazy';
@@ -10234,7 +10250,7 @@ function showCardLibraryDetail(card) {
 
     // 填充详情
     if (dom.cardLibraryDetailImage) {
-        dom.cardLibraryDetailImage.src = resolvePublicCardAssetUrl(card.previewImage);
+        dom.cardLibraryDetailImage.src = resolvePublicCardImageUrl(card);
         dom.cardLibraryDetailImage.alt = card.name || '';
         dom.cardLibraryDetailImage.onerror = function() {
             const wrap = dom.cardLibraryDetailImageWrap;
@@ -10288,7 +10304,7 @@ function showCardLibraryDetail(card) {
 async function importPublicCard(cardMeta) {
     const modal = dom.cardLibraryModal;
     try {
-        const res = await fetch(resolvePublicCardAssetUrl(cardMeta.jsonUrl));
+        const res = await fetch(resolvePublicCardJsonUrl(cardMeta));
         if (!res.ok) throw new Error('无法获取角色卡数据 (' + res.status + ')');
         const jsonData = await res.json();
 
@@ -10309,7 +10325,7 @@ async function importPublicCard(cardMeta) {
 
         // 3. 从公共库元数据附加预览图（关键修复：让从公共库导入的角色卡在“我的卡片”里能显示图片）
         if (cardMeta && cardMeta.previewImage) {
-            character.previewImage = resolvePublicCardAssetUrl(cardMeta.previewImage);
+            character.previewImage = resolvePublicCardImageUrl(cardMeta);
         }
         if (cardMeta && cardMeta.author && !character.author) {
             character.author = cardMeta.author;
@@ -10836,7 +10852,7 @@ function createPublicLibraryCardPreview(card) {
     preview.className = 'aspect-[3/4] w-full overflow-hidden rounded-t-2xl bg-zinc-900';
 
     const img = document.createElement('img');
-    img.src = resolvePublicCardAssetUrl(card.previewImage);
+    img.src = resolvePublicCardImageUrl(card);
     img.className = 'w-full h-full object-cover';
     img.alt = card.name || '';
     img.onerror = () => {

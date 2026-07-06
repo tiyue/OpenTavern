@@ -17,7 +17,7 @@ function createPublicLibraryCardPreview(card) {
     preview.className = 'aspect-[3/4] w-full overflow-hidden rounded-t-2xl bg-zinc-900';
 
     const img = document.createElement('img');
-    img.src = resolvePublicCardAssetUrl(card.previewImage);
+    img.src = resolvePublicCardImageUrl(card);
     img.className = 'w-full h-full object-cover';
     img.alt = card.name || '';
     img.onerror = () => {

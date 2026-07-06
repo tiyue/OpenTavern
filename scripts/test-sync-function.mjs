@@ -590,17 +590,21 @@ async function assertFrontendSettingsSaveHelpers() {
 
 async function assertFrontendPublicCardAssets() {
   const dataSource = await readFile(new URL('../src/app/60-public-card-data.js', import.meta.url), 'utf8');
+  const assetSource = await readFile(new URL('../src/app/60-public-card-assets.js', import.meta.url), 'utf8');
   const librarySource = await readFile(new URL('../src/app/60-public-card-library.js', import.meta.url), 'utf8');
 
   const context = {
     window: { location: { protocol: 'file:' } },
     JSON,
   };
-  vm.runInNewContext(`${dataSource}\n${librarySource}\nthis.__cards = getPublicCards();\nthis.__resolve = resolvePublicCardAssetUrl;`, context);
+  vm.runInNewContext(`${dataSource}\n${assetSource}\n${librarySource}\nthis.__cards = getPublicCards();\nthis.__resolve = resolvePublicCardAssetUrl;\nthis.__resolveImage = resolvePublicCardImageUrl;\nthis.__resolveJson = resolvePublicCardJsonUrl;`, context);
 
   assert(Array.isArray(context.__cards), 'Public card library did not expose an array.');
   assert(context.__cards.length >= 10, 'Public card library should contain bundled cards.');
   assert(context.__resolve('/cards/Plana.png') === 'cards/Plana.png', 'File protocol should use relative card asset paths.');
+  assert(context.__resolve('\\\\cards\\\\Plana.png') === 'cards/Plana.png', 'File protocol should normalize Windows-style card asset paths.');
+  assert(context.__resolveImage({ previewImage: '/cards/Plana.png' }) === 'cards/Plana.png', 'Public card image helper should resolve preview assets.');
+  assert(context.__resolveJson({ jsonUrl: '/cards/Plana.json' }) === 'cards/Plana.json', 'Public card JSON helper should resolve card data assets.');
 
   context.window.location.protocol = 'http:';
   assert(context.__resolve('/cards/Plana.png') === '/cards/Plana.png', 'HTTP protocol should preserve absolute card asset paths.');
