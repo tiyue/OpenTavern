@@ -13202,6 +13202,15 @@ function openSettings() {
     bindSettingsStorageControls();
     dom.settingsModal.classList.remove('hidden');
 }
+function readCloudSyncSettingsFromForm() {
+    ensureCloudSyncSettings();
+    if (dom.cloudSyncEnabled) state.settings.cloudSyncEnabled = !!dom.cloudSyncEnabled.checked;
+    if (dom.cloudSyncAutoUpload) state.settings.cloudSyncAutoUpload = !!dom.cloudSyncAutoUpload.checked;
+    if (dom.cloudSyncEndpoint) state.settings.cloudSyncEndpoint = dom.cloudSyncEndpoint.value.trim() || '/api/sync';
+    if (dom.cloudSyncToken) state.settings.cloudSyncToken = dom.cloudSyncToken.value.trim();
+    if (dom.cloudSyncEncrypted) state.settings.cloudSyncEncrypted = !!dom.cloudSyncEncrypted.checked;
+    if (dom.cloudSyncPassphrase) state.settings.cloudSyncPassphrase = dom.cloudSyncPassphrase.value;
+}
 function hydrateCloudSyncSettingsControls() {
     // Cloud Sync
     ensureCloudSyncSettings();
@@ -13218,18 +13227,9 @@ function hydrateCloudSyncSettingsControls() {
         }
         dom.cloudSyncStatus.textContent = cloudStatus;
     }
-    function readCloudSyncForm() {
-        ensureCloudSyncSettings();
-        if (dom.cloudSyncEnabled) state.settings.cloudSyncEnabled = !!dom.cloudSyncEnabled.checked;
-        if (dom.cloudSyncAutoUpload) state.settings.cloudSyncAutoUpload = !!dom.cloudSyncAutoUpload.checked;
-        if (dom.cloudSyncEndpoint) state.settings.cloudSyncEndpoint = dom.cloudSyncEndpoint.value.trim() || '/api/sync';
-        if (dom.cloudSyncToken) state.settings.cloudSyncToken = dom.cloudSyncToken.value.trim();
-        if (dom.cloudSyncEncrypted) state.settings.cloudSyncEncrypted = !!dom.cloudSyncEncrypted.checked;
-        if (dom.cloudSyncPassphrase) state.settings.cloudSyncPassphrase = dom.cloudSyncPassphrase.value;
-    }
     if (dom.cloudSyncNowBtn) {
         dom.cloudSyncNowBtn.onclick = function() {
-            readCloudSyncForm();
+            readCloudSyncSettingsFromForm();
             syncCloudSyncSnapshot(dom.cloudSyncStatus).catch(function(err) {
                 setCloudSyncStatus('Cloud sync failed: ' + ((err && err.message) || err), true);
                 persistState(true);
@@ -13238,7 +13238,7 @@ function hydrateCloudSyncSettingsControls() {
     }
     if (dom.cloudSyncUploadBtn) {
         dom.cloudSyncUploadBtn.onclick = function() {
-            readCloudSyncForm();
+            readCloudSyncSettingsFromForm();
             uploadCloudSyncSnapshot(dom.cloudSyncStatus, { force: true }).catch(function(err) {
                 setCloudSyncStatus('Cloud upload failed: ' + ((err && err.message) || err), true);
                 persistState(true);
@@ -13247,7 +13247,7 @@ function hydrateCloudSyncSettingsControls() {
     }
     if (dom.cloudSyncDownloadBtn) {
         dom.cloudSyncDownloadBtn.onclick = function() {
-            readCloudSyncForm();
+            readCloudSyncSettingsFromForm();
             downloadCloudSyncSnapshot(dom.cloudSyncStatus).catch(function(err) {
                 setCloudSyncStatus('Cloud download failed: ' + ((err && err.message) || err), true);
                 persistState(true);
@@ -13506,7 +13506,7 @@ function bindSettingsStorageControls() {
     bindSettingsStorageClearControls(backend);
     bindSettingsStorageRecoveryControls();
 }
-function closeSettings() {
+function readMainSettingsFromForm() {
     state.settings.apiEndpoint = dom.apiEndpoint.value.trim();
     state.settings.apiKey = dom.apiKey.value.trim();
     state.settings.saveApiKey = dom.saveApiKey ? !!dom.saveApiKey.checked : false;
@@ -13528,35 +13528,36 @@ function closeSettings() {
     if (dom.requestCotEnabled) state.settings.requestCotEnabled = !!dom.requestCotEnabled.checked;
     if (dom.showCotEnabled) state.settings.showCotEnabled = !!dom.showCotEnabled.checked;
     if (dom.userDescription) state.settings.userDescription = dom.userDescription.value.trim();
+}
+
+function readSummarySettingsFromForm() {
     ensureSillyTavernPresetSettings();
     state.settings.summaryEnabled = dom.summaryEnabled.checked;
-    if (dom.summaryThreshold) {
-        state.settings.summaryThreshold = parseInt(dom.summaryThreshold.value) || 12;
-    }
-    if (dom.summaryMaxWords) {
-        state.settings.summaryMaxWords = parseInt(dom.summaryMaxWords.value) || 0;
-    }
+    if (dom.summaryThreshold) state.settings.summaryThreshold = parseInt(dom.summaryThreshold.value) || 12;
+    if (dom.summaryMaxWords) state.settings.summaryMaxWords = parseInt(dom.summaryMaxWords.value) || 0;
     if (dom.summaryPrompt) state.settings.summaryPrompt = dom.summaryPrompt.value.trim();
+}
 
-    // World Info Budget
+function readWorldInfoBudgetSettingsFromForm() {
     state.settings.worldInfoBudgetEnabled = dom.worldInfoBudgetEnabled.checked;
     state.settings.worldInfoBudget = parseInt(dom.worldInfoBudget.value) || 2048;
+}
 
-    // 界面主题
+function readUiBehaviorSettingsFromForm() {
     state.settings.uiTheme = dom.uiTheme ? (dom.uiTheme.value || 'new-light') : 'new-light';
     state.settings.uiTheme = typeof normalizeUiTheme === 'function' ? normalizeUiTheme(state.settings.uiTheme) : state.settings.uiTheme;
     if (typeof cacheUiTheme === 'function') cacheUiTheme(state.settings.uiTheme);
-
-    // 效能模式（低功耗）
     state.settings.lowPowerMode = dom.lowPowerMode ? !!dom.lowPowerMode.checked : false;
+}
 
-    // Summarization API
+function readSummarizationApiSettingsFromForm() {
     state.settings.summarizeUseMainAPI = dom.summarizeUseMainAPI.checked;
     state.settings.summarizeApiEndpoint = dom.summarizeApiEndpoint.value.trim();
     state.settings.summarizeApiKey = dom.summarizeApiKey.value.trim();
     state.settings.summarizeModel = dom.summarizeModel.value.trim() || 'deepseek-v4-flash';
+}
 
-    // ComfyUI txt2img
+function readComfySettingsFromForm() {
     ensureComfySettings();
     if (dom.comfyEnabled) state.settings.comfyEnabled = !!dom.comfyEnabled.checked;
     if (dom.comfyServer) state.settings.comfyServer = normalizeComfyServer(dom.comfyServer.value);
@@ -13565,55 +13566,52 @@ function closeSettings() {
     if (dom.comfySeedNodeId) state.settings.comfySeedNodeId = dom.comfySeedNodeId.value.trim();
     if (dom.comfyNegativePrompt) state.settings.comfyNegativePrompt = dom.comfyNegativePrompt.value.trim();
     if (dom.comfyPromptTemplate) state.settings.comfyPromptTemplate = dom.comfyPromptTemplate.value.trim() || defaultSettings().comfyPromptTemplate;
+}
 
-    // Cloud Sync
-    ensureCloudSyncSettings();
-    if (dom.cloudSyncEnabled) state.settings.cloudSyncEnabled = !!dom.cloudSyncEnabled.checked;
-    if (dom.cloudSyncAutoUpload) state.settings.cloudSyncAutoUpload = !!dom.cloudSyncAutoUpload.checked;
-    if (dom.cloudSyncEndpoint) state.settings.cloudSyncEndpoint = dom.cloudSyncEndpoint.value.trim() || '/api/sync';
-    if (dom.cloudSyncToken) state.settings.cloudSyncToken = dom.cloudSyncToken.value.trim();
-    if (dom.cloudSyncEncrypted) state.settings.cloudSyncEncrypted = !!dom.cloudSyncEncrypted.checked;
-    if (dom.cloudSyncPassphrase) state.settings.cloudSyncPassphrase = dom.cloudSyncPassphrase.value;
+function readWebLLMSettingsFromForm() {
+    var backendSel = document.getElementById('inferenceBackend');
+    var webllmSel = document.getElementById('webllmModel');
+    if (backendSel) state.settings.inferenceBackend = backendSel.value || 'remote-api';
+    if (webllmSel) state.settings.webllmModel = webllmSel.value || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+}
 
-    // WebLLM 后端（从表单读取）
-    var backendSel2 = document.getElementById('inferenceBackend');
-    var webllmSel2 = document.getElementById('webllmModel');
-    if (backendSel2) {
-        state.settings.inferenceBackend = backendSel2.value || 'remote-api';
-    }
-    if (webllmSel2) {
-        state.settings.webllmModel = webllmSel2.value || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
-    }
-
+function readSettingsFormIntoState() {
+    readMainSettingsFromForm();
+    readSummarySettingsFromForm();
+    readWorldInfoBudgetSettingsFromForm();
+    readUiBehaviorSettingsFromForm();
+    readSummarizationApiSettingsFromForm();
+    readComfySettingsFromForm();
+    readCloudSyncSettingsFromForm();
+    readWebLLMSettingsFromForm();
+}
+function applyClosedSettingsEffects() {
     persistState();
     dom.settingsModal.classList.add('hidden');
 
-    // 立即应用界面主题
     if (typeof applyUiTheme === 'function') {
         applyUiTheme(state.settings.uiTheme);
     }
-
-    // 立即应用效能模式（暂停/恢复 shader + 应用 CSS 类）
     if (typeof applyPerformanceMode === 'function') {
         applyPerformanceMode(state.settings.lowPowerMode);
     }
     updateInputState();
 
-    // 设置变更后清理相关缓存，确保 token 条和世界书激活正确刷新
     var conv = getActiveConv();
     if (conv) {
         conv._wiCache = null;
     }
     renderTokenBar();
 
-    // 关键修复：用户在中途修改总结阈值后，关闭设置时主动检查一次
-    // 让改阈值能立即对当前对话产生效果（尤其是调低阈值时）
     if (state.settings.summaryEnabled) {
         setTimeout(function() { autoSummarize(); }, 120);
     }
 
-    // 显式通知 settings 变更
     appStore.notify('settings');
+}
+function closeSettings() {
+    readSettingsFormIntoState();
+    applyClosedSettingsEffects();
 }
 // ==================== Send Message ====================
 function sendMessage() {

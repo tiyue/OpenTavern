@@ -472,6 +472,122 @@ async function assertFrontendPromptMessageHelpers() {
   assert(replaced[0].content === 'A for Sensei\n\nwith Arona B  C Arona', 'Prompt outlet resolution or final placeholder replacement changed.');
 }
 
+async function assertFrontendSettingsSaveHelpers() {
+  const sources = await Promise.all([
+    '../src/app/68-settings-cloud-sync-form.js',
+    '../src/app/68-settings-save-form.js',
+    '../src/app/68-settings-save-effects.js',
+    '../src/app/68-settings-save.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const events = [];
+  const activeConv = { _wiCache: { stale: true } };
+  const classList = {
+    values: new Set(),
+    add(value) { this.values.add(value); },
+  };
+  const input = (value) => ({ value });
+  const checkbox = (checked) => ({ checked });
+  const context = {
+    state: { settings: {} },
+    dom: {
+      apiEndpoint: input(' https://api.example/v1 '),
+      apiKey: input(' key '),
+      saveApiKey: checkbox(true),
+      ollamaCompatMode: checkbox(true),
+      modelName: input(' model-a '),
+      contextLength: input('32'),
+      maxTokens: input('2048'),
+      temperature: input('0.4'),
+      topP: input('0.8'),
+      userName: input(' Sensei '),
+      systemPrompt: input(' system '),
+      postHistoryInstructions: input(' post '),
+      twoStageEnabled: checkbox(true),
+      twoStageTemperature: input('0.25'),
+      twoStageTopP: input('0.75'),
+      twoStageIncludeRecentContext: checkbox(true),
+      twoStageSystemPrompt: input(''),
+      twoStagePostHistoryInstructions: input(' two post '),
+      requestCotEnabled: checkbox(true),
+      showCotEnabled: checkbox(true),
+      userDescription: input(' user desc '),
+      summaryEnabled: checkbox(true),
+      summaryThreshold: input('18'),
+      summaryMaxWords: input('600'),
+      summaryPrompt: input(' summarize '),
+      worldInfoBudgetEnabled: checkbox(true),
+      worldInfoBudget: input('4096'),
+      uiTheme: input('new-dark'),
+      lowPowerMode: checkbox(true),
+      summarizeUseMainAPI: checkbox(false),
+      summarizeApiEndpoint: input(' https://summary.example '),
+      summarizeApiKey: input(' summary-key '),
+      summarizeModel: input(' summary-model '),
+      comfyEnabled: checkbox(true),
+      comfyServer: input(' http://127.0.0.1:8188/ '),
+      comfyPositiveNodeId: input(' 1 '),
+      comfyNegativeNodeId: input(' 2 '),
+      comfySeedNodeId: input(' 3 '),
+      comfyNegativePrompt: input(' neg '),
+      comfyPromptTemplate: input(''),
+      cloudSyncEnabled: checkbox(true),
+      cloudSyncAutoUpload: checkbox(true),
+      cloudSyncEndpoint: input('   '),
+      cloudSyncToken: input(' cloud-token '),
+      cloudSyncEncrypted: checkbox(true),
+      cloudSyncPassphrase: input(' pass phrase '),
+      settingsModal: { classList },
+    },
+    document: {
+      getElementById(id) {
+        if (id === 'inferenceBackend') return { value: 'webllm' };
+        if (id === 'webllmModel') return { value: 'Llama-Test' };
+        return null;
+      },
+    },
+    DEFAULT_TWO_STAGE_PROMPT: 'default two stage',
+    ensureSillyTavernPresetSettings() { events.push('preset'); },
+    normalizeUiTheme(value) { events.push('theme-normalize'); return value; },
+    cacheUiTheme(value) { events.push(`cache:${value}`); },
+    ensureComfySettings() { events.push('comfy'); },
+    normalizeComfyServer(value) { return value.trim().replace(/\/+$/, ''); },
+    defaultSettings() { return { comfyPromptTemplate: 'default comfy template' }; },
+    ensureCloudSyncSettings() { events.push('cloud'); },
+    persistState() { events.push('persist'); },
+    applyUiTheme(value) { events.push(`apply-theme:${value}`); },
+    applyPerformanceMode(value) { events.push(`perf:${value}`); },
+    updateInputState() { events.push('input'); },
+    getActiveConv() { return activeConv; },
+    renderTokenBar() { events.push('token'); },
+    autoSummarize() { events.push('auto'); },
+    appStore: { notify(key) { events.push(`notify:${key}`); } },
+    setTimeout(fn) { fn(); },
+    parseInt,
+    parseFloat,
+    Number,
+    Set,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__close = closeSettings;`, context);
+  context.__close();
+
+  assert(context.state.settings.apiEndpoint === 'https://api.example/v1', 'Settings save should trim API endpoint.');
+  assert(context.state.settings.model === 'model-a' && context.state.settings.contextLength === 32, 'Settings save should read model and context length.');
+  assert(context.state.settings.twoStageSystemPrompt === 'default two stage', 'Settings save should default empty two-stage prompt.');
+  assert(context.state.settings.uiTheme === 'new-dark' && context.state.settings.lowPowerMode === true, 'Settings save should read UI behavior settings.');
+  assert(context.state.settings.comfyServer === 'http://127.0.0.1:8188', 'Settings save should normalize Comfy server.');
+  assert(context.state.settings.comfyPromptTemplate === 'default comfy template', 'Settings save should default empty Comfy prompt template.');
+  assert(context.state.settings.cloudSyncEndpoint === '/api/sync', 'Settings save should default empty cloud sync endpoint.');
+  assert(context.state.settings.cloudSyncToken === 'cloud-token', 'Settings save should trim cloud sync token.');
+  assert(context.state.settings.cloudSyncPassphrase === ' pass phrase ', 'Settings save should preserve cloud sync passphrase exactly.');
+  assert(context.state.settings.inferenceBackend === 'webllm' && context.state.settings.webllmModel === 'Llama-Test', 'Settings save should read WebLLM controls.');
+  assert(classList.values.has('hidden'), 'Settings save should hide the modal.');
+  assert(activeConv._wiCache === null, 'Settings save should clear world-info cache.');
+  assert(events.includes('persist') && events.includes('apply-theme:new-dark') && events.includes('perf:true') && events.includes('notify:settings'), 'Settings save effects did not run.');
+  assert(events.includes('auto'), 'Settings save should trigger auto summarize when enabled.');
+}
+
 async function assertFrontendPublicCardAssets() {
   const dataSource = await readFile(new URL('../src/app/60-public-card-data.js', import.meta.url), 'utf8');
   const librarySource = await readFile(new URL('../src/app/60-public-card-library.js', import.meta.url), 'utf8');
@@ -1162,6 +1278,7 @@ async function main() {
   await assertFrontendApiConnectionHelpers();
   await assertFrontendGenerationHelpers();
   await assertFrontendPromptMessageHelpers();
+  await assertFrontendSettingsSaveHelpers();
   await assertFrontendPublicCardAssets();
   await assertFrontendPublicCardGridFiltering();
   await assertFrontendI18nRuntime();

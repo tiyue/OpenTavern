@@ -14,18 +14,9 @@ function hydrateCloudSyncSettingsControls() {
         }
         dom.cloudSyncStatus.textContent = cloudStatus;
     }
-    function readCloudSyncForm() {
-        ensureCloudSyncSettings();
-        if (dom.cloudSyncEnabled) state.settings.cloudSyncEnabled = !!dom.cloudSyncEnabled.checked;
-        if (dom.cloudSyncAutoUpload) state.settings.cloudSyncAutoUpload = !!dom.cloudSyncAutoUpload.checked;
-        if (dom.cloudSyncEndpoint) state.settings.cloudSyncEndpoint = dom.cloudSyncEndpoint.value.trim() || '/api/sync';
-        if (dom.cloudSyncToken) state.settings.cloudSyncToken = dom.cloudSyncToken.value.trim();
-        if (dom.cloudSyncEncrypted) state.settings.cloudSyncEncrypted = !!dom.cloudSyncEncrypted.checked;
-        if (dom.cloudSyncPassphrase) state.settings.cloudSyncPassphrase = dom.cloudSyncPassphrase.value;
-    }
     if (dom.cloudSyncNowBtn) {
         dom.cloudSyncNowBtn.onclick = function() {
-            readCloudSyncForm();
+            readCloudSyncSettingsFromForm();
             syncCloudSyncSnapshot(dom.cloudSyncStatus).catch(function(err) {
                 setCloudSyncStatus('Cloud sync failed: ' + ((err && err.message) || err), true);
                 persistState(true);
@@ -34,7 +25,7 @@ function hydrateCloudSyncSettingsControls() {
     }
     if (dom.cloudSyncUploadBtn) {
         dom.cloudSyncUploadBtn.onclick = function() {
-            readCloudSyncForm();
+            readCloudSyncSettingsFromForm();
             uploadCloudSyncSnapshot(dom.cloudSyncStatus, { force: true }).catch(function(err) {
                 setCloudSyncStatus('Cloud upload failed: ' + ((err && err.message) || err), true);
                 persistState(true);
@@ -43,7 +34,7 @@ function hydrateCloudSyncSettingsControls() {
     }
     if (dom.cloudSyncDownloadBtn) {
         dom.cloudSyncDownloadBtn.onclick = function() {
-            readCloudSyncForm();
+            readCloudSyncSettingsFromForm();
             downloadCloudSyncSnapshot(dom.cloudSyncStatus).catch(function(err) {
                 setCloudSyncStatus('Cloud download failed: ' + ((err && err.message) || err), true);
                 persistState(true);
