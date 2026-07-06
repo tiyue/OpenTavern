@@ -50,6 +50,7 @@
   "32-group-chat-core.js",
   "32-group-mention-ui.js",
   "33-state-lifecycle.js",
+  "34-state-init-helpers.js",
   "34-state-init.js",
   "35-state-persistence-i18n.js",
   "40-character-prompt-worldbook.js",

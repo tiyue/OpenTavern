@@ -715,6 +715,72 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
   assert(errors.length === 0, `file:// path should not error: ${errors.join('\n')}`);
 }
 
+async function assertFrontendStateInitialization() {
+  const sources = await Promise.all([
+    '../src/app/34-state-init-helpers.js',
+    '../src/app/34-state-init.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  let persisted = false;
+  const context = {
+    state: {
+      settings: {},
+      conversations: {},
+      conversationOrder: [],
+      activeConvId: null,
+      characters: {},
+      worldBooks: {},
+    },
+    StorageService: {
+      async loadAll() {
+        return {
+          settings: { lang: 'en', saveApiKey: false, apiKey: 'secret', summarizeApiKey: 'summary-secret', uiTheme: 'new-light' },
+          conversations: {
+            c1: { id: 'c1', messages: [{ role: 'user', content: 'hello' }] },
+            c2: { id: 'c2', messages: [{ role: 'assistant', content: 'world' }] },
+          },
+          conversationOrder: ['c2', 'c1'],
+          activeConvId: 'missing',
+          characters: { arona: { name: 'Arona' } },
+          worldBooks: { wb1: { id: 'wb1', entries: [] } },
+          charactersMigrated: false,
+          lastSaved: 10,
+        };
+      },
+      getBackend() { return 'idb'; },
+      _hasUserData() { return true; },
+    },
+    loadAll() { return null; },
+    defaultConversation() { return { id: 'default', messages: [] }; },
+    migrateCharactersToRegistry() {},
+    persistState() { persisted = true; },
+    normalizeUiTheme(value) { return value; },
+    cacheUiTheme() {},
+    applyUiTheme() {},
+    applyPerformanceMode() {},
+    DEFAULT_TWO_STAGE_PROMPT: 'two stage default',
+    console: { log() {}, warn() {} },
+    Object,
+    Array,
+    Set,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__initState = initState;`, context);
+  await context.__initState();
+
+  assert(context.state.settings.lang === 'en', 'initState did not restore settings.');
+  assert(context.state.settings.apiKey === '', 'initState should clear API key when saveApiKey is false/defaulted.');
+  assert(context.state.settings.summarizeApiKey === '', 'initState should clear summarize API key when saveApiKey is false/defaulted.');
+  assert(context.state.settings.twoStageSystemPrompt === 'two stage default', 'initState did not apply two-stage prompt default.');
+  assert(context.state.conversations.c1.messages[0].content === 'hello', 'initState did not restore conversations.');
+  assert(context.state.activeConvId === 'c2', 'initState did not recover active conversation from conversationOrder.');
+  assert(context.state.characters.arona.name === 'Arona', 'initState did not restore character cards.');
+  assert(context.state.worldBooks.wb1.id === 'wb1', 'initState did not restore world books.');
+  assert(context.state._charactersMigrated === true, 'initState did not set character migration flag.');
+  assert(context.state._storageMigration.backend === 'idb', 'initState did not record storage backend.');
+  assert(persisted === true, 'initState should persist first character migration when user data exists.');
+}
+
 async function main() {
   await assertFrontendCloudSnapshot();
   await assertFrontendSummaryService();
@@ -727,6 +793,7 @@ async function main() {
   await assertFrontendFileProtocolOPFSSilence();
   await assertFrontendStorageServicePipeline();
   await assertFrontendStorageServiceFileProtocolStatus();
+  await assertFrontendStateInitialization();
 
   const { db } = createMockD1();
   const env = { SYNC_DB: db };
