@@ -7464,9 +7464,31 @@ function renderWorldInfoBudgetWarning() {
         dismissBtn._wired = true;
     }
 }
-// ==================== World Book Matching Helpers ====================
+// ==================== World Book Key Matching ====================
 function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildWorldBookKeyRegex(key, flags, wholeWord) {
+    var isRegex = key[0] === '/' && key.lastIndexOf('/') > 1;
+    if (isRegex) {
+        var lastSlash = key.lastIndexOf('/');
+        var pattern = key.slice(1, lastSlash);
+        var regexFlags = key.slice(lastSlash + 1) || flags;
+        return new RegExp(pattern, regexFlags);
+    }
+
+    if (wholeWord) {
+        try {
+            var escaped = escapeRegex(key);
+            var pat = '(?<!\\w)' + escaped + '(?!\\w)';
+            return new RegExp(pat, flags + 'u');
+        } catch (e) {
+            return new RegExp(escapeRegex(key), flags);
+        }
+    }
+
+    return new RegExp(escapeRegex(key), flags);
 }
 
 function entryMatchesKeys(entry, text, caseSensitive, wholeWord) {
@@ -7475,30 +7497,8 @@ function entryMatchesKeys(entry, text, caseSensitive, wholeWord) {
     for (var i = 0; i < entry.key.length; i++) {
         var k = entry.key[i];
         if (!k) continue;
-        var isRegex = k[0] === '/' && k.lastIndexOf('/') > 1;
-        var re;
-        if (isRegex) {
-            try {
-                var lastSlash = k.lastIndexOf('/');
-                var pattern = k.slice(1, lastSlash);
-                var f = k.slice(lastSlash + 1) || flags;
-                re = new RegExp(pattern, f);
-            } catch (e) { re = null; }
-        } else {
-            if (wholeWord) {
-                // 更好的 Unicode 单词边界（支持中文、日文等）
-                try {
-                    var escaped = escapeRegex(k);
-                    var pat = '(?<!\\w)' + escaped + '(?!\\w)';
-                    re = new RegExp(pat, flags + 'u');
-                } catch (e) {
-                    // 旧浏览器不支持 lookbehind，回退到普通匹配
-                    re = new RegExp(escapeRegex(k), flags);
-                }
-            } else {
-                re = new RegExp(escapeRegex(k), flags);
-            }
-        }
+        var re = null;
+        try { re = buildWorldBookKeyRegex(k, flags, wholeWord); } catch (e) { re = null; }
         if (re && re.test(text)) return true;
     }
     return false;
@@ -7511,16 +7511,8 @@ function entryMatchesSecondary(entry, text, caseSensitive) {
     for (var i = 0; i < entry.keysecondary.length; i++) {
         var k = entry.keysecondary[i];
         if (!k) continue;
-        var isRegex = k[0] === '/' && k.lastIndexOf('/') > 1;
-        var re;
-        if (isRegex) {
-            try {
-                var last = k.lastIndexOf('/');
-                re = new RegExp(k.slice(1, last), k.slice(last + 1) || flags);
-            } catch (e) { re = null; }
-        } else {
-            re = new RegExp(escapeRegex(k), flags);
-        }
+        var re = null;
+        try { re = buildWorldBookKeyRegex(k, flags, false); } catch (e) { re = null; }
         if (re && re.test(text)) matches++;
     }
     var logic = entry.selectiveLogic || 0;
@@ -7530,7 +7522,7 @@ function entryMatchesSecondary(entry, text, caseSensitive) {
     if (logic === 3) return matches < entry.keysecondary.length;
     return matches > 0;
 }
-
+// ==================== World Book Activation Filters ====================
 function passesCharacterFilter(entry, charName, charTags) {
     var cf = entry.characterFilter || { isExclude: false, names: [], tags: [] };
     var names = cf.names || [];
@@ -7551,6 +7543,22 @@ function passesProbability(entry) {
     if (p <= 0) return false;
     return Math.random() * 100 < p;
 }
+// ==================== World Book Scan Text ====================
+function appendWorldBookCharacterScanSources(out, character, entry) {
+    if (!character) return;
+    if (entry) {
+        if (entry.matchCharacterDescription) out.push('CharacterDescription: ' + (character.description || ''));
+        if (entry.matchCharacterPersonality) out.push('CharacterPersonality: ' + (character.personality || ''));
+        if (entry.matchScenario) out.push('Scenario: ' + (character.scenario || ''));
+        if (entry.matchCharacterDepthPrompt) out.push("Character's Note: " + getEffectivePostHistoryInstructions(character));
+        if (entry.matchCreatorNotes) out.push('Creator Notes: ' + (character.creator_notes || ''));
+        return;
+    }
+
+    out.push('CharacterDescription: ' + (character.description || ''));
+    out.push('CharacterPersonality: ' + (character.personality || ''));
+    out.push('Scenario: ' + (character.scenario || ''));
+}
 
 function buildScanText(conv, depth, entry) {
     if (!conv) return '';
@@ -7567,38 +7575,11 @@ function buildScanText(conv, depth, entry) {
         out.push(prefix + (m.content || ''));
     }
 
-    // === Selective Additional Matching Sources ===
-    // Only include fields that this specific entry has enabled
-    if (conv.character && entry) {
-        var c = conv.character;
-        if (entry.matchCharacterDescription) {
-            out.push('CharacterDescription: ' + (c.description || ''));
-        }
-        if (entry.matchCharacterPersonality) {
-            out.push('CharacterPersonality: ' + (c.personality || ''));
-        }
-        if (entry.matchScenario) {
-            out.push('Scenario: ' + (c.scenario || ''));
-        }
-        if (entry.matchPersonaDescription) {
-            // For now we don't have a separate persona system, skip or use settings
-        }
-        if (entry.matchCharacterDepthPrompt) {
-            out.push("Character's Note: " + getEffectivePostHistoryInstructions(c));
-        }
-        if (entry.matchCreatorNotes) {
-            out.push('Creator Notes: ' + (c.creator_notes || ''));
-        }
-    } else if (conv.character) {
-        // Fallback: if no entry provided, include everything (legacy behavior)
-        var c = conv.character;
-        out.push('CharacterDescription: ' + (c.description || ''));
-        out.push('CharacterPersonality: ' + (c.personality || ''));
-        out.push('Scenario: ' + (c.scenario || ''));
-    }
-
+    appendWorldBookCharacterScanSources(out, conv.character, entry);
     return out.join('\n');
 }
+// ==================== World Book Matching Helpers ====================
+// Split into key matching, activation filters, and scan text helper chunks.
 // ==================== World Book Budget Helpers ====================
 function estimateTokens(text) {
     if (!text) return 0;

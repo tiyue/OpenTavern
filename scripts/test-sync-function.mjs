@@ -931,6 +931,9 @@ async function assertFrontendWorldBookActivation() {
     '../src/app/41-world-info-position.js',
     '../src/app/41-world-info-extension-fields.js',
     '../src/app/41-world-info-normalizer.js',
+    '../src/app/44-worldbook-match-keys.js',
+    '../src/app/44-worldbook-match-filters.js',
+    '../src/app/44-worldbook-scan-text.js',
     '../src/app/44-worldbook-matching.js',
     '../src/app/44-worldbook-budget.js',
     '../src/app/44-worldbook-timed-effects.js',
@@ -1123,6 +1126,46 @@ async function assertFrontendWorldBookActivationHelpers() {
   ]);
   assert(grouped.byPosition[1][0].uid === 'normal', 'World info grouping should preserve normal positions.');
   assert(grouped.outlets.Lore.map((entry) => entry.uid).join(',') === 'early,late', 'World info outlets should sort by order.');
+}
+
+async function assertFrontendWorldBookMatchingHelpers() {
+  const sources = await Promise.all([
+    '../src/app/44-worldbook-match-keys.js',
+    '../src/app/44-worldbook-match-filters.js',
+    '../src/app/44-worldbook-scan-text.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const context = {
+    state: { settings: { userName: 'Sensei' } },
+    getEffectivePostHistoryInstructions: () => 'depth note',
+    Math: Object.assign({}, Math, { random: () => 0.25 }),
+    RegExp,
+    String,
+    Array,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__key = entryMatchesKeys;\nthis.__secondary = entryMatchesSecondary;\nthis.__charFilter = passesCharacterFilter;\nthis.__prob = passesProbability;\nthis.__scan = buildScanText;`, context);
+
+  assert(context.__key({ key: ['Kivotos'] }, 'hello kivotos', false, false), 'World book key matching should be case-insensitive by default.');
+  assert(context.__key({ key: ['/Ki.vo/i'] }, 'Kiavo', true, false), 'World book key matching should support regex keys.');
+  assert(context.__secondary({ keysecondary: ['a', 'b'], selectiveLogic: 1 }, 'a b', false), 'World book secondary matching should support AND logic.');
+  assert(!context.__secondary({ keysecondary: ['a'], selectiveLogic: 2 }, 'a', false), 'World book secondary matching should support NOT logic.');
+  assert(context.__charFilter({ characterFilter: { isExclude: false, names: ['Arona'], tags: [] } }, 'arona', []), 'Character filter should match names case-insensitively.');
+  assert(!context.__charFilter({ characterFilter: { isExclude: true, names: [], tags: ['ai'] } }, 'Plana', ['AI']), 'Character filter should exclude matching tags.');
+  assert(context.__prob({ useProbability: true, probability: 30 }) === true, 'Probability filter should use percent chance.');
+  assert(context.__prob({ useProbability: true, probability: 20 }) === false, 'Probability filter should fail when roll is above chance.');
+
+  const scan = context.__scan({
+    character: { name: 'Arona', description: 'desc', personality: 'kind', scenario: 'scene', creator_notes: 'notes' },
+    messages: [
+      { role: 'system', content: 'hidden' },
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: 'hello' },
+    ],
+  }, 4, { matchCharacterDescription: true, matchCharacterDepthPrompt: true });
+  assert(scan.includes('Sensei: hi') && scan.includes('Arona: hello'), 'Scan text should include labeled recent messages.');
+  assert(scan.includes('CharacterDescription: desc') && scan.includes("Character's Note: depth note"), 'Scan text should include selected character sources.');
+  assert(!scan.includes('hidden'), 'Scan text should exclude system messages.');
 }
 
 async function assertFrontendWorldBookEntryListFiltering() {
@@ -1623,6 +1666,7 @@ async function main() {
   await assertFrontendNewChatPickerMultiSelection();
   await assertFrontendWorldBookActivation();
   await assertFrontendWorldBookActivationHelpers();
+  await assertFrontendWorldBookMatchingHelpers();
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendWorldBookEntryLiveHelpers();
   await assertFrontendFileProtocolOPFSSilence();
