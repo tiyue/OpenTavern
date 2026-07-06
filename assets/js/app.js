@@ -6818,7 +6818,7 @@ function renderChips(isPrimary) {
         container.appendChild(empty);
     }
 }
-// ==================== World Book Entry Editor UI ====================
+// ==================== World Book Entry Strategy UI ====================
 function updateStrategyButtons(entry) {
     if (!entry) return;
     var c = dom.wiStratConstant;
@@ -6835,7 +6835,7 @@ function updateStrategyButtons(entry) {
         c.style.borderColor = '';
     }
 }
-
+// ==================== World Book Entry Position UI ====================
 function updatePositionConditionalRows(pos) {
     pos = parseInt(pos, 10);
     var depthRow = dom.wiDepthRow;
@@ -6844,11 +6844,10 @@ function updatePositionConditionalRows(pos) {
     depthRow.classList.toggle('hidden', pos !== WI_POS.AT_DEPTH);
     outletRow.classList.toggle('hidden', pos !== WI_POS.OUTLET);
 }
-
+// ==================== World Book Entry Editor Form UI ====================
 function fillEditorFromEntry(entry) {
     if (!entry) return showNoSelection();
 
-    // Normalize on read so ST/character_book fields (keys, insertion_order, enabled, extensions.*) are visible in editor
     entry = normalizeWIEntry(entry) || entry;
 
     dom.wiNoSelection.classList.add('hidden');
@@ -6888,19 +6887,16 @@ function fillEditorFromEntry(entry) {
     dom.wiPreventRec.checked = !!entry.preventRecursion;
     dom.wiDelayRec.checked = !!entry.delayUntilRecursion;
 
-    // character filter
     var cf = entry.characterFilter || { isExclude: false, names: [], tags: [] };
     dom.wiCharExclude.checked = !!cf.isExclude;
     dom.wiCharNames.value = (cf.names || []).join(', ');
     dom.wiCharTags.value = (cf.tags || []).join(', ');
 
-    // triggers
     var triggers = entry.triggers || [];
     document.querySelectorAll('#wiEditorForm .wi-trigger').forEach(function(cb) {
         cb.checked = triggers.indexOf(cb.value) !== -1;
     });
 
-    // match sources
     dom.wiMatchCharDesc.checked = !!entry.matchCharacterDescription;
     dom.wiMatchCharPers.checked = !!entry.matchCharacterPersonality;
     dom.wiMatchScenario.checked = !!entry.matchScenario;
@@ -6908,7 +6904,6 @@ function fillEditorFromEntry(entry) {
     dom.wiMatchCharNote.checked = !!entry.matchCharacterDepthPrompt;
     dom.wiMatchCreatorNotes.checked = !!entry.matchCreatorNotes;
 
-    // advanced
     dom.wiScanDepth.value = entry.scanDepth != null ? entry.scanDepth : '';
     dom.wiCaseSens.checked = entry.caseSensitive === true;
     dom.wiMatchWhole.checked = entry.matchWholeWords === true;
@@ -6920,7 +6915,7 @@ function fillEditorFromEntry(entry) {
     renderChips(true);
     renderChips(false);
 }
-
+// ==================== World Book Entry Editor State ====================
 function showNoSelection() {
     dom.wiNoSelection.classList.remove('hidden');
     dom.wiEditorForm.classList.add('hidden');
@@ -6930,20 +6925,17 @@ function showNoSelection() {
 }
 
 function updateEntryFromForm() {
-    // called on save/close if needed; most fields are live-bound
     if (!wiState.selectedUid) return;
     var entry = getActiveWI().entries[wiState.selectedUid];
     if (!entry) return;
 
-    // sync characterFilter names/tags from inputs
     var cf = entry.characterFilter || (entry.characterFilter = { isExclude: false, names: [], tags: [] });
     cf.names = (dom.wiCharNames.value || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
     cf.tags = (dom.wiCharTags.value || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
 
     wiState.dirty = true;
 }
-
-// Phase 2: Update modal header to reflect global world book management
+// ==================== World Book Entry Editor Header UI ====================
 function updateWorldBookModalHeader() {
     const titleEl = document.querySelector('#worldBookModal .font-bold.text-lg');
     if (!titleEl) return;
@@ -6955,6 +6947,8 @@ function updateWorldBookModalHeader() {
         titleEl.textContent = '世界书管理器（全局）';
     }
 }
+// ==================== World Book Entry Editor UI ====================
+// Split into strategy, position, form, state, and header helper chunks.
 // ==================== World Book Entry Actions ====================
 function addNewWIEntry() {
     var wi = getActiveWI();

@@ -1286,6 +1286,79 @@ async function assertFrontendWorldBookEntryLiveHelpers() {
   assert(context.__matchExtKey('matchCharacterDescription') === 'match_character_description', 'World book match extension keys should use snake_case.');
 }
 
+async function assertFrontendWorldBookEntryEditorHelpers() {
+  const sources = await Promise.all([
+    '../src/app/41-world-info-constants.js',
+    '../src/app/43-worldbook-entry-editor-strategy-ui.js',
+    '../src/app/43-worldbook-entry-editor-position-ui.js',
+    '../src/app/43-worldbook-entry-editor-state.js',
+    '../src/app/43-worldbook-entry-editor-header-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function classList() {
+    const values = new Set();
+    return {
+      values,
+      add(name) { values.add(name); },
+      remove(name) { values.delete(name); },
+      toggle(name, force) { if (force) values.add(name); else values.delete(name); },
+    };
+  }
+  function button() {
+    return {
+      attrs: {},
+      style: {},
+      setAttribute(name, value) { this.attrs[name] = value; },
+    };
+  }
+
+  const entry = { characterFilter: {} };
+  const titleEl = { textContent: '' };
+  const context = {
+    dom: {
+      wiStratConstant: button(),
+      wiStratSelective: button(),
+      wiDepthRow: { classList: classList() },
+      wiOutletRow: { classList: classList() },
+      wiNoSelection: { classList: classList() },
+      wiEditorForm: { classList: classList() },
+      wiCharNames: { value: ' Arona, Plana ' },
+      wiCharTags: { value: ' ai, helper ' },
+    },
+    wiState: {
+      selectedUid: 'e1',
+      primaryKeys: ['old'],
+      secondaryKeys: ['old2'],
+      currentWorldBookId: 'wb1',
+      dirty: false,
+    },
+    state: { worldBooks: { wb1: { name: 'Lore' } } },
+    getActiveWI() { return { entries: { e1: entry } }; },
+    document: { querySelector: () => titleEl },
+    Set,
+    parseInt,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__strategy = updateStrategyButtons;\nthis.__position = updatePositionConditionalRows;\nthis.__none = showNoSelection;\nthis.__update = updateEntryFromForm;\nthis.__header = updateWorldBookModalHeader;`, context);
+
+  context.__strategy({ constant: true });
+  assert(context.dom.wiStratConstant.attrs['data-active'] === 'true', 'World book strategy UI should mark constant active.');
+  assert(context.dom.wiStratSelective.style.borderColor === '', 'World book strategy UI should clear inactive border.');
+
+  context.__position(context.WI_POS.AT_DEPTH);
+  assert(!context.dom.wiDepthRow.classList.values.has('hidden') && context.dom.wiOutletRow.classList.values.has('hidden'), 'World book position UI should show depth row only for AT_DEPTH.');
+
+  context.__update();
+  assert(entry.characterFilter.names.join(',') === 'Arona,Plana', 'World book editor should sync character filter names.');
+  assert(entry.characterFilter.tags.join(',') === 'ai,helper' && context.wiState.dirty === true, 'World book editor should sync character filter tags and mark dirty.');
+
+  context.__header();
+  assert(titleEl.textContent === '世界书：Lore', 'World book editor header should show selected world book name.');
+
+  context.__none();
+  assert(context.wiState.selectedUid === null && context.wiState.primaryKeys.length === 0, 'World book no-selection state should clear selection and keys.');
+}
+
 async function assertFrontendFileProtocolOPFSSilence() {
   const opfsSources = await Promise.all([
     '../src/app/20-storage-opfs-environment.js',
@@ -1737,6 +1810,7 @@ async function main() {
   await assertFrontendWorldBookMatchingHelpers();
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendWorldBookEntryLiveHelpers();
+  await assertFrontendWorldBookEntryEditorHelpers();
   await assertFrontendFileProtocolOPFSSilence();
   await assertFrontendIDBStorageHelpers();
   await assertFrontendStorageServicePipeline();
