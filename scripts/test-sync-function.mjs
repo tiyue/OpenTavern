@@ -574,6 +574,51 @@ async function assertFrontendCharacterImportHelpers() {
   assert(context.__post({ post_history_instructions: 'card post' }, 'second') === 'card post', 'Second-stage post-history should fall back to character card when unset.');
 }
 
+async function assertFrontendWorldInfoNormalizerHelpers() {
+  const sources = await Promise.all([
+    '../src/app/41-world-info-constants.js',
+    '../src/app/41-world-info-position.js',
+    '../src/app/41-world-info-extension-fields.js',
+    '../src/app/41-world-info-normalizer.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const context = {
+    JSON,
+    Array,
+    Object,
+    isNaN,
+    parseInt,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__normalize = normalizeWIEntry;\nthis.__position = normalizeWorldInfoPositionValue;`, context);
+
+  assert(context.__position('before_example') === 2, 'World info position normalization should support before_example.');
+  assert(context.__position('missing') === 1, 'World info position normalization should default to after character.');
+
+  const entry = context.__normalize({
+    uid: 'e1',
+    keys: ['alpha'],
+    secondary_keys: ['beta'],
+    insertion_order: 7,
+    enabled: false,
+    position: 'outlet',
+    extensions: {
+      scan_depth: 5,
+      outlet_name: 'Lore',
+      group_override: true,
+      match_character_description: true,
+      match_whole_words: true,
+    },
+  });
+
+  assert(entry.key[0] === 'alpha' && entry.keysecondary[0] === 'beta', 'World info normalizer should map ST keys.');
+  assert(entry.order === 7 && entry.disable === true, 'World info normalizer should map insertion_order and enabled.');
+  assert(entry.position === 7 && entry.extensions.position === 7, 'World info normalizer should normalize and round-trip position.');
+  assert(entry.scanDepth === 5 && entry.outletName === 'Lore' && entry.groupOverride === true, 'World info normalizer should promote extension fields.');
+  assert(entry.matchCharacterDescription === true && entry.matchWholeWords === true, 'World info normalizer should promote match flags.');
+  assert(Array.isArray(entry.triggers) && entry.characterFilter.isExclude === false, 'World info normalizer should ensure required shape.');
+}
+
 async function assertFrontendSettingsSaveHelpers() {
   const sources = await Promise.all([
     '../src/app/68-settings-cloud-sync-form.js',
@@ -882,6 +927,9 @@ async function assertFrontendNewChatPickerMultiSelection() {
 
 async function assertFrontendWorldBookActivation() {
   const sources = await Promise.all([
+    '../src/app/41-world-info-constants.js',
+    '../src/app/41-world-info-position.js',
+    '../src/app/41-world-info-extension-fields.js',
     '../src/app/41-world-info-normalizer.js',
     '../src/app/44-worldbook-matching.js',
     '../src/app/44-worldbook-budget.js',
@@ -1565,6 +1613,7 @@ async function main() {
   await assertFrontendGenerationHelpers();
   await assertFrontendPromptMessageHelpers();
   await assertFrontendCharacterImportHelpers();
+  await assertFrontendWorldInfoNormalizerHelpers();
   await assertFrontendSettingsSaveHelpers();
   await assertFrontendPublicCardAssets();
   await assertFrontendPublicCardGridFiltering();
