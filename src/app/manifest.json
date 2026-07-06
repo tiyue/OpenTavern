@@ -151,6 +151,7 @@
   "66-dialog-workflow-events.js",
   "67-message-actions-ui.js",
   "67-message-edit-ui.js",
+  "68-settings-modal-hydration.js",
   "68-settings-modal.js",
   "68-settings-cloud-sync-ui.js",
   "68-settings-webllm-ui.js",
