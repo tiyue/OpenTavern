@@ -1479,6 +1479,77 @@ async function assertFrontendLibraryViewHelpers() {
   assert(convList.style.display === '', 'Library conversation list helper should show the conversation list.');
 }
 
+async function assertFrontendStateLifecycleHelpers() {
+  const sources = await Promise.all([
+    '../src/app/33-render-shortcuts.js',
+    '../src/app/33-final-assistant-message-ui.js',
+    '../src/app/33-render-subscriptions.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const events = [];
+  const container = {
+    children: [],
+    scrollHeight: 500,
+    scrollTop: 380,
+    clientHeight: 100,
+    appendChild(child) { this.children.push(child); },
+  };
+  const conv = {
+    id: 'c1',
+    messages: [{ role: 'assistant', speaker: 'Arona', content: 'hello' }],
+    _lastRenderedVisibleCount: 1,
+  };
+  let activeConv = conv;
+  const context = {
+    dom: { messagesContainer: container, convList: {} },
+    appStore: {
+      notify(keys) { events.push('notify:' + keys.join(',')); },
+      subscribe(handler) { this.handler = handler; },
+    },
+    document: {
+      createElement() { return { className: '', innerHTML: '' }; },
+    },
+    getActiveConv() { return activeConv; },
+    getMessageSenderName() { return 'Arona'; },
+    escapeHtml: (value) => String(value),
+    renderCotBlock: () => '<cot></cot>',
+    renderAssistantContent: (value) => '<p>' + value + '</p>',
+    renderTokenBar: () => events.push('token'),
+    renderAll: () => events.push('all'),
+    renderMessages: () => events.push('messages'),
+    renderConversationList: () => events.push('conversations'),
+    renderCharacterCard: () => events.push('character'),
+    renderTopBar: () => events.push('topbar'),
+    renderWorldInfoBudgetWarning: () => events.push('worldInfo'),
+    updateInputState: () => events.push('input'),
+    t: (key) => key,
+    Array,
+    String,
+    console,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__full = requestFullRender;\nthis.__render = requestRender;\nthis.__append = appendFinalAssistantMessage;\nthis.__html = buildFinalAssistantMessageHtml;`, context);
+
+  context.__full();
+  context.__render('activeConvId');
+  context.__render(['settings', 'worldInfo']);
+  assert(events.includes('all') && events.includes('notify:activeConvId') && events.includes('notify:settings,worldInfo'), 'State lifecycle render shortcuts should notify requested keys.');
+
+  const html = context.__html(conv, 'final', 'cot', 0);
+  assert(html.includes('data-action="copy"') && html.includes('<p>final</p>'), 'Final assistant message HTML should include actions and rendered content.');
+
+  context.__append(conv, 'final', 'cot');
+  assert(container.children.length === 1 && conv._lastRenderedVisibleCount === 2 && events.includes('token'), 'Final assistant message append should update DOM, visible count, and token bar.');
+  assert(container.scrollTop === container.scrollHeight, 'Final assistant message append should keep near-bottom users at the bottom.');
+
+  activeConv = { id: 'other' };
+  context.__append(conv, 'late', '');
+  assert(container.children.length === 1, 'Final assistant message append should ignore stale conversation completions.');
+
+  context.appStore.handler(['activeConvId', 'isGenerating']);
+  assert(events.includes('character') && events.includes('input'), 'Render subscriptions should call handlers for changed keys.');
+}
+
 async function assertFrontendWorldBookEntryListFiltering() {
   const source = await readFile(new URL('../src/app/43-worldbook-entry-list-filter.js', import.meta.url), 'utf8');
   const context = {
@@ -2183,6 +2254,7 @@ async function main() {
   await assertFrontendGroupChatCoreHelpers();
   await assertFrontendComfyUIHelpers();
   await assertFrontendLibraryViewHelpers();
+  await assertFrontendStateLifecycleHelpers();
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendWorldBookEntryListUIHelpers();
   await assertFrontendWorldBookEntryLiveHelpers();
