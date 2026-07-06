@@ -12428,7 +12428,7 @@ function importConversations(file) {
 // ==================== Conversation List UI ====================
 function renderConversationList() {
     if (!dom.convList) return;
-    var order = state.conversationOrder.slice();
+    var order = (state.conversationOrder || []).slice();
 
     // Filter logic:
     // - In card library view: show ALL historical conversations
@@ -12492,39 +12492,6 @@ function renderConversationList() {
             if (id) exportConversation(id);
         });
     });
-}
-
-// Patch for sidebar conv list:
-// - In library view: show ALL historical conversations
-// - In chat view (after clicking a character card): only show conversations related to currentCharacterName (including group chats)
-if (typeof renderConversationList === 'function') {
-    const _origRenderConvList = renderConversationList;
-    renderConversationList = function() {
-        if (!dom.convList) return;
-        var order = (state.conversationOrder || []).slice();
-
-        if (currentView === 'chat' && currentCharacterName) {
-            const activeId = state.activeConvId;
-            order = order.filter(function(id) {
-                var c = state.conversations[id];
-                if (!c) return false;
-                // 始终保留当前激活的会话（尤其是群聊切换后 currentCharacterName 可能不匹配任一成员）
-                if (id === activeId) return true;
-                if (c.character && c.character.name === currentCharacterName) return true;
-                if (c.group && Array.isArray(c.group.members)) {
-                    return c.group.members.some(function(m) {
-                        return m.character && m.character.name === currentCharacterName;
-                    });
-                }
-                return false;
-            });
-        }
-        // temporarily override for this render
-        var backup = state.conversationOrder;
-        state.conversationOrder = order;
-        _origRenderConvList.apply(this, arguments);
-        state.conversationOrder = backup;
-    };
 }
 // ==================== Character Panel UI ====================
 function renderCharacterCard() {

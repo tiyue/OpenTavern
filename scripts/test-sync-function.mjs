@@ -2760,6 +2760,84 @@ async function assertFrontendMobileSidebarUI() {
   assert(!sidebar.classList.values.has('open') && !backdrop.classList.values.has('open'), 'Sidebar close handler should close the sidebar.');
 }
 
+async function assertFrontendConversationListUI() {
+  const source = await readFile(new URL('../src/app/64-conversation-list-ui.js', import.meta.url), 'utf8');
+
+  function listenerElement(attrs) {
+    return {
+      attrs,
+      listeners: {},
+      getAttribute(name) { return this.attrs[name]; },
+      addEventListener(type, handler) { this.listeners[type] = handler; },
+    };
+  }
+
+  const events = [];
+  const convRows = [listenerElement({ 'data-conv-id': 'c1' })];
+  const deleteRows = [listenerElement({ 'data-del-id': 'c2' })];
+  const exportRows = [listenerElement({ 'data-exp-id': 'g1' })];
+  const convList = {
+    innerHTML: '',
+    querySelectorAll(selector) {
+      if (selector === '[data-conv-id]') return convRows;
+      if (selector === '.conv-delete-btn') return deleteRows;
+      if (selector === '.conv-export-btn') return exportRows;
+      return [];
+    },
+  };
+  const context = {
+    dom: { convList },
+    state: {
+      activeConvId: 'c2',
+      conversationOrder: ['c1', 'c2', 'g1', 'other', 'missing'],
+      conversations: {
+        c1: { title: 'Arona chat', character: { name: 'Arona' }, created: 1000, updated: 1000 },
+        c2: { title: 'Active Plana chat', character: { name: 'Plana' }, created: 2000, updated: 2000 },
+        g1: { title: 'Group chat', group: { members: [{ character: { name: 'Arona' } }] }, created: 3000, updated: 3000 },
+        other: { title: 'Other chat', character: { name: 'Other' }, created: 4000, updated: 4000 },
+      },
+    },
+    currentView: 'chat',
+    currentCharacterName: 'Arona',
+    t(key) {
+      return {
+        no_conversations: 'No conversations',
+        chat_with: 'Chat with ',
+        new_chat_title: 'New chat',
+        no_character: 'No character',
+        conv_export_title: 'Export',
+      }[key] || key;
+    },
+    escapeHtml(value) { return String(value); },
+    loadConversation(id) { events.push(`load:${id}`); },
+    deleteConversation(id) { events.push(`delete:${id}`); },
+    exportConversation(id) { events.push(`export:${id}`); },
+    Date,
+    Array,
+    String,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__render = renderConversationList;`, context);
+
+  context.__render();
+  assert(convList.innerHTML.includes('data-conv-id="c1"') && convList.innerHTML.includes('data-conv-id="c2"') && convList.innerHTML.includes('data-conv-id="g1"'), 'Conversation list should include matching character, active, and group conversations in chat view.');
+  assert(!convList.innerHTML.includes('Other chat'), 'Conversation list should filter unrelated conversations in chat view.');
+  assert(context.state.conversationOrder.join(',') === 'c1,c2,g1,other,missing', 'Conversation list render should not mutate conversation order.');
+
+  convRows[0].listeners.click({});
+  deleteRows[0].listeners.click({ stopPropagation() { events.push('stop-delete'); } });
+  exportRows[0].listeners.click({ stopPropagation() { events.push('stop-export'); } });
+  assert(events.includes('load:c1') && events.includes('delete:c2') && events.includes('export:g1'), 'Conversation list should bind load/delete/export actions.');
+
+  context.currentView = 'library';
+  context.__render();
+  assert(convList.innerHTML.includes('Other chat'), 'Conversation list should show all conversations in library view.');
+
+  context.state.conversationOrder = [];
+  context.__render();
+  assert(convList.innerHTML.includes('No conversations'), 'Conversation list should render the empty state.');
+}
+
 async function assertFrontendStateLifecycleHelpers() {
   const sources = await Promise.all([
     '../src/app/33-render-shortcuts.js',
@@ -4083,6 +4161,7 @@ async function main() {
   await assertFrontendComfyUIHelpers();
   await assertFrontendLibraryViewHelpers();
   await assertFrontendMobileSidebarUI();
+  await assertFrontendConversationListUI();
   await assertFrontendStateLifecycleHelpers();
   await assertFrontendMessageContentHelpers();
   await assertFrontendMessageEditHelpers();
