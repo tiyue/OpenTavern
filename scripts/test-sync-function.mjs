@@ -1038,6 +1038,8 @@ async function assertFrontendStorageServicePipeline() {
     '../src/app/20-storage-service-load.js',
     '../src/app/20-storage-service-save.js',
     '../src/app/20-storage-service-init.js',
+    '../src/app/20-storage-service-state.js',
+    '../src/app/20-storage-service-api.js',
     '../src/app/20-storage-service.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
@@ -1136,6 +1138,8 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
     '../src/app/20-storage-service-load.js',
     '../src/app/20-storage-service-save.js',
     '../src/app/20-storage-service-init.js',
+    '../src/app/20-storage-service-state.js',
+    '../src/app/20-storage-service-api.js',
     '../src/app/20-storage-service.js',
     '../src/app/21-storage-usage-format.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
