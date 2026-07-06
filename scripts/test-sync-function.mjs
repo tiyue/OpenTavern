@@ -1342,6 +1342,54 @@ async function assertFrontendGroupChatCoreHelpers() {
   assert(context.__mention('hello @plana and @Arona', conv).name === 'Plana', 'Group mention parsing should resolve the first case-insensitive mention.');
 }
 
+async function assertFrontendComfyUIHelpers() {
+  const sources = await Promise.all([
+    '../src/app/51-comfyui-errors.js',
+    '../src/app/51-comfyui-output-message.js',
+    '../src/app/51-comfyui-workflow-import-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const events = [];
+  const statusEl = { textContent: '', style: {} };
+  const context = {
+    dom: { comfyWorkflowStatus: statusEl },
+    state: { settings: { comfyWorkflow: { one: {}, two: {} }, comfyWorkflowName: 'api.json' } },
+    t: (key) => ({
+      comfy_error_fetch_hint: 'fetch hint',
+      settings_comfy_no_workflow: 'no workflow',
+    }[key] || key),
+    ensureComfySettings() { events.push('ensure'); },
+    persistState() { events.push('persist'); },
+    renderMessagesOnly() { events.push('messages'); },
+    renderConversationListOnly() { events.push('conversations'); },
+    Date: { now: () => 12345 },
+    Object,
+    String,
+    Array,
+    encodeURIComponent,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__error = formatComfyError;\nthis.__url = buildComfyImageViewUrl;\nthis.__msg = createComfyImageMessage;\nthis.__append = appendComfyImageMessage;\nthis.__status = updateComfyWorkflowStatus;`, context);
+
+  assert(context.__error(new Error('Failed to fetch')).startsWith('fetch hint'), 'ComfyUI network errors should include the fetch hint.');
+  const viewUrl = context.__url('http://127.0.0.1:8188', { filename: 'a b.png', subfolder: 'out/f', type: 'output' });
+  assert(viewUrl.includes('filename=a%20b.png') && viewUrl.includes('subfolder=out%2Ff'), 'ComfyUI view URL should encode image parameters.');
+
+  const msg = context.__msg('data:image/png;base64,abc', 'prompt', 'pid', { filename: 'x.png' });
+  assert(msg.attachments[0].mime === 'image/png' && msg.attachments[0].comfyPromptId === 'pid', 'ComfyUI image message should preserve attachment metadata.');
+
+  const conv = { messages: [], updated: 0, _lastRenderedVisibleCount: 4 };
+  context.__append(conv, msg);
+  assert(conv.messages.length === 1 && conv._lastRenderedVisibleCount === 0, 'ComfyUI append should add the image message and reset visible count.');
+  assert(events.includes('persist') && events.includes('messages') && events.includes('conversations'), 'ComfyUI append should persist and refresh chat UI.');
+
+  context.__status();
+  assert(statusEl.textContent === 'api.json · 2 nodes' && statusEl.style.color === '#86efac', 'ComfyUI workflow status should show imported workflow details.');
+  context.state.settings.comfyWorkflow = null;
+  context.__status();
+  assert(statusEl.textContent === 'no workflow' && statusEl.style.color === '', 'ComfyUI workflow status should show the empty state.');
+}
+
 async function assertFrontendWorldBookEntryListFiltering() {
   const source = await readFile(new URL('../src/app/43-worldbook-entry-list-filter.js', import.meta.url), 'utf8');
   const context = {
@@ -2044,6 +2092,7 @@ async function main() {
   await assertFrontendWebLLMConfirmHelpers();
   await assertFrontendWebGPUDeviceHelpers();
   await assertFrontendGroupChatCoreHelpers();
+  await assertFrontendComfyUIHelpers();
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendWorldBookEntryListUIHelpers();
   await assertFrontendWorldBookEntryLiveHelpers();

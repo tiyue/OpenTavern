@@ -8348,9 +8348,61 @@ async function fetchBlobAsDataUrl(url) {
         reader.readAsDataURL(blob);
     });
 }
-// ==================== ComfyUI txt2img ====================
+// ==================== ComfyUI Runtime State ====================
 let comfyIsGenerating = false;
 
+function setComfyGenerationActive(active) {
+    comfyIsGenerating = !!active;
+    updateInputState();
+    if (dom.comfyGenerateBtn) {
+        dom.comfyGenerateBtn.classList.toggle('animate-pulse', comfyIsGenerating);
+    }
+}
+// ==================== ComfyUI Error Helpers ====================
+function formatComfyError(e) {
+    var msg = (e && e.message) || String(e || '');
+    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+        return t('comfy_error_fetch_hint') + '\n\n' + msg;
+    }
+    return msg;
+}
+// ==================== ComfyUI Output Message Helpers ====================
+function buildComfyImageViewUrl(server, image) {
+    return server + '/view?filename=' + encodeURIComponent(image.filename || '') +
+        '&subfolder=' + encodeURIComponent(image.subfolder || '') +
+        '&type=' + encodeURIComponent(image.type || 'output');
+}
+
+async function loadComfyOutputImageDataUrl(server, image) {
+    return await fetchBlobAsDataUrl(buildComfyImageViewUrl(server, image));
+}
+
+function createComfyImageMessage(dataUrl, promptText, promptId, image) {
+    return {
+        role: 'assistant',
+        content: '',
+        attachments: [{
+            type: 'image',
+            source: 'comfyui',
+            mime: dataUrl.slice(5, dataUrl.indexOf(';')) || 'image/png',
+            dataUrl: dataUrl,
+            prompt: promptText,
+            comfyPromptId: promptId,
+            filename: image.filename || '',
+            createdAt: Date.now()
+        }]
+    };
+}
+
+function appendComfyImageMessage(conv, msg) {
+    conv.messages.push(msg);
+    conv.updated = Date.now();
+    conv._lastRenderedVisibleCount = 0;
+    persistState();
+    renderMessagesOnly();
+    renderConversationListOnly();
+}
+// ==================== ComfyUI Generation Runtime ====================
 async function generateComfyImageForCurrentChat() {
     if (comfyIsGenerating || state.isGenerating) return;
     ensureComfySettings();
@@ -8366,62 +8418,46 @@ async function generateComfyImageForCurrentChat() {
     var workflow = cloneComfyWorkflow();
     applyComfyPromptToWorkflow(workflow, promptText);
 
-    comfyIsGenerating = true;
-    updateInputState();
-    if (dom.comfyGenerateBtn) dom.comfyGenerateBtn.classList.add('animate-pulse');
+    setComfyGenerationActive(true);
 
     try {
-        var clientId = makeComfyClientId();
-        var submitRes = await fetch(server + '/prompt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: workflow, client_id: clientId })
-        });
-        if (!submitRes.ok) throw new Error('HTTP ' + submitRes.status + ': ' + (await submitRes.text()).slice(0, 200));
-        var submitJson = await submitRes.json();
-        var promptId = submitJson.prompt_id;
-        if (!promptId) throw new Error(t('comfy_error_prompt_id'));
-
-        await waitForComfyPrompt(server, clientId, promptId, 180000);
-        var histRes = await fetch(server + '/history/' + encodeURIComponent(promptId));
-        if (!histRes.ok) throw new Error('HTTP ' + histRes.status);
-        var history = await histRes.json();
-        var image = findComfyOutputImage(history, promptId);
-        if (!image) throw new Error(t('comfy_error_no_image'));
-
-        var viewUrl = server + '/view?filename=' + encodeURIComponent(image.filename || '') +
-            '&subfolder=' + encodeURIComponent(image.subfolder || '') +
-            '&type=' + encodeURIComponent(image.type || 'output');
-        var dataUrl = await fetchBlobAsDataUrl(viewUrl);
-        var msg = {
-            role: 'assistant',
-            content: '',
-            attachments: [{
-                type: 'image',
-                source: 'comfyui',
-                mime: dataUrl.slice(5, dataUrl.indexOf(';')) || 'image/png',
-                dataUrl: dataUrl,
-                prompt: promptText,
-                comfyPromptId: promptId,
-                filename: image.filename || '',
-                createdAt: Date.now()
-            }]
-        };
-        conv.messages.push(msg);
-        conv.updated = Date.now();
-        conv._lastRenderedVisibleCount = 0;
-        persistState();
-        renderMessagesOnly();
-        renderConversationListOnly();
+        var output = await submitComfyWorkflowAndFindImage(server, workflow);
+        var dataUrl = await loadComfyOutputImageDataUrl(server, output.image);
+        appendComfyImageMessage(
+            conv,
+            createComfyImageMessage(dataUrl, promptText, output.promptId, output.image)
+        );
     } catch (e) {
         alert(t('comfy_error_prefix') + formatComfyError(e));
     } finally {
-        comfyIsGenerating = false;
-        if (dom.comfyGenerateBtn) dom.comfyGenerateBtn.classList.remove('animate-pulse');
-        updateInputState();
+        setComfyGenerationActive(false);
     }
 }
 
+async function submitComfyWorkflowAndFindImage(server, workflow) {
+    var clientId = makeComfyClientId();
+    var submitRes = await fetch(server + '/prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: workflow, client_id: clientId })
+    });
+    if (!submitRes.ok) throw new Error('HTTP ' + submitRes.status + ': ' + (await submitRes.text()).slice(0, 200));
+
+    var submitJson = await submitRes.json();
+    var promptId = submitJson.prompt_id;
+    if (!promptId) throw new Error(t('comfy_error_prompt_id'));
+
+    await waitForComfyPrompt(server, clientId, promptId, 180000);
+    var histRes = await fetch(server + '/history/' + encodeURIComponent(promptId));
+    if (!histRes.ok) throw new Error('HTTP ' + histRes.status);
+
+    var history = await histRes.json();
+    var image = findComfyOutputImage(history, promptId);
+    if (!image) throw new Error(t('comfy_error_no_image'));
+
+    return { promptId: promptId, image: image };
+}
+// ==================== ComfyUI Workflow Import UI ====================
 async function importComfyWorkflowFile(file) {
     if (!file) return;
     try {
@@ -8465,14 +8501,8 @@ async function testComfyConnection() {
         alert(t('comfy_error_prefix') + (e.message || e));
     }
 }
-
-function formatComfyError(e) {
-    var msg = (e && e.message) || String(e || '');
-    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
-        return t('comfy_error_fetch_hint') + '\n\n' + msg;
-    }
-    return msg;
-}
+// ==================== ComfyUI txt2img ====================
+// Split into state, error, output message, generation, and workflow UI chunks.
 // ==================== Generation Turn Runtime ====================
 function completeGenerationTurn(conv) {
     if (!conv) return;
