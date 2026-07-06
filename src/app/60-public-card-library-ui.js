@@ -102,12 +102,13 @@ function populateCardLibraryList() {
     container.innerHTML = '';
     if (empty) empty.classList.add('hidden');
 
-    PUBLIC_CARDS.forEach(card => {
+    const cards = getPublicCards();
+    cards.forEach(card => {
         const item = createCardLibraryItem(card, '');
         container.appendChild(item);
     });
 
-    updateCardLibraryCount(PUBLIC_CARDS.length, PUBLIC_CARDS.length);
+    updateCardLibraryCount(cards.length, cards.length);
 }
 
 function filterCardLibraryList(query) {
@@ -117,7 +118,8 @@ function filterCardLibraryList(query) {
 
     const q = (query || '').toLowerCase().trim();
 
-    const filtered = PUBLIC_CARDS.filter(card => {
+    const cards = getPublicCards();
+    const filtered = cards.filter(card => {
         if (!q) return true;
         const nameMatch = (card.name || '').toLowerCase().includes(q);
         const authorMatch = (card.author || '').toLowerCase().includes(q);
@@ -131,7 +133,7 @@ function filterCardLibraryList(query) {
 
     if (filtered.length === 0) {
         if (empty) empty.classList.remove('hidden');
-        updateCardLibraryCount(0, PUBLIC_CARDS.length);
+        updateCardLibraryCount(0, cards.length);
         return;
     }
 
@@ -140,7 +142,7 @@ function filterCardLibraryList(query) {
         container.appendChild(item);
     });
 
-    updateCardLibraryCount(filtered.length, PUBLIC_CARDS.length);
+    updateCardLibraryCount(filtered.length, cards.length);
 }
 
 function showCardLibraryDetail(card) {

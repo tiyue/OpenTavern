@@ -14,36 +14,16 @@ their shared state dependencies are narrowed.
 
 Chunk order is defined in `manifest.json`.
 
-- `10-prompts-webllm-i18n.js`: base prompt constants used by default settings and prompt construction.
-- `11-webllm-local-backend.js`: WebLLM lazy-loading flow, WebGPU checks, and shared glass alert/confirm dialogs.
-- `12-i18n.js`: UI translation dictionaries and the `t()` lookup helper.
-- `13-webgl-theme.js`: animated WebGL background plus performance mode and UI theme application.
-- `20-storage.js`: OPFS, IndexedDB, and localStorage persistence backends plus the StorageService facade.
-- `21-storage-status-ui.js`: backup reminders, storage usage/status UI, WebLLM cache helpers, and storage pressure warnings.
-- `22-cloud-sync.js`: cloud snapshot upload, download, sync, and optional browser-side encryption.
-- `23-storage-recovery.js`: manual storage backend scanning and restore helpers.
-- `24-storage-compat.js`: synchronous compatibility API, safe-settings helpers, ID generation, and default two-stage prompt.
-- `40-character-prompt-worldbook.js`: character card import, embedded character-book extraction, PNG metadata extraction, and placeholder helpers.
-- `41-prompt-builder.js`: main and second-stage API message construction, prompt formatting, and World Info insertion helpers.
-- `42-worldbook.js`: World Book data model, normalization, global book helpers, and character registry migration.
-- `43-worldbook-editor-ui.js`: World Book modal/editor rendering, import/export controls, badges, and budget warning UI.
-- `44-worldbook-activation.js`: World Info keyword matching, activation, token budget application, and timed effects.
-- `50-generation-integrations.js`: remote OpenAI-compatible streaming API client.
-- `51-comfyui-integration.js`: ComfyUI workflow import, connection test, prompt mapping, and image attachment generation.
-- `52-generation-runtime.js`: local WebLLM streaming, stop handling, assistant message finalization, and two-stage turn completion.
-- `53-summarization-service.js`: summary API calls, automatic summarization, summary history edit/delete helpers.
-- `57-ui-state.js`: shared UI state used across library, chat, dialog, and event chunks.
-- `58-summary-manager-ui.js`: summary manager list rendering, custom range preview, and summary generation controls.
-- `59-new-chat-workflow.js`: archive/new conversation flow, character picker, and quick new chat modal.
-- `60-public-card-library.js`: bundled public card metadata, legacy public-card list/detail UI, and import helper.
-- `60-library-ui-render.js`: homepage library tabs, card grids, chat top bar/token/input state, and conversation loading.
-- `61-message-content-render.js`: escaped chat content, dialogue/status formatting, attachments, CoT blocks, and option XML rendering.
-- `61-chat-message-renderer.js`: windowed chat message list rendering and older-history loading.
-- `62-sillytavern-preset-ui.js`: SillyTavern preset defaults, normalization, settings rendering, and import/export helpers.
-- `63-conversation-transfer.js`: conversation/full-backup export, import, and shared JSON download helper.
-- `64-conversation-list-ui.js`: sidebar conversation list rendering and chat/library filtering behavior.
-- `65-character-panel-ui.js`: character card panel rendering, editing, deletion, and character card export.
-- `65-mobile-announcement-ui.js`: mobile sidebar controls and first-run announcement modal helpers.
-- `66-dialog-workflow-events.js`: character import modal, prompt preview, and summary manager event wiring.
-- `67-message-actions-ui.js`: chat message delete, regenerate, copy, and inline edit actions.
-- `68-settings-modal.js`: settings modal hydration, save/apply logic, storage recovery controls, and Cloud Sync controls.
+Current split map:
+
+- `10-*` and `11-webllm-*`: base prompts plus WebLLM local backend, engine loading, confirmation dialog, and initialization progress UI.
+- `12-*` and `13-*`: translation dictionaries, `t()` lookup helper, animated theme background, and theme application.
+- `20-*` and `21-*`: storage backends, `StorageService`, backup reminders, usage/status UI, and WebLLM cache tools.
+- `22-cloud-sync-*`: cloud snapshot building, browser-side encryption, HTTP transport, upload/download operations, and scheduler hooks.
+- `23-storage-*` and `24-storage-compat.js`: legacy IndexedDB reads, recovery scanning/restoring, compatibility APIs, safe settings, IDs, and defaults.
+- `30-*` to `35-*`: app state, API presets/compatibility/testing, conversation/group-chat models, lifecycle, initialization, and persistence i18n.
+- `40-*` to `44-*`: character card import, prompt/world-info construction, World Book model/format/registry/UI, matching, budget, output, and timed effects.
+- `50-*` to `54-*`: remote generation, ComfyUI settings/workflow/client/integration, generation runtime pieces, and summarization prompt/API/service/runtime.
+- `57-*` to `60-*`: shared UI state, summary manager, new-chat workflows, public-card data/import/UI, and library grid/rendering helpers.
+- `61-*` to `67-*`: chat shell/content/message rendering, SillyTavern presets, conversation transfer/list, character panel/editor/export, mobile UI, dialog workflows, and message actions.
+- `68-*` to `72-*`: settings modal sections, save/apply behavior, event binding groups, and final app initialization.

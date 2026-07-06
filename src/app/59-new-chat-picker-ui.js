@@ -10,14 +10,7 @@ function showNewChatCharacterPicker() {
     const cameFromQuick = !!newChatPickerCameFromQuick;
     newChatPickerCameFromQuick = false;
 
-    // Reset header classes every time (the back button may have mutated them on previous open)
-    const headerForReset = modal.querySelector('.flex.items-center.mb-4') || modal.querySelector('h2')?.parentElement;
-    if (headerForReset) {
-        headerForReset.classList.remove('justify-start', 'gap-2');
-        headerForReset.classList.add('justify-between');
-        const oldTitle = headerForReset.querySelector('h2');
-        if (oldTitle) oldTitle.classList.remove('mr-auto');
-    }
+    resetNewChatPickerHeader(modal);
 
     listContainer.innerHTML = '';
 
@@ -26,94 +19,32 @@ function showNewChatCharacterPicker() {
     const selectedKeys = new Set(); // 使用 name.toLowerCase() 作为 key
 
     function updateMultiBar() {
-        if (!dom.newChatPickerMultiBar) return;
-        if (multiSelectMode) {
-            dom.newChatPickerMultiBar.classList.remove('hidden');
-            if (dom.newChatPickerMultiCount) {
-                const prefix = t('new_chat_multi_selected_prefix') || '已选';
-                const suffix = t('new_chat_multi_people') || '人';
-                dom.newChatPickerMultiCount.textContent = `${prefix} ${selectedKeys.size} ${suffix}`.trim();
-            }
-        } else {
-            dom.newChatPickerMultiBar.classList.add('hidden');
-        }
+        updateNewChatPickerMultiBar(multiSelectMode, selectedKeys.size);
     }
 
     function renderCards() {
         listContainer.innerHTML = '';
 
         characters.forEach(character => {
-            const key = (character.name || '').trim().toLowerCase();
-            const isSelected = selectedKeys.has(key);
-
-            const card = document.createElement('div');
-            card.className = `glass rounded-2xl p-3 cursor-pointer flex flex-col items-center text-center gap-2 border transition-all relative group
-                ${isSelected ? 'border-amber-400 bg-amber-500/10' : 'border-white/5 hover:border-white/10 hover:bg-white/5'}`;
-
-            const letter = character.name ? character.name.charAt(0).toUpperCase() : '?';
-            const pSrc = character.previewImage || character.avatar;
-
-            let avatarHTML;
-            if (pSrc) {
-                avatarHTML = `<div class="w-12 h-12 rounded-xl overflow-hidden bg-zinc-900 flex-shrink-0"><img src="${escapeHtml(pSrc)}" class="w-full h-full object-cover" alt="${escapeHtml(character.name || '')}" onerror="this.parentNode.outerHTML='<div class=\\'w-12 h-12 rounded-xl ot-avatar-fill flex items-center justify-center text-white text-xl font-bold flex-shrink-0\\'>${letter}</div>'"></div>`;
-            } else {
-                avatarHTML = `<div class="w-12 h-12 rounded-xl ot-avatar-fill flex items-center justify-center text-white text-xl font-bold flex-shrink-0">${letter}</div>`;
-            }
-
-            card.innerHTML = `
-                ${avatarHTML}
-                <div class="min-w-0 w-full">
-                    <p class="text-sm font-medium text-zinc-100 truncate">${escapeHtml(character.name || t('char_empty_name'))}</p>
-                </div>
-                ${multiSelectMode ? `
-                    <div class="absolute top-1 right-1 w-5 h-5 rounded-full border flex items-center justify-center text-[10px]
-                        ${isSelected ? 'bg-amber-400 border-amber-300 text-black' : 'border-white/40 bg-black/30'}">
-                        ${isSelected ? '✓' : ''}
-                    </div>
-                ` : `
-                    <!-- Pure × only (no bg/rounded). Desktop: visible on group-hover.
-                         Mobile: pointer-events:none → never intercepts taps; single tap on card opens chat. -->
-                    <button class="char-delete-btn absolute top-1 right-1 text-white/80 hover:text-red-400 active:text-red-500 text-xl font-bold leading-none p-1 z-10 opacity-0 md:opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 transition-all pointer-events-none group-hover:pointer-events-auto" title="删除角色卡">×</button>
-                `}
-            `;
-
-            card.addEventListener('click', (e) => {
-                if (!multiSelectMode) {
-                    // Skip if clicking on the visible delete button (handled by its own listener).
-                    // On mobile, the delete button has pointer-events:none so this guard never matches.
-                    if (e.target.closest('.char-delete-btn') || e.target.closest('button[title="删除角色卡"]')) return;
-
-                    // Single tap directly opens chat
+            const key = getNewChatPickerCharacterKey(character);
+            const card = createNewChatPickerCharacterCard(character, {
+                isSelected: selectedKeys.has(key),
+                multiSelectMode: multiSelectMode,
+                onOpen: function(ch) {
                     newChatPickerCameFromQuick = false;
                     modal.classList.add('hidden');
-                    newConversation(character);
-                    return;
-                }
-
-                // 多选模式
-                if (selectedKeys.has(key)) {
-                    selectedKeys.delete(key);
-                } else {
-                    selectedKeys.add(key);
-                }
-                renderCards();           // 刷新选中态
-                updateMultiBar();
-            });
-
-            // 删除按钮（仅非多选模式下存在）
-            // Only fires on desktop hover (when pointer-events:auto via .group:hover CSS).
-            // On mobile, CSS pointer-events:none prevents this handler from running.
-            const delBtn = card.querySelector('.char-delete-btn');
-            if (delBtn) {
-                delBtn.addEventListener('click', async function(e) {
-                    e.stopPropagation();
-                    const displayName = character.name || '该角色卡';
-                    if (!await showGlassConfirm(`\u786e\u5b9a\u4ece\u89d2\u8272\u5e93\u4e2d\u5220\u9664\u300c${displayName}\u300d\uff1f\n\u5df2\u6709\u5bf9\u8bdd\u4e2d\u7684\u89d2\u8272\u5361\u6570\u636e\u4e0d\u4f1a\u53d7\u5f71\u54cd\u3002`, { title: '\u5220\u9664\u89d2\u8272\u5361', danger: true, okText: '\u5220\u9664' })) {
-                        return;
+                    newConversation(ch);
+                },
+                onToggle: function(selectedKey) {
+                    if (selectedKeys.has(selectedKey)) {
+                        selectedKeys.delete(selectedKey);
+                    } else {
+                        selectedKeys.add(selectedKey);
                     }
-                    deleteCharacterFromLibrary(key);
-                });
-            }
+                    renderCards();
+                    updateMultiBar();
+                }
+            });
 
             listContainer.appendChild(card);
         });
@@ -221,73 +152,8 @@ function showNewChatCharacterPicker() {
         // Note: we keep the local cameFromQuick for the header "← 返回" button
         // so user can still go back to the 3-option quick menu.
     }
-
-    // 绑定原有静态按钮（只绑定一次）
-    if (!modal._wired) {
-        modal._wired = true;
-
-        dom.newChatPickerCloseBtn.addEventListener('click', () => {
-            newChatPickerCameFromQuick = false;
-            modal.classList.add('hidden');
-        });
-
-        dom.newChatPickerBackdrop.addEventListener('click', () => {
-            newChatPickerCameFromQuick = false;
-            modal.classList.add('hidden');
-        });
-
-        dom.newChatNoCharacterBtn.addEventListener('click', () => {
-            newChatPickerCameFromQuick = false;
-            modal.classList.add('hidden');
-            newConversation(null);
-        });
-
-        dom.newChatImportCharacterBtn.addEventListener('click', () => {
-            newChatPickerCameFromQuick = false;
-            modal.classList.add('hidden');
-            if (dom.importModal) {
-                dom.importModal.classList.remove('hidden');
-                dom.importStatus.classList.add('hidden');
-                if (dom.importFileInput) dom.importFileInput.value = '';
-            }
-        });
-    }
-
-    // === Dynamic "返回上一级" button for when opened from the 3-button quick menu ===
-    const header = modal.querySelector('.flex.items-center.justify-between.mb-4');
-    if (header) {
-        // Clean up previous back button (if re-opening)
-        const prevBack = header.querySelector('#pickerBackToQuickBtn');
-        if (prevBack) prevBack.remove();
-
-        if (cameFromQuick) {
-            const backBtn = document.createElement('button');
-            backBtn.id = 'pickerBackToQuickBtn';
-            backBtn.className = 'px-2.5 py-1 text-xs rounded-lg bg-white/10 hover:bg-white/15 active:bg-white/20 transition-all flex-shrink-0';
-            backBtn.textContent = '← 返回';
-            backBtn.addEventListener('click', (ev) => {
-                ev.stopPropagation();
-                modal.classList.add('hidden');
-                newChatPickerCameFromQuick = false;
-                if (typeof showQuickNewChatModal === 'function') {
-                    showQuickNewChatModal();
-                }
-            });
-
-            // Make header left-aligned when we have a back button
-            header.classList.remove('justify-between');
-            header.classList.add('justify-start', 'gap-2');
-
-            // Insert before the title (h2)
-            const titleH2 = header.querySelector('h2');
-            if (titleH2) {
-                header.insertBefore(backBtn, titleH2);
-                titleH2.classList.add('mr-auto');  // push the close button (X) to the far right
-            } else {
-                header.prepend(backBtn);
-            }
-        }
-    }
+    bindNewChatPickerStaticButtons(modal);
+    updateNewChatPickerBackButton(modal, cameFromQuick);
 
     modal.classList.remove('hidden');
 }
