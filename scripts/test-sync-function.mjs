@@ -2491,6 +2491,71 @@ async function assertFrontendLibraryViewHelpers() {
   assert(convList.style.display === '', 'Library conversation list helper should show the conversation list.');
 }
 
+async function assertFrontendMobileSidebarUI() {
+  const source = await readFile(new URL('../src/app/65-mobile-sidebar-ui.js', import.meta.url), 'utf8');
+
+  function classList(initial = []) {
+    const values = new Set(initial);
+    return {
+      values,
+      add(...names) { names.forEach((name) => values.add(name)); },
+      remove(...names) { names.forEach((name) => values.delete(name)); },
+      contains(name) { return values.has(name); },
+    };
+  }
+  function button() {
+    return {
+      innerHTML: '',
+      title: '',
+      attrs: {},
+      setAttribute(name, value) { this.attrs[name] = value; },
+    };
+  }
+
+  const events = [];
+  const sidebar = { classList: classList() };
+  const backdrop = { classList: classList() };
+  const closeBtn = button();
+  const context = {
+    window: { innerWidth: 767 },
+    dom: { sidebar, sidebarBackdrop: backdrop, sidebarCloseBtn: closeBtn },
+    currentView: 'library',
+    currentCharacterName: 'Arona',
+    renderConversationList() { events.push('render-list'); },
+    switchView(view) { events.push(`switch:${view}`); },
+    t: (key) => key === 'back_to_library' ? 'Back to library' : key,
+    Set,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__isMobile = isMobile;\nthis.__open = openSidebar;\nthis.__close = closeSidebar;\nthis.__toggle = toggleSidebar;\nthis.__handle = handleSidebarClose;\nthis.__button = updateSidebarCloseButton;`, context);
+
+  assert(context.__isMobile() === true, 'Mobile sidebar should treat widths below 768px as mobile.');
+  context.window.innerWidth = 768;
+  assert(context.__isMobile() === false, 'Mobile sidebar should treat 768px and wider as desktop.');
+
+  context.__open();
+  assert(sidebar.classList.values.has('open') && backdrop.classList.values.has('open'), 'Mobile sidebar open should show sidebar and backdrop.');
+  context.__toggle();
+  assert(!sidebar.classList.values.has('open') && !backdrop.classList.values.has('open'), 'Mobile sidebar toggle should close an open sidebar.');
+  context.__toggle();
+  assert(sidebar.classList.values.has('open') && backdrop.classList.values.has('open'), 'Mobile sidebar toggle should open a closed sidebar.');
+
+  context.currentView = 'chat';
+  context.__button();
+  assert(closeBtn.innerHTML === '\u2190' && closeBtn.attrs['aria-label'] === 'Back to library' && closeBtn.title === 'Back to library', 'Chat sidebar close button should become a back-to-library control.');
+  context.currentView = 'library';
+  context.__button();
+  assert(closeBtn.innerHTML === '&times;' && closeBtn.attrs['aria-label'] === 'Close menu' && closeBtn.title === '', 'Library sidebar close button should become a close control.');
+
+  context.currentView = 'chat';
+  context.currentCharacterName = 'Arona';
+  context.__open();
+  context.__handle();
+  assert(context.currentCharacterName === null, 'Sidebar close from chat should clear the selected character name.');
+  assert(events.includes('render-list') && events.includes('switch:library'), 'Sidebar close from chat should refresh the list and switch to the library.');
+  assert(!sidebar.classList.values.has('open') && !backdrop.classList.values.has('open'), 'Sidebar close handler should close the sidebar.');
+}
+
 async function assertFrontendStateLifecycleHelpers() {
   const sources = await Promise.all([
     '../src/app/33-render-shortcuts.js',
@@ -3811,6 +3876,7 @@ async function main() {
   await assertFrontendConversationModelHelpers();
   await assertFrontendComfyUIHelpers();
   await assertFrontendLibraryViewHelpers();
+  await assertFrontendMobileSidebarUI();
   await assertFrontendStateLifecycleHelpers();
   await assertFrontendMessageContentHelpers();
   await assertFrontendMessageEditHelpers();

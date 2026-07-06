@@ -12786,9 +12786,6 @@ function toggleSidebar() {
     }
 }
 
-// Repurpose sidebar's "×" (close) button on mobile:
-// - In library: just close the drawer (shows full history)
-// - In chat: clicking it acts as "return to card library" (and closes)
 function handleSidebarClose() {
     if (currentView === 'chat') {
         currentCharacterName = null;
@@ -12817,7 +12814,6 @@ function updateSidebarCloseButton() {
         dom.sidebarCloseBtn.title = '';
     }
 }
-
 // ==================== Announcement Modal (快速开始引导) ====================
 var ANNOUNCE_KEY = 'opentavern_announce_dismissed_v1';
 

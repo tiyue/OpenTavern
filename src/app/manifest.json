@@ -268,6 +268,7 @@
   "65-character-library-actions.js",
   "65-character-editor-ui.js",
   "65-character-export.js",
+  "65-mobile-sidebar-ui.js",
   "65-mobile-announcement-ui.js",
   "66-character-import-file-reader.js",
   "66-character-import-conversation.js",
