@@ -2503,6 +2503,75 @@ async function assertFrontendMessageContentHelpers() {
   assert(optionsHtml.includes('Go') && optionsHtml.includes('dialogue-highlight'), 'Options XML renderer should render option cards and highlight dialogue.');
 }
 
+async function assertFrontendMessageEditHelpers() {
+  const source = await readFile(new URL('../src/app/67-message-edit-helpers.js', import.meta.url), 'utf8');
+  const events = [];
+  const directBubble = { id: 'direct' };
+  const fallbackBubble = { id: 'fallback' };
+  const context = {
+    dom: {
+      messagesContainer: {
+        querySelector(selector) {
+          events.push('query:' + selector);
+          return {
+            closest() {
+              return { querySelector: () => fallbackBubble };
+            },
+          };
+        },
+      },
+    },
+    document: {
+      createElement(tag) {
+        return {
+          tag,
+          value: '',
+          className: '',
+          style: {},
+          scrollHeight: 512,
+        };
+      },
+    },
+    removeLinkedSecondStageMessages(conv, msg) {
+      events.push('unlink:' + msg.content);
+      conv.unlinked = true;
+    },
+    Date: { now: () => 1234 },
+    Math,
+    String,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__find = findEditableMessageBubble;\nthis.__textarea = createMessageEditTextarea;\nthis.__resize = autoResizeMessageEditTextarea;\nthis.__apply = applyMessageEditContent;`, context);
+
+  const triggerBtn = {
+    closest() {
+      return { querySelector: () => directBubble };
+    },
+  };
+  assert(context.__find(2, triggerBtn) === directBubble, 'Message edit helper should prefer trigger button wrappers.');
+  assert(context.__find(3, null) === fallbackBubble && events.some((event) => event.includes('data-msg-idx="3"')), 'Message edit helper should find fallback bubbles by message index.');
+
+  const textarea = context.__textarea('hello', 200);
+  assert(textarea.value === 'hello' && textarea.style.width === '200px' && Math.abs(parseFloat(textarea.style.minWidth) - 230) < 0.001, 'Message edit textarea should preserve content and stable sizing.');
+  context.__resize(textarea);
+  assert(textarea.style.height === '420px', 'Message edit textarea resize should cap tall content.');
+
+  const conv = {
+    messages: [
+      { role: 'assistant', content: 'old' },
+      { role: 'assistant', stage: 'second', content: 'second' },
+    ],
+    _wiCache: { stale: true },
+    _lastRenderedVisibleCount: 9,
+  };
+  const changed = context.__apply(conv, 0, 'old', ' new value ');
+  assert(changed === 'changed' && conv.messages[0].content === 'new value', 'Message edit apply should trim and save changed content.');
+  assert(conv.updated === 1234 && conv._wiCache === null && conv._lastRenderedVisibleCount === 0 && conv.unlinked === true, 'Message edit apply should reset render/world-info state and unlink main assistant second-stage messages.');
+
+  assert(context.__apply(conv, 1, 'second', 'second') === 'unchanged', 'Message edit apply should detect unchanged content.');
+  assert(context.__apply(conv, 9, '', 'missing') === 'missing', 'Message edit apply should handle missing messages.');
+}
+
 async function assertFrontendChatMessageRendererHelpers() {
   const sources = await Promise.all([
     '../src/app/61-chat-message-window-state.js',
@@ -3402,6 +3471,7 @@ async function main() {
   await assertFrontendLibraryViewHelpers();
   await assertFrontendStateLifecycleHelpers();
   await assertFrontendMessageContentHelpers();
+  await assertFrontendMessageEditHelpers();
   await assertFrontendChatMessageRendererHelpers();
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendWorldBookEntryListUIHelpers();

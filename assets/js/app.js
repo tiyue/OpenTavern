@@ -13246,6 +13246,58 @@ function regenerateMessage(actualIdx) {
         start();
     }
 }
+// ==================== Message Edit Helpers ====================
+function findEditableMessageBubble(actualIdx, triggerBtn) {
+    if (triggerBtn) {
+        var wrapper = triggerBtn.closest('.msg-wrapper');
+        if (wrapper) {
+            var bubble = wrapper.querySelector('.msg-bubble');
+            if (bubble) return bubble;
+        }
+    }
+
+    var btn = dom.messagesContainer.querySelector('.msg-action-btn[data-action="edit"][data-msg-idx="' + actualIdx + '"]');
+    if (!btn) return null;
+
+    var fallbackWrapper = btn.closest('.msg-wrapper');
+    return fallbackWrapper ? fallbackWrapper.querySelector('.msg-bubble') : null;
+}
+
+function createMessageEditTextarea(originalContent, originalBubbleWidth) {
+    var ta = document.createElement('textarea');
+    ta.value = originalContent;
+    ta.className = 'px-3 py-2.5 glass rounded-2xl text-[0.95rem] text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30 resize-y leading-relaxed';
+    ta.style.fontFamily = 'inherit';
+    ta.style.boxSizing = 'border-box';
+    ta.style.width = originalBubbleWidth + 'px';
+    ta.style.maxWidth = '100%';
+    if (originalBubbleWidth < 280) {
+        ta.style.minWidth = Math.min(280, originalBubbleWidth * 1.15) + 'px';
+    }
+    return ta;
+}
+
+function autoResizeMessageEditTextarea(ta) {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 420) + 'px';
+}
+
+function applyMessageEditContent(conv, actualIdx, originalContent, editedContent) {
+    var msg = conv.messages[actualIdx];
+    if (!msg) return 'missing';
+
+    var newVal = String(editedContent || '').trim();
+    if (newVal === originalContent) return 'unchanged';
+
+    msg.content = newVal;
+    if (msg.role === 'assistant' && msg.stage !== 'second') {
+        removeLinkedSecondStageMessages(conv, msg);
+    }
+    conv.updated = Date.now();
+    conv._wiCache = null;
+    conv._lastRenderedVisibleCount = 0;
+    return 'changed';
+}
 // ==================== Message Copy/Edit UI ====================
 function copyMessageText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -13276,11 +13328,6 @@ function editMessage(actualIdx, triggerBtn) {
     ta.focus();
     ta.setSelectionRange(ta.value.length, ta.value.length);
 
-    function autoResizeTextarea() {
-        ta.style.height = 'auto';
-        ta.style.height = Math.min(ta.scrollHeight, 420) + 'px';
-    }
-
     function restoreOriginal() {
         closed = true;
         bubble.innerHTML = originalHTML;
@@ -13290,21 +13337,8 @@ function editMessage(actualIdx, triggerBtn) {
         if (closed) return;
         closed = true;
 
-        var msg = conv.messages[actualIdx];
-        if (!msg) {
-            bubble.innerHTML = originalHTML;
-            return;
-        }
-
-        var newVal = ta.value.trim();
-        if (newVal !== originalContent) {
-            msg.content = newVal;
-            if (msg.role === 'assistant' && msg.stage !== 'second') {
-                removeLinkedSecondStageMessages(conv, msg);
-            }
-            conv.updated = Date.now();
-            conv._wiCache = null;
-            conv._lastRenderedVisibleCount = 0;
+        var result = applyMessageEditContent(conv, actualIdx, originalContent, ta.value);
+        if (result === 'changed') {
             persistState();
             renderMessagesOnly();
             renderConversationListOnly();
@@ -13313,7 +13347,7 @@ function editMessage(actualIdx, triggerBtn) {
         }
     }
 
-    ta.addEventListener('input', autoResizeTextarea);
+    ta.addEventListener('input', function() { autoResizeMessageEditTextarea(ta); });
     ta.addEventListener('blur', saveEdit);
     ta.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -13324,37 +13358,7 @@ function editMessage(actualIdx, triggerBtn) {
             restoreOriginal();
         }
     });
-    setTimeout(autoResizeTextarea, 0);
-}
-
-function findEditableMessageBubble(actualIdx, triggerBtn) {
-    if (triggerBtn) {
-        var wrapper = triggerBtn.closest('.msg-wrapper');
-        if (wrapper) {
-            var bubble = wrapper.querySelector('.msg-bubble');
-            if (bubble) return bubble;
-        }
-    }
-
-    var btn = dom.messagesContainer.querySelector('.msg-action-btn[data-action="edit"][data-msg-idx="' + actualIdx + '"]');
-    if (!btn) return null;
-
-    var fallbackWrapper = btn.closest('.msg-wrapper');
-    return fallbackWrapper ? fallbackWrapper.querySelector('.msg-bubble') : null;
-}
-
-function createMessageEditTextarea(originalContent, originalBubbleWidth) {
-    var ta = document.createElement('textarea');
-    ta.value = originalContent;
-    ta.className = 'px-3 py-2.5 glass rounded-2xl text-[0.95rem] text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30 resize-y leading-relaxed';
-    ta.style.fontFamily = 'inherit';
-    ta.style.boxSizing = 'border-box';
-    ta.style.width = originalBubbleWidth + 'px';
-    ta.style.maxWidth = '100%';
-    if (originalBubbleWidth < 280) {
-        ta.style.minWidth = Math.min(280, originalBubbleWidth * 1.15) + 'px';
-    }
-    return ta;
+    setTimeout(function() { autoResizeMessageEditTextarea(ta); }, 0);
 }
 // ==================== Settings Basic Hydration ====================
 function hydratePrimaryApiSettings() {
