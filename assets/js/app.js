@@ -9496,10 +9496,12 @@ function newConversation(charOrChars) {
 // Phase 4: Show character picker when creating new chat
 // Stage 1 MVP: 支持多选创建群组聊天
 // ==================== New Chat Picker Helpers ====================
+// Split into model, header, multi bar, card UI, and static event chunks.
+// ==================== New Chat Picker Model Helpers ====================
 function getNewChatPickerCharacterKey(character) {
     return (character && character.name || '').trim().toLowerCase();
 }
-
+// ==================== New Chat Picker Header Helpers ====================
 function resetNewChatPickerHeader(modal) {
     var header = modal.querySelector('.flex.items-center.mb-4') || (modal.querySelector('h2') && modal.querySelector('h2').parentElement);
     if (!header) return;
@@ -9511,6 +9513,39 @@ function resetNewChatPickerHeader(modal) {
     if (oldTitle) oldTitle.classList.remove('mr-auto');
 }
 
+function updateNewChatPickerBackButton(modal, cameFromQuick) {
+    var header = modal.querySelector('.flex.items-center.justify-between.mb-4');
+    if (!header) return;
+
+    var prevBack = header.querySelector('#pickerBackToQuickBtn');
+    if (prevBack) prevBack.remove();
+    if (!cameFromQuick) return;
+
+    var backBtn = document.createElement('button');
+    backBtn.id = 'pickerBackToQuickBtn';
+    backBtn.className = 'px-2.5 py-1 text-xs rounded-lg bg-white/10 hover:bg-white/15 active:bg-white/20 transition-all flex-shrink-0';
+    backBtn.textContent = '← 返回';
+    backBtn.addEventListener('click', function(ev) {
+        ev.stopPropagation();
+        modal.classList.add('hidden');
+        newChatPickerCameFromQuick = false;
+        if (typeof showQuickNewChatModal === 'function') {
+            showQuickNewChatModal();
+        }
+    });
+
+    header.classList.remove('justify-between');
+    header.classList.add('justify-start', 'gap-2');
+
+    var titleH2 = header.querySelector('h2');
+    if (titleH2) {
+        header.insertBefore(backBtn, titleH2);
+        titleH2.classList.add('mr-auto');
+    } else {
+        header.prepend(backBtn);
+    }
+}
+// ==================== New Chat Picker Multi Bar Helpers ====================
 function updateNewChatPickerMultiBar(isMultiSelect, selectedCount) {
     if (!dom.newChatPickerMultiBar) return;
     if (isMultiSelect) {
@@ -9524,7 +9559,7 @@ function updateNewChatPickerMultiBar(isMultiSelect, selectedCount) {
         dom.newChatPickerMultiBar.classList.add('hidden');
     }
 }
-
+// ==================== New Chat Picker Card UI ====================
 function createNewChatPickerCharacterCard(character, options) {
     options = options || {};
 
@@ -9578,7 +9613,7 @@ function createNewChatPickerCharacterCard(character, options) {
 
     return card;
 }
-
+// ==================== New Chat Picker Static Events ====================
 function bindNewChatPickerStaticButtons(modal) {
     if (modal._wired) return;
     modal._wired = true;
@@ -9608,39 +9643,6 @@ function bindNewChatPickerStaticButtons(modal) {
             if (dom.importFileInput) dom.importFileInput.value = '';
         }
     });
-}
-
-function updateNewChatPickerBackButton(modal, cameFromQuick) {
-    var header = modal.querySelector('.flex.items-center.justify-between.mb-4');
-    if (!header) return;
-
-    var prevBack = header.querySelector('#pickerBackToQuickBtn');
-    if (prevBack) prevBack.remove();
-    if (!cameFromQuick) return;
-
-    var backBtn = document.createElement('button');
-    backBtn.id = 'pickerBackToQuickBtn';
-    backBtn.className = 'px-2.5 py-1 text-xs rounded-lg bg-white/10 hover:bg-white/15 active:bg-white/20 transition-all flex-shrink-0';
-    backBtn.textContent = '← 返回';
-    backBtn.addEventListener('click', function(ev) {
-        ev.stopPropagation();
-        modal.classList.add('hidden');
-        newChatPickerCameFromQuick = false;
-        if (typeof showQuickNewChatModal === 'function') {
-            showQuickNewChatModal();
-        }
-    });
-
-    header.classList.remove('justify-between');
-    header.classList.add('justify-start', 'gap-2');
-
-    var titleH2 = header.querySelector('h2');
-    if (titleH2) {
-        header.insertBefore(backBtn, titleH2);
-        titleH2.classList.add('mr-auto');
-    } else {
-        header.prepend(backBtn);
-    }
 }
 // ==================== New Chat Picker Multi-select UI ====================
 function createNewChatPickerSession(modal, listContainer, characters) {
