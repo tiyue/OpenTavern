@@ -39,6 +39,7 @@
   "30-state-api-conversation.js",
   "31-api-presets.js",
   "31-api-compat.js",
+  "31-api-connection-test-helpers.js",
   "31-api-connection-test.js",
   "32-conversation-model.js",
   "32-group-chat-core.js",

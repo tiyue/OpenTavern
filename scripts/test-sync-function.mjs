@@ -170,6 +170,62 @@ async function assertFrontendSummaryService() {
   assert(capturedRequest.body.messages[1].content.includes('Assistant: world'), 'Summary assistant message was not labeled correctly.');
 }
 
+async function assertFrontendApiConnectionHelpers() {
+  const helperSource = await readFile(new URL('../src/app/31-api-connection-test-helpers.js', import.meta.url), 'utf8');
+  const translations = {
+    api_test_success_title: 'Connection OK',
+    api_test_models_prefix: 'Models ',
+    api_test_models_total: ' of ',
+    api_test_models_mid: ':',
+    api_test_more_omitted: 'more omitted',
+    api_test_models_empty_note: 'No models returned',
+    api_test_tested_urls_label: 'Tested URLs',
+    api_test_suggest_title: 'Suggestions',
+    api_test_timeout_msg: 'Timeout after {s}s',
+    api_test_typeerror_prefix: 'Network error: ',
+    api_test_suggest_localhost: 'Check local server',
+    api_test_suggest_cors: 'Check CORS',
+    api_test_suggest_endpoint_path: 'Check endpoint path',
+    api_test_suggest_apikey: 'Check API key',
+    api_test_suggest_stream: 'Check stream',
+    api_test_suggest_gateway: 'Check gateway',
+  };
+  const context = {
+    t: (key) => translations[key] || key,
+    JSON,
+    String,
+    Array,
+    Boolean,
+    TypeError,
+    AbortController,
+    setTimeout,
+    clearTimeout,
+  };
+
+  vm.runInNewContext(`${helperSource}\nthis.__derive = deriveApiModelsEndpoint;\nthis.__collect = collectApiTestModelNames;\nthis.__readHttp = readApiTestHttpError;\nthis.__success = buildApiTestSuccessHtml;\nthis.__suggestions = buildApiTestSuggestions;`, context);
+
+  assert(context.__derive('https://api.example.com/v1/chat/completions') === 'https://api.example.com/v1/models', 'Models URL was not derived from chat completions endpoint.');
+  assert(context.__derive('https://api.deepseek.com') === 'https://api.deepseek.com/v1/models', 'Models URL should add /v1 when the endpoint has no version.');
+  assert(context.__derive('https://host/openai/v1') === 'https://host/openai/v1/models', 'Models URL should preserve openai/v1 endpoints.');
+
+  const names = context.__collect({ data: [{ id: 'alpha' }, { name: 'beta' }, 'gamma'] });
+  assert(names.join(',') === 'alpha,beta,gamma', 'Model name collection did not preserve id/name/string entries.');
+
+  const html = context.__success(Array.from({ length: 13 }, (_, idx) => `m${idx}`));
+  assert(html.includes('m0') && html.includes('more omitted'), 'Success HTML did not render model list truncation.');
+
+  const suggestions = context.__suggestions('http://127.0.0.1:11434/v1');
+  assert(suggestions.includes('Check local server') && suggestions.includes('Check CORS'), 'API test suggestions missed local/CORS hints.');
+
+  const errorText = await context.__readHttp({
+    status: 401,
+    async text() {
+      return JSON.stringify({ error: { message: 'bad key' } });
+    },
+  });
+  assert(errorText === 'HTTP 401 - bad key', 'HTTP error message parser did not preserve API error detail.');
+}
+
 async function assertFrontendPublicCardAssets() {
   const dataSource = await readFile(new URL('../src/app/60-public-card-data.js', import.meta.url), 'utf8');
   const librarySource = await readFile(new URL('../src/app/60-public-card-library.js', import.meta.url), 'utf8');
@@ -326,6 +382,7 @@ async function assertFrontendFileProtocolOPFSSilence() {
 async function main() {
   await assertFrontendCloudSnapshot();
   await assertFrontendSummaryService();
+  await assertFrontendApiConnectionHelpers();
   await assertFrontendPublicCardAssets();
   await assertFrontendI18nRuntime();
   await assertFrontendSillyTavernPresetNormalizer();
