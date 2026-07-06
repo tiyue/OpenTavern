@@ -1235,6 +1235,34 @@ async function assertFrontendWorldBookMatchingHelpers() {
   assert(!scan.includes('hidden'), 'Scan text should exclude system messages.');
 }
 
+async function assertFrontendWebLLMConfirmHelpers() {
+  const source = await readFile(new URL('../src/app/11-webllm-confirm-helpers.js', import.meta.url), 'utf8');
+  const picker = { value: 'Picker-Model' };
+  const started = [];
+  const context = {
+    WEBLLM_MODEL_INFO: {
+      'Llama-3.2-3B-Instruct-q4f16_1-MLC': { label: 'Llama-3.2-3B', sizeMB: 2100 },
+      'Picker-Model': { label: 'Picker', sizeMB: 850 },
+    },
+    state: { settings: { webllmModel: 'State-Model' } },
+    document: { getElementById: (id) => (id === 'webllmModel' ? picker : null) },
+    persistState: () => { context.persisted = true; },
+    startWebLLMInitialization: (modelId) => { started.push(modelId); },
+    String,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__model = getWebLLMConfirmModelId;\nthis.__size = formatWebLLMModelSize;\nthis.__html = buildWebLLMConfirmHtml;\nthis.__start = startChosenWebLLMModel;`, context);
+
+  assert(context.__model(null) === 'Picker-Model', 'WebLLM confirm should prefer the visible model picker.');
+  assert(context.__model('Direct-Model') === 'Direct-Model', 'WebLLM confirm should prefer an explicit target model.');
+  assert(context.__size(2100) === '2.1 GB' && context.__size(850) === '850 MB', 'WebLLM confirm should format model download sizes.');
+  assert(context.__html('Llama-3.2-3B-Instruct-q4f16_1-MLC', true).includes('Llama-3.2-3B'), 'WebLLM model switch copy should include the target model label.');
+
+  context.__start('Llama-3.2-3B-Instruct-q4f16_1-MLC');
+  assert(context.state.settings.inferenceBackend === 'webllm' && picker.value === 'Llama-3.2-3B-Instruct-q4f16_1-MLC', 'WebLLM confirm should sync the selected local model.');
+  assert(context.persisted === true && started[0] === 'Llama-3.2-3B-Instruct-q4f16_1-MLC', 'WebLLM confirm should persist and start initialization.');
+}
+
 async function assertFrontendWorldBookEntryListFiltering() {
   const source = await readFile(new URL('../src/app/43-worldbook-entry-list-filter.js', import.meta.url), 'utf8');
   const context = {
@@ -1934,6 +1962,7 @@ async function main() {
   await assertFrontendWorldBookActivation();
   await assertFrontendWorldBookActivationHelpers();
   await assertFrontendWorldBookMatchingHelpers();
+  await assertFrontendWebLLMConfirmHelpers();
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendWorldBookEntryListUIHelpers();
   await assertFrontendWorldBookEntryLiveHelpers();
