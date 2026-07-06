@@ -1424,6 +1424,100 @@ async function assertFrontendPublicCardGridFiltering() {
   assert(filtered.length === 1 && filtered[0].name === 'Alpha', 'Public card grid filtering did not use the library filter.');
 }
 
+async function assertFrontendPublicCardListUI() {
+  const sources = await Promise.all([
+    '../src/app/60-public-card-text-ui.js',
+    '../src/app/60-public-card-list-filter.js',
+    '../src/app/60-public-card-list-item-ui.js',
+    '../src/app/60-public-card-list-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function classList(initial = []) {
+    const values = new Set(initial);
+    return {
+      values,
+      add(...names) { names.forEach((name) => values.add(name)); },
+      remove(...names) { names.forEach((name) => values.delete(name)); },
+      contains(name) { return values.has(name); },
+    };
+  }
+
+  function makeElement(tag) {
+    const element = {
+      tag,
+      children: [],
+      className: '',
+      _innerHTML: '',
+      textContent: '',
+      classList: classList(),
+      listeners: {},
+      appendChild(child) { this.children.push(child); },
+      addEventListener(type, handler) { this.listeners[type] = handler; },
+    };
+    Object.defineProperty(element, 'innerHTML', {
+      get() { return this._innerHTML; },
+      set(value) {
+        this._innerHTML = String(value);
+        if (value === '') this.children = [];
+      },
+    });
+    return element;
+  }
+
+  const cards = [
+    { id: 'a', name: 'Alpha', author: 'Sensei', description: 'Blue archive card', tags: ['blue', 'hero'], previewImage: 'assets/a.png' },
+    { id: 'b', name: 'Beta', author: 'Other', description: 'Red card', tags: ['red'], previewImage: 'assets/b.png' },
+  ];
+  const detailEvents = [];
+  const container = makeElement('div');
+  const empty = makeElement('div');
+  const count = makeElement('span');
+  const context = {
+    dom: {
+      cardLibraryListView: container,
+      cardLibraryEmpty: empty,
+      cardLibraryResultCount: count,
+      cardLibrarySearchContainer: makeElement('div'),
+      cardLibraryDetailView: makeElement('div'),
+    },
+    document: { createElement: makeElement },
+    getPublicCards: () => cards,
+    resolvePublicCardImageUrl: (card) => 'resolved:' + card.previewImage,
+    showCardLibraryDetail: (card) => detailEvents.push(card.id),
+    switchView: () => {},
+    setActiveTab: () => {},
+    currentLibraryCard: { id: 'old' },
+    String,
+    RegExp,
+    Set,
+    Array,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__normalize = normalizeCardLibraryQuery;\nthis.__matches = cardMatchesLibraryQuery;\nthis.__filter = filterCardLibraryCards;\nthis.__item = createCardLibraryItem;\nthis.__fallback = createCardLibraryImageFallback;\nthis.__list = filterCardLibraryList;\nthis.__show = showCardLibraryListView;`, context);
+
+  assert(context.__normalize('  BLUE ') === 'blue', 'Public card list query should be normalized.');
+  assert(context.__matches(cards[0], 'sensei') && context.__matches(cards[0], 'archive') && context.__matches(cards[0], 'hero'), 'Public card list matching should include author, description, and tags.');
+  assert(context.__filter(cards, 'red')[0].id === 'b', 'Public card list filter should return matching cards.');
+
+  const item = context.__item(cards[0], 'alp');
+  assert(item.children.length === 2, 'Public card list item should render image and content columns.');
+  assert(item.children[0].children[0].src === 'resolved:assets/a.png', 'Public card list item should resolve preview images.');
+  assert(item.children[1].children[0].innerHTML.includes('bg-amber-500/30'), 'Public card list item should highlight query matches.');
+  item.listeners.click();
+  assert(detailEvents[0] === 'a', 'Public card list item click should open details.');
+  assert(context.__fallback({ name: '<alpha>' }).includes('&lt;'), 'Public card image fallback should escape the initial.');
+
+  context.__list('blue');
+  assert(container.children.length === 1 && container.children[0].children[1].children[0].innerHTML.includes('Alpha'), 'Public card list filter should render matching cards.');
+  assert(empty.classList.values.has('hidden') && count.textContent.includes('1'), 'Public card list filter should hide empty state and update count.');
+
+  context.__list('missing');
+  assert(container.children.length === 0 && !empty.classList.values.has('hidden'), 'Public card list filter should show empty state for no matches.');
+
+  context.__show();
+  assert(context.currentLibraryCard === null, 'Public card list view should reset the selected card.');
+}
+
 async function assertFrontendI18nRuntime() {
   const sources = await Promise.all([
     '../src/app/12-i18n-core.js',
@@ -3145,6 +3239,7 @@ async function main() {
   await assertFrontendSettingsHydrationHelpers();
   await assertFrontendPublicCardAssets();
   await assertFrontendPublicCardGridFiltering();
+  await assertFrontendPublicCardListUI();
   await assertFrontendI18nRuntime();
   await assertFrontendSillyTavernPresetNormalizer();
   await assertFrontendSillyTavernPresetSettingsRows();

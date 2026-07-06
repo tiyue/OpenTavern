@@ -210,6 +210,8 @@
   "60-public-card-assets.js",
   "60-public-card-library.js",
   "60-public-card-text-ui.js",
+  "60-public-card-list-filter.js",
+  "60-public-card-list-item-ui.js",
   "60-public-card-list-ui.js",
   "60-public-card-detail-ui.js",
   "60-public-card-import-ui.js",

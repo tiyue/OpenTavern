@@ -10258,28 +10258,36 @@ function openCardLibrary() {
     if (typeof setActiveTab === 'function') setActiveTab('public');
     return;
 }
-// ==================== Public Card List UI ====================
-function showCardLibraryListView() {
-    if (dom.cardLibraryListView) dom.cardLibraryListView.classList.remove('hidden');
-    if (dom.cardLibrarySearchContainer) dom.cardLibrarySearchContainer.classList.remove('hidden');
-    if (dom.cardLibraryDetailView) dom.cardLibraryDetailView.classList.add('hidden');
-    if (dom.cardLibraryEmpty) dom.cardLibraryEmpty.classList.add('hidden');
-    currentLibraryCard = null;
-
-    // 确保列表可见时有内容（filter 会处理匹配渲染）
-    const listView = dom.cardLibraryListView;
-    if (listView && listView.children.length === 0) {
-        filterCardLibraryList('');
-    }
+// ==================== Public Card List Filtering ====================
+function normalizeCardLibraryQuery(query) {
+    return (query || '').toLowerCase().trim();
 }
 
+function cardMatchesLibraryQuery(card, query) {
+    if (!query) return true;
+    const nameMatch = (card.name || '').toLowerCase().includes(query);
+    const authorMatch = (card.author || '').toLowerCase().includes(query);
+    const descMatch = (card.description || '').toLowerCase().includes(query);
+    const tagsMatch = (card.tags || []).some(t => (t || '').toLowerCase().includes(query));
+    return nameMatch || authorMatch || descMatch || tagsMatch;
+}
 
+function getFilteredCardLibraryCards(query) {
+    return filterCardLibraryCards(getPublicCards(), query);
+}
 
-function createCardLibraryItem(card, query = '') {
-    const item = document.createElement('div');
-    item.className = 'glass rounded-2xl p-3 flex gap-3 cursor-pointer hover:bg-white/5 active:bg-white/10 transition-all border border-white/5 hover:border-white/10';
+function filterCardLibraryCards(cards, query) {
+    const q = normalizeCardLibraryQuery(query);
+    return (cards || []).filter(card => cardMatchesLibraryQuery(card, q));
+}
+// ==================== Public Card List Item UI ====================
+function createCardLibraryImageFallback(card) {
+    return '<div class="w-full h-full flex items-center justify-center text-xl font-bold text-white ot-avatar-fill">' +
+        escapeHtml((card.name || '?').charAt(0).toUpperCase()) +
+        '</div>';
+}
 
-    // 左侧 1:1 预览图容器（自动裁剪为圆角正方形）
+function createCardLibraryImageWrap(card) {
     const imgWrap = document.createElement('div');
     imgWrap.className = 'w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-2xl overflow-hidden bg-zinc-900 border border-white/10';
     const img = document.createElement('img');
@@ -10288,12 +10296,13 @@ function createCardLibraryItem(card, query = '') {
     img.alt = card.name || 'preview';
     img.loading = 'lazy';
     img.onerror = function() {
-        // 图片加载失败时显示首字母占位
-        imgWrap.innerHTML = `<div class="w-full h-full flex items-center justify-center text-xl font-bold text-white ot-avatar-fill">${(card.name || '?').charAt(0).toUpperCase()}</div>`;
+        imgWrap.innerHTML = createCardLibraryImageFallback(card);
     };
     imgWrap.appendChild(img);
+    return imgWrap;
+}
 
-    // 右侧内容
+function createCardLibraryItemContent(card, query) {
     const content = document.createElement('div');
     content.className = 'flex-1 min-w-0 flex flex-col justify-center';
 
@@ -10308,16 +10317,32 @@ function createCardLibraryItem(card, query = '') {
 
     content.appendChild(nameEl);
     content.appendChild(tagsEl);
+    return content;
+}
 
-    item.appendChild(imgWrap);
-    item.appendChild(content);
-
-    // 点击进入详情
+function createCardLibraryItem(card, query = '') {
+    const item = document.createElement('div');
+    item.className = 'glass rounded-2xl p-3 flex gap-3 cursor-pointer hover:bg-white/5 active:bg-white/10 transition-all border border-white/5 hover:border-white/10';
+    item.appendChild(createCardLibraryImageWrap(card));
+    item.appendChild(createCardLibraryItemContent(card, query));
     item.addEventListener('click', () => {
         showCardLibraryDetail(card);
     });
-
     return item;
+}
+// ==================== Public Card List UI ====================
+function showCardLibraryListView() {
+    if (dom.cardLibraryListView) dom.cardLibraryListView.classList.remove('hidden');
+    if (dom.cardLibrarySearchContainer) dom.cardLibrarySearchContainer.classList.remove('hidden');
+    if (dom.cardLibraryDetailView) dom.cardLibraryDetailView.classList.add('hidden');
+    if (dom.cardLibraryEmpty) dom.cardLibraryEmpty.classList.add('hidden');
+    currentLibraryCard = null;
+
+    // 确保列表可见时有内容（filter 会处理匹配渲染）
+    const listView = dom.cardLibraryListView;
+    if (listView && listView.children.length === 0) {
+        filterCardLibraryList('');
+    }
 }
 
 function populateCardLibraryList() {
@@ -10342,17 +10367,9 @@ function filterCardLibraryList(query) {
     const empty = dom.cardLibraryEmpty;
     if (!container) return;
 
-    const q = (query || '').toLowerCase().trim();
-
     const cards = getPublicCards();
-    const filtered = cards.filter(card => {
-        if (!q) return true;
-        const nameMatch = (card.name || '').toLowerCase().includes(q);
-        const authorMatch = (card.author || '').toLowerCase().includes(q);
-        const descMatch = (card.description || '').toLowerCase().includes(q);
-        const tagsMatch = (card.tags || []).some(t => (t || '').toLowerCase().includes(q));
-        return nameMatch || authorMatch || descMatch || tagsMatch;
-    });
+    const q = normalizeCardLibraryQuery(query);
+    const filtered = filterCardLibraryCards(cards, q);
 
     container.innerHTML = '';
     if (empty) empty.classList.add('hidden');
