@@ -379,6 +379,100 @@ async function assertFrontendFileProtocolOPFSSilence() {
   assert(errors.length === 0, `OPFS file:// path should not error: ${errors.join('\n')}`);
 }
 
+async function assertFrontendStorageServicePipeline() {
+  const sources = await Promise.all([
+    '../src/app/20-storage-service-helpers.js',
+    '../src/app/20-storage-service-load.js',
+    '../src/app/20-storage-service-save.js',
+    '../src/app/20-storage-service.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const backingStore = new Map();
+  const localStorageMock = {
+    getItem(key) { return Object.prototype.hasOwnProperty.call(this, key) ? this[key] : null; },
+    setItem(key, value) { this[key] = String(value); },
+    removeItem(key) { delete this[key]; },
+  };
+  const context = {
+    STORAGE_KEY: 'opentavern-test-storage',
+    STORAGE_BACKUP_PREFIX: 'opentavern-test-backup-',
+    STORAGE_CLEAR_KEY: 'opentavern-test-clear',
+    IDBStorage: {
+      async loadAll() {
+        return backingStore.has('idb') ? JSON.parse(JSON.stringify(backingStore.get('idb'))) : null;
+      },
+      async saveAll(data) {
+        backingStore.set('idb', JSON.parse(JSON.stringify(data)));
+      },
+    },
+    OPFSStorage: {
+      async loadAll() { return null; },
+      async saveAll() {},
+    },
+    localStorage: localStorageMock,
+    location: { protocol: 'http:' },
+    navigator: { storage: {} },
+    window: {},
+    console: {
+      log() {},
+      warn() {},
+      error() {},
+    },
+    Date,
+    JSON,
+    Object,
+    Array,
+    Number,
+    setTimeout,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__StorageService = StorageService;`, context);
+  const service = context.__StorageService;
+  service._idbAvailable = true;
+
+  const userData = {
+    settings: { model: 'storage-model', lang: 'en' },
+    conversations: { c1: { id: 'c1', title: 'Stored chat', messages: [{ role: 'user', content: 'hello' }] } },
+    conversationOrder: ['c1'],
+    activeConvId: 'c1',
+    characters: { arona: { id: 'arona', name: 'Arona', first_mes: 'Sensei!' } },
+    worldBooks: {},
+    lastSaved: 1000,
+  };
+
+  await service.saveAll(userData);
+  assert(backingStore.get('idb').characters.arona.first_mes === 'Sensei!', 'StorageService saveAll did not persist character cards to IDB.');
+  assert(JSON.parse(localStorageMock[context.STORAGE_KEY]).conversations.c1.messages[0].content === 'hello', 'StorageService saveAll did not persist localStorage snapshot.');
+
+  const loaded = await service.loadAll({ sync: false, includeLegacy: false });
+  assert(loaded.settings.model === 'storage-model', 'StorageService loadAll did not restore settings.');
+  assert(loaded.conversations.c1.title === 'Stored chat', 'StorageService loadAll did not restore chats.');
+  assert(loaded.characters.arona.name === 'Arona', 'StorageService loadAll did not restore character cards.');
+
+  await service.saveAll({
+    settings: {},
+    conversations: { empty: { id: 'empty', messages: [] } },
+    conversationOrder: ['empty'],
+    activeConvId: 'empty',
+    characters: {},
+    worldBooks: {},
+    lastSaved: 2000,
+  });
+  assert(backingStore.get('idb').conversations.c1, 'StorageService empty-start protection overwrote existing user data.');
+
+  backingStore.delete('idb');
+  service._idbAvailable = false;
+  await service.saveAll({
+    settings: { model: 'local-only' },
+    conversations: {},
+    characters: { local: { id: 'local', name: 'Local Card' } },
+    worldBooks: {},
+    lastSaved: 3000,
+  });
+  assert(service.getBackend() === 'localStorage', 'StorageService should use localStorage when IDB is unavailable.');
+  assert(JSON.parse(localStorageMock[context.STORAGE_KEY]).characters.local.name === 'Local Card', 'StorageService localStorage fallback did not persist character cards.');
+}
+
 async function main() {
   await assertFrontendCloudSnapshot();
   await assertFrontendSummaryService();
@@ -387,6 +481,7 @@ async function main() {
   await assertFrontendI18nRuntime();
   await assertFrontendSillyTavernPresetNormalizer();
   await assertFrontendFileProtocolOPFSSilence();
+  await assertFrontendStorageServicePipeline();
 
   const { db } = createMockD1();
   const env = { SYNC_DB: db };
