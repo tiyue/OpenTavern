@@ -3920,15 +3920,31 @@ function notifyCloudSyncSnapshotApplied() {
     if (typeof updateInputState === 'function') updateInputState();
     if (typeof updateStorageInfo === 'function') updateStorageInfo();
 }
+// ==================== Cloud Sync Operation Helpers ====================
+function setCloudSyncPendingStatus(statusEl, message) {
+    var target = statusEl || document.getElementById('cloudSyncStatus');
+    if (!target) return;
+    target.textContent = message;
+    target.className = 'text-[10px] leading-relaxed text-amber-300';
+}
+
+function formatCloudSyncTimestamp(timestamp) {
+    return timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString();
+}
+
+async function persistCloudSyncOperationState() {
+    _cloudSyncSavingStatus = true;
+    try {
+        await persistState(true);
+    } finally {
+        _cloudSyncSavingStatus = false;
+    }
+}
 // ==================== Cloud Sync Upload / Download ====================
 async function uploadCloudSyncSnapshot(statusEl, options) {
     ensureCloudSyncSettings();
     options = options || {};
-    var target = statusEl || document.getElementById('cloudSyncStatus');
-    if (target) {
-        target.textContent = 'Uploading...';
-        target.className = 'text-[10px] leading-relaxed text-amber-300';
-    }
+    setCloudSyncPendingStatus(statusEl, 'Uploading...');
     var snapshot = buildAppDataSnapshot();
 
     if (!options.force) {
@@ -3956,21 +3972,16 @@ async function uploadCloudSyncSnapshot(statusEl, options) {
         encrypted: payload && payload.encrypted === true,
         data: payload
     });
-    var when = result.updatedAt ? new Date(result.updatedAt).toLocaleString() : new Date().toLocaleString();
+    var when = formatCloudSyncTimestamp(result.updatedAt);
     var msg = 'Cloud upload complete: ' + when + (payload && payload.encrypted ? ' (encrypted)' : '');
     setCloudSyncStatus(msg, false);
-    _cloudSyncSavingStatus = true;
-    try { await persistState(true); } finally { _cloudSyncSavingStatus = false; }
+    await persistCloudSyncOperationState();
     return result;
 }
 
 async function downloadCloudSyncSnapshot(statusEl) {
     ensureCloudSyncSettings();
-    var target = statusEl || document.getElementById('cloudSyncStatus');
-    if (target) {
-        target.textContent = 'Downloading...';
-        target.className = 'text-[10px] leading-relaxed text-amber-300';
-    }
+    setCloudSyncPendingStatus(statusEl, 'Downloading...');
     var rawData = await readCloudSyncRemoteSnapshot();
     if (!rawData) {
         var emptyMsg = 'No cloud snapshot found for this token.';
@@ -3980,21 +3991,16 @@ async function downloadCloudSyncSnapshot(statusEl) {
     var freshness = getCloudSyncFreshness(rawData);
     var data = await decryptCloudSyncSnapshot(rawData);
     applyCloudSyncSnapshot(data);
-    var when = data.lastSaved ? new Date(data.lastSaved).toLocaleString() : new Date().toLocaleString();
+    var when = formatCloudSyncTimestamp(data.lastSaved);
     var msg = 'Cloud download applied: ' + when + ' (' + freshness + ' than local before restore)' + (rawData && rawData.encrypted ? ' (encrypted)' : '');
     setCloudSyncStatus(msg, false);
-    _cloudSyncSavingStatus = true;
-    try { await persistState(true); } finally { _cloudSyncSavingStatus = false; }
+    await persistCloudSyncOperationState();
     return data;
 }
 
 async function syncCloudSyncSnapshot(statusEl) {
     ensureCloudSyncSettings();
-    var target = statusEl || document.getElementById('cloudSyncStatus');
-    if (target) {
-        target.textContent = 'Checking cloud snapshot...';
-        target.className = 'text-[10px] leading-relaxed text-amber-300';
-    }
+    setCloudSyncPendingStatus(statusEl, 'Checking cloud snapshot...');
 
     var remote = await readCloudSyncRemoteSnapshot();
     if (!remote) {
@@ -4012,8 +4018,7 @@ async function syncCloudSyncSnapshot(statusEl) {
     }
     var msg = 'Cloud sync already up to date.';
     setCloudSyncStatus(msg, false);
-    _cloudSyncSavingStatus = true;
-    try { await persistState(true); } finally { _cloudSyncSavingStatus = false; }
+    await persistCloudSyncOperationState();
     return { success: true, upToDate: true };
 }
 // ==================== Cloud Sync Auto Upload ====================

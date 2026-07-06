@@ -377,6 +377,102 @@ async function assertFrontendCloudSnapshotApply() {
   assert(Array.isArray(notified) && notified.includes('characters') && notified.includes('worldBooks'), 'Cloud apply did not notify restored data domains.');
 }
 
+async function assertFrontendCloudSyncOperations() {
+  const sources = await Promise.all([
+    '../src/app/22-cloud-sync-operation-helpers.js',
+    '../src/app/22-cloud-sync-operations.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const explicitStatus = { textContent: '', className: '' };
+  const documentStatus = { textContent: '', className: '' };
+  const events = [];
+  let capturedRequest = null;
+  let appliedSnapshot = null;
+  const localSnapshot = {
+    settings: { model: 'cloud-model' },
+    conversations: { c1: { id: 'c1', messages: [{ content: 'hello cloud' }] } },
+    conversationOrder: ['c1'],
+    activeConvId: 'c1',
+    characters: { arona: { name: 'Arona' } },
+    worldBooks: { wb1: { id: 'wb1' } },
+    lastSaved: 1000,
+  };
+  const context = {
+    _cloudSyncSavingStatus: false,
+    remoteSnapshot: null,
+    encryptAsEncrypted: false,
+    state: { settings: { cloudSyncEndpoint: '/api/sync', cloudSyncToken: 'token' } },
+    document: {
+      getElementById(id) { return id === 'cloudSyncStatus' ? documentStatus : null; },
+    },
+    ensureCloudSyncSettings() { events.push('ensure'); return context.state.settings; },
+    buildAppDataSnapshot() { events.push('snapshot'); return localSnapshot; },
+    readCloudSyncRemoteSnapshot() { events.push('read'); return context.remoteSnapshot; },
+    getCloudSyncFreshness(remote) { events.push(`fresh:${remote && remote.freshness || 'same'}`); return (remote && remote.freshness) || 'same'; },
+    async encryptCloudSyncSnapshot(snapshot) {
+      events.push('encrypt');
+      return Object.assign({ encrypted: !!context.encryptAsEncrypted }, snapshot);
+    },
+    async requestCloudSync(method, payload) {
+      events.push(`request:${method}`);
+      capturedRequest = { method, payload };
+      return { success: true, updatedAt: 2000 };
+    },
+    async decryptCloudSyncSnapshot(raw) { events.push('decrypt'); return raw.data || raw; },
+    applyCloudSyncSnapshot(data) { events.push('apply'); appliedSnapshot = data; },
+    setCloudSyncStatus(message, isError) {
+      events.push(`status:${isError ? 'error' : 'ok'}:${message}`);
+      context.state.settings.cloudSyncLastStatus = message;
+    },
+    async persistState(force) { events.push(`persist:${force}:${context._cloudSyncSavingStatus}`); },
+    Date,
+    Promise,
+    console: { warn(message) { events.push(`warn:${message}`); } },
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__pending = setCloudSyncPendingStatus;\nthis.__persistOp = persistCloudSyncOperationState;\nthis.__upload = uploadCloudSyncSnapshot;\nthis.__download = downloadCloudSyncSnapshot;\nthis.__sync = syncCloudSyncSnapshot;`, context);
+
+  context.__pending(explicitStatus, 'Working...');
+  assert(explicitStatus.textContent === 'Working...' && explicitStatus.className.includes('text-amber-300'), 'Cloud sync pending helper should update the provided status element.');
+  context.__pending(null, 'Fallback working...');
+  assert(documentStatus.textContent === 'Fallback working...', 'Cloud sync pending helper should fall back to the document status element.');
+
+  await context.__persistOp();
+  assert(events.includes('persist:true:true') && context._cloudSyncSavingStatus === false, 'Cloud sync operation persist should pause auto-upload and restore the flag.');
+
+  events.length = 0;
+  capturedRequest = null;
+  context.encryptAsEncrypted = true;
+  await context.__upload(explicitStatus, { force: true });
+  assert(capturedRequest.method === 'POST' && capturedRequest.payload.encrypted === true, 'Cloud upload should POST the encrypted payload envelope.');
+  assert(capturedRequest.payload.data.conversations.c1.messages[0].content === 'hello cloud', 'Cloud upload should include chat history.');
+  assert(capturedRequest.payload.data.settings.model === 'cloud-model', 'Cloud upload should include settings.');
+  assert(capturedRequest.payload.data.characters.arona.name === 'Arona', 'Cloud upload should include character cards.');
+  assert(capturedRequest.payload.data.worldBooks.wb1.id === 'wb1', 'Cloud upload should include world books.');
+  assert(events.some((event) => event.startsWith('status:ok:Cloud upload complete')) && events.includes('persist:true:true'), 'Cloud upload should report success and persist status.');
+
+  events.length = 0;
+  capturedRequest = null;
+  context.remoteSnapshot = { freshness: 'newer', lastSaved: 5000 };
+  const skipped = await context.__upload(explicitStatus, { force: false });
+  assert(skipped.skipped === true && skipped.reason === 'remote-newer' && capturedRequest === null, 'Protected cloud upload should skip when the remote snapshot is newer.');
+
+  events.length = 0;
+  context.remoteSnapshot = { freshness: 'same', lastSaved: 1000 };
+  const synced = await context.__sync(null);
+  assert(synced.upToDate === true && events.includes('persist:true:true'), 'Cloud sync should persist status when local and remote snapshots are already in sync.');
+
+  events.length = 0;
+  appliedSnapshot = null;
+  context.remoteSnapshot = {
+    freshness: 'newer',
+    encrypted: false,
+    data: { lastSaved: 6000, settings: {}, conversations: {}, characters: {}, worldBooks: {} },
+  };
+  const downloaded = await context.__download(explicitStatus);
+  assert(downloaded.lastSaved === 6000 && appliedSnapshot === downloaded, 'Cloud download should decrypt and apply the remote snapshot.');
+}
+
 async function assertFrontendSummaryService() {
   const promptSources = await Promise.all([
     '../src/app/53-summary-default-prompts.js',
@@ -3903,6 +3999,7 @@ async function main() {
   await assertFrontendStatePersistenceHelpers();
   await assertFrontendWebGLBackgroundHelpers();
   await assertFrontendCloudSnapshotApply();
+  await assertFrontendCloudSyncOperations();
   await assertFrontendSummaryService();
   await assertFrontendAutoSummarizationHelpers();
   await assertFrontendSummaryManagerHelpers();
