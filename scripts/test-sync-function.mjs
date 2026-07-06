@@ -1170,6 +1170,40 @@ async function assertFrontendStorageServicePipeline() {
   assert(JSON.parse(localStorageMock[context.STORAGE_KEY]).characters.local.name === 'Local Card', 'StorageService localStorage fallback did not persist character cards.');
 }
 
+async function assertFrontendIDBStorageHelpers() {
+  const sources = await Promise.all([
+    '../src/app/20-storage-idb-connection.js',
+    '../src/app/20-storage-idb-operations.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const context = {
+    Date,
+    Error,
+    Promise,
+    setTimeout,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__normalize = normalizeIDBStorageData;\nthis.__retry = withRetryIDBStorage;`, context);
+
+  const normalized = context.__normalize({ data: { conversations: {} } });
+  assert(normalized.conversations && Number.isFinite(normalized.lastSaved), 'IDB normalize should unwrap stored snapshot data and add lastSaved.');
+
+  let attempts = 0;
+  let resets = 0;
+  const storage = {
+    async _open(options) {
+      attempts += 1;
+      if (attempts === 1) throw new Error('first failure');
+      return { ok: true, fresh: !!options.fresh };
+    },
+    _resetConnection() { resets += 1; },
+    async _delay() {},
+  };
+  const result = await context.__retry(storage, async (db) => db, { retries: 1 });
+  assert(result.ok === true && result.fresh === true, 'IDB retry should reopen with a fresh connection after failure.');
+  assert(attempts === 2 && resets === 1, 'IDB retry should reset once and retry exactly once.');
+}
+
 async function assertFrontendStorageServiceFileProtocolStatus() {
   const sources = await Promise.all([
     '../src/app/20-storage-service-helpers.js',
@@ -1439,6 +1473,7 @@ async function main() {
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendWorldBookEntryLiveHelpers();
   await assertFrontendFileProtocolOPFSSilence();
+  await assertFrontendIDBStorageHelpers();
   await assertFrontendStorageServicePipeline();
   await assertFrontendStorageServiceFileProtocolStatus();
   await assertFrontendStateInitialization();

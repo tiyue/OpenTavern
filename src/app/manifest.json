@@ -20,6 +20,8 @@
   "20-storage-opfs-environment.js",
   "20-storage-opfs-io.js",
   "20-storage-opfs.js",
+  "20-storage-idb-connection.js",
+  "20-storage-idb-operations.js",
   "20-storage-idb.js",
   "20-storage-service-helpers.js",
   "20-storage-service-maintenance.js",
