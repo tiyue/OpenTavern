@@ -1306,6 +1306,42 @@ async function assertFrontendWebGPUDeviceHelpers() {
   assert(context.__err(new Error('NO_WEBGPU')).includes('WebGPU'), 'WebGPU detection should map missing WebGPU to a user-facing message.');
 }
 
+async function assertFrontendGroupChatCoreHelpers() {
+  const sources = await Promise.all([
+    '../src/app/32-group-chat-members.js',
+    '../src/app/32-group-chat-speakers.js',
+    '../src/app/32-group-chat-message-helpers.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const conv = {
+    character: { name: 'Solo' },
+    group: {
+      members: [
+        { character: { name: 'Plana' }, order: 1 },
+        { character: { name: 'Arona' }, order: 0 },
+      ],
+    },
+    messages: [{ role: 'assistant', speaker: 'arona', content: 'hi' }],
+  };
+  const context = {
+    state: { settings: { userName: 'Sensei' } },
+    t: (key) => ({ sender_assistant: 'Assistant', sender_you: 'You' }[key] || key),
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__isGroup = isGroupChat;\nthis.__members = getGroupMembers;\nthis.__normalize = normalizeConversation;\nthis.__next = getNextGroupSpeaker;\nthis.__current = getCurrentSpeakerCharacter;\nthis.__name = getMessageSenderName;\nthis.__generating = getCurrentGeneratingSpeakerName;\nthis.__mention = parseGroupMention;`, context);
+
+  context.__normalize(conv);
+  assert(context.__isGroup(conv), 'Group chat detection should require at least two members.');
+  assert(context.__members(conv).map((member) => member.character.name).join(',') === 'Arona,Plana', 'Group members should be sorted by order.');
+  assert(conv.group.members.every((member) => member.muted === false), 'Group normalization should fill missing muted flags.');
+  assert(context.__next(conv).name === 'Plana', 'Group speaker rotation should advance after the last assistant speaker.');
+  assert(context.__current({ character: { name: 'Solo' }, group: null }).name === 'Solo', 'Single chat current speaker should be the conversation character.');
+  assert(context.__name({ role: 'user' }, conv) === 'Sensei', 'User messages should use the configured user name.');
+  assert(context.__name({ role: 'assistant', speaker: 'Arona' }, conv) === 'Arona', 'Assistant messages should prefer recorded speaker names.');
+  assert(context.__generating(conv) === 'Plana', 'Generating speaker name should match the next group speaker.');
+  assert(context.__mention('hello @plana and @Arona', conv).name === 'Plana', 'Group mention parsing should resolve the first case-insensitive mention.');
+}
+
 async function assertFrontendWorldBookEntryListFiltering() {
   const source = await readFile(new URL('../src/app/43-worldbook-entry-list-filter.js', import.meta.url), 'utf8');
   const context = {
@@ -2007,6 +2043,7 @@ async function main() {
   await assertFrontendWorldBookMatchingHelpers();
   await assertFrontendWebLLMConfirmHelpers();
   await assertFrontendWebGPUDeviceHelpers();
+  await assertFrontendGroupChatCoreHelpers();
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendWorldBookEntryListUIHelpers();
   await assertFrontendWorldBookEntryLiveHelpers();
