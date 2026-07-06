@@ -2572,6 +2572,106 @@ async function assertFrontendMessageEditHelpers() {
   assert(context.__apply(conv, 9, '', 'missing') === 'missing', 'Message edit apply should handle missing messages.');
 }
 
+async function assertFrontendMessageActionHelpers() {
+  const sources = await Promise.all([
+    '../src/app/67-message-action-helpers.js',
+    '../src/app/67-message-actions-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  let activeConv = null;
+  const events = [];
+  const context = {
+    state: { isGenerating: false },
+    getActiveConv() {
+      return activeConv;
+    },
+    removeLinkedSecondStageMessages(conv, msg) {
+      events.push('unlink:' + msg.id);
+      conv.messages = conv.messages.filter((m) => !(m.stage === 'second' && m.parentId === msg.id));
+    },
+    persistState() { events.push('persist'); },
+    renderMessagesOnly() { events.push('render-messages'); },
+    renderConversationListOnly() { events.push('render-conversations'); },
+    runSecondStageGeneration(parent, done) {
+      events.push('second:' + parent.id);
+      done();
+    },
+    completeGenerationTurn(conv) { events.push('complete:' + conv.id); },
+    isGroupChat() { return true; },
+    parseGroupMention() { return { name: 'Plana' }; },
+    getNextGroupSpeaker() { return { name: 'Next' }; },
+    streamChat(onToken) {
+      events.push('stream');
+      onToken('', 'regen', '');
+    },
+    updateStreamingBubble(content) { events.push('bubble:' + content); },
+    getCurrentGeneratingSpeakerName() { return 'Arona'; },
+    handlePrimaryAssistantComplete() {},
+    updateInputState() { events.push('input'); },
+    isWebLLMBackend() { return false; },
+    document: { getElementById: () => null },
+    appStore: { notify(key) { events.push('notify:' + key); } },
+    alert: (msg) => events.push('alert:' + msg),
+    Date: { now: () => 12345 },
+    Array,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__delete = deleteMessage;\nthis.__regen = regenerateMessage;`, context);
+
+  function reset(conv) {
+    activeConv = conv;
+    events.length = 0;
+  }
+
+  reset({
+    id: 'delete-user',
+    messages: [
+      { role: 'user', content: 'u' },
+      { role: 'assistant', content: 'a1' },
+      { role: 'assistant', content: 'a2' },
+      { role: 'user', content: 'next' },
+    ],
+  });
+  context.__delete(0);
+  assert(activeConv.messages.length === 1 && activeConv.messages[0].content === 'next', 'Message delete should remove a user message and up to two following assistant replies.');
+  assert(activeConv.updated === 12345 && events.includes('persist') && events.includes('render-conversations'), 'Message delete should persist and refresh conversation lists.');
+
+  reset({
+    id: 'delete-assistant',
+    messages: [
+      { role: 'user', content: 'u' },
+      { id: 'main', role: 'assistant', content: 'a' },
+      { id: 'second', role: 'assistant', stage: 'second', parentId: 'main', content: 's' },
+    ],
+  });
+  context.__delete(1);
+  assert(activeConv.messages.length === 1 && activeConv.messages[0].role === 'user', 'Assistant delete should remove linked second-stage messages and the main assistant message.');
+  assert(events.includes('unlink:main'), 'Assistant delete should unlink second-stage messages.');
+
+  reset({
+    id: 'regen-second',
+    messages: [
+      { id: 'parent', role: 'assistant', content: 'main' },
+      { id: 'second', role: 'assistant', stage: 'second', parentId: 'parent', content: 'old second' },
+    ],
+  });
+  context.__regen(1);
+  assert(activeConv.messages.length === 1 && events.includes('second:parent') && events.includes('complete:regen-second'), 'Second-stage regenerate should remove the child and rerun second-stage generation.');
+  assert(!events.includes('render-conversations'), 'Second-stage regenerate should not refresh the conversation list.');
+
+  reset({
+    id: 'regen-main',
+    messages: [
+      { role: 'user', content: '@Plana retry' },
+      { id: 'main', role: 'assistant', content: 'old main' },
+      { id: 'second', role: 'assistant', stage: 'second', parentId: 'main', content: 'old second' },
+    ],
+  });
+  context.__regen(1);
+  assert(activeConv.messages.length === 1 && activeConv._nextGroupSpeaker.name === 'Plana', 'Primary regenerate should remove the assistant turn and prepare the group speaker from the last user message.');
+  assert(events.includes('stream') && events.includes('bubble:regen') && events.includes('input'), 'Primary regenerate should restart streaming and update input state.');
+}
+
 async function assertFrontendChatMessageRendererHelpers() {
   const sources = await Promise.all([
     '../src/app/61-chat-message-window-state.js',
@@ -3472,6 +3572,7 @@ async function main() {
   await assertFrontendStateLifecycleHelpers();
   await assertFrontendMessageContentHelpers();
   await assertFrontendMessageEditHelpers();
+  await assertFrontendMessageActionHelpers();
   await assertFrontendChatMessageRendererHelpers();
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendWorldBookEntryListUIHelpers();
