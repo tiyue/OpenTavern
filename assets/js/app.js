@@ -8963,8 +8963,7 @@ let newChatPickerCameFromQuick = false;
 // For main library search + filter (moved from old left sidebar library)
 let librarySearchQuery = '';
 let libraryFilter = 'all'; // 'all' | 'male' | 'female'
-// ==================== 总结管理器（问题3 完整实现） ====================
-// renderSummaryManagerList：渲染左侧历史列表（与旧 renderSummaryHistory 逻辑类似，但目标容器不同）
+// ==================== Summary Manager List UI ====================
 function renderSummaryManagerList() {
     var conv = getActiveConv();
     if (!conv || !dom.summaryManagerList) return;
@@ -9020,7 +9019,7 @@ function renderSummaryManagerList() {
         });
     });
 }
-
+// ==================== Summary Manager Workflow UI ====================
 // 预览自定义范围（实时计算当前 regularMsgs 的切片）
 function previewCustomRange() {
     if (!dom.rangePreview) return;
