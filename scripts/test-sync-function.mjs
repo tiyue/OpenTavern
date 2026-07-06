@@ -344,6 +344,102 @@ async function assertFrontendSillyTavernPresetNormalizer() {
   assert(legacy.prompts[0].identifier === 'main_prompt', 'Legacy SillyTavern prompt fields were not imported.');
 }
 
+async function assertFrontendWorldBookActivation() {
+  const sources = await Promise.all([
+    '../src/app/41-world-info-normalizer.js',
+    '../src/app/44-worldbook-matching.js',
+    '../src/app/44-worldbook-budget.js',
+    '../src/app/44-worldbook-timed-effects.js',
+    '../src/app/44-worldbook-activation-helpers.js',
+    '../src/app/44-worldbook-activation.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  let activeConv = null;
+  const context = {
+    state: {
+      settings: {
+        userName: 'Sensei',
+        worldInfoBudgetEnabled: false,
+      },
+      worldBooks: {
+        wb1: {
+          id: 'wb1',
+          entries: {
+            global: {
+              uid: 'global',
+              key: ['Kivotos'],
+              content: 'Global lore mentions recursive-key.',
+              order: 20,
+              position: 1,
+            },
+            recursive: {
+              uid: 'recursive',
+              key: ['recursive-key'],
+              content: 'Recursive lore',
+              order: 30,
+              position: 1,
+            },
+            disabled: {
+              uid: 'disabled',
+              key: ['Kivotos'],
+              content: 'Disabled lore',
+              disable: true,
+              order: 40,
+            },
+          },
+        },
+      },
+    },
+    getActiveConv: () => activeConv,
+    getEffectivePostHistoryInstructions: () => '',
+    console,
+    JSON,
+    Date,
+    Math,
+    Object,
+    Array,
+    String,
+    RegExp,
+    parseInt,
+    isNaN,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__activate = getActivatedWorldInfo;\nthis.__WI_POS = WI_POS;`, context);
+
+  activeConv = {
+    id: 'c-worldbook',
+    messages: [
+      { role: 'user', content: 'We reached Kivotos today.' },
+      { role: 'assistant', content: 'Welcome, Sensei.' },
+    ],
+    character: { name: 'Arona', tags: ['blue'] },
+    worldBookIds: ['wb1'],
+    worldInfo: {
+      entries: {
+        legacy: {
+          uid: 'legacy',
+          constant: true,
+          content: 'Legacy lore',
+          order: 10,
+          position: 0,
+        },
+      },
+    },
+  };
+
+  const first = context.__activate(activeConv);
+  const ids = first.entries.map((entry) => entry.uid);
+  assert(ids.join(',') === 'legacy,global,recursive', 'World book activation order or recursion changed.');
+  assert(first.byPosition[context.__WI_POS.BEFORE_CHAR][0].uid === 'legacy', 'Legacy world info was not grouped before character.');
+  assert(first.byPosition[context.__WI_POS.AFTER_CHAR].some((entry) => entry.uid === 'global'), 'Global world book entry did not activate.');
+  assert(first.byPosition[context.__WI_POS.AFTER_CHAR].some((entry) => entry.uid === 'recursive'), 'Recursive world book entry did not activate.');
+  assert(!first.entries.some((entry) => entry.uid === 'disabled'), 'Disabled world book entry activated.');
+  assert(activeConv._wiCache && activeConv._wiCache.result === first, 'World book activation result was not cached.');
+
+  const second = context.__activate(activeConv);
+  assert(second === first, 'World book activation cache was not reused for the same conversation fingerprint.');
+}
+
 async function assertFrontendFileProtocolOPFSSilence() {
   const opfsSources = await Promise.all([
     '../src/app/20-storage-opfs-environment.js',
@@ -596,6 +692,7 @@ async function main() {
   await assertFrontendPublicCardAssets();
   await assertFrontendI18nRuntime();
   await assertFrontendSillyTavernPresetNormalizer();
+  await assertFrontendWorldBookActivation();
   await assertFrontendFileProtocolOPFSSilence();
   await assertFrontendStorageServicePipeline();
   await assertFrontendStorageServiceFileProtocolStatus();

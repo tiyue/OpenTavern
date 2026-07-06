@@ -73,6 +73,7 @@
   "43-worldbook-import-export-ui.js",
   "44-worldbook-matching.js",
   "44-worldbook-budget.js",
+  "44-worldbook-activation-helpers.js",
   "44-worldbook-activation.js",
   "44-worldbook-output.js",
   "44-worldbook-timed-effects.js",
