@@ -1550,6 +1550,69 @@ async function assertFrontendStateLifecycleHelpers() {
   assert(events.includes('character') && events.includes('input'), 'Render subscriptions should call handlers for changed keys.');
 }
 
+async function assertFrontendChatMessageRendererHelpers() {
+  const sources = await Promise.all([
+    '../src/app/61-chat-message-window-state.js',
+    '../src/app/61-chat-message-window-render.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function classList() {
+    const values = new Set();
+    return {
+      values,
+      toggle(name, force) { if (force) values.add(name); else values.delete(name); },
+    };
+  }
+
+  const dom = {
+    emptyState: { style: {} },
+    tokenInfo: { classList: classList() },
+  };
+  const context = {
+    dom,
+    state: { isGenerating: false },
+    document: {
+      getElementById: () => null,
+      createDocumentFragment: () => ({ children: [], appendChild(child) { this.children.push(child); } }),
+    },
+    createChatMessageElement: (msg) => ({ msg }),
+    renderChatMessagesHtml: (messages) => messages.map((msg) => msg.content).join('|'),
+    getCurrentGeneratingSpeakerName: () => 'Arona',
+    escapeHtml: (value) => String(value),
+    ensureHistoryLoadUI: () => {},
+    Set,
+    Array,
+    Math,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__messages = getRenderableChatMessages;\nthis.__window = getChatMessageWindowState;\nthis.__can = canIncrementalRenderChatMessages;\nthis.__empty = renderChatMessageEmptyState;\nthis.__load = buildLoadEarlierMessagesButtonHtml;\nthis.__stream = buildStreamingMessageHtml;\nthis.__append = appendIncrementalChatMessages;`, context);
+
+  const conv = {
+    _lastRenderedVisibleCount: 1,
+    messages: [
+      { role: 'system', content: 'hidden' },
+      { role: 'user', content: 'one' },
+      { role: 'assistant', content: 'two' },
+    ],
+  };
+  const messages = context.__messages(conv);
+  assert(messages.length === 2 && messages[0].content === 'one', 'Chat renderer should exclude system messages.');
+
+  const windowState = context.__window(Object.assign({}, conv, { _historyWindow: 1 }), messages);
+  assert(windowState.startIdx === 1 && windowState.visibleMessages[0].content === 'two', 'Chat renderer should window long histories.');
+  assert(context.__can(windowState) === false, 'Chat renderer should skip incremental render when visible count is unchanged.');
+  const nextState = Object.assign({}, windowState, { currentVisibleCount: 2, lastRenderedCount: 1 });
+  assert(context.__can(nextState) === true, 'Chat renderer should allow incremental render for appended messages.');
+
+  const container = { innerHTML: 'old', appended: null, scrollTop: 0, scrollHeight: 100, appendChild(fragment) { this.appended = fragment; } };
+  context.__append(container, conv, nextState);
+  assert(container.appended.children.length === 1 && conv._lastRenderedVisibleCount === 2 && container.scrollTop === 100, 'Chat renderer should append incremental messages and update render count.');
+
+  context.__empty(container);
+  assert(container.innerHTML === '' && dom.emptyState.style.display === '' && dom.tokenInfo.classList.values.has('hidden'), 'Chat renderer empty state should clear messages and hide token info.');
+  assert(context.__load(3).includes('3') && context.__stream({}).includes('streamingMsg'), 'Chat renderer should build load-earlier and streaming placeholders.');
+}
+
 async function assertFrontendWorldBookEntryListFiltering() {
   const source = await readFile(new URL('../src/app/43-worldbook-entry-list-filter.js', import.meta.url), 'utf8');
   const context = {
@@ -2255,6 +2318,7 @@ async function main() {
   await assertFrontendComfyUIHelpers();
   await assertFrontendLibraryViewHelpers();
   await assertFrontendStateLifecycleHelpers();
+  await assertFrontendChatMessageRendererHelpers();
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendWorldBookEntryListUIHelpers();
   await assertFrontendWorldBookEntryLiveHelpers();

@@ -216,6 +216,8 @@
   "61-message-content-render.js",
   "61-chat-message-html.js",
   "61-chat-history-window-ui.js",
+  "61-chat-message-window-state.js",
+  "61-chat-message-window-render.js",
   "61-chat-message-renderer.js",
   "62-sillytavern-preset-model.js",
   "62-sillytavern-preset-order-normalizer.js",
