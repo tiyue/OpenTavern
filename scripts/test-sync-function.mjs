@@ -1253,6 +1253,9 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
 async function assertFrontendStateInitialization() {
   const sources = await Promise.all([
     '../src/app/34-state-init-helpers.js',
+    '../src/app/34-state-init-load.js',
+    '../src/app/34-state-init-settings.js',
+    '../src/app/34-state-init-conversations.js',
     '../src/app/34-state-init.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 

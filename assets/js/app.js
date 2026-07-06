@@ -5123,6 +5123,8 @@ function renderCharacterUI() {
     renderTopBar();
 }
 // ==================== State Initialization Helpers ====================
+// Split into load, settings, and conversation startup helper chunks.
+// ==================== State Initialization Load Helpers ====================
 async function loadInitialStateSnapshot() {
     var saved = null;
 
@@ -5172,7 +5174,7 @@ function logInitialStateLoadResult(saved, migrationResult) {
         migrationResult
     });
 }
-
+// ==================== State Initialization Settings Helpers ====================
 function ensureStateSettingDefaults() {
     if (!state.settings.lang) state.settings.lang = 'zh-CN';
 
@@ -5243,7 +5245,7 @@ function applyApiKeyPersistencePolicy() {
         state.settings.summarizeApiKey = '';
     }
 }
-
+// ==================== State Initialization Conversation Helpers ====================
 function migrateCharacterRegistryOnStartup() {
     if (!state.characters) state.characters = {};
     if (state._charactersMigrated) return;
