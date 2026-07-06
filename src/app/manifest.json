@@ -110,6 +110,7 @@
   "43-worldbook-entry-list-row-ui.js",
   "43-worldbook-entry-list-helpers.js",
   "43-worldbook-list-ui.js",
+  "43-worldbook-global-list-row-ui.js",
   "43-worldbook-global-list-ui.js",
   "43-worldbook-import-ui.js",
   "43-worldbook-export-ui.js",

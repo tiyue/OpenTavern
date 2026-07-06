@@ -1436,6 +1436,55 @@ async function assertFrontendWorldBookImportExportUIHelpers() {
   assert(badgeEl.title.includes('\u6765\u81ea 2 \u4e2a\u4e16\u754c\u4e66'), 'World book badge title should describe multiple linked books.');
 }
 
+async function assertFrontendWorldBookGlobalListUIHelpers() {
+  const source = await readFile(new URL('../src/app/43-worldbook-global-list-row-ui.js', import.meta.url), 'utf8');
+
+  function fakeButton() {
+    return { addEventListener() {} };
+  }
+  function fakeElement() {
+    return {
+      className: '',
+      innerHTML: '',
+      textContent: '',
+      children: [],
+      addEventListener() {},
+      appendChild(child) { this.children.push(child); },
+      querySelector(selector) {
+        if (selector === '.world-book-del-btn' || selector === '.world-book-unlink-btn') return fakeButton();
+        return null;
+      },
+    };
+  }
+
+  const context = {
+    state: { worldBooks: {
+      one: { id: 'one', name: 'Kivotos', entries: { a: {} } },
+      two: { id: 'two', name: 'Gehenna', entries: {} },
+    } },
+    dom: { wiEntryStats: { textContent: '' } },
+    wiState: { currentWorldBookId: 'one' },
+    document: { createElement: fakeElement },
+    t: (key) => ({ world_book_entry: 'entry', world_book_linked: 'Linked', world_book_unlink: 'Unlink', world_book_delete_book: 'Delete', world_book_no_books_hint: 'No books' }[key] || key),
+    escapeHtml: (value) => String(value),
+    Object,
+    String,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__filter = getFilteredWorldBookList;\nthis.__empty = renderWorldBookListEmpty;\nthis.__row = createWorldBookListRow;`, context);
+
+  assert(context.__filter('kiv').map((book) => book.id).join(',') === 'one', 'World book global list should filter by book name.');
+
+  const emptyContainer = fakeElement();
+  context.__empty(emptyContainer);
+  assert(emptyContainer.children.length === 1 && context.dom.wiEntryStats.textContent === '0 entry', 'World book global list empty state should update stats.');
+
+  const row = context.__row({ id: 'one', name: '', entries: { a: {} } }, ['one']);
+  assert(row.className.includes('bg-amber-500/10'), 'World book global list row should mark the selected book active.');
+  assert(row.innerHTML.includes('&times;</button>'), 'World book global delete button should render a valid close control.');
+  assert(row.innerHTML.includes('Linked') && !row.innerHTML.includes('鏈'), 'World book global list row should render translated linked text without mojibake.');
+}
+
 async function assertFrontendFileProtocolOPFSSilence() {
   const opfsSources = await Promise.all([
     '../src/app/20-storage-opfs-environment.js',
@@ -1890,6 +1939,7 @@ async function main() {
   await assertFrontendWorldBookEntryLiveHelpers();
   await assertFrontendWorldBookEntryEditorHelpers();
   await assertFrontendWorldBookImportExportUIHelpers();
+  await assertFrontendWorldBookGlobalListUIHelpers();
   await assertFrontendFileProtocolOPFSSilence();
   await assertFrontendIDBStorageHelpers();
   await assertFrontendStorageServicePipeline();
