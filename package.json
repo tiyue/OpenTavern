@@ -1,0 +1,7 @@
+{
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-app.js",
+    "check": "node --check scripts/build-app.js && node --check assets/js/tailwind.config.js && node --check assets/js/theme-preload.js && node --check assets/js/app.js && node --check functions/api/card.js && node --check functions/api/sync.js && node scripts/test-sync-function.mjs"
+  }
+}

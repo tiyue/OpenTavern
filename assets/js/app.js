@@ -47,7 +47,6 @@ const DEFAULT_FIRST_STAGE_POST_HISTORY_INSTRUCTIONS = [
     '- 保持角色卡所定义的说话风格与口癖。',
     '-完全沉浸在正文，严禁输出除正文以外的结构，包括但不限于：可选项、剧情走向、状态栏、好感度等等，输出正文以外的内容是严重错误'
 ].join('\n');
-
 // ==================== WebLLM 懒加载相关（关键：页面初始化时绝不执行任何 import 或初始化） ====================
 let webllmEngine = null;           // MLCEngine 实例，只有在用户确认后才创建
 let webllmCurrentModel = null;     // 当前已加载的模型 ID
@@ -273,7 +272,6 @@ window.showGlassAlert = showGlassAlert;
 window.showGlassConfirm = showGlassConfirm;
 window.detectCurrentWebGPUDevice = detectCurrentWebGPUDevice;
 window.alert = function(message) { showGlassAlert(message); };
-
 function isWebLLMBackend() {
     return !!(state && state.settings && state.settings.inferenceBackend === 'webllm');
 }
@@ -339,7 +337,6 @@ async function ensureWebLLMEngine(modelId, onProgress) {
         throw e;
     }
 }
-
 // ===== WebLLM 确认对话框 + 初始化启动 + 进度处理（严格按需求） =====
 // - 第一次选择“浏览器本地”后端时：立即弹出重要确认，并在确认框内明确让用户选择要下载哪个模型。
 // - 之后在设置中更换模型时：再次弹出（带新模型大小的）确认 + 进度条弹窗。
@@ -1867,7 +1864,6 @@ function t(key) {
     if (!dict) dict = i18n['en'];
     return dict[key] !== undefined ? dict[key] : (i18n['en'][key] || key);
 }
-
 // ==================== WebGL Background ====================
 var shaderCanvas = document.getElementById('shaderCanvas');
 var gl = shaderCanvas.getContext('webgl') || shaderCanvas.getContext('experimental-webgl');
@@ -2133,7 +2129,6 @@ function cacheUiTheme(theme) {
 // 加载时 OPFS 优先，失败或无数据则用 LS。
 // 保存时优先 OPFS，成功后顺便写 LS；OPFS 不可用则直接写 LS。
 // 所有记录带 lastSaved。
-
 // ==================== OPFS Storage（推荐新后端 - 容量大、可靠性高） ====================
 // 使用 Origin Private File System，适合 GitHub Pages / Cloudflare Pages 静态部署
 // 数据以单个 JSON 文件形式存储（opentavern-data.json）
@@ -2314,7 +2309,6 @@ const OPFSStorage = {
         } catch (e) {}
     }
 };
-
 // ==================== IndexedDB Snapshot Storage (Safari-safe reconnectable backend) ====================
 const IDBStorage = {
     _dbName: 'OpenTavernSnapshotDB',
@@ -2455,7 +2449,6 @@ const IDBStorage = {
         }
     }
 };
-
 // ==================== StorageService (IndexedDB primary + localStorage snapshot + optional OPFS mirror) ====================
 var StorageService = {
     _primaryBackend: 'idb',
@@ -3261,6 +3254,360 @@ async function getWebLLMUsedSize(options = {}) {
     return total;
 }
 // 暴露给控制台调试
+// ==================== Cloud Sync ====================
+function ensureCloudSyncSettings() {
+    if (!state.settings) state.settings = defaultSettings();
+    var defs = defaultSettings();
+    [
+        'cloudSyncEnabled',
+        'cloudSyncAutoUpload',
+        'cloudSyncEndpoint',
+        'cloudSyncToken',
+        'cloudSyncEncrypted',
+        'cloudSyncPassphrase',
+        'cloudSyncLastAt',
+        'cloudSyncLastStatus'
+    ].forEach(function(key) {
+        if (state.settings[key] === undefined || state.settings[key] === null) {
+            state.settings[key] = defs[key];
+        }
+    });
+    state.settings.cloudSyncEnabled = !!state.settings.cloudSyncEnabled;
+    state.settings.cloudSyncAutoUpload = !!state.settings.cloudSyncAutoUpload;
+    state.settings.cloudSyncEndpoint = String(state.settings.cloudSyncEndpoint || defs.cloudSyncEndpoint).trim() || defs.cloudSyncEndpoint;
+    state.settings.cloudSyncToken = String(state.settings.cloudSyncToken || '');
+    state.settings.cloudSyncEncrypted = !!state.settings.cloudSyncEncrypted;
+    state.settings.cloudSyncPassphrase = String(state.settings.cloudSyncPassphrase || '');
+    state.settings.cloudSyncLastAt = Number(state.settings.cloudSyncLastAt || 0) || 0;
+    state.settings.cloudSyncLastStatus = String(state.settings.cloudSyncLastStatus || '');
+    return state.settings;
+}
+
+function buildAppDataSnapshot() {
+    return {
+        settings: getSafeSettingsForCloudSync(),
+        conversations: state.conversations || {},
+        conversationOrder: state.conversationOrder || [],
+        activeConvId: state.activeConvId || null,
+        worldBooks: state.worldBooks || {},
+        characters: state.characters || {},
+        charactersMigrated: !!state._charactersMigrated,
+        lastSaved: Date.now()
+    };
+}
+
+function getCloudSyncEndpoint() {
+    var s = ensureCloudSyncSettings();
+    return String(s.cloudSyncEndpoint || '/api/sync').trim() || '/api/sync';
+}
+
+function normalizeCloudSyncSnapshot(raw) {
+    var data = raw && raw.data !== undefined ? raw.data : raw;
+    if (data && data.snapshot !== undefined) data = data.snapshot;
+    if (!data || typeof data !== 'object') throw new Error('Cloud snapshot is empty or invalid.');
+    if (data.encrypted === true) return data;
+    if (!data.settings || typeof data.settings !== 'object') data.settings = {};
+    if (!data.conversations || typeof data.conversations !== 'object') data.conversations = {};
+    if (!data.characters || typeof data.characters !== 'object') data.characters = {};
+    if (!data.worldBooks || typeof data.worldBooks !== 'object') data.worldBooks = {};
+    if (!Array.isArray(data.conversationOrder)) data.conversationOrder = Object.keys(data.conversations || {});
+    if (!data.lastSaved) data.lastSaved = Date.now();
+    return data;
+}
+
+function getCloudSyncFreshness(remote) {
+    var remoteTime = Number(remote && remote.lastSaved || 0) || 0;
+    var localTime = Number(StorageService && StorageService._lastSaveSnapshot && StorageService._lastSaveSnapshot.lastSaved || 0) || 0;
+    if (!localTime) localTime = Date.now();
+    if (!remoteTime) return 'unknown';
+    if (remoteTime > localTime + 1000) return 'newer';
+    if (remoteTime < localTime - 1000) return 'older';
+    return 'same';
+}
+
+async function readCloudSyncRemoteSnapshot() {
+    var result = await requestCloudSync('GET');
+    if (!result || result.data === null || result.data === undefined) return null;
+    return normalizeCloudSyncSnapshot(result);
+}
+
+function bytesToBase64(bytes) {
+    var binary = '';
+    var chunk = 0x8000;
+    for (var i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+}
+
+function base64ToBytes(text) {
+    var binary = atob(String(text || ''));
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+}
+
+async function deriveCloudSyncKey(passphrase, salt, iterations) {
+    if (!window.crypto || !crypto.subtle) throw new Error('WebCrypto is required for encrypted cloud sync.');
+    var enc = new TextEncoder();
+    var material = await crypto.subtle.importKey(
+        'raw',
+        enc.encode(passphrase),
+        'PBKDF2',
+        false,
+        ['deriveKey']
+    );
+    return crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: salt, iterations: iterations, hash: 'SHA-256' },
+        material,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+    );
+}
+
+async function encryptCloudSyncSnapshot(snapshot) {
+    var s = ensureCloudSyncSettings();
+    if (!s.cloudSyncEncrypted) return snapshot;
+    var passphrase = String(s.cloudSyncPassphrase || '');
+    if (passphrase.length < 8) throw new Error('Encryption passphrase must be at least 8 characters.');
+
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var iterations = 210000;
+    var key = await deriveCloudSyncKey(passphrase, salt, iterations);
+    var plaintext = new TextEncoder().encode(JSON.stringify(snapshot));
+    var cipher = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, plaintext));
+
+    return {
+        encrypted: true,
+        version: 1,
+        algorithm: 'AES-GCM',
+        kdf: 'PBKDF2-SHA256',
+        iterations: iterations,
+        salt: bytesToBase64(salt),
+        iv: bytesToBase64(iv),
+        payload: bytesToBase64(cipher),
+        lastSaved: snapshot.lastSaved,
+        createdAt: Date.now()
+    };
+}
+
+async function decryptCloudSyncSnapshot(envelope) {
+    if (!envelope || envelope.encrypted !== true) return envelope;
+    var s = ensureCloudSyncSettings();
+    var passphrase = String(s.cloudSyncPassphrase || '');
+    if (!passphrase) throw new Error('Encryption passphrase is required to restore this cloud snapshot.');
+    if (envelope.algorithm !== 'AES-GCM') throw new Error('Unsupported cloud snapshot encryption algorithm.');
+
+    var salt = base64ToBytes(envelope.salt);
+    var iv = base64ToBytes(envelope.iv);
+    var cipher = base64ToBytes(envelope.payload);
+    var key = await deriveCloudSyncKey(passphrase, salt, Number(envelope.iterations || 210000));
+    var plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, cipher);
+    var text = new TextDecoder().decode(new Uint8Array(plain));
+    return normalizeCloudSyncSnapshot(JSON.parse(text));
+}
+
+async function requestCloudSync(method, payload) {
+    var s = ensureCloudSyncSettings();
+    var endpoint = getCloudSyncEndpoint();
+    if (!endpoint) throw new Error('Cloud sync endpoint is required.');
+    if (!s.cloudSyncToken) throw new Error('Cloud sync token is required.');
+
+    var headers = {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer ' + s.cloudSyncToken,
+        'X-OpenTavern-Token': s.cloudSyncToken
+    };
+    var options = { method: method, headers: headers };
+    if (payload !== undefined) {
+        headers['Content-Type'] = 'application/json';
+        options.body = JSON.stringify(payload);
+    }
+
+    var resp = await fetch(endpoint, options);
+    var text = await resp.text();
+    var json = null;
+    if (text) {
+        try { json = JSON.parse(text); } catch (_) {}
+    }
+    if (!resp.ok || (json && json.success === false)) {
+        var msg = (json && (json.error || json.message)) || text || ('HTTP ' + resp.status);
+        throw new Error(msg);
+    }
+    return json || {};
+}
+
+function setCloudSyncStatus(message, isError) {
+    ensureCloudSyncSettings();
+    state.settings.cloudSyncLastStatus = message || '';
+    if (!isError && message) state.settings.cloudSyncLastAt = Date.now();
+    var el = document.getElementById('cloudSyncStatus');
+    if (el) {
+        el.textContent = message || '';
+        el.className = 'text-[10px] leading-relaxed ' + (isError ? 'text-red-400' : 'text-zinc-500');
+    }
+}
+
+async function uploadCloudSyncSnapshot(statusEl, options) {
+    ensureCloudSyncSettings();
+    options = options || {};
+    var target = statusEl || document.getElementById('cloudSyncStatus');
+    if (target) {
+        target.textContent = 'Uploading...';
+        target.className = 'text-[10px] leading-relaxed text-amber-300';
+    }
+    var snapshot = buildAppDataSnapshot();
+
+    if (!options.force) {
+        var remote = null;
+        try {
+            remote = await readCloudSyncRemoteSnapshot();
+        } catch (err) {
+            console.warn('[CloudSync] remote preflight failed, skipping protected upload:', err && err.message);
+            var verifyMsg = 'Cloud upload skipped: could not verify remote snapshot freshness.';
+            setCloudSyncStatus(verifyMsg, true);
+            return { success: false, skipped: true, reason: 'preflight-failed' };
+        }
+        if (remote && getCloudSyncFreshness(remote) === 'newer') {
+            var skipMsg = 'Cloud upload skipped: remote snapshot is newer. Use Download or Upload now to overwrite.';
+            setCloudSyncStatus(skipMsg, true);
+            return { success: false, skipped: true, reason: 'remote-newer' };
+        }
+    }
+
+    var payload = await encryptCloudSyncSnapshot(snapshot);
+    var result = await requestCloudSync('POST', {
+        version: 1,
+        app: 'OpenTavern',
+        updatedAt: snapshot.lastSaved,
+        encrypted: payload && payload.encrypted === true,
+        data: payload
+    });
+    var when = result.updatedAt ? new Date(result.updatedAt).toLocaleString() : new Date().toLocaleString();
+    var msg = 'Cloud upload complete: ' + when + (payload && payload.encrypted ? ' (encrypted)' : '');
+    setCloudSyncStatus(msg, false);
+    _cloudSyncSavingStatus = true;
+    try { await persistState(true); } finally { _cloudSyncSavingStatus = false; }
+    return result;
+}
+
+function applyCloudSyncSnapshot(snapshot) {
+    var data = normalizeCloudSyncSnapshot(snapshot);
+    var currentCloud = {
+        cloudSyncEnabled: state.settings && state.settings.cloudSyncEnabled,
+        cloudSyncAutoUpload: state.settings && state.settings.cloudSyncAutoUpload,
+        cloudSyncEndpoint: state.settings && state.settings.cloudSyncEndpoint,
+        cloudSyncToken: state.settings && state.settings.cloudSyncToken,
+        cloudSyncEncrypted: state.settings && state.settings.cloudSyncEncrypted,
+        cloudSyncPassphrase: state.settings && state.settings.cloudSyncPassphrase,
+        cloudSyncLastAt: Date.now(),
+        cloudSyncLastStatus: 'Cloud download applied.'
+    };
+
+    state.settings = Object.assign(defaultSettings(), data.settings || {}, currentCloud);
+    state.conversations = data.conversations || {};
+    state.conversationOrder = data.conversationOrder || Object.keys(state.conversations || {});
+    state.activeConvId = data.activeConvId || null;
+    state.worldBooks = data.worldBooks || {};
+    state.characters = data.characters || {};
+    state._charactersMigrated = !!data.charactersMigrated;
+
+    Object.values(state.conversations || {}).forEach(function(conv) {
+        try { normalizeConversation(conv); } catch (_) {}
+    });
+
+    if (!state.activeConvId || !state.conversations[state.activeConvId]) {
+        var first = (state.conversationOrder || []).find(function(id) { return state.conversations[id]; }) || Object.keys(state.conversations || {})[0];
+        if (first) {
+            state.activeConvId = first;
+        } else {
+            var conv = defaultConversation();
+            state.conversations[conv.id] = conv;
+            state.conversationOrder = [conv.id];
+            state.activeConvId = conv.id;
+        }
+    }
+
+    _cloudSyncSavingStatus = true;
+    try { persistState(true); } finally { _cloudSyncSavingStatus = false; }
+    appStore.notify(['settings', 'conversations', 'characters', 'worldBooks', 'activeConvId']);
+    if (typeof requestFullRender === 'function') requestFullRender();
+    if (typeof updateInputState === 'function') updateInputState();
+    if (typeof updateStorageInfo === 'function') updateStorageInfo();
+    return data;
+}
+
+async function downloadCloudSyncSnapshot(statusEl) {
+    ensureCloudSyncSettings();
+    var target = statusEl || document.getElementById('cloudSyncStatus');
+    if (target) {
+        target.textContent = 'Downloading...';
+        target.className = 'text-[10px] leading-relaxed text-amber-300';
+    }
+    var rawData = await readCloudSyncRemoteSnapshot();
+    if (!rawData) {
+        var emptyMsg = 'No cloud snapshot found for this token.';
+        setCloudSyncStatus(emptyMsg, true);
+        return null;
+    }
+    var freshness = getCloudSyncFreshness(rawData);
+    var data = await decryptCloudSyncSnapshot(rawData);
+    applyCloudSyncSnapshot(data);
+    var when = data.lastSaved ? new Date(data.lastSaved).toLocaleString() : new Date().toLocaleString();
+    var msg = 'Cloud download applied: ' + when + ' (' + freshness + ' than local before restore)' + (rawData && rawData.encrypted ? ' (encrypted)' : '');
+    setCloudSyncStatus(msg, false);
+    _cloudSyncSavingStatus = true;
+    try { await persistState(true); } finally { _cloudSyncSavingStatus = false; }
+    return data;
+}
+
+async function syncCloudSyncSnapshot(statusEl) {
+    ensureCloudSyncSettings();
+    var target = statusEl || document.getElementById('cloudSyncStatus');
+    if (target) {
+        target.textContent = 'Checking cloud snapshot...';
+        target.className = 'text-[10px] leading-relaxed text-amber-300';
+    }
+
+    var remote = await readCloudSyncRemoteSnapshot();
+    if (!remote) {
+        setCloudSyncStatus('No cloud snapshot found. Uploading local snapshot...', false);
+        return uploadCloudSyncSnapshot(statusEl, { force: true });
+    }
+
+    var freshness = getCloudSyncFreshness(remote);
+    if (freshness === 'newer') {
+        return downloadCloudSyncSnapshot(statusEl);
+    }
+    if (freshness === 'older') {
+        setCloudSyncStatus('Local snapshot is newer. Uploading to cloud...', false);
+        return uploadCloudSyncSnapshot(statusEl, { force: true });
+    }
+    var msg = 'Cloud sync already up to date.';
+    setCloudSyncStatus(msg, false);
+    _cloudSyncSavingStatus = true;
+    try { await persistState(true); } finally { _cloudSyncSavingStatus = false; }
+    return { success: true, upToDate: true };
+}
+
+var _cloudSyncUploadTimer = null;
+var _cloudSyncSavingStatus = false;
+function scheduleCloudSyncUpload() {
+    var s = ensureCloudSyncSettings();
+    if (_cloudSyncSavingStatus) return;
+    if (!s.cloudSyncEnabled || !s.cloudSyncAutoUpload || !s.cloudSyncEndpoint || !s.cloudSyncToken) return;
+    if (_cloudSyncUploadTimer) clearTimeout(_cloudSyncUploadTimer);
+    _cloudSyncUploadTimer = setTimeout(function() {
+        _cloudSyncUploadTimer = null;
+        uploadCloudSyncSnapshot(null, { force: false }).catch(function(err) {
+            console.warn('[CloudSync] auto upload failed:', err && err.message);
+            setCloudSyncStatus('Cloud auto upload failed: ' + ((err && err.message) || err), true);
+        });
+    }, 2500);
+}
+// ==================== Storage Recovery Tools ====================
 window.scanAllStorageBackends = scanAllStorageBackends;
 window.restoreFromStorageCandidate = restoreFromStorageCandidate;
 
@@ -3499,7 +3846,6 @@ async function restoreFromStorageCandidate(candidate) {
         alert('恢复失败：' + (err.message || err));
     }
 }
-
 // ==================== 兼容层（同步 API） ====================
 // 历史同步入口，内部已委托给 StorageService（OPFS + LS 兜底）
 
@@ -3540,6 +3886,16 @@ function getSafeSettingsForPersist() {
     return s;
 }
 
+function getSafeSettingsForCloudSync() {
+    var s = getSafeSettingsForPersist();
+    s.apiKey = '';
+    s.summarizeApiKey = '';
+    s.cloudSyncToken = '';
+    s.cloudSyncPassphrase = '';
+    s.cloudSyncLastStatus = '';
+    return s;
+}
+
 function makeId() {
     return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 }
@@ -3563,7 +3919,6 @@ var DEFAULT_TWO_STAGE_PROMPT = [
     '- 选项之间应有明显差异，避免机械重复。',
     '- 只输出 XML，不要 Markdown。'
 ].join('\n');
-
 // ==================== 状态容器 + 手动通知机制 ====================
 // 当前为非响应式设计（已移除 Proxy 自动响应）。
 // 修改 state 后请显式调用 appStore.notify('key') 或直接调用对应的 renderXXXOnly() / requestRender()。
@@ -3690,10 +4045,35 @@ function defaultSettings() {
         comfyNegativeNodeId: '',
         comfySeedNodeId: '',
         comfyNegativePrompt: 'low quality, blurry, bad anatomy, bad hands',
-        comfyPromptTemplate: 'masterpiece, best quality, anime style, {{char}}, {{scene}}'
+        comfyPromptTemplate: 'masterpiece, best quality, anime style, {{char}}, {{scene}}',
+
+        // Cloud Sync stores the same app snapshot used by local persistence.
+        cloudSyncEnabled: false,
+        cloudSyncAutoUpload: false,
+        cloudSyncEndpoint: '/api/sync',
+        cloudSyncToken: '',
+        cloudSyncEncrypted: false,
+        cloudSyncPassphrase: '',
+        cloudSyncLastAt: 0,
+        cloudSyncLastStatus: ''
     };
 }
 
+// ==================== App State ====================
+// 注意：当前使用**非响应式**状态管理。
+// 直接修改 state.xxx 后，必须手动调用 appStore.notify('xxx') 或对应的 renderXXXOnly() 函数。
+var appStore = createReactiveStore({
+    settings: defaultSettings(),
+    conversations: {},
+    conversationOrder: [],
+    activeConvId: null,
+    worldBooks: {},           // Phase 2+: 全局可复用世界书 { [id]: WorldBook }
+    characters: {},           // 全局角色卡库（解决编辑不传播 + 无法删除的问题）
+    isGenerating: false,
+    abortController: null
+});
+
+var state = appStore.state; // 直接暴露普通对象，方便现有代码继续使用 state.xxx = yyy
 // ==================== API Presets (常用接口地址) ====================
 (function() {
     var MAIN_PRESETS = {
@@ -4016,7 +4396,6 @@ function normalizeMessagesForOllamaCompatibility(messages) {
         return acc;
     }, []);
 }
-
 function defaultConversation() {
     return {
         id: makeId(),
@@ -4365,23 +4744,6 @@ function buildGroupSystemPrompt(conv, wiByPos) {
 
     return parts.join('\n\n').trim();
 }
-
-// ==================== App State ====================
-// 注意：当前使用**非响应式**状态管理。
-// 直接修改 state.xxx 后，必须手动调用 appStore.notify('xxx') 或对应的 renderXXXOnly() 函数。
-var appStore = createReactiveStore({
-    settings: defaultSettings(),
-    conversations: {},
-    conversationOrder: [],
-    activeConvId: null,
-    worldBooks: {},           // Phase 2+: 全局可复用世界书 { [id]: WorldBook }
-    characters: {},           // 全局角色卡库（解决编辑不传播 + 无法删除的问题）
-    isGenerating: false,
-    abortController: null
-});
-
-var state = appStore.state; // 直接暴露普通对象，方便现有代码继续使用 state.xxx = yyy
-
 // 手动渲染订阅表（必须通过 appStore.notify('key') 显式触发）
 // 由于已移除自动响应式，状态修改后需要主动调用 notify 或直接调用渲染函数
 var renderSubscriptions = {
@@ -4505,7 +4867,6 @@ function renderCharacterUI() {
     renderCharacterCard();
     renderTopBar();
 }
-
 async function initState() {
     // =====================================================
     // 安全启动：优先 StorageService.loadAll()（OPFS 主 + localStorage 快照兜底）
@@ -4675,7 +5036,6 @@ async function initState() {
         }
     }
 }
-
 // ==================== Debounced Persist ====================
 var _persistTimeout = null;
 
@@ -4709,6 +5069,9 @@ function persistState(immediate) {
             // 【Storage Fix】每次持久化后立即刷新存储用量显示
             if (typeof updateStorageInfo === 'function') {
                 updateStorageInfo();
+            }
+            if (typeof scheduleCloudSyncUpload === 'function') {
+                scheduleCloudSyncUpload();
             }
         }
     };
@@ -4782,7 +5145,6 @@ function setLanguage(lang) {
     requestFullRender();
     if (typeof updateSidebarCloseButton === 'function') updateSidebarCloseButton();
 }
-
 // ==================== Character Import ====================
 function importCharacterCard(jsonData) {
     if (!jsonData) throw new Error(t('import_invalid_format'));
@@ -4944,7 +5306,7 @@ function getEffectivePostHistoryInstructions(character, stage) {
     if (customPostHistory) return customPostHistory;
     return character ? String(character.post_history_instructions || '') : '';
 }
-
+// ==================== Prompt Builder ====================
 // World Info position constants (must be defined early)
 var WI_POS = {
     BEFORE_CHAR: 0, AFTER_CHAR: 1,
@@ -5216,7 +5578,6 @@ function buildSecondStageContextPrompt(conv, worldInfoByPos, focusSpeakerName) {
 
     return parts.join('\n\n').trim();
 }
-
 function insertMessagesAtDepth(apiMessages, entries, charName, userName) {
     if (!entries || entries.length === 0) return apiMessages;
     entries.forEach(function(e) {
@@ -5369,7 +5730,6 @@ function formatPromptMessages(messages) {
     }
     return text;
 }
-
 function findLinkedSecondStageMessage(conv, parentMsg) {
     if (!conv || !parentMsg || !Array.isArray(conv.messages)) return null;
     ensureMessageIdentity(parentMsg, 'main');
@@ -5468,7 +5828,6 @@ function buildMessagesForSecondStage(firstStageMessage) {
 
     return apiMessages;
 }
-
 // ==================== World Info (World Book) Support ====================
 // Full SillyTavern-compatible implementation (all documented fields supported in UI + core activation)
 
@@ -5826,7 +6185,7 @@ function getAllAvailableCharacters() {
     chars.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     return chars;
 }
-
+// ==================== World Book Editor UI ====================
 function openWorldBookModal() {
     var conv = getActiveConv();
     if (!conv) { newConversation(); conv = getActiveConv(); }
@@ -6128,7 +6487,6 @@ function wireWorldBookListeners() {
         wiState.dirty = true;
     });
 }
-
 function addWIKeyFromInput(isPrimary) {
     var input = isPrimary ? dom.wiKeyInput : dom.wiSecInput;
     var val = input.value.trim();
@@ -6321,7 +6679,6 @@ function updateWorldBookModalHeader() {
         titleEl.textContent = '世界书管理器（全局）';
     }
 }
-
 function addNewWIEntry() {
     var wi = getActiveWI();
     var uid = Date.now();
@@ -6700,7 +7057,6 @@ function refreshWorldBookLeftPanel() {
         renderWIEntryList(filter);
     }
 }
-
 function handleWIFileImport(e) {
     var file = e.target.files[0];
     if (!file) return;
@@ -6826,7 +7182,7 @@ function renderWorldInfoBudgetWarning() {
         dismissBtn._wired = true;
     }
 }
-
+// ==================== World Book Activation Engine ====================
 // ---------- World Info Activation Engine (core features) ----------
 
 function escapeRegex(str) {
@@ -7247,7 +7603,6 @@ function joinWIContent(list, charName, userName) {
         return replacePlaceholders(e.content || '', charName, userName);
     }).join('\n\n');
 }
-
 // ==================== Timed Effects Helpers (Sticky / Cooldown / Delay) ====================
 function getConversationMessageCount(conv) {
     if (!conv || !conv.messages) return 0;
@@ -7315,7 +7670,6 @@ function processTimedEffects(conv, activatedEntries) {
 
     return finalEntries;
 }
-
 // ==================== API Client ====================
 function extractCotDelta(delta) {
     if (!delta) return '';
@@ -7475,7 +7829,6 @@ function streamChat(onToken, onComplete, onError) {
     }
     streamChatWithMessages(messages, onToken, onComplete, onError);
 }
-
 // ==================== ComfyUI txt2img ====================
 let comfyIsGenerating = false;
 
@@ -7758,7 +8111,7 @@ function formatComfyError(e) {
     }
     return msg;
 }
-
+// ==================== Generation Runtime ====================
 // ==================== WebLLM 本地生成（仅在 ensure 成功后调用） ====================
 async function streamChatWebLLMWithMessages(messages, onToken, onComplete, onError, requestOptions) {
     var modelId = getWebLLMModelId();
@@ -8036,7 +8389,6 @@ function saveCurrentConversation() {
     }
     persistState();
 }
-
 // ==================== Summarization ====================
 function generateSummary(messages, callback) {
     var settings = state.settings;
@@ -8324,7 +8676,6 @@ function getActualVisibleCountForSummary() {
     }
     return visible;
 }
-
 function renderSummaryHistory() {
     var conv = getActiveConv();
     if (!conv || !dom.summaryHistoryList) return;
@@ -8426,7 +8777,24 @@ async function deleteSummary(id) {
         renderSummaryManagerList();
     }
 }
+// ==================== Shared UI State ====================
+let currentLibraryCard = null;
+let cardLibrarySearchQuery = '';
 
+// New refactored library as homepage
+let currentView = 'library'; // 'library' | 'chat'
+let activeLibraryTab = 'my'; // 'my' | 'public'
+let currentCharacterName = null; // for chat filtering and active card
+
+// 群聊 @ 指定（新 UI）：点击选择后用气泡显示，不再往输入框插入纯文本 @名字
+let pendingGroupMention = null;
+
+// Flag to allow "返回上一级" from the full character picker back to the 3-button quick menu
+let newChatPickerCameFromQuick = false;
+
+// For main library search + filter (moved from old left sidebar library)
+let librarySearchQuery = '';
+let libraryFilter = 'all'; // 'all' | 'male' | 'female'
 // ==================== 总结管理器（问题3 完整实现） ====================
 // renderSummaryManagerList：渲染左侧历史列表（与旧 renderSummaryHistory 逻辑类似，但目标容器不同）
 function renderSummaryManagerList() {
@@ -8604,7 +8972,6 @@ function openSummaryManager() {
     renderSummaryManagerList();
     dom.summaryManagerModal.classList.remove('hidden');
 }
-
 function archiveCurrentConversation() {
     var conv = getActiveConv();
     if (!conv) return;
@@ -9030,7 +9397,6 @@ function showNewChatCharacterPicker() {
 
     modal.classList.remove('hidden');
 }
-
 // ==================== Quick New Chat Action Modal (resolves library vs chat button conflict) ====================
 function getCurrentChatCharacter() {
     const conv = getActiveConv();
@@ -9120,7 +9486,6 @@ function showQuickNewChatModal() {
 
     modal.classList.remove('hidden');
 }
-
 // ==================== Public Card Library (static cards/ + preview images) ====================
 const PUBLIC_CARDS = [
     {
@@ -9262,25 +9627,6 @@ const PUBLIC_CARDS = [
     }
     // 新增的10张主目录角色卡已移至 cards/ 目录（使用干净文件名），路径统一为 /cards/ 前缀（与原有5张一致）。预览图路径已预填，缺少png时自动回退到字母占位符。
 ];
-
-let currentLibraryCard = null;
-let cardLibrarySearchQuery = '';
-
-// New refactored library as homepage
-let currentView = 'library'; // 'library' | 'chat'
-let activeLibraryTab = 'my'; // 'my' | 'public'
-let currentCharacterName = null; // for chat filtering and active card
-
-// 群聊 @ 指定（新 UI）：点击选择后用气泡显示，不再往输入框插入纯文本 @名字
-let pendingGroupMention = null;
-
-// Flag to allow "返回上一级" from the full character picker back to the 3-button quick menu
-let newChatPickerCameFromQuick = false;
-
-// For main library search + filter (moved from old left sidebar library)
-let librarySearchQuery = '';
-let libraryFilter = 'all'; // 'all' | 'male' | 'female'
-
 function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/[&<>"']/g, function (m) {
@@ -9556,7 +9902,6 @@ async function importPublicCard(cardMeta) {
 
 // 侧边栏按钮事件（在 DOM 就绪后绑定）
 // (old wireCardLibraryButton removed as public library on left is removed)
-
 // ==================== Refactored Homepage Card Library ====================
 // Default view is the card library with tab switching (My / Public)
 // Cards are 3:4 grid. My cards click -> direct to recent chat. Public click -> detail then import.
@@ -9645,6 +9990,167 @@ function setActiveTab(tab) {
     }
 }
 
+function loadOrCreateChatForCharacter(char) {
+    if (!char || !char.name) return;
+
+    currentCharacterName = char.name;
+
+    // Find most recent conv for this character
+    let recentConv = null;
+    let recentTime = 0;
+    Object.values(state.conversations || {}).forEach(conv => {
+        if (conv.character && conv.character.name === char.name) {
+            const t = conv.updated || conv.created || 0;
+            if (t > recentTime) {
+                recentTime = t;
+                recentConv = conv;
+            }
+        }
+    });
+
+    if (recentConv) {
+        loadConversation(recentConv.id);
+    } else {
+        // Create new
+        newConversation(char);
+    }
+
+    switchView('chat');
+}
+
+function renderLibrary() {
+    const lib = document.getElementById('libraryView');
+    const chat = document.getElementById('chatView');
+    if (lib) lib.classList.remove('hidden');
+    if (chat) chat.classList.add('hidden');
+
+    // Render grids
+    renderLibraryGrids();
+
+    // Tab listeners (bind once)
+    const tabMy = document.getElementById('tabMy');
+    const tabPub = document.getElementById('tabPublic');
+    if (tabMy && !tabMy._wired) {
+        tabMy._wired = true;
+        tabMy.addEventListener('click', () => {
+            setActiveTab('my');
+        });
+    }
+    if (tabPub && !tabPub._wired) {
+        tabPub._wired = true;
+        tabPub.addEventListener('click', () => {
+            setActiveTab('public');
+        });
+    }
+
+    // Initial tab
+    setActiveTab(activeLibraryTab);
+
+    // Note: Create and Import actions are now provided as special cards in the "My Cards" grid (see renderMyCards).
+    // This reduces header bloat when selecting cards. No top buttons while browsing the library.
+
+    // Apply initial filter active style for search/filter bar
+    document.querySelectorAll('#libraryView [data-filter]').forEach(b => {
+        b.classList.remove('bg-amber-500/20', 'text-amber-300');
+        if (b.dataset.filter === libraryFilter) {
+            b.classList.add('bg-amber-500/20', 'text-amber-300');
+        }
+    });
+
+    // Sync search input value
+    const libSearchSync = document.getElementById('librarySearch');
+    if (libSearchSync) libSearchSync.value = librarySearchQuery || '';
+
+    // Hide character card and world book in card library page (left sidebar not needed in library view)
+    const charTitle = document.querySelector('#sidebar span[data-i18n="char_card_title"]');
+    if (charTitle) {
+        const charBlock = charTitle.closest('.glass');
+        if (charBlock) charBlock.style.display = 'none';
+    }
+    const worldTitle = document.querySelector('#sidebar span[data-i18n="world_book"]');
+    if (worldTitle) {
+        const worldBlock = worldTitle.closest('.glass');
+        if (worldBlock) worldBlock.style.display = 'none';
+    }
+    // Additional selector for world book block
+    const worldBlock2 = document.querySelector('#sidebar .glass.rounded-xl.px-3.py-2');
+    if (worldBlock2) worldBlock2.style.display = 'none';
+}
+
+async function loadConversation(id) {
+    if (state.isGenerating) {
+        if (!await showGlassConfirm(t('generation_abort_confirm'), { title: '\u505c\u6b62\u751f\u6210' })) return;
+        stopGeneration();
+    }
+    saveCurrentConversation();
+    state.activeConvId = id;           // triggers granular renders via subscription
+
+    // 切换对话时清理 @ 指定气泡（只在群聊输入时有意义）
+    if (typeof clearPendingGroupMention === 'function') {
+        const c = state.conversations[id];
+        if (!c || !isGroupChat(c)) clearPendingGroupMention();
+    }
+
+    // For chat-only conv list per character
+    var c = state.conversations[id];
+    if (c && c.character && c.character.name) {
+        currentCharacterName = c.character.name;
+    } else if (c && isGroupChat(c) && c.group && c.group.members && c.group.members.length > 0) {
+        // 群聊：设置到第一个成员的上下文，使群聊出现在对应角色的会话列表中
+        currentCharacterName = c.group.members[0].character.name;
+    }
+
+    // 切换对话时重置增量渲染状态和“显示全部消息”状态
+    var newConv = getActiveConv();
+    if (newConv) {
+        newConv._showAllMessages = false;
+        newConv._lastRenderedVisibleCount = 0;   // 关键：重置增量计数，避免跨对话污染
+        newConv._historyWindow = 150;
+        newConv._historyScrollHandler = null;
+        newConv._wiCache = null;                 // 切换对话时清除世界书缓存
+    }
+
+    // 关键修复：load 其它对话时立即清空消息容器，根除旧 DOM 残留
+    if (dom.messagesContainer) dom.messagesContainer.innerHTML = '';
+
+    persistState();
+
+    // 显式通知 activeConvId 变更
+    requestRender('activeConvId');
+
+    // 确保切换对话时进度条也实时更新
+    renderTokenBar();
+
+    // 关键修复：切换到历史对话时，主动用当前阈值检查一次自动总结
+    // 解决用户打开旧对话后修改阈值（尤其是调低）却不触发的问题
+    if (state.settings.summaryEnabled) {
+        setTimeout(function() { autoSummarize(); }, 650);
+    }
+
+    if (currentView === 'library') {
+        switchView('chat');
+    }
+
+    if (isMobile()) closeSidebar();
+}
+
+async function deleteConversation(id) {
+    if (!await showGlassConfirm(t('delete_confirm'), { title: '\u5220\u9664\u5bf9\u8bdd', danger: true, okText: '\u5220\u9664' })) return;
+    delete state.conversations[id];
+    state.conversationOrder = state.conversationOrder.filter(function(x) { return x !== id; });
+    if (state.activeConvId === id) {
+        if (state.conversationOrder.length > 0) {
+            state.activeConvId = state.conversationOrder[0];
+        } else {
+            var conv = defaultConversation();
+            state.conversations[conv.id] = conv;
+            state.conversationOrder.push(conv.id);
+            state.activeConvId = conv.id;
+        }
+    }
+    persistState();
+    requestRender(['conversations', 'conversationOrder', 'activeConvId']);
+}
 function getCardOrientation(tags) {
     const t = (tags || []).join(' ').toLowerCase();
     const hasFemale = /女|female|futa|娘|女仆|姬/.test(t);
@@ -9984,169 +10490,6 @@ function showPublicCardDetail(card) {
         }
     };
 }
-
-function loadOrCreateChatForCharacter(char) {
-    if (!char || !char.name) return;
-
-    currentCharacterName = char.name;
-
-    // Find most recent conv for this character
-    let recentConv = null;
-    let recentTime = 0;
-    Object.values(state.conversations || {}).forEach(conv => {
-        if (conv.character && conv.character.name === char.name) {
-            const t = conv.updated || conv.created || 0;
-            if (t > recentTime) {
-                recentTime = t;
-                recentConv = conv;
-            }
-        }
-    });
-
-    if (recentConv) {
-        loadConversation(recentConv.id);
-    } else {
-        // Create new
-        newConversation(char);
-    }
-
-    switchView('chat');
-}
-
-function renderLibrary() {
-    const lib = document.getElementById('libraryView');
-    const chat = document.getElementById('chatView');
-    if (lib) lib.classList.remove('hidden');
-    if (chat) chat.classList.add('hidden');
-
-    // Render grids
-    renderLibraryGrids();
-
-    // Tab listeners (bind once)
-    const tabMy = document.getElementById('tabMy');
-    const tabPub = document.getElementById('tabPublic');
-    if (tabMy && !tabMy._wired) {
-        tabMy._wired = true;
-        tabMy.addEventListener('click', () => {
-            setActiveTab('my');
-        });
-    }
-    if (tabPub && !tabPub._wired) {
-        tabPub._wired = true;
-        tabPub.addEventListener('click', () => {
-            setActiveTab('public');
-        });
-    }
-
-    // Initial tab
-    setActiveTab(activeLibraryTab);
-
-    // Note: Create and Import actions are now provided as special cards in the "My Cards" grid (see renderMyCards).
-    // This reduces header bloat when selecting cards. No top buttons while browsing the library.
-
-    // Apply initial filter active style for search/filter bar
-    document.querySelectorAll('#libraryView [data-filter]').forEach(b => {
-        b.classList.remove('bg-amber-500/20', 'text-amber-300');
-        if (b.dataset.filter === libraryFilter) {
-            b.classList.add('bg-amber-500/20', 'text-amber-300');
-        }
-    });
-
-    // Sync search input value
-    const libSearchSync = document.getElementById('librarySearch');
-    if (libSearchSync) libSearchSync.value = librarySearchQuery || '';
-
-    // Hide character card and world book in card library page (left sidebar not needed in library view)
-    const charTitle = document.querySelector('#sidebar span[data-i18n="char_card_title"]');
-    if (charTitle) {
-        const charBlock = charTitle.closest('.glass');
-        if (charBlock) charBlock.style.display = 'none';
-    }
-    const worldTitle = document.querySelector('#sidebar span[data-i18n="world_book"]');
-    if (worldTitle) {
-        const worldBlock = worldTitle.closest('.glass');
-        if (worldBlock) worldBlock.style.display = 'none';
-    }
-    // Additional selector for world book block
-    const worldBlock2 = document.querySelector('#sidebar .glass.rounded-xl.px-3.py-2');
-    if (worldBlock2) worldBlock2.style.display = 'none';
-}
-
-async function loadConversation(id) {
-    if (state.isGenerating) {
-        if (!await showGlassConfirm(t('generation_abort_confirm'), { title: '\u505c\u6b62\u751f\u6210' })) return;
-        stopGeneration();
-    }
-    saveCurrentConversation();
-    state.activeConvId = id;           // triggers granular renders via subscription
-
-    // 切换对话时清理 @ 指定气泡（只在群聊输入时有意义）
-    if (typeof clearPendingGroupMention === 'function') {
-        const c = state.conversations[id];
-        if (!c || !isGroupChat(c)) clearPendingGroupMention();
-    }
-
-    // For chat-only conv list per character
-    var c = state.conversations[id];
-    if (c && c.character && c.character.name) {
-        currentCharacterName = c.character.name;
-    } else if (c && isGroupChat(c) && c.group && c.group.members && c.group.members.length > 0) {
-        // 群聊：设置到第一个成员的上下文，使群聊出现在对应角色的会话列表中
-        currentCharacterName = c.group.members[0].character.name;
-    }
-
-    // 切换对话时重置增量渲染状态和“显示全部消息”状态
-    var newConv = getActiveConv();
-    if (newConv) {
-        newConv._showAllMessages = false;
-        newConv._lastRenderedVisibleCount = 0;   // 关键：重置增量计数，避免跨对话污染
-        newConv._historyWindow = 150;
-        newConv._historyScrollHandler = null;
-        newConv._wiCache = null;                 // 切换对话时清除世界书缓存
-    }
-
-    // 关键修复：load 其它对话时立即清空消息容器，根除旧 DOM 残留
-    if (dom.messagesContainer) dom.messagesContainer.innerHTML = '';
-
-    persistState();
-
-    // 显式通知 activeConvId 变更
-    requestRender('activeConvId');
-
-    // 确保切换对话时进度条也实时更新
-    renderTokenBar();
-
-    // 关键修复：切换到历史对话时，主动用当前阈值检查一次自动总结
-    // 解决用户打开旧对话后修改阈值（尤其是调低）却不触发的问题
-    if (state.settings.summaryEnabled) {
-        setTimeout(function() { autoSummarize(); }, 650);
-    }
-
-    if (currentView === 'library') {
-        switchView('chat');
-    }
-
-    if (isMobile()) closeSidebar();
-}
-
-async function deleteConversation(id) {
-    if (!await showGlassConfirm(t('delete_confirm'), { title: '\u5220\u9664\u5bf9\u8bdd', danger: true, okText: '\u5220\u9664' })) return;
-    delete state.conversations[id];
-    state.conversationOrder = state.conversationOrder.filter(function(x) { return x !== id; });
-    if (state.activeConvId === id) {
-        if (state.conversationOrder.length > 0) {
-            state.activeConvId = state.conversationOrder[0];
-        } else {
-            var conv = defaultConversation();
-            state.conversations[conv.id] = conv;
-            state.conversationOrder.push(conv.id);
-            state.activeConvId = conv.id;
-        }
-    }
-    persistState();
-    requestRender(['conversations', 'conversationOrder', 'activeConvId']);
-}
-
 // ==================== UI Rendering ====================
 var dom = {};
 function cacheDom() {
@@ -10207,6 +10550,9 @@ function cacheDom() {
         'summarizeCustomApiSection',
         'comfyEnabled','comfyServer','comfyPositiveNodeId','comfyNegativeNodeId','comfySeedNodeId',
         'comfyNegativePrompt','comfyPromptTemplate','comfyImportWorkflowBtn','comfyWorkflowFile','comfyTestBtn','comfyWorkflowStatus',
+        'cloudSyncEnabled','cloudSyncAutoUpload','cloudSyncEndpoint','cloudSyncToken',
+        'cloudSyncEncrypted','cloudSyncPassphrase',
+        'cloudSyncNowBtn','cloudSyncUploadBtn','cloudSyncDownloadBtn','cloudSyncStatus',
         // Announcement modal
         'announceModal','announceBackdrop','announceCloseBtn','announceDontShow','announceGotItBtn',
         // New Chat Character Picker
@@ -10223,741 +10569,224 @@ function cacheDom() {
     ];
     ids.forEach(function(id) { dom[id] = document.getElementById(id); });
 }
-
-function defaultSillyTavernPreset() {
-    return { name: '', importedAt: '', prompts: [], promptOrder: [] };
-}
-
-function ensureComfySettings() {
-    if (!state.settings) state.settings = defaultSettings();
-    var defs = defaultSettings();
-    [
-        'comfyEnabled',
-        'comfyServer',
-        'comfyWorkflow',
-        'comfyWorkflowName',
-        'comfyPositiveNodeId',
-        'comfyNegativeNodeId',
-        'comfySeedNodeId',
-        'comfyNegativePrompt',
-        'comfyPromptTemplate'
-    ].forEach(function(key) {
-        if (state.settings[key] === undefined || state.settings[key] === null) {
-            state.settings[key] = defs[key];
-        }
-    });
-    state.settings.comfyServer = String(state.settings.comfyServer || defs.comfyServer);
-    state.settings.comfyWorkflowName = String(state.settings.comfyWorkflowName || '');
-    state.settings.comfyPositiveNodeId = String(state.settings.comfyPositiveNodeId || '');
-    state.settings.comfyNegativeNodeId = String(state.settings.comfyNegativeNodeId || '');
-    state.settings.comfySeedNodeId = String(state.settings.comfySeedNodeId || '');
-    state.settings.comfyNegativePrompt = String(state.settings.comfyNegativePrompt || '');
-    state.settings.comfyPromptTemplate = String(state.settings.comfyPromptTemplate || defs.comfyPromptTemplate);
-    return state.settings;
-}
-
-function ensureSillyTavernPresetSettings() {
-    if (!state.settings) state.settings = defaultSettings();
-    if (typeof state.settings.twoStageEnabled !== 'boolean') state.settings.twoStageEnabled = false;
-    if (typeof state.settings.twoStageTemperature !== 'number') state.settings.twoStageTemperature = 0.3;
-    if (typeof state.settings.twoStageTopP !== 'number') state.settings.twoStageTopP = 0.85;
-    if (typeof state.settings.twoStageIncludeRecentContext !== 'boolean') state.settings.twoStageIncludeRecentContext = false;
-    if (!state.settings.twoStageSystemPrompt) state.settings.twoStageSystemPrompt = DEFAULT_TWO_STAGE_PROMPT;
-    if (typeof state.settings.requestCotEnabled !== 'boolean') state.settings.requestCotEnabled = false;
-    if (typeof state.settings.showCotEnabled !== 'boolean') state.settings.showCotEnabled = true;
-    if (typeof state.settings.ollamaCompatMode !== 'boolean') state.settings.ollamaCompatMode = false;
-    if (typeof state.settings.postHistoryInstructions !== 'string') state.settings.postHistoryInstructions = '';
-    if (typeof state.settings.twoStagePostHistoryInstructions !== 'string') state.settings.twoStagePostHistoryInstructions = '';
-    if (typeof state.settings.summaryPrompt !== 'string') state.settings.summaryPrompt = '';
-    if (!state.settings.sillyTavernPreset || typeof state.settings.sillyTavernPreset !== 'object') {
-        state.settings.sillyTavernPreset = defaultSillyTavernPreset();
-    }
-    var preset = state.settings.sillyTavernPreset;
-    if (!Array.isArray(preset.prompts)) preset.prompts = [];
-    if (!Array.isArray(preset.promptOrder)) preset.promptOrder = [];
-    preset.name = String(preset.name || '');
-    preset.importedAt = String(preset.importedAt || '');
-    preset.promptOrder = preset.promptOrder.map(function(item, idx) {
-        item = item || {};
-        return {
-            identifier: String(item.identifier || item.id || item.name || ''),
-            enabled: item.enabled !== false,
-            order: typeof item.order === 'number' ? item.order : idx,
-            role: item.role != null ? String(item.role) : '',
-            position: item.position != null ? item.position : item.injection_position,
-            depth: item.depth != null ? item.depth : item.injection_depth
-        };
-    }).filter(function(item) { return item.identifier; });
-    preset.prompts = preset.prompts.map(function(p, idx) {
-        p = p || {};
-        var id = String(p.id || p.identifier || p.name || ('prompt_' + idx));
-        return {
-            id: id,
-            identifier: String(p.identifier || id),
-            name: String(p.name || p.identifier || id),
-            role: normalizePromptRole(p.role || 'system'),
-            content: String(p.content || ''),
-            enabled: p.enabled !== false,
-            order: typeof p.order === 'number' ? p.order : idx,
-            position: p.position != null ? p.position : p.injection_position,
-            depth: p.depth != null ? p.depth : p.injection_depth,
-            injection_position: p.injection_position != null ? p.injection_position : p.position,
-            injection_depth: p.injection_depth != null ? p.injection_depth : p.depth
-        };
-    }).filter(function(p) { return p.content.trim(); });
-    return preset;
-}
-
-function normalizePromptRole(role) {
-    var r = String(role || 'system').toLowerCase().trim();
-    if (r === '0') return 'system';
-    if (r === '1') return 'user';
-    if (r === '2') return 'assistant';
-    if (r === 'user' || r === 'assistant' || r === 'system') return r;
-    return 'system';
-}
-
-function getSillyTavernPromptOrderItems(promptOrder) {
-    var items = [];
-    function addOrderArray(arr) {
-        if (!Array.isArray(arr)) return;
-        arr.forEach(function(item, idx) {
-            if (typeof item === 'string') {
-                items.push({ identifier: item, enabled: true, order: idx });
-            } else if (item && typeof item === 'object') {
-                items.push({
-                    identifier: item.identifier || item.id || item.name || '',
-                    enabled: item.enabled !== false,
-                    order: typeof item.order === 'number' ? item.order : idx,
-                    role: item.role != null ? item.role : '',
-                    position: item.position != null ? item.position : item.injection_position,
-                    depth: item.depth != null ? item.depth : item.injection_depth
-                });
-            }
-        });
-    }
-
-    if (Array.isArray(promptOrder)) {
-        promptOrder.forEach(function(group) {
-            if (group && Array.isArray(group.order)) addOrderArray(group.order);
-            else addOrderArray([group]);
-        });
-    } else if (promptOrder && typeof promptOrder === 'object') {
-        if (Array.isArray(promptOrder.order)) addOrderArray(promptOrder.order);
-        Object.keys(promptOrder).forEach(function(key, idx) {
-            var value = promptOrder[key];
-            if (key === 'order') return;
-            if (value && typeof value === 'object' && !Array.isArray(value)) {
-                items.push({
-                    identifier: value.identifier || key,
-                    enabled: value.enabled !== false,
-                    order: typeof value.order === 'number' ? value.order : idx,
-                    role: value.role != null ? value.role : '',
-                    position: value.position != null ? value.position : value.injection_position,
-                    depth: value.depth != null ? value.depth : value.injection_depth
-                });
-            } else if (typeof value === 'boolean') {
-                items.push({ identifier: key, enabled: value, order: idx });
-            }
-        });
-    }
-    return items;
-}
-
-function normalizeSillyTavernPreset(raw) {
-    if (!raw || typeof raw !== 'object') throw new Error(t('settings_st_preset_import_error'));
-    var src = raw.data && Array.isArray(raw.data.prompts) ? raw.data : raw;
-    var promptRows = Array.isArray(src.prompts) ? src.prompts.slice() : [];
-
-    if (promptRows.length === 0) {
-        ['main_prompt', 'nsfw_prompt', 'jailbreak_prompt', 'impersonation_prompt', 'new_chat_prompt', 'new_group_chat_prompt'].forEach(function(key) {
-            if (typeof src[key] === 'string' && src[key].trim()) {
-                promptRows.push({ identifier: key, name: key.replace(/_/g, ' '), role: 'system', content: src[key] });
-            }
-        });
-    }
-
-    var orderItems = getSillyTavernPromptOrderItems(src.prompt_order);
-    var orderMap = {};
-    orderItems.forEach(function(item, idx) {
-        var id = String(item.identifier || '');
-        if (!id) return;
-        orderMap[id] = {
-            enabled: item.enabled !== false,
-            order: typeof item.order === 'number' ? item.order : idx,
-            role: item.role,
-            position: item.position,
-            depth: item.depth
-        };
-        orderMap[id.toLowerCase()] = orderMap[id];
-    });
-
-    var usedIds = {};
-    var prompts = promptRows.map(function(p, idx) {
-        p = p || {};
-        var baseId = String(p.identifier || p.id || p.name || ('prompt_' + idx));
-        var id = baseId;
-        if (usedIds[id]) id = id + '_' + idx;
-        usedIds[id] = true;
-        var content = p.content != null ? p.content : (p.prompt != null ? p.prompt : (p.text != null ? p.text : p.value));
-        content = String(content || '');
-        var ordered = orderMap[baseId] || orderMap[id] || orderMap[baseId.toLowerCase()] || orderMap[id.toLowerCase()];
-        return {
-            id: id,
-            identifier: String(p.identifier || id),
-            name: String(p.name || p.identifier || id),
-            role: normalizePromptRole(p.role || (ordered && ordered.role) || 'system'),
-            content: content,
-            enabled: ordered ? ordered.enabled : p.enabled !== false,
-            order: ordered ? ordered.order : idx,
-            position: p.position != null ? p.position : (p.injection_position != null ? p.injection_position : (ordered ? ordered.position : undefined)),
-            depth: p.depth != null ? p.depth : (p.injection_depth != null ? p.injection_depth : (ordered ? ordered.depth : undefined)),
-            injection_position: p.injection_position != null ? p.injection_position : (ordered ? ordered.position : undefined),
-            injection_depth: p.injection_depth != null ? p.injection_depth : (ordered ? ordered.depth : undefined)
-        };
-    }).filter(function(p) { return p.content.trim(); });
-
-    prompts.sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
-    if (prompts.length === 0) throw new Error(t('settings_st_preset_import_error'));
-
-    return {
-        name: String(src.name || src.preset_name || raw.name || 'SillyTavern Preset'),
-        importedAt: new Date().toISOString(),
-        promptOrder: orderItems.map(function(item, idx) {
-            return {
-                identifier: String(item.identifier || ''),
-                enabled: item.enabled !== false,
-                order: typeof item.order === 'number' ? item.order : idx,
-                role: item.role != null ? String(item.role) : '',
-                position: item.position,
-                depth: item.depth
-            };
-        }).filter(function(item) { return item.identifier; }),
-        prompts: prompts.map(function(p, idx) {
-            p.order = idx;
-            return p;
-        })
-    };
-}
-
-function renderSillyTavernPresetSettings() {
-    if (!dom.stPresetList || !dom.stPresetStatus) return;
-    var preset = ensureSillyTavernPresetSettings();
-    var rows = preset.prompts.map(function(p, index) { return { prompt: p, index: index }; })
-        .sort(function(a, b) { return (a.prompt.order || 0) - (b.prompt.order || 0); });
-    var enabledCount = rows.filter(function(row) { return row.prompt.enabled !== false; }).length;
-
-    if (rows.length === 0) {
-        dom.stPresetStatus.textContent = t('settings_st_preset_empty');
-        dom.stPresetList.innerHTML = '<div class="text-[11px] text-zinc-600 px-1 py-1">' + escapeHtml(t('settings_st_preset_empty')) + '</div>';
-        if (dom.stPresetExportBtn) {
-            dom.stPresetExportBtn.disabled = true;
-            dom.stPresetExportBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        }
-        if (dom.stPresetDeleteBtn) {
-            dom.stPresetDeleteBtn.disabled = true;
-            dom.stPresetDeleteBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        }
-        return;
-    }
-
-    dom.stPresetStatus.textContent = (preset.name || 'SillyTavern Preset') + ' - ' + enabledCount + ' / ' + rows.length + ' enabled';
-    if (dom.stPresetExportBtn) {
-        dom.stPresetExportBtn.disabled = false;
-        dom.stPresetExportBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-    }
-    if (dom.stPresetDeleteBtn) {
-        dom.stPresetDeleteBtn.disabled = false;
-        dom.stPresetDeleteBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-    }
-
-    dom.stPresetList.innerHTML = rows.map(function(row) {
-        var p = row.prompt;
-        var preview = p.content.length > 220 ? p.content.slice(0, 220) + '...' : p.content;
-        var placement = describeSillyTavernPresetPlacement(p);
-        return '<div class="rounded-xl bg-black/15 border border-white/5 p-2">' +
-            '<label class="flex items-start gap-2 cursor-pointer select-none">' +
-                '<input type="checkbox" class="st-preset-toggle accent-amber-500 mt-0.5 flex-shrink-0" data-index="' + row.index + '" ' + (p.enabled !== false ? 'checked' : '') + '>' +
-                '<div class="min-w-0 flex-1">' +
-                    '<div class="flex items-center gap-1.5 min-w-0">' +
-                        '<span class="text-xs font-medium text-zinc-200 truncate">' + escapeHtml(p.name || p.identifier || p.id) + '</span>' +
-                        '<span class="text-[9px] uppercase text-zinc-500 bg-white/5 rounded px-1 py-0.5 flex-shrink-0">' + escapeHtml(p.role || 'system') + '</span>' +
-                        '<span class="text-[9px] uppercase text-zinc-500 bg-white/5 rounded px-1 py-0.5 flex-shrink-0">' + escapeHtml(placement) + '</span>' +
-                    '</div>' +
-                    '<details class="mt-1">' +
-                        '<summary class="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors">' + escapeHtml(preview) + '</summary>' +
-                        '<pre class="mt-1 whitespace-pre-wrap text-[10px] leading-relaxed text-zinc-400 bg-black/20 rounded-lg p-2 max-h-40 overflow-y-auto">' + escapeHtml(p.content) + '</pre>' +
-                    '</details>' +
-                '</div>' +
-            '</label>' +
-        '</div>';
-    }).join('');
-
-    dom.stPresetList.querySelectorAll('.st-preset-toggle').forEach(function(input) {
-        input.addEventListener('change', function() {
-            var idx = parseInt(this.getAttribute('data-index'), 10);
-            if (!isNaN(idx) && preset.prompts[idx]) {
-                preset.prompts[idx].enabled = this.checked;
-                persistState(true);
-                renderSillyTavernPresetSettings();
-                renderTokenBar();
-                appStore.notify('settings');
-            }
-        });
-    });
-}
-
-function importSillyTavernPresetFile(file) {
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(ev) {
-        try {
-            var raw = JSON.parse(ev.target.result);
-            state.settings.sillyTavernPreset = normalizeSillyTavernPreset(raw);
-            renderSillyTavernPresetSettings();
-            persistState(true);
-            renderTokenBar();
-            appStore.notify('settings');
-            alert(t('settings_st_preset_import_success'));
-        } catch (err) {
-            console.error('[SillyTavern Preset] import failed:', err);
-            alert(t('settings_st_preset_import_error') + ': ' + (err.message || err));
-        } finally {
-            if (dom.stPresetImportFile) dom.stPresetImportFile.value = '';
-        }
-    };
-    reader.readAsText(file);
-}
-
-function exportSillyTavernPreset() {
-    var preset = ensureSillyTavernPresetSettings();
-    var prompts = preset.prompts.slice().sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
-    if (prompts.length === 0) {
-        alert(t('settings_st_preset_empty'));
-        return;
-    }
-    var data = {
-        name: preset.name || 'OpenTavern SillyTavern Preset Prompts',
-        prompts: prompts.map(function(p) {
-            return {
-                identifier: p.identifier || p.id,
-                name: p.name || p.identifier || p.id,
-                role: p.role || 'system',
-                content: p.content || '',
-                position: p.position,
-                injection_position: p.injection_position,
-                depth: p.depth,
-                injection_depth: p.injection_depth,
-                system_prompt: true,
-                marker: false
-            };
-        }),
-        prompt_order: [{
-            character_id: 100001,
-            order: (preset.promptOrder && preset.promptOrder.length ? preset.promptOrder : prompts).map(function(item) {
-                var id = item.identifier || item.id;
-                return {
-                    identifier: id,
-                    enabled: item.enabled !== false,
-                    position: item.position,
-                    injection_position: item.injection_position,
-                    depth: item.depth,
-                    injection_depth: item.injection_depth
-                };
-            })
-        }],
-        opentavern: {
-            type: 'sillytavern-preset-prompts',
-            exported_at: new Date().toISOString()
-        }
-    };
-    downloadJsonFile(data, 'sillytavern_preset_prompts_' + new Date().toISOString().slice(0, 10) + '.json');
-}
-
-function deleteSillyTavernPreset() {
-    var preset = ensureSillyTavernPresetSettings();
-    if (!preset.prompts.length) {
-        alert(t('settings_st_preset_empty'));
-        return;
-    }
-    if (!confirm(t('settings_st_preset_delete_confirm'))) return;
-    state.settings.sillyTavernPreset = defaultSillyTavernPreset();
-    renderSillyTavernPresetSettings();
-    persistState(true);
-    renderTokenBar();
-    appStore.notify('settings');
-    alert(t('settings_st_preset_delete_success'));
-}
-
-function describeSillyTavernPresetPlacement(prompt) {
-    var placement = getSillyTavernPresetPlacement(prompt, 'before_history');
-    if (placement === 'in_chat') {
-        var depth = parseSillyTavernDepth(prompt);
-        return 'in-chat d' + depth;
-    }
-    return placement === 'after_history' ? 'after history' : 'before history';
-}
-
-function isSillyTavernChatHistoryMarker(identifier) {
-    var id = String(identifier || '').toLowerCase().replace(/[\s-]/g, '_');
-    return id === 'chat_history' || id === 'chathistory' || id === 'messages' || id === 'conversation_history';
-}
-
-function getSillyTavernPresetPlacement(prompt, fallback) {
-    prompt = prompt || {};
-    var raw = prompt.position != null ? prompt.position : prompt.injection_position;
-    var str = String(raw == null ? '' : raw).toLowerCase().trim();
-
-    if (str === '1' || str === 'in_chat' || str === 'in-chat' || str === 'depth' || str === 'at_depth') return 'in_chat';
-    if (str.indexOf('after') !== -1 && (str.indexOf('history') !== -1 || str.indexOf('chat') !== -1)) return 'after_history';
-    if (str.indexOf('before') !== -1 && (str.indexOf('history') !== -1 || str.indexOf('chat') !== -1)) return 'before_history';
-    if (prompt.depth != null || prompt.injection_depth != null) {
-        if (str === '0' || str === 'relative') return fallback || 'before_history';
-        return 'in_chat';
-    }
-    return fallback || 'before_history';
-}
-
-function parseSillyTavernDepth(prompt) {
-    var raw = prompt && (prompt.depth != null ? prompt.depth : prompt.injection_depth);
-    var d = parseInt(raw, 10);
-    return isNaN(d) ? 0 : d;
-}
-
-function buildSillyTavernPresetMessageBuckets(charName, userName) {
-    var preset = ensureSillyTavernPresetSettings();
-    var enabledPrompts = preset.prompts
-        .filter(function(p) { return p && p.enabled !== false && p.content && p.content.trim(); })
-        .sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
-
-    var byId = {};
-    enabledPrompts.forEach(function(p) {
-        [p.id, p.identifier, p.name].forEach(function(id) {
-            if (!id) return;
-            byId[String(id).toLowerCase()] = p;
-        });
-    });
-
-    var buckets = { beforeHistory: [], afterHistory: [], inChat: [] };
-    var seen = {};
-    var afterHistory = false;
-
-    function addPrompt(prompt, orderItem) {
-        if (!prompt) return;
-        var key = String(prompt.id || prompt.identifier || prompt.name || '');
-        if (seen[key]) return;
-        seen[key] = true;
-
-        var merged = Object.assign({}, prompt);
-        if (orderItem) {
-            if (orderItem.role) merged.role = orderItem.role;
-            if (orderItem.position != null) merged.position = orderItem.position;
-            if (orderItem.depth != null) merged.depth = orderItem.depth;
-        }
-
-        var placement = getSillyTavernPresetPlacement(merged, afterHistory ? 'after_history' : 'before_history');
-        var msg = {
-            role: normalizePromptRole(merged.role || 'system'),
-            content: replacePlaceholders(String(merged.content || '').trim(), charName, userName),
-            _depth: parseSillyTavernDepth(merged),
-            _order: typeof merged.order === 'number' ? merged.order : 0
-        };
-
-        if (!msg.content) return;
-        if (placement === 'in_chat') buckets.inChat.push(msg);
-        else if (placement === 'after_history') buckets.afterHistory.push(msg);
-        else buckets.beforeHistory.push(msg);
-    }
-
-    var ordered = preset.promptOrder && preset.promptOrder.length
-        ? preset.promptOrder.slice().sort(function(a, b) { return (a.order || 0) - (b.order || 0); })
-        : [];
-
-    ordered.forEach(function(item) {
-        var id = String(item.identifier || '').toLowerCase();
-        if (!id) return;
-        if (isSillyTavernChatHistoryMarker(id)) {
-            afterHistory = true;
-            return;
-        }
-        if (item.enabled === false) return;
-        addPrompt(byId[id], item);
-    });
-
-    enabledPrompts.forEach(function(p) { addPrompt(p, null); });
-    buckets.inChat.sort(function(a, b) { return (a._order || 0) - (b._order || 0); });
-    return buckets;
-}
-
-// ==================== Conversation Export / Import ====================
-function exportConversation(id) {
-    var conv = state.conversations[id];
+function renderTopBar() {
+    var conv = getActiveConv();
     if (!conv) return;
-    downloadJsonFile(
-        { version: 1, type: 'opentavern-export', exported_at: new Date().toISOString(), conversations: [conv] },
-        (conv.title || 'conversation').replace(/[^a-zA-Z0-9一-鿿]/g, '_') + '.json'
-    );
-}
+    if (dom.chatTitle) dom.chatTitle.textContent = conv.title || t('new_chat_title');
 
-function exportAllConversations() {
-    var convs = state.conversationOrder.map(function(id) { return state.conversations[id]; }).filter(Boolean);
-    if (convs.length === 0) { alert(t('nothing_to_archive')); return; }
-
-    // 【Export Fix】导出完整备份：包含全局角色卡库、WorldBook、对话等
-    // 旧格式仍兼容（只导 conversations），新格式带完整数据
-    var exportData = {
-        version: 2,
-        type: 'opentavern-full-export',
-        exported_at: new Date().toISOString(),
-        settings: getSafeSettingsForPersist(),
-        conversations: convs,
-        conversationOrder: state.conversationOrder || [],
-        characters: state.characters || {},          // 全局卡片库
-        worldBooks: state.worldBooks || {},
-        charactersMigrated: !!state._charactersMigrated
-    };
-
-    downloadJsonFile(
-        exportData,
-        'opentavern_all_' + new Date().toISOString().slice(0, 10) + '.json'
-    );
-    recordBackupMade();
-}
-
-function downloadJsonFile(data, filename) {
-    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-
-function importConversations(file) {
-    var reader = new FileReader();
-    reader.onload = function(ev) {
-        try {
-            var data = JSON.parse(ev.target.result);
-
-            // 支持旧格式 (type: opentavern-export) 和新完整格式 (type: opentavern-full-export)
-            var convsToImport = [];
-            if (data && Array.isArray(data.conversations)) {
-                convsToImport = data.conversations;
-            } else {
-                alert(t('import_conv_error'));
-                return;
-            }
-
-            // 额外校验：必须至少有一个有效对话
-            if (convsToImport.length === 0) {
-                alert(t('import_conv_error'));
-                return;
-            }
-
-            var imported = 0;
-            var skipped = 0;
-
-            convsToImport.forEach(function(conv) {
-                if (!conv.id || !Array.isArray(conv.messages)) return;
-
-                // If a conversation with this ID already exists, generate a new ID
-                if (state.conversations[conv.id]) {
-                    conv.id = makeId();
-                    skipped++;
-                }
-                state.conversations[conv.id] = conv;
-
-                // Avoid duplicates in the order list
-                if (state.conversationOrder.indexOf(conv.id) === -1) {
-                    state.conversationOrder.unshift(conv.id);
-                }
-                imported++;
-            });
-
-            // 【Import Fix】导入后必须把角色卡注册到全局库（state.characters），否则我的卡片库不显示
-            // 1. 如果导出里带了顶层 characters，直接合并
-            if (data.characters && typeof data.characters === 'object') {
-                if (!state.characters) state.characters = {};
-                Object.keys(data.characters).forEach(function(key) {
-                    if (!state.characters[key]) {
-                        state.characters[key] = JSON.parse(JSON.stringify(data.characters[key]));
-                    }
-                });
-            }
-
-            // 2. 从导入的对话里提取角色卡（单聊 + 群聊），注册到全局库
-            // 复用 migrate 逻辑，确保和启动时行为一致
-            if (typeof migrateCharactersToRegistry === 'function') {
-                migrateCharactersToRegistry(convsToImport);
-            } else {
-                // 兜底：手动注册
-                if (!state.characters) state.characters = {};
-                convsToImport.forEach(function(conv) {
-                    if (conv.character && conv.character.name) {
-                        const key = conv.character.name.trim().toLowerCase();
-                        if (!state.characters[key]) {
-                            state.characters[key] = JSON.parse(JSON.stringify(conv.character));
-                        }
-                    }
-                    if (conv.group && Array.isArray(conv.group.members)) {
-                        conv.group.members.forEach(function(m) {
-                            const ch = m && m.character;
-                            if (ch && ch.name) {
-                                const key = ch.name.trim().toLowerCase();
-                                if (!state.characters[key]) {
-                                    state.characters[key] = JSON.parse(JSON.stringify(ch));
-                                }
-                            }
-                        });
-                    }
-                });
-            }
-
-            if (imported > 0) {
-                // 同时恢复 worldBooks 如果有
-                if (data.worldBooks && typeof data.worldBooks === 'object') {
-                    if (!state.worldBooks) state.worldBooks = {};
-                    Object.keys(data.worldBooks).forEach(function(wbId) {
-                        if (!state.worldBooks[wbId]) {
-                            state.worldBooks[wbId] = JSON.parse(JSON.stringify(data.worldBooks[wbId]));
-                        }
-                    });
-                }
-
-                persistState(true);
-                if (typeof updateStorageInfo === 'function') updateStorageInfo();
-
-                // 关键：立即刷新“我的卡片”库，让用户看到导入的角色卡
-                if (typeof renderLibraryGrids === 'function') {
-                    renderLibraryGrids();
-                }
-                if (typeof renderMyCards === 'function') {
-                    renderMyCards();
-                }
-
-                // 切换到第一条导入的对话（或保持当前）
-                if (!state.activeConvId && state.conversationOrder.length > 0) {
-                    state.activeConvId = state.conversationOrder[0];
-                }
-                persistState(true);
-                requestRender('activeConvId');
-            }
-
-            var msg = t('import_conv_success') + imported + t('import_conv_success_suffix');
-            if (skipped > 0) msg += ' ' + skipped + t('import_conv_duplicate');
-            alert(msg);
-        } catch(e) {
-            console.error('[Import] failed:', e);
-            alert(t('import_conv_error'));
+    if (isGroupChat(conv)) {
+        const members = getGroupMembers(conv);
+        if (dom.charAvatar) {
+            dom.charAvatar.textContent = 'Group';
+            dom.charAvatar.className = 'w-9 h-9 rounded-xl ot-avatar-fill flex items-center justify-center text-white text-sm font-bold flex-shrink-0';
         }
-    };
-    reader.readAsText(file);
-}
-
-function renderConversationList() {
-    if (!dom.convList) return;
-    var order = state.conversationOrder.slice();
-
-    // Filter logic:
-    // - In card library view: show ALL historical conversations
-    // - After clicking a character card to enter chat: only show conversations related to currentCharacterName (including group chats)
-    if (currentView === 'chat' && currentCharacterName) {
-        const activeId = state.activeConvId;
-        order = order.filter(function(id) {
-            var c = state.conversations[id];
-            if (!c) return false;
-            // 始终保留当前激活的会话（尤其是群聊切换后 currentCharacterName 可能不匹配任一成员）
-            if (id === activeId) return true;
-            if (c.character && c.character.name === currentCharacterName) return true;
-            if (c.group && Array.isArray(c.group.members)) {
-                return c.group.members.some(function(m) {
-                    return m.character && m.character.name === currentCharacterName;
-                });
-            }
-            return false;
-        });
-    }
-
-    if (order.length === 0) {
-        dom.convList.innerHTML = '<p class="text-xs text-zinc-500 text-center py-8 px-2">' + t('no_conversations').replace(/\n/g,'<br>') + '</p>';
+        if (dom.chatSubtitle) {
+            const names = members.map(m => (m.character && m.character.name) ? m.character.name : '').filter(Boolean).slice(0, 3).join('、');
+            dom.chatSubtitle.textContent = names + (members.length > 3 ? ' 等' : '') || (t('no_character') || '群聊');
+        }
         return;
     }
-    var html = '';
-    for (var i = 0; i < order.length; i++) {
-        var id = order[i], conv = state.conversations[id];
-        if (!conv) continue;
-        var isActive = id === state.activeConvId;
-        var charName = conv.character ? conv.character.name : '';
-        var title = conv.title || (charName ? t('chat_with') + charName : t('new_chat_title'));
-        var date = new Date(conv.updated || conv.created).toLocaleDateString();
-        html += '<div class="conv-item group flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer ' + (isActive ? 'active' : '') + '" data-conv-id="' + id + '">';
-        html += '<div class="flex-1 min-w-0" data-conv-id="' + id + '">';
-        html += '<p class="text-xs font-medium text-zinc-300 truncate">' + escapeHtml(title) + '</p>';
-        html += '<p class="text-[10px] text-zinc-500 truncate">' + (charName || t('no_character')) + ' &middot; ' + date + '</p>';
-        html += '</div>';
-        html += '<button class="conv-export-btn flex-shrink-0 w-5 h-5 rounded-lg flex items-center justify-center text-zinc-600 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all text-[10px] opacity-0 group-hover:opacity-100" data-exp-id="' + id + '" title="' + t('conv_export_title') + '">&#128229;</button>';
-        html += '<button class="conv-delete-btn flex-shrink-0 w-5 h-5 rounded-lg flex items-center justify-center text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-all text-xs opacity-0 group-hover:opacity-100" data-del-id="' + id + '" title="Delete">&times;</button>';
-        html += '</div>';
-    }
-    dom.convList.innerHTML = html;
-    dom.convList.querySelectorAll('[data-conv-id]').forEach(function(el) {
-        el.addEventListener('click', function(e) {
-            var id = el.getAttribute('data-conv-id');
-            if (id) loadConversation(id);
-        });
-    });
-    dom.convList.querySelectorAll('.conv-delete-btn').forEach(function(el) {
-        el.addEventListener('click', function(e) {
-            e.stopPropagation();
-            var id = el.getAttribute('data-del-id');
-            if (id) deleteConversation(id);
-        });
-    });
-    dom.convList.querySelectorAll('.conv-export-btn').forEach(function(el) {
-        el.addEventListener('click', function(e) {
-            e.stopPropagation();
-            var id = el.getAttribute('data-exp-id');
-            if (id) exportConversation(id);
-        });
-    });
-}
 
-// Patch for sidebar conv list:
-// - In library view: show ALL historical conversations
-// - In chat view (after clicking a character card): only show conversations related to currentCharacterName (including group chats)
-if (typeof renderConversationList === 'function') {
-    const _origRenderConvList = renderConversationList;
-    renderConversationList = function() {
-        if (!dom.convList) return;
-        var order = (state.conversationOrder || []).slice();
-
-        if (currentView === 'chat' && currentCharacterName) {
-            const activeId = state.activeConvId;
-            order = order.filter(function(id) {
-                var c = state.conversations[id];
-                if (!c) return false;
-                // 始终保留当前激活的会话（尤其是群聊切换后 currentCharacterName 可能不匹配任一成员）
-                if (id === activeId) return true;
-                if (c.character && c.character.name === currentCharacterName) return true;
-                if (c.group && Array.isArray(c.group.members)) {
-                    return c.group.members.some(function(m) {
-                        return m.character && m.character.name === currentCharacterName;
-                    });
-                }
-                return false;
-            });
+    if (conv.character) {
+        const ch = conv.character;
+        const src = ch.previewImage || ch.avatar;
+        if (dom.charAvatar) {
+            if (src) {
+                dom.charAvatar.innerHTML = `<img src="${src}" class="w-full h-full object-cover rounded-xl" alt="${ch.name || ''}">`;
+                dom.charAvatar.className = 'w-9 h-9 rounded-xl overflow-hidden bg-zinc-900 flex-shrink-0 border border-white/10';
+            } else {
+                dom.charAvatar.textContent = ch.name.charAt(0).toUpperCase();
+                dom.charAvatar.className = 'w-9 h-9 rounded-xl ot-avatar-fill flex items-center justify-center text-white text-sm font-bold flex-shrink-0';
+            }
         }
-        // temporarily override for this render
-        var backup = state.conversationOrder;
-        state.conversationOrder = order;
-        _origRenderConvList.apply(this, arguments);
-        state.conversationOrder = backup;
-    };
+        if (dom.chatSubtitle) {
+            var sep = t('char_tag_separator');
+            dom.chatSubtitle.textContent = conv.character.tags ? conv.character.tags.slice(0,3).join(sep) : conv.character.name;
+        }
+    } else {
+        if (dom.charAvatar) {
+            dom.charAvatar.textContent = 'Chat';
+            dom.charAvatar.className = 'w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-zinc-500 text-sm flex-shrink-0';
+        }
+        if (dom.chatSubtitle) dom.chatSubtitle.textContent = t('no_character');
+    }
 }
 
+function renderTokenBar() {
+    var conv = getActiveConv();
+    if (!conv) return;
+    if (!dom.tokenCount || !dom.tokenMax || !dom.tokenBar) return;
+    // 【核心修复2】必须使用 buildMessagesForAPI 的实际输出，而不是存储层消息总数
+    var apiMessages = buildMessagesForAPI();
+    var msgCount = apiMessages.filter(function(m) { return m.role !== 'system'; }).length;
+    var max = state.settings.contextLength;
+    dom.tokenCount.textContent = msgCount;
+    dom.tokenMax.textContent = 'max ' + max + ' ' + t('msgs_label');
+    var pct = Math.min(100, (msgCount / max) * 100);
+    dom.tokenBar.style.width = pct + '%';
+    var themed = document.body && (document.body.classList.contains('theme-new-light') || document.body.classList.contains('theme-new-dark'));
+    if (themed) {
+        dom.tokenBar.style.background = pct > 80 ? '#ef4444' : '#D56C4E';
+    } else {
+        dom.tokenBar.style.background = pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : 'rgba(245,158,11,0.5)';
+    }
+}
+
+function renderAll() {
+    renderConversationList();
+    renderCharacterCard();
+    renderMessages();
+    renderTopBar();
+    renderTokenBar();
+    updateInputState();
+    renderWorldInfoBudgetWarning();
+}
+
+function updateInputState() {
+    var useLocal = isWebLLMBackend();
+    var hasApiKey = !!(state.settings.apiKey && state.settings.apiEndpoint);
+    // 本地 WebLLM 模式不需要远程 API Key
+    var canSend = useLocal || hasApiKey;
+    ensureComfySettings();
+    var showComfy = !!state.settings.comfyEnabled;
+    var canComfy = !!getActiveConv() && showComfy && !!state.settings.comfyWorkflow && !state.isGenerating && !comfyIsGenerating;
+    dom.messageInput.disabled = !canSend || state.isGenerating;
+    dom.sendBtn.disabled = !canSend || state.isGenerating;
+    if (dom.comfyGenerateBtn) dom.comfyGenerateBtn.disabled = !canComfy;
+    if (state.isGenerating) {
+        dom.stopBtn.classList.remove('hidden');
+        dom.sendBtn.classList.add('hidden');
+        if (dom.comfyGenerateBtn) dom.comfyGenerateBtn.classList.add('hidden');
+    } else {
+        dom.stopBtn.classList.add('hidden');
+        dom.sendBtn.classList.remove('hidden');
+        if (dom.comfyGenerateBtn) dom.comfyGenerateBtn.classList.toggle('hidden', !showComfy);
+    }
+    if (!canSend && !state.isGenerating) {
+        dom.messageInput.placeholder = t('input_placeholder_no_api');
+    } else if (state.isGenerating) {
+        dom.messageInput.placeholder = t('input_placeholder_waiting');
+    } else {
+        dom.messageInput.placeholder = t('input_placeholder');
+    }
+}
+// ==================== Message Content Rendering ====================
+function escapeHtml(text) {
+    if (!text) return '';
+    text = String(text);
+    return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function highlightDialogue(text) {
+    if (!text) return '';
+    var escaped = escapeHtml(text);
+    // Highlight Chinese curly double quotes “...”
+    escaped = escaped.replace(/“([\s\S]*?)”/g, '<span class="dialogue-highlight">“$1”</span>');
+    // Highlight corner brackets 「...」
+    escaped = escaped.replace(/「([\s\S]*?)」/g, '<span class="dialogue-highlight">「$1」</span>');
+    return escaped;
+}
+
+function sanitizeStatusBarHtml(html) {
+    if (!window.DOMPurify) return highlightDialogue(html);
+
+    var clean = DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: ['details', 'summary', 'div', 'br', 'span', 'b', 'strong'],
+        ALLOWED_ATTR: ['open'],
+        ALLOW_DATA_ATTR: false,
+        FORBID_ATTR: ['style', 'class', 'id', 'onclick', 'onerror', 'onload']
+    });
+
+    clean = clean.replace(/<details([^>]*)>/i, function(match, attrs) {
+        return '<details class="status-bar"' + (/\bopen\b/i.test(attrs || '') ? ' open' : '') + '>';
+    });
+    clean = clean.replace(/<summary>/i, '<summary>');
+    clean = clean.replace(/(<\/summary>)([\s\S]*?)(<\/details>)/i, '$1<div class="status-bar-content">$2</div>$3');
+
+    return clean;
+}
+
+function renderAssistantContent(text) {
+    if (!text) return '';
+
+    var raw = String(text);
+    var optionsHtml = renderOptionsXml(raw);
+    if (optionsHtml) return optionsHtml;
+
+    var html = '';
+    var lastIndex = 0;
+    var statusBlockRe = /<details\b[\s\S]*?<\/details>/gi;
+    var match;
+
+    while ((match = statusBlockRe.exec(raw)) !== null) {
+        var block = match[0];
+        if (block.indexOf('状态栏') === -1 && block.indexOf('狀態欄') === -1) continue;
+
+        html += highlightDialogue(raw.slice(lastIndex, match.index));
+        html += sanitizeStatusBarHtml(block);
+        lastIndex = match.index + block.length;
+    }
+
+    html += highlightDialogue(raw.slice(lastIndex));
+    return html;
+}
+
+function renderMessageAttachments(msg) {
+    if (!msg || !Array.isArray(msg.attachments) || msg.attachments.length === 0) return '';
+    var html = '<div class="msg-attachments">';
+    msg.attachments.forEach(function(att) {
+        if (!att || att.type !== 'image') return;
+        var src = att.dataUrl || att.url || '';
+        if (!src) return;
+        var label = att.source === 'comfyui' ? 'ComfyUI' : (att.source || 'Image');
+        var prompt = att.prompt ? String(att.prompt) : '';
+        html += '<figure>';
+        html += '<img class="msg-attachment-image" src="' + escapeHtml(src) + '" alt="' + escapeHtml(label) + '" loading="lazy">';
+        html += '<figcaption class="msg-attachment-caption">' + escapeHtml(label + (prompt ? ' · ' + prompt.slice(0, 180) : '')) + '</figcaption>';
+        html += '</figure>';
+    });
+    html += '</div>';
+    return html;
+}
+
+function renderMessageBubbleContent(msg, isUser) {
+    var content = isUser ? escapeHtml(msg && msg.content) : renderAssistantContent(msg && msg.content);
+    return content + renderMessageAttachments(msg);
+}
+
+function renderCotBlock(cot, streaming) {
+    if (!cot || !state || !state.settings || state.settings.showCotEnabled === false) return '';
+    var cls = 'msg-cot' + (streaming ? ' streaming' : '');
+    return '<details class="' + cls + '"><summary>' + escapeHtml(t('cot_block_title') || 'Thinking') + '</summary><div class="msg-cot-content">' + escapeHtml(cot) + '</div></details>';
+}
+
+function renderOptionsXml(raw) {
+    var text = String(raw || '').trim();
+    if (!/^<options[\s>]/i.test(text)) return '';
+    try {
+        var parser = new DOMParser();
+        var doc = parser.parseFromString(text, 'application/xml');
+        if (doc.getElementsByTagName('parsererror').length) return '';
+        var optionNodes = Array.prototype.slice.call(doc.getElementsByTagName('option')).slice(0, 4);
+        if (!optionNodes.length) return '';
+        var html = '<div class="space-y-2">';
+        optionNodes.forEach(function(node) {
+            var titleNode = node.getElementsByTagName('title')[0];
+            var descNode = node.getElementsByTagName('description')[0];
+            var title = titleNode ? titleNode.textContent.trim() : '';
+            var desc = descNode ? descNode.textContent.trim() : '';
+            html += '<div class="glass rounded-xl border border-white/10 px-3 py-2">';
+            if (title) html += '<div class="text-sm font-semibold text-amber-300 mb-1">' + escapeHtml(title) + '</div>';
+            if (desc) html += '<div class="text-sm text-zinc-300 leading-relaxed">' + highlightDialogue(desc) + '</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+        return html;
+    } catch (e) {
+        return '';
+    }
+}
+// ==================== Chat Message Renderer ====================
 /**
  * 确保消息列表顶部有“加载更早历史”的UI
  * 支持点击加载更多（增量增加窗口），并附加滚动到顶部自动加载
@@ -11230,70 +11059,738 @@ function renderMessagesFullHistory(conv) {
     container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
 }
+// ==================== SillyTavern Preset UI ====================
+function defaultSillyTavernPreset() {
+    return { name: '', importedAt: '', prompts: [], promptOrder: [] };
+}
 
-function renderTopBar() {
-    var conv = getActiveConv();
-    if (!conv) return;
-    if (dom.chatTitle) dom.chatTitle.textContent = conv.title || t('new_chat_title');
-
-    if (isGroupChat(conv)) {
-        const members = getGroupMembers(conv);
-        if (dom.charAvatar) {
-            dom.charAvatar.textContent = 'Group';
-            dom.charAvatar.className = 'w-9 h-9 rounded-xl ot-avatar-fill flex items-center justify-center text-white text-sm font-bold flex-shrink-0';
+function ensureComfySettings() {
+    if (!state.settings) state.settings = defaultSettings();
+    var defs = defaultSettings();
+    [
+        'comfyEnabled',
+        'comfyServer',
+        'comfyWorkflow',
+        'comfyWorkflowName',
+        'comfyPositiveNodeId',
+        'comfyNegativeNodeId',
+        'comfySeedNodeId',
+        'comfyNegativePrompt',
+        'comfyPromptTemplate'
+    ].forEach(function(key) {
+        if (state.settings[key] === undefined || state.settings[key] === null) {
+            state.settings[key] = defs[key];
         }
-        if (dom.chatSubtitle) {
-            const names = members.map(m => (m.character && m.character.name) ? m.character.name : '').filter(Boolean).slice(0, 3).join('、');
-            dom.chatSubtitle.textContent = names + (members.length > 3 ? ' 等' : '') || (t('no_character') || '群聊');
+    });
+    state.settings.comfyServer = String(state.settings.comfyServer || defs.comfyServer);
+    state.settings.comfyWorkflowName = String(state.settings.comfyWorkflowName || '');
+    state.settings.comfyPositiveNodeId = String(state.settings.comfyPositiveNodeId || '');
+    state.settings.comfyNegativeNodeId = String(state.settings.comfyNegativeNodeId || '');
+    state.settings.comfySeedNodeId = String(state.settings.comfySeedNodeId || '');
+    state.settings.comfyNegativePrompt = String(state.settings.comfyNegativePrompt || '');
+    state.settings.comfyPromptTemplate = String(state.settings.comfyPromptTemplate || defs.comfyPromptTemplate);
+    return state.settings;
+}
+
+function ensureSillyTavernPresetSettings() {
+    if (!state.settings) state.settings = defaultSettings();
+    if (typeof state.settings.twoStageEnabled !== 'boolean') state.settings.twoStageEnabled = false;
+    if (typeof state.settings.twoStageTemperature !== 'number') state.settings.twoStageTemperature = 0.3;
+    if (typeof state.settings.twoStageTopP !== 'number') state.settings.twoStageTopP = 0.85;
+    if (typeof state.settings.twoStageIncludeRecentContext !== 'boolean') state.settings.twoStageIncludeRecentContext = false;
+    if (!state.settings.twoStageSystemPrompt) state.settings.twoStageSystemPrompt = DEFAULT_TWO_STAGE_PROMPT;
+    if (typeof state.settings.requestCotEnabled !== 'boolean') state.settings.requestCotEnabled = false;
+    if (typeof state.settings.showCotEnabled !== 'boolean') state.settings.showCotEnabled = true;
+    if (typeof state.settings.ollamaCompatMode !== 'boolean') state.settings.ollamaCompatMode = false;
+    if (typeof state.settings.postHistoryInstructions !== 'string') state.settings.postHistoryInstructions = '';
+    if (typeof state.settings.twoStagePostHistoryInstructions !== 'string') state.settings.twoStagePostHistoryInstructions = '';
+    if (typeof state.settings.summaryPrompt !== 'string') state.settings.summaryPrompt = '';
+    if (!state.settings.sillyTavernPreset || typeof state.settings.sillyTavernPreset !== 'object') {
+        state.settings.sillyTavernPreset = defaultSillyTavernPreset();
+    }
+    var preset = state.settings.sillyTavernPreset;
+    if (!Array.isArray(preset.prompts)) preset.prompts = [];
+    if (!Array.isArray(preset.promptOrder)) preset.promptOrder = [];
+    preset.name = String(preset.name || '');
+    preset.importedAt = String(preset.importedAt || '');
+    preset.promptOrder = preset.promptOrder.map(function(item, idx) {
+        item = item || {};
+        return {
+            identifier: String(item.identifier || item.id || item.name || ''),
+            enabled: item.enabled !== false,
+            order: typeof item.order === 'number' ? item.order : idx,
+            role: item.role != null ? String(item.role) : '',
+            position: item.position != null ? item.position : item.injection_position,
+            depth: item.depth != null ? item.depth : item.injection_depth
+        };
+    }).filter(function(item) { return item.identifier; });
+    preset.prompts = preset.prompts.map(function(p, idx) {
+        p = p || {};
+        var id = String(p.id || p.identifier || p.name || ('prompt_' + idx));
+        return {
+            id: id,
+            identifier: String(p.identifier || id),
+            name: String(p.name || p.identifier || id),
+            role: normalizePromptRole(p.role || 'system'),
+            content: String(p.content || ''),
+            enabled: p.enabled !== false,
+            order: typeof p.order === 'number' ? p.order : idx,
+            position: p.position != null ? p.position : p.injection_position,
+            depth: p.depth != null ? p.depth : p.injection_depth,
+            injection_position: p.injection_position != null ? p.injection_position : p.position,
+            injection_depth: p.injection_depth != null ? p.injection_depth : p.depth
+        };
+    }).filter(function(p) { return p.content.trim(); });
+    return preset;
+}
+
+function normalizePromptRole(role) {
+    var r = String(role || 'system').toLowerCase().trim();
+    if (r === '0') return 'system';
+    if (r === '1') return 'user';
+    if (r === '2') return 'assistant';
+    if (r === 'user' || r === 'assistant' || r === 'system') return r;
+    return 'system';
+}
+
+function getSillyTavernPromptOrderItems(promptOrder) {
+    var items = [];
+    function addOrderArray(arr) {
+        if (!Array.isArray(arr)) return;
+        arr.forEach(function(item, idx) {
+            if (typeof item === 'string') {
+                items.push({ identifier: item, enabled: true, order: idx });
+            } else if (item && typeof item === 'object') {
+                items.push({
+                    identifier: item.identifier || item.id || item.name || '',
+                    enabled: item.enabled !== false,
+                    order: typeof item.order === 'number' ? item.order : idx,
+                    role: item.role != null ? item.role : '',
+                    position: item.position != null ? item.position : item.injection_position,
+                    depth: item.depth != null ? item.depth : item.injection_depth
+                });
+            }
+        });
+    }
+
+    if (Array.isArray(promptOrder)) {
+        promptOrder.forEach(function(group) {
+            if (group && Array.isArray(group.order)) addOrderArray(group.order);
+            else addOrderArray([group]);
+        });
+    } else if (promptOrder && typeof promptOrder === 'object') {
+        if (Array.isArray(promptOrder.order)) addOrderArray(promptOrder.order);
+        Object.keys(promptOrder).forEach(function(key, idx) {
+            var value = promptOrder[key];
+            if (key === 'order') return;
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                items.push({
+                    identifier: value.identifier || key,
+                    enabled: value.enabled !== false,
+                    order: typeof value.order === 'number' ? value.order : idx,
+                    role: value.role != null ? value.role : '',
+                    position: value.position != null ? value.position : value.injection_position,
+                    depth: value.depth != null ? value.depth : value.injection_depth
+                });
+            } else if (typeof value === 'boolean') {
+                items.push({ identifier: key, enabled: value, order: idx });
+            }
+        });
+    }
+    return items;
+}
+
+function normalizeSillyTavernPreset(raw) {
+    if (!raw || typeof raw !== 'object') throw new Error(t('settings_st_preset_import_error'));
+    var src = raw.data && Array.isArray(raw.data.prompts) ? raw.data : raw;
+    var promptRows = Array.isArray(src.prompts) ? src.prompts.slice() : [];
+
+    if (promptRows.length === 0) {
+        ['main_prompt', 'nsfw_prompt', 'jailbreak_prompt', 'impersonation_prompt', 'new_chat_prompt', 'new_group_chat_prompt'].forEach(function(key) {
+            if (typeof src[key] === 'string' && src[key].trim()) {
+                promptRows.push({ identifier: key, name: key.replace(/_/g, ' '), role: 'system', content: src[key] });
+            }
+        });
+    }
+
+    var orderItems = getSillyTavernPromptOrderItems(src.prompt_order);
+    var orderMap = {};
+    orderItems.forEach(function(item, idx) {
+        var id = String(item.identifier || '');
+        if (!id) return;
+        orderMap[id] = {
+            enabled: item.enabled !== false,
+            order: typeof item.order === 'number' ? item.order : idx,
+            role: item.role,
+            position: item.position,
+            depth: item.depth
+        };
+        orderMap[id.toLowerCase()] = orderMap[id];
+    });
+
+    var usedIds = {};
+    var prompts = promptRows.map(function(p, idx) {
+        p = p || {};
+        var baseId = String(p.identifier || p.id || p.name || ('prompt_' + idx));
+        var id = baseId;
+        if (usedIds[id]) id = id + '_' + idx;
+        usedIds[id] = true;
+        var content = p.content != null ? p.content : (p.prompt != null ? p.prompt : (p.text != null ? p.text : p.value));
+        content = String(content || '');
+        var ordered = orderMap[baseId] || orderMap[id] || orderMap[baseId.toLowerCase()] || orderMap[id.toLowerCase()];
+        return {
+            id: id,
+            identifier: String(p.identifier || id),
+            name: String(p.name || p.identifier || id),
+            role: normalizePromptRole(p.role || (ordered && ordered.role) || 'system'),
+            content: content,
+            enabled: ordered ? ordered.enabled : p.enabled !== false,
+            order: ordered ? ordered.order : idx,
+            position: p.position != null ? p.position : (p.injection_position != null ? p.injection_position : (ordered ? ordered.position : undefined)),
+            depth: p.depth != null ? p.depth : (p.injection_depth != null ? p.injection_depth : (ordered ? ordered.depth : undefined)),
+            injection_position: p.injection_position != null ? p.injection_position : (ordered ? ordered.position : undefined),
+            injection_depth: p.injection_depth != null ? p.injection_depth : (ordered ? ordered.depth : undefined)
+        };
+    }).filter(function(p) { return p.content.trim(); });
+
+    prompts.sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+    if (prompts.length === 0) throw new Error(t('settings_st_preset_import_error'));
+
+    return {
+        name: String(src.name || src.preset_name || raw.name || 'SillyTavern Preset'),
+        importedAt: new Date().toISOString(),
+        promptOrder: orderItems.map(function(item, idx) {
+            return {
+                identifier: String(item.identifier || ''),
+                enabled: item.enabled !== false,
+                order: typeof item.order === 'number' ? item.order : idx,
+                role: item.role != null ? String(item.role) : '',
+                position: item.position,
+                depth: item.depth
+            };
+        }).filter(function(item) { return item.identifier; }),
+        prompts: prompts.map(function(p, idx) {
+            p.order = idx;
+            return p;
+        })
+    };
+}
+function renderSillyTavernPresetSettings() {
+    if (!dom.stPresetList || !dom.stPresetStatus) return;
+    var preset = ensureSillyTavernPresetSettings();
+    var rows = preset.prompts.map(function(p, index) { return { prompt: p, index: index }; })
+        .sort(function(a, b) { return (a.prompt.order || 0) - (b.prompt.order || 0); });
+    var enabledCount = rows.filter(function(row) { return row.prompt.enabled !== false; }).length;
+
+    if (rows.length === 0) {
+        dom.stPresetStatus.textContent = t('settings_st_preset_empty');
+        dom.stPresetList.innerHTML = '<div class="text-[11px] text-zinc-600 px-1 py-1">' + escapeHtml(t('settings_st_preset_empty')) + '</div>';
+        if (dom.stPresetExportBtn) {
+            dom.stPresetExportBtn.disabled = true;
+            dom.stPresetExportBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+        if (dom.stPresetDeleteBtn) {
+            dom.stPresetDeleteBtn.disabled = true;
+            dom.stPresetDeleteBtn.classList.add('opacity-50', 'cursor-not-allowed');
         }
         return;
     }
 
-    if (conv.character) {
-        const ch = conv.character;
-        const src = ch.previewImage || ch.avatar;
-        if (dom.charAvatar) {
-            if (src) {
-                dom.charAvatar.innerHTML = `<img src="${src}" class="w-full h-full object-cover rounded-xl" alt="${ch.name || ''}">`;
-                dom.charAvatar.className = 'w-9 h-9 rounded-xl overflow-hidden bg-zinc-900 flex-shrink-0 border border-white/10';
-            } else {
-                dom.charAvatar.textContent = ch.name.charAt(0).toUpperCase();
-                dom.charAvatar.className = 'w-9 h-9 rounded-xl ot-avatar-fill flex items-center justify-center text-white text-sm font-bold flex-shrink-0';
+    dom.stPresetStatus.textContent = (preset.name || 'SillyTavern Preset') + ' - ' + enabledCount + ' / ' + rows.length + ' enabled';
+    if (dom.stPresetExportBtn) {
+        dom.stPresetExportBtn.disabled = false;
+        dom.stPresetExportBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+    if (dom.stPresetDeleteBtn) {
+        dom.stPresetDeleteBtn.disabled = false;
+        dom.stPresetDeleteBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+
+    dom.stPresetList.innerHTML = rows.map(function(row) {
+        var p = row.prompt;
+        var preview = p.content.length > 220 ? p.content.slice(0, 220) + '...' : p.content;
+        var placement = describeSillyTavernPresetPlacement(p);
+        return '<div class="rounded-xl bg-black/15 border border-white/5 p-2">' +
+            '<label class="flex items-start gap-2 cursor-pointer select-none">' +
+                '<input type="checkbox" class="st-preset-toggle accent-amber-500 mt-0.5 flex-shrink-0" data-index="' + row.index + '" ' + (p.enabled !== false ? 'checked' : '') + '>' +
+                '<div class="min-w-0 flex-1">' +
+                    '<div class="flex items-center gap-1.5 min-w-0">' +
+                        '<span class="text-xs font-medium text-zinc-200 truncate">' + escapeHtml(p.name || p.identifier || p.id) + '</span>' +
+                        '<span class="text-[9px] uppercase text-zinc-500 bg-white/5 rounded px-1 py-0.5 flex-shrink-0">' + escapeHtml(p.role || 'system') + '</span>' +
+                        '<span class="text-[9px] uppercase text-zinc-500 bg-white/5 rounded px-1 py-0.5 flex-shrink-0">' + escapeHtml(placement) + '</span>' +
+                    '</div>' +
+                    '<details class="mt-1">' +
+                        '<summary class="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors">' + escapeHtml(preview) + '</summary>' +
+                        '<pre class="mt-1 whitespace-pre-wrap text-[10px] leading-relaxed text-zinc-400 bg-black/20 rounded-lg p-2 max-h-40 overflow-y-auto">' + escapeHtml(p.content) + '</pre>' +
+                    '</details>' +
+                '</div>' +
+            '</label>' +
+        '</div>';
+    }).join('');
+
+    dom.stPresetList.querySelectorAll('.st-preset-toggle').forEach(function(input) {
+        input.addEventListener('change', function() {
+            var idx = parseInt(this.getAttribute('data-index'), 10);
+            if (!isNaN(idx) && preset.prompts[idx]) {
+                preset.prompts[idx].enabled = this.checked;
+                persistState(true);
+                renderSillyTavernPresetSettings();
+                renderTokenBar();
+                appStore.notify('settings');
             }
-        }
-        if (dom.chatSubtitle) {
-            var sep = t('char_tag_separator');
-            dom.chatSubtitle.textContent = conv.character.tags ? conv.character.tags.slice(0,3).join(sep) : conv.character.name;
-        }
-    } else {
-        if (dom.charAvatar) {
-            dom.charAvatar.textContent = 'Chat';
-            dom.charAvatar.className = 'w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-zinc-500 text-sm flex-shrink-0';
-        }
-        if (dom.chatSubtitle) dom.chatSubtitle.textContent = t('no_character');
-    }
+        });
+    });
 }
 
-function renderTokenBar() {
-    var conv = getActiveConv();
+function importSillyTavernPresetFile(file) {
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+        try {
+            var raw = JSON.parse(ev.target.result);
+            state.settings.sillyTavernPreset = normalizeSillyTavernPreset(raw);
+            renderSillyTavernPresetSettings();
+            persistState(true);
+            renderTokenBar();
+            appStore.notify('settings');
+            alert(t('settings_st_preset_import_success'));
+        } catch (err) {
+            console.error('[SillyTavern Preset] import failed:', err);
+            alert(t('settings_st_preset_import_error') + ': ' + (err.message || err));
+        } finally {
+            if (dom.stPresetImportFile) dom.stPresetImportFile.value = '';
+        }
+    };
+    reader.readAsText(file);
+}
+
+function exportSillyTavernPreset() {
+    var preset = ensureSillyTavernPresetSettings();
+    var prompts = preset.prompts.slice().sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+    if (prompts.length === 0) {
+        alert(t('settings_st_preset_empty'));
+        return;
+    }
+    var data = {
+        name: preset.name || 'OpenTavern SillyTavern Preset Prompts',
+        prompts: prompts.map(function(p) {
+            return {
+                identifier: p.identifier || p.id,
+                name: p.name || p.identifier || p.id,
+                role: p.role || 'system',
+                content: p.content || '',
+                position: p.position,
+                injection_position: p.injection_position,
+                depth: p.depth,
+                injection_depth: p.injection_depth,
+                system_prompt: true,
+                marker: false
+            };
+        }),
+        prompt_order: [{
+            character_id: 100001,
+            order: (preset.promptOrder && preset.promptOrder.length ? preset.promptOrder : prompts).map(function(item) {
+                var id = item.identifier || item.id;
+                return {
+                    identifier: id,
+                    enabled: item.enabled !== false,
+                    position: item.position,
+                    injection_position: item.injection_position,
+                    depth: item.depth,
+                    injection_depth: item.injection_depth
+                };
+            })
+        }],
+        opentavern: {
+            type: 'sillytavern-preset-prompts',
+            exported_at: new Date().toISOString()
+        }
+    };
+    downloadJsonFile(data, 'sillytavern_preset_prompts_' + new Date().toISOString().slice(0, 10) + '.json');
+}
+
+function deleteSillyTavernPreset() {
+    var preset = ensureSillyTavernPresetSettings();
+    if (!preset.prompts.length) {
+        alert(t('settings_st_preset_empty'));
+        return;
+    }
+    if (!confirm(t('settings_st_preset_delete_confirm'))) return;
+    state.settings.sillyTavernPreset = defaultSillyTavernPreset();
+    renderSillyTavernPresetSettings();
+    persistState(true);
+    renderTokenBar();
+    appStore.notify('settings');
+    alert(t('settings_st_preset_delete_success'));
+}
+function describeSillyTavernPresetPlacement(prompt) {
+    var placement = getSillyTavernPresetPlacement(prompt, 'before_history');
+    if (placement === 'in_chat') {
+        var depth = parseSillyTavernDepth(prompt);
+        return 'in-chat d' + depth;
+    }
+    return placement === 'after_history' ? 'after history' : 'before history';
+}
+
+function isSillyTavernChatHistoryMarker(identifier) {
+    var id = String(identifier || '').toLowerCase().replace(/[\s-]/g, '_');
+    return id === 'chat_history' || id === 'chathistory' || id === 'messages' || id === 'conversation_history';
+}
+
+function getSillyTavernPresetPlacement(prompt, fallback) {
+    prompt = prompt || {};
+    var raw = prompt.position != null ? prompt.position : prompt.injection_position;
+    var str = String(raw == null ? '' : raw).toLowerCase().trim();
+
+    if (str === '1' || str === 'in_chat' || str === 'in-chat' || str === 'depth' || str === 'at_depth') return 'in_chat';
+    if (str.indexOf('after') !== -1 && (str.indexOf('history') !== -1 || str.indexOf('chat') !== -1)) return 'after_history';
+    if (str.indexOf('before') !== -1 && (str.indexOf('history') !== -1 || str.indexOf('chat') !== -1)) return 'before_history';
+    if (prompt.depth != null || prompt.injection_depth != null) {
+        if (str === '0' || str === 'relative') return fallback || 'before_history';
+        return 'in_chat';
+    }
+    return fallback || 'before_history';
+}
+
+function parseSillyTavernDepth(prompt) {
+    var raw = prompt && (prompt.depth != null ? prompt.depth : prompt.injection_depth);
+    var d = parseInt(raw, 10);
+    return isNaN(d) ? 0 : d;
+}
+
+function buildSillyTavernPresetMessageBuckets(charName, userName) {
+    var preset = ensureSillyTavernPresetSettings();
+    var enabledPrompts = preset.prompts
+        .filter(function(p) { return p && p.enabled !== false && p.content && p.content.trim(); })
+        .sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+
+    var byId = {};
+    enabledPrompts.forEach(function(p) {
+        [p.id, p.identifier, p.name].forEach(function(id) {
+            if (!id) return;
+            byId[String(id).toLowerCase()] = p;
+        });
+    });
+
+    var buckets = { beforeHistory: [], afterHistory: [], inChat: [] };
+    var seen = {};
+    var afterHistory = false;
+
+    function addPrompt(prompt, orderItem) {
+        if (!prompt) return;
+        var key = String(prompt.id || prompt.identifier || prompt.name || '');
+        if (seen[key]) return;
+        seen[key] = true;
+
+        var merged = Object.assign({}, prompt);
+        if (orderItem) {
+            if (orderItem.role) merged.role = orderItem.role;
+            if (orderItem.position != null) merged.position = orderItem.position;
+            if (orderItem.depth != null) merged.depth = orderItem.depth;
+        }
+
+        var placement = getSillyTavernPresetPlacement(merged, afterHistory ? 'after_history' : 'before_history');
+        var msg = {
+            role: normalizePromptRole(merged.role || 'system'),
+            content: replacePlaceholders(String(merged.content || '').trim(), charName, userName),
+            _depth: parseSillyTavernDepth(merged),
+            _order: typeof merged.order === 'number' ? merged.order : 0
+        };
+
+        if (!msg.content) return;
+        if (placement === 'in_chat') buckets.inChat.push(msg);
+        else if (placement === 'after_history') buckets.afterHistory.push(msg);
+        else buckets.beforeHistory.push(msg);
+    }
+
+    var ordered = preset.promptOrder && preset.promptOrder.length
+        ? preset.promptOrder.slice().sort(function(a, b) { return (a.order || 0) - (b.order || 0); })
+        : [];
+
+    ordered.forEach(function(item) {
+        var id = String(item.identifier || '').toLowerCase();
+        if (!id) return;
+        if (isSillyTavernChatHistoryMarker(id)) {
+            afterHistory = true;
+            return;
+        }
+        if (item.enabled === false) return;
+        addPrompt(byId[id], item);
+    });
+
+    enabledPrompts.forEach(function(p) { addPrompt(p, null); });
+    buckets.inChat.sort(function(a, b) { return (a._order || 0) - (b._order || 0); });
+    return buckets;
+}
+// ==================== Conversation Export / Import ====================
+function exportConversation(id) {
+    var conv = state.conversations[id];
     if (!conv) return;
-    if (!dom.tokenCount || !dom.tokenMax || !dom.tokenBar) return;
-    // 【核心修复2】必须使用 buildMessagesForAPI 的实际输出，而不是存储层消息总数
-    var apiMessages = buildMessagesForAPI();
-    var msgCount = apiMessages.filter(function(m) { return m.role !== 'system'; }).length;
-    var max = state.settings.contextLength;
-    dom.tokenCount.textContent = msgCount;
-    dom.tokenMax.textContent = 'max ' + max + ' ' + t('msgs_label');
-    var pct = Math.min(100, (msgCount / max) * 100);
-    dom.tokenBar.style.width = pct + '%';
-    var themed = document.body && (document.body.classList.contains('theme-new-light') || document.body.classList.contains('theme-new-dark'));
-    if (themed) {
-        dom.tokenBar.style.background = pct > 80 ? '#ef4444' : '#D56C4E';
-    } else {
-        dom.tokenBar.style.background = pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : 'rgba(245,158,11,0.5)';
-    }
+    downloadJsonFile(
+        { version: 1, type: 'opentavern-export', exported_at: new Date().toISOString(), conversations: [conv] },
+        (conv.title || 'conversation').replace(/[^a-zA-Z0-9一-鿿]/g, '_') + '.json'
+    );
 }
 
+function exportAllConversations() {
+    var convs = state.conversationOrder.map(function(id) { return state.conversations[id]; }).filter(Boolean);
+    if (convs.length === 0) { alert(t('nothing_to_archive')); return; }
+
+    // 【Export Fix】导出完整备份：包含全局角色卡库、WorldBook、对话等
+    // 旧格式仍兼容（只导 conversations），新格式带完整数据
+    var exportData = {
+        version: 2,
+        type: 'opentavern-full-export',
+        exported_at: new Date().toISOString(),
+        settings: getSafeSettingsForPersist(),
+        conversations: convs,
+        conversationOrder: state.conversationOrder || [],
+        characters: state.characters || {},          // 全局卡片库
+        worldBooks: state.worldBooks || {},
+        charactersMigrated: !!state._charactersMigrated
+    };
+
+    downloadJsonFile(
+        exportData,
+        'opentavern_all_' + new Date().toISOString().slice(0, 10) + '.json'
+    );
+    recordBackupMade();
+}
+
+function downloadJsonFile(data, filename) {
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function importConversations(file) {
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+        try {
+            var data = JSON.parse(ev.target.result);
+
+            // 支持旧格式 (type: opentavern-export) 和新完整格式 (type: opentavern-full-export)
+            var convsToImport = [];
+            if (data && Array.isArray(data.conversations)) {
+                convsToImport = data.conversations;
+            } else {
+                alert(t('import_conv_error'));
+                return;
+            }
+
+            // 额外校验：必须至少有一个有效对话
+            if (convsToImport.length === 0) {
+                alert(t('import_conv_error'));
+                return;
+            }
+
+            var imported = 0;
+            var skipped = 0;
+
+            convsToImport.forEach(function(conv) {
+                if (!conv.id || !Array.isArray(conv.messages)) return;
+
+                // If a conversation with this ID already exists, generate a new ID
+                if (state.conversations[conv.id]) {
+                    conv.id = makeId();
+                    skipped++;
+                }
+                state.conversations[conv.id] = conv;
+
+                // Avoid duplicates in the order list
+                if (state.conversationOrder.indexOf(conv.id) === -1) {
+                    state.conversationOrder.unshift(conv.id);
+                }
+                imported++;
+            });
+
+            // 【Import Fix】导入后必须把角色卡注册到全局库（state.characters），否则我的卡片库不显示
+            // 1. 如果导出里带了顶层 characters，直接合并
+            if (data.characters && typeof data.characters === 'object') {
+                if (!state.characters) state.characters = {};
+                Object.keys(data.characters).forEach(function(key) {
+                    if (!state.characters[key]) {
+                        state.characters[key] = JSON.parse(JSON.stringify(data.characters[key]));
+                    }
+                });
+            }
+
+            // 2. 从导入的对话里提取角色卡（单聊 + 群聊），注册到全局库
+            // 复用 migrate 逻辑，确保和启动时行为一致
+            if (typeof migrateCharactersToRegistry === 'function') {
+                migrateCharactersToRegistry(convsToImport);
+            } else {
+                // 兜底：手动注册
+                if (!state.characters) state.characters = {};
+                convsToImport.forEach(function(conv) {
+                    if (conv.character && conv.character.name) {
+                        const key = conv.character.name.trim().toLowerCase();
+                        if (!state.characters[key]) {
+                            state.characters[key] = JSON.parse(JSON.stringify(conv.character));
+                        }
+                    }
+                    if (conv.group && Array.isArray(conv.group.members)) {
+                        conv.group.members.forEach(function(m) {
+                            const ch = m && m.character;
+                            if (ch && ch.name) {
+                                const key = ch.name.trim().toLowerCase();
+                                if (!state.characters[key]) {
+                                    state.characters[key] = JSON.parse(JSON.stringify(ch));
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+
+            if (imported > 0) {
+                // 同时恢复 worldBooks 如果有
+                if (data.worldBooks && typeof data.worldBooks === 'object') {
+                    if (!state.worldBooks) state.worldBooks = {};
+                    Object.keys(data.worldBooks).forEach(function(wbId) {
+                        if (!state.worldBooks[wbId]) {
+                            state.worldBooks[wbId] = JSON.parse(JSON.stringify(data.worldBooks[wbId]));
+                        }
+                    });
+                }
+
+                persistState(true);
+                if (typeof updateStorageInfo === 'function') updateStorageInfo();
+
+                // 关键：立即刷新“我的卡片”库，让用户看到导入的角色卡
+                if (typeof renderLibraryGrids === 'function') {
+                    renderLibraryGrids();
+                }
+                if (typeof renderMyCards === 'function') {
+                    renderMyCards();
+                }
+
+                // 切换到第一条导入的对话（或保持当前）
+                if (!state.activeConvId && state.conversationOrder.length > 0) {
+                    state.activeConvId = state.conversationOrder[0];
+                }
+                persistState(true);
+                requestRender('activeConvId');
+            }
+
+            var msg = t('import_conv_success') + imported + t('import_conv_success_suffix');
+            if (skipped > 0) msg += ' ' + skipped + t('import_conv_duplicate');
+            alert(msg);
+        } catch(e) {
+            console.error('[Import] failed:', e);
+            alert(t('import_conv_error'));
+        }
+    };
+    reader.readAsText(file);
+}
+// ==================== Conversation List UI ====================
+function renderConversationList() {
+    if (!dom.convList) return;
+    var order = state.conversationOrder.slice();
+
+    // Filter logic:
+    // - In card library view: show ALL historical conversations
+    // - After clicking a character card to enter chat: only show conversations related to currentCharacterName (including group chats)
+    if (currentView === 'chat' && currentCharacterName) {
+        const activeId = state.activeConvId;
+        order = order.filter(function(id) {
+            var c = state.conversations[id];
+            if (!c) return false;
+            // 始终保留当前激活的会话（尤其是群聊切换后 currentCharacterName 可能不匹配任一成员）
+            if (id === activeId) return true;
+            if (c.character && c.character.name === currentCharacterName) return true;
+            if (c.group && Array.isArray(c.group.members)) {
+                return c.group.members.some(function(m) {
+                    return m.character && m.character.name === currentCharacterName;
+                });
+            }
+            return false;
+        });
+    }
+
+    if (order.length === 0) {
+        dom.convList.innerHTML = '<p class="text-xs text-zinc-500 text-center py-8 px-2">' + t('no_conversations').replace(/\n/g,'<br>') + '</p>';
+        return;
+    }
+    var html = '';
+    for (var i = 0; i < order.length; i++) {
+        var id = order[i], conv = state.conversations[id];
+        if (!conv) continue;
+        var isActive = id === state.activeConvId;
+        var charName = conv.character ? conv.character.name : '';
+        var title = conv.title || (charName ? t('chat_with') + charName : t('new_chat_title'));
+        var date = new Date(conv.updated || conv.created).toLocaleDateString();
+        html += '<div class="conv-item group flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer ' + (isActive ? 'active' : '') + '" data-conv-id="' + id + '">';
+        html += '<div class="flex-1 min-w-0" data-conv-id="' + id + '">';
+        html += '<p class="text-xs font-medium text-zinc-300 truncate">' + escapeHtml(title) + '</p>';
+        html += '<p class="text-[10px] text-zinc-500 truncate">' + (charName || t('no_character')) + ' &middot; ' + date + '</p>';
+        html += '</div>';
+        html += '<button class="conv-export-btn flex-shrink-0 w-5 h-5 rounded-lg flex items-center justify-center text-zinc-600 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all text-[10px] opacity-0 group-hover:opacity-100" data-exp-id="' + id + '" title="' + t('conv_export_title') + '">&#128229;</button>';
+        html += '<button class="conv-delete-btn flex-shrink-0 w-5 h-5 rounded-lg flex items-center justify-center text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-all text-xs opacity-0 group-hover:opacity-100" data-del-id="' + id + '" title="Delete">&times;</button>';
+        html += '</div>';
+    }
+    dom.convList.innerHTML = html;
+    dom.convList.querySelectorAll('[data-conv-id]').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+            var id = el.getAttribute('data-conv-id');
+            if (id) loadConversation(id);
+        });
+    });
+    dom.convList.querySelectorAll('.conv-delete-btn').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var id = el.getAttribute('data-del-id');
+            if (id) deleteConversation(id);
+        });
+    });
+    dom.convList.querySelectorAll('.conv-export-btn').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var id = el.getAttribute('data-exp-id');
+            if (id) exportConversation(id);
+        });
+    });
+}
+
+// Patch for sidebar conv list:
+// - In library view: show ALL historical conversations
+// - In chat view (after clicking a character card): only show conversations related to currentCharacterName (including group chats)
+if (typeof renderConversationList === 'function') {
+    const _origRenderConvList = renderConversationList;
+    renderConversationList = function() {
+        if (!dom.convList) return;
+        var order = (state.conversationOrder || []).slice();
+
+        if (currentView === 'chat' && currentCharacterName) {
+            const activeId = state.activeConvId;
+            order = order.filter(function(id) {
+                var c = state.conversations[id];
+                if (!c) return false;
+                // 始终保留当前激活的会话（尤其是群聊切换后 currentCharacterName 可能不匹配任一成员）
+                if (id === activeId) return true;
+                if (c.character && c.character.name === currentCharacterName) return true;
+                if (c.group && Array.isArray(c.group.members)) {
+                    return c.group.members.some(function(m) {
+                        return m.character && m.character.name === currentCharacterName;
+                    });
+                }
+                return false;
+            });
+        }
+        // temporarily override for this render
+        var backup = state.conversationOrder;
+        state.conversationOrder = order;
+        _origRenderConvList.apply(this, arguments);
+        state.conversationOrder = backup;
+    };
+}
+// ==================== Character Panel UI ====================
 function renderCharacterCard() {
     var conv = getActiveConv();
     if (!conv) {
@@ -11564,46 +12061,6 @@ function exportCharacter() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
-
-function renderAll() {
-    renderConversationList();
-    renderCharacterCard();
-    renderMessages();
-    renderTopBar();
-    renderTokenBar();
-    updateInputState();
-    renderWorldInfoBudgetWarning();
-}
-
-function updateInputState() {
-    var useLocal = isWebLLMBackend();
-    var hasApiKey = !!(state.settings.apiKey && state.settings.apiEndpoint);
-    // 本地 WebLLM 模式不需要远程 API Key
-    var canSend = useLocal || hasApiKey;
-    ensureComfySettings();
-    var showComfy = !!state.settings.comfyEnabled;
-    var canComfy = !!getActiveConv() && showComfy && !!state.settings.comfyWorkflow && !state.isGenerating && !comfyIsGenerating;
-    dom.messageInput.disabled = !canSend || state.isGenerating;
-    dom.sendBtn.disabled = !canSend || state.isGenerating;
-    if (dom.comfyGenerateBtn) dom.comfyGenerateBtn.disabled = !canComfy;
-    if (state.isGenerating) {
-        dom.stopBtn.classList.remove('hidden');
-        dom.sendBtn.classList.add('hidden');
-        if (dom.comfyGenerateBtn) dom.comfyGenerateBtn.classList.add('hidden');
-    } else {
-        dom.stopBtn.classList.add('hidden');
-        dom.sendBtn.classList.remove('hidden');
-        if (dom.comfyGenerateBtn) dom.comfyGenerateBtn.classList.toggle('hidden', !showComfy);
-    }
-    if (!canSend && !state.isGenerating) {
-        dom.messageInput.placeholder = t('input_placeholder_no_api');
-    } else if (state.isGenerating) {
-        dom.messageInput.placeholder = t('input_placeholder_waiting');
-    } else {
-        dom.messageInput.placeholder = t('input_placeholder');
-    }
-}
-
 // ==================== Mobile Sidebar ====================
 function isMobile() {
     return window.innerWidth < 768;
@@ -11719,123 +12176,260 @@ function updateAnnouncementLangButtons() {
         }
     });
 }
+// ==================== Dialog Workflow Events ====================
+function bindCharacterImportModalEvents() {
+    // Import modal close
+    dom.importCloseBtn.addEventListener('click', function() { dom.importModal.classList.add('hidden'); });
+    dom.importBackdrop.addEventListener('click', function() { dom.importModal.classList.add('hidden'); });
 
-function escapeHtml(text) {
-    if (!text) return '';
-    text = String(text);
-    return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+    // File import (supports .json and SillyTavern .png embedded cards)
+    dom.importFileInput.addEventListener('change', async function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
 
-function highlightDialogue(text) {
-    if (!text) return '';
-    var escaped = escapeHtml(text);
-    // Highlight Chinese curly double quotes “...”
-    escaped = escaped.replace(/“([\s\S]*?)”/g, '<span class="dialogue-highlight">“$1”</span>');
-    // Highlight corner brackets 「...」
-    escaped = escaped.replace(/「([\s\S]*?)」/g, '<span class="dialogue-highlight">「$1」</span>');
-    return escaped;
-}
+        dom.importStatus.classList.remove('hidden');
+        dom.importStatus.textContent = 'Reading...';
 
-function sanitizeStatusBarHtml(html) {
-    if (!window.DOMPurify) return highlightDialogue(html);
+        try {
+            let json;
+            const lowerName = (file.name || '').toLowerCase();
+            let attachedPreview = null;
 
-    var clean = DOMPurify.sanitize(html, {
-        ALLOWED_TAGS: ['details', 'summary', 'div', 'br', 'span', 'b', 'strong'],
-        ALLOWED_ATTR: ['open'],
-        ALLOW_DATA_ATTR: false,
-        FORBID_ATTR: ['style', 'class', 'id', 'onclick', 'onerror', 'onload']
+            if (lowerName.endsWith('.png')) {
+                // For PNG cards, also capture the visual image itself as preview (so imported cards show their art)
+                attachedPreview = await new Promise(function(resolve, reject) {
+                    var r = new FileReader();
+                    r.onload = function() { resolve(r.result); };
+                    r.onerror = reject;
+                    r.readAsDataURL(file);
+                });
+                json = await extractCharaFromPng(file);
+            } else {
+                // JSON path (original)
+                const text = await new Promise(function(resolve, reject) {
+                    var r = new FileReader();
+                    r.onload = function() { resolve(r.result); };
+                    r.onerror = reject;
+                    r.readAsText(file);
+                });
+                json = JSON.parse(text);
+            }
+
+            var character = importCharacterCard(json);
+            if (attachedPreview) {
+                character.previewImage = attachedPreview;
+            }
+            var conv = getActiveConv();
+            if (!conv) { newConversation(); conv = getActiveConv(); }
+
+            var hasMsgs = conv.messages.some(function(m) { return m.role !== 'system'; });
+            if (hasMsgs) {
+                saveCurrentConversation();
+                // 捕获旧对话的世界书（legacy + 新 global）
+                var oldWorldInfo = conv.worldInfo ? JSON.parse(JSON.stringify(conv.worldInfo)) : null;
+                var oldWorldBookIds = Array.isArray(conv.worldBookIds) ? conv.worldBookIds.slice() : [];
+
+                var newConv = defaultConversation();
+                state.conversations[newConv.id] = newConv;
+                state.conversationOrder.unshift(newConv.id);
+                state.activeConvId = newConv.id;
+                conv = newConv;
+
+                if (oldWorldInfo) {
+                    conv.worldInfo = oldWorldInfo;
+                }
+                if (oldWorldBookIds.length > 0) {
+                    conv.worldBookIds = oldWorldBookIds;
+                }
+            }
+
+            conv.character = character;
+            conv.title = t('chat_with') + character.name;
+            conv.messages = [];
+
+            currentCharacterName = character.name;
+
+            // ===== 自动导入角色卡内嵌的 character_book（支持 v1/v2/v3）并关联到当前对话 =====
+            var embeddedBook = null;
+            try {
+                embeddedBook = importCharacterBookFromCard(json, character.name);
+                if (embeddedBook) {
+                    conv.worldBookIds = conv.worldBookIds || [];
+                    if (!conv.worldBookIds.includes(embeddedBook.id)) {
+                        conv.worldBookIds.push(embeddedBook.id);
+                    }
+                }
+            } catch (e) {
+                console.warn('导入角色卡内嵌世界书失败（不影响角色导入）:', e);
+            }
+
+            // 注册到全局角色库
+            if (character.name) {
+                const key = character.name.trim().toLowerCase();
+                if (!state.characters) state.characters = {};
+                state.characters[key] = JSON.parse(JSON.stringify(character));
+            }
+
+            var charName = character.name;
+            var userName = state.settings.userName || 'User';
+            var firstMes = replacePlaceholders(character.first_mes, charName, userName);
+            if (firstMes) {
+                conv.messages.push({ role: 'assistant', content: firstMes });
+            }
+
+            conv.updated = Date.now();
+            persistState();
+
+            // 让卡片库（如果可见或稍后返回）立刻看到新导入的卡；解决“导入后需刷新页面才显示”的问题
+            if (typeof renderLibraryGrids === 'function') {
+                renderLibraryGrids();
+            }
+
+            renderAll();
+            dom.importModal.classList.add('hidden');
+            dom.importStatus.classList.remove('hidden');
+
+            var successText = t('import_success') + character.name;
+            if (embeddedBook) {
+                var entryCount = Object.keys(embeddedBook.entries || {}).length;
+                successText += '（已自动关联内嵌世界书 · ' + entryCount + ' 条目）';
+            }
+            dom.importStatus.textContent = successText;
+            dom.importStatus.className = 'text-xs text-emerald-400 mt-3 text-center';
+            setTimeout(function() { dom.importStatus.classList.add('hidden'); }, 2800);
+        } catch (err) {
+            dom.importStatus.classList.remove('hidden');
+            dom.importStatus.textContent = t('import_error') + ': ' + (err.message || err);
+            dom.importStatus.className = 'text-xs text-red-400 mt-3 text-center';
+        } finally {
+            if (dom.importFileInput) dom.importFileInput.value = '';
+        }
     });
-
-    clean = clean.replace(/<details([^>]*)>/i, function(match, attrs) {
-        return '<details class="status-bar"' + (/\bopen\b/i.test(attrs || '') ? ' open' : '') + '>';
-    });
-    clean = clean.replace(/<summary>/i, '<summary>');
-    clean = clean.replace(/(<\/summary>)([\s\S]*?)(<\/details>)/i, '$1<div class="status-bar-content">$2</div>$3');
-
-    return clean;
 }
 
-function renderAssistantContent(text) {
-    if (!text) return '';
+function bindPromptAndSummaryWorkflowEvents() {
+    // Prompt viewer
+    var currentPromptViewerStage = 'main';
 
-    var raw = String(text);
-    var optionsHtml = renderOptionsXml(raw);
-    if (optionsHtml) return optionsHtml;
-
-    var html = '';
-    var lastIndex = 0;
-    var statusBlockRe = /<details\b[\s\S]*?<\/details>/gi;
-    var match;
-
-    while ((match = statusBlockRe.exec(raw)) !== null) {
-        var block = match[0];
-        if (block.indexOf('状态栏') === -1 && block.indexOf('狀態欄') === -1) continue;
-
-        html += highlightDialogue(raw.slice(lastIndex, match.index));
-        html += sanitizeStatusBarHtml(block);
-        lastIndex = match.index + block.length;
-    }
-
-    html += highlightDialogue(raw.slice(lastIndex));
-    return html;
-}
-
-function renderMessageAttachments(msg) {
-    if (!msg || !Array.isArray(msg.attachments) || msg.attachments.length === 0) return '';
-    var html = '<div class="msg-attachments">';
-    msg.attachments.forEach(function(att) {
-        if (!att || att.type !== 'image') return;
-        var src = att.dataUrl || att.url || '';
-        if (!src) return;
-        var label = att.source === 'comfyui' ? 'ComfyUI' : (att.source || 'Image');
-        var prompt = att.prompt ? String(att.prompt) : '';
-        html += '<figure>';
-        html += '<img class="msg-attachment-image" src="' + escapeHtml(src) + '" alt="' + escapeHtml(label) + '" loading="lazy">';
-        html += '<figcaption class="msg-attachment-caption">' + escapeHtml(label + (prompt ? ' · ' + prompt.slice(0, 180) : '')) + '</figcaption>';
-        html += '</figure>';
-    });
-    html += '</div>';
-    return html;
-}
-
-function renderMessageBubbleContent(msg, isUser) {
-    var content = isUser ? escapeHtml(msg && msg.content) : renderAssistantContent(msg && msg.content);
-    return content + renderMessageAttachments(msg);
-}
-
-function renderCotBlock(cot, streaming) {
-    if (!cot || !state || !state.settings || state.settings.showCotEnabled === false) return '';
-    var cls = 'msg-cot' + (streaming ? ' streaming' : '');
-    return '<details class="' + cls + '"><summary>' + escapeHtml(t('cot_block_title') || 'Thinking') + '</summary><div class="msg-cot-content">' + escapeHtml(cot) + '</div></details>';
-}
-
-function renderOptionsXml(raw) {
-    var text = String(raw || '').trim();
-    if (!/^<options[\s>]/i.test(text)) return '';
-    try {
-        var parser = new DOMParser();
-        var doc = parser.parseFromString(text, 'application/xml');
-        if (doc.getElementsByTagName('parsererror').length) return '';
-        var optionNodes = Array.prototype.slice.call(doc.getElementsByTagName('option')).slice(0, 4);
-        if (!optionNodes.length) return '';
-        var html = '<div class="space-y-2">';
-        optionNodes.forEach(function(node) {
-            var titleNode = node.getElementsByTagName('title')[0];
-            var descNode = node.getElementsByTagName('description')[0];
-            var title = titleNode ? titleNode.textContent.trim() : '';
-            var desc = descNode ? descNode.textContent.trim() : '';
-            html += '<div class="glass rounded-xl border border-white/10 px-3 py-2">';
-            if (title) html += '<div class="text-sm font-semibold text-amber-300 mb-1">' + escapeHtml(title) + '</div>';
-            if (desc) html += '<div class="text-sm text-zinc-300 leading-relaxed">' + highlightDialogue(desc) + '</div>';
-            html += '</div>';
+    function setPromptStageButtons(stage) {
+        currentPromptViewerStage = stage || 'main';
+        var active = ['bg-amber-500/20', 'text-amber-300', 'border-amber-500/20'];
+        var inactive = ['bg-white/5', 'text-zinc-400', 'border-white/10'];
+        [
+            { btn: dom.promptStageMainBtn, stage: 'main' },
+            { btn: dom.promptStageSecondBtn, stage: 'second' }
+        ].forEach(function(item) {
+            if (!item.btn) return;
+            item.btn.classList.remove.apply(item.btn.classList, active.concat(inactive));
+            item.btn.classList.add.apply(item.btn.classList, item.stage === currentPromptViewerStage ? active : inactive);
         });
-        html += '</div>';
-        return html;
-    } catch (e) {
-        return '';
+    }
+
+    function findLatestMainAssistantMessage(conv) {
+        if (!conv || !Array.isArray(conv.messages)) return null;
+        for (var i = conv.messages.length - 1; i >= 0; i--) {
+            var m = conv.messages[i];
+            if (m && m.role === 'assistant' && m.stage !== 'second') return m;
+        }
+        return null;
+    }
+
+    function refreshPromptViewer() {
+        try {
+            var messages;
+            if (currentPromptViewerStage === 'second') {
+                var conv = getActiveConv();
+                var latestMain = findLatestMainAssistantMessage(conv);
+                messages = buildMessagesForSecondStage(latestMain);
+            } else {
+                messages = buildMessagesForAPI();
+            }
+            var text = formatPromptMessages(messages);
+            dom.promptViewerContent.textContent = text || t('no_messages_to_send');
+        } catch (err) {
+            console.error('showFullPrompt error:', err);
+            alert('无法生成提示词预览：' + (err.message || err));
+        }
+    }
+
+    function showFullPrompt() {
+        setPromptStageButtons('main');
+        refreshPromptViewer();
+        dom.promptViewerModal.classList.remove('hidden');
+    }
+    dom.viewPromptBtn.addEventListener('click', showFullPrompt);
+    if (dom.promptStageMainBtn) dom.promptStageMainBtn.addEventListener('click', function() {
+        setPromptStageButtons('main');
+        refreshPromptViewer();
+    });
+    if (dom.promptStageSecondBtn) dom.promptStageSecondBtn.addEventListener('click', function() {
+        setPromptStageButtons('second');
+        refreshPromptViewer();
+    });
+    dom.promptViewerCloseBtn.addEventListener('click', function() { dom.promptViewerModal.classList.add('hidden'); });
+    dom.promptViewerBackdrop.addEventListener('click', function() { dom.promptViewerModal.classList.add('hidden'); });
+
+    // Copy prompt
+    dom.copyPromptBtn.addEventListener('click', function() {
+        var text = dom.promptViewerContent.textContent;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function() {
+                dom.copyPromptBtn.textContent = t('copied');
+                setTimeout(function() { dom.copyPromptBtn.textContent = t('copy'); }, 1500);
+            });
+        }
+    });
+
+    // 总结管理器入口（只保留主按钮）
+    dom.summarizeBtn.addEventListener('click', openSummaryManager);
+
+    // 总结管理器内部事件绑定（只绑定一次）
+    if (dom.summaryManagerCloseBtn) {
+        dom.summaryManagerCloseBtn.addEventListener('click', function() {
+            dom.summaryManagerModal.classList.add('hidden');
+        });
+    }
+    if (dom.summaryManagerBackdrop) {
+        dom.summaryManagerBackdrop.addEventListener('click', function() {
+            dom.summaryManagerModal.classList.add('hidden');
+        });
+    }
+
+    // 模式切换
+    if (dom.modeRecentBtn) {
+        dom.modeRecentBtn.addEventListener('click', function() {
+            dom.modeRecentPanel.classList.remove('hidden');
+            dom.modeRangePanel.classList.add('hidden');
+            dom.modeRecentBtn.classList.add('bg-white/10', 'text-zinc-100');
+            dom.modeRangeBtn.classList.remove('bg-white/10', 'text-zinc-100');
+            if (dom.rangePreview) dom.rangePreview.innerHTML = '';
+        });
+    }
+    if (dom.modeRangeBtn) {
+        dom.modeRangeBtn.addEventListener('click', function() {
+            dom.modeRecentPanel.classList.add('hidden');
+            dom.modeRangePanel.classList.remove('hidden');
+            dom.modeRangeBtn.classList.add('bg-white/10', 'text-zinc-100');
+            dom.modeRecentBtn.classList.remove('bg-white/10', 'text-zinc-100');
+        });
+    }
+
+    // 自定义范围预览
+    if (dom.previewRangeBtn) {
+        dom.previewRangeBtn.addEventListener('click', previewCustomRange);
+    }
+    if (dom.rangeStart) {
+        dom.rangeStart.addEventListener('input', previewCustomRange);
+    }
+    if (dom.rangeEnd) {
+        dom.rangeEnd.addEventListener('input', previewCustomRange);
+    }
+
+    // 生成总结按钮
+    if (dom.summaryGenerateBtn) {
+        dom.summaryGenerateBtn.addEventListener('click', doGenerateSummary);
     }
 }
-
 // ==================== Message Actions ====================
 function deleteMessage(actualIdx) {
     var conv = getActiveConv();
@@ -12046,7 +12640,541 @@ function editMessage(actualIdx, triggerBtn) {
         }
     });
 }
+// ==================== Settings Modal ====================
+function updateSummaryThresholdWarning() {
+    if (!dom.summaryThreshold || !dom.contextLength) return;
+    var warning = document.getElementById('summaryThresholdWarning');
+    if (!warning) return;
 
+    var threshold = parseInt(dom.summaryThreshold.value) || 0;
+    var ctxLen = parseInt(dom.contextLength.value) || 0;
+    if (threshold > ctxLen) {
+        warning.classList.remove('hidden');
+    } else {
+        warning.classList.add('hidden');
+    }
+}
+
+function toggleSummarizeCustomSection() {
+    var useMain = !!(dom.summarizeUseMainAPI && dom.summarizeUseMainAPI.checked);
+    if (dom.summarizeCustomApiSection) {
+        dom.summarizeCustomApiSection.style.display = useMain ? 'none' : '';
+    }
+}
+
+// Settings modal
+function openSettings() {
+    applyTranslations(); // 确保设置弹窗内的 data-i18n 标签（包括新增的预设标签）被正确翻译
+    dom.apiEndpoint.value = state.settings.apiEndpoint;
+    dom.apiKey.value = state.settings.apiKey;
+    if (dom.saveApiKey) dom.saveApiKey.checked = !!state.settings.saveApiKey;
+    if (dom.ollamaCompatMode) dom.ollamaCompatMode.checked = !!state.settings.ollamaCompatMode;
+    dom.modelName.value = state.settings.model;
+    dom.contextLength.value = state.settings.contextLength;
+    dom.contextLenVal.textContent = state.settings.contextLength;
+    dom.maxTokens.value = state.settings.maxTokens;
+    dom.maxTokensVal.textContent = state.settings.maxTokens;
+    dom.temperature.value = state.settings.temperature;
+    dom.tempVal.textContent = state.settings.temperature;
+    dom.topP.value = state.settings.topP;
+    dom.topPVal.textContent = state.settings.topP;
+    dom.userName.value = state.settings.userName;
+    dom.systemPrompt.value = state.settings.systemPrompt;
+    if (dom.postHistoryInstructions) dom.postHistoryInstructions.value = state.settings.postHistoryInstructions || '';
+    if (dom.twoStageEnabled) dom.twoStageEnabled.checked = !!state.settings.twoStageEnabled;
+    if (dom.twoStageTemperature) dom.twoStageTemperature.value = state.settings.twoStageTemperature;
+    if (dom.twoStageTempVal) dom.twoStageTempVal.textContent = state.settings.twoStageTemperature;
+    if (dom.twoStageTopP) dom.twoStageTopP.value = state.settings.twoStageTopP;
+    if (dom.twoStageTopPVal) dom.twoStageTopPVal.textContent = state.settings.twoStageTopP;
+    if (dom.twoStageIncludeRecentContext) dom.twoStageIncludeRecentContext.checked = !!state.settings.twoStageIncludeRecentContext;
+    if (dom.twoStageSystemPrompt) dom.twoStageSystemPrompt.value = state.settings.twoStageSystemPrompt || DEFAULT_TWO_STAGE_PROMPT;
+    if (dom.twoStagePostHistoryInstructions) dom.twoStagePostHistoryInstructions.value = state.settings.twoStagePostHistoryInstructions || '';
+    if (dom.requestCotEnabled) dom.requestCotEnabled.checked = !!state.settings.requestCotEnabled;
+    if (dom.showCotEnabled) dom.showCotEnabled.checked = state.settings.showCotEnabled !== false;
+    if (dom.restoreTwoStagePromptBtn && dom.twoStageSystemPrompt) {
+        dom.restoreTwoStagePromptBtn.onclick = function() {
+            dom.twoStageSystemPrompt.value = DEFAULT_TWO_STAGE_PROMPT;
+            state.settings.twoStageSystemPrompt = DEFAULT_TWO_STAGE_PROMPT;
+            persistState(true);
+        };
+    }
+    if (dom.fillRoleplayPromptBtn) {
+        dom.fillRoleplayPromptBtn.onclick = function() {
+            dom.systemPrompt.value = BASE_SYSTEM_PROMPT;
+            state.settings.systemPrompt = BASE_SYSTEM_PROMPT;
+            persistState(true);
+        };
+    }
+    if (dom.fillPostHistoryBtn && dom.postHistoryInstructions) {
+        dom.fillPostHistoryBtn.onclick = function() {
+            dom.postHistoryInstructions.value = DEFAULT_FIRST_STAGE_POST_HISTORY_INSTRUCTIONS;
+            state.settings.postHistoryInstructions = DEFAULT_FIRST_STAGE_POST_HISTORY_INSTRUCTIONS;
+            persistState(true);
+        };
+    }
+    if (dom.userDescription) dom.userDescription.value = state.settings.userDescription || '';
+    ensureSillyTavernPresetSettings();
+    renderSillyTavernPresetSettings();
+    dom.summaryEnabled.checked = state.settings.summaryEnabled !== false;
+    if (dom.summaryThreshold) {
+        dom.summaryThreshold.value = state.settings.summaryThreshold || 12;
+        if (dom.summaryThresholdVal) {
+            dom.summaryThresholdVal.textContent = state.settings.summaryThreshold || 12;
+        }
+        updateSummaryThresholdWarning();
+    }
+    if (dom.summaryMaxWords) {
+        dom.summaryMaxWords.value = (state.settings.summaryMaxWords != null ? state.settings.summaryMaxWords : 0);
+        dom.summaryMaxWords.addEventListener('input', function() {
+            state.settings.summaryMaxWords = parseInt(this.value) || 0;
+        });
+    }
+    if (dom.summaryPrompt) dom.summaryPrompt.value = state.settings.summaryPrompt || '';
+
+    // World Info Budget
+    dom.worldInfoBudgetEnabled.checked = state.settings.worldInfoBudgetEnabled !== false;
+    dom.worldInfoBudget.value = state.settings.worldInfoBudget || 2048;
+    dom.worldInfoBudgetVal.textContent = state.settings.worldInfoBudget || 2048;
+
+    // 界面主题
+    if (dom.uiTheme) {
+        dom.uiTheme.value = state.settings.uiTheme || 'new-light';
+    }
+
+    // 效能模式（低功耗）
+    if (dom.lowPowerMode) {
+        dom.lowPowerMode.checked = !!state.settings.lowPowerMode;
+    }
+
+    // Summarization API
+    dom.summarizeUseMainAPI.checked = state.settings.summarizeUseMainAPI !== false;
+    dom.summarizeApiEndpoint.value = state.settings.summarizeApiEndpoint || '';
+    dom.summarizeApiKey.value = state.settings.summarizeApiKey || '';
+    dom.summarizeModel.value = state.settings.summarizeModel || 'deepseek-v4-flash';
+
+    // ComfyUI txt2img
+    ensureComfySettings();
+    if (dom.comfyEnabled) dom.comfyEnabled.checked = !!state.settings.comfyEnabled;
+    if (dom.comfyServer) dom.comfyServer.value = state.settings.comfyServer || 'http://127.0.0.1:8188';
+    if (dom.comfyPositiveNodeId) dom.comfyPositiveNodeId.value = state.settings.comfyPositiveNodeId || '';
+    if (dom.comfyNegativeNodeId) dom.comfyNegativeNodeId.value = state.settings.comfyNegativeNodeId || '';
+    if (dom.comfySeedNodeId) dom.comfySeedNodeId.value = state.settings.comfySeedNodeId || '';
+    if (dom.comfyNegativePrompt) dom.comfyNegativePrompt.value = state.settings.comfyNegativePrompt || '';
+    if (dom.comfyPromptTemplate) dom.comfyPromptTemplate.value = state.settings.comfyPromptTemplate || '';
+    updateComfyWorkflowStatus();
+
+    hydrateCloudSyncSettingsControls();
+
+    // Toggle custom section visibility
+    toggleSummarizeCustomSection();
+
+    bindWebLLMSettingsControls();
+
+    bindSettingsStorageControls();
+
+    dom.settingsModal.classList.remove('hidden');
+}
+function hydrateCloudSyncSettingsControls() {
+    // Cloud Sync
+    ensureCloudSyncSettings();
+    if (dom.cloudSyncEnabled) dom.cloudSyncEnabled.checked = !!state.settings.cloudSyncEnabled;
+    if (dom.cloudSyncAutoUpload) dom.cloudSyncAutoUpload.checked = !!state.settings.cloudSyncAutoUpload;
+    if (dom.cloudSyncEndpoint) dom.cloudSyncEndpoint.value = state.settings.cloudSyncEndpoint || '/api/sync';
+    if (dom.cloudSyncToken) dom.cloudSyncToken.value = state.settings.cloudSyncToken || '';
+    if (dom.cloudSyncEncrypted) dom.cloudSyncEncrypted.checked = !!state.settings.cloudSyncEncrypted;
+    if (dom.cloudSyncPassphrase) dom.cloudSyncPassphrase.value = state.settings.cloudSyncPassphrase || '';
+    if (dom.cloudSyncStatus) {
+        var cloudStatus = state.settings.cloudSyncLastStatus || '';
+        if (!cloudStatus && state.settings.cloudSyncLastAt) {
+            cloudStatus = 'Last sync: ' + new Date(state.settings.cloudSyncLastAt).toLocaleString();
+        }
+        dom.cloudSyncStatus.textContent = cloudStatus;
+    }
+    function readCloudSyncForm() {
+        ensureCloudSyncSettings();
+        if (dom.cloudSyncEnabled) state.settings.cloudSyncEnabled = !!dom.cloudSyncEnabled.checked;
+        if (dom.cloudSyncAutoUpload) state.settings.cloudSyncAutoUpload = !!dom.cloudSyncAutoUpload.checked;
+        if (dom.cloudSyncEndpoint) state.settings.cloudSyncEndpoint = dom.cloudSyncEndpoint.value.trim() || '/api/sync';
+        if (dom.cloudSyncToken) state.settings.cloudSyncToken = dom.cloudSyncToken.value.trim();
+        if (dom.cloudSyncEncrypted) state.settings.cloudSyncEncrypted = !!dom.cloudSyncEncrypted.checked;
+        if (dom.cloudSyncPassphrase) state.settings.cloudSyncPassphrase = dom.cloudSyncPassphrase.value;
+    }
+    if (dom.cloudSyncNowBtn) {
+        dom.cloudSyncNowBtn.onclick = function() {
+            readCloudSyncForm();
+            syncCloudSyncSnapshot(dom.cloudSyncStatus).catch(function(err) {
+                setCloudSyncStatus('Cloud sync failed: ' + ((err && err.message) || err), true);
+                persistState(true);
+            });
+        };
+    }
+    if (dom.cloudSyncUploadBtn) {
+        dom.cloudSyncUploadBtn.onclick = function() {
+            readCloudSyncForm();
+            uploadCloudSyncSnapshot(dom.cloudSyncStatus, { force: true }).catch(function(err) {
+                setCloudSyncStatus('Cloud upload failed: ' + ((err && err.message) || err), true);
+                persistState(true);
+            });
+        };
+    }
+    if (dom.cloudSyncDownloadBtn) {
+        dom.cloudSyncDownloadBtn.onclick = function() {
+            readCloudSyncForm();
+            downloadCloudSyncSnapshot(dom.cloudSyncStatus).catch(function(err) {
+                setCloudSyncStatus('Cloud download failed: ' + ((err && err.message) || err), true);
+                persistState(true);
+            });
+        };
+    }
+}
+function bindWebLLMSettingsControls() {
+    // ===== WebLLM 后端设置（新增） =====
+    var backendSel = document.getElementById('inferenceBackend');
+    var webllmSection = document.getElementById('webllmModelSection');
+    var webllmSel = document.getElementById('webllmModel');
+
+    var currentBackend = state.settings.inferenceBackend || 'remote-api';
+    if (backendSel) backendSel.value = currentBackend;
+
+    var currentModel = state.settings.webllmModel || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+    if (webllmSel) webllmSel.value = currentModel;
+
+    function toggleWebLLMSection() {
+        if (webllmSection) {
+            if (backendSel && backendSel.value === 'webllm') {
+                webllmSection.classList.remove('hidden');
+            } else {
+                webllmSection.classList.add('hidden');
+            }
+        }
+    }
+    toggleWebLLMSection();
+
+    // 监听后端切换 → 切换到 webllm 时立即弹出重要确认框（并让用户在确认中明确选择要下载哪个模型）
+    if (backendSel) {
+        backendSel.onchange = null; // 避免重复绑定
+        var prevBackend = currentBackend;
+        backendSel.addEventListener('change', function() {
+            toggleWebLLMSection();
+
+            if (this.value === 'webllm' && prevBackend !== 'webllm') {
+                // 立即弹出（此时 webllmModelSection 已可见，用户可以看到/修改要下载的模型）
+                // 使用新函数，isModelSwitch=false，让确认框内出现 1B / 3B 两个明确选择按钮
+                showWebLLMConfirmForModel(null, false, null, function onCancel() {
+                    // 用户取消 → 切回远程
+                    backendSel.value = 'remote-api';
+                    if (webllmSection) webllmSection.classList.add('hidden');
+                    prevBackend = 'remote-api';
+                });
+            }
+            prevBackend = this.value;
+        });
+    }
+
+    // 监听模型下拉变化：当后端已经是 webllm 时，更换模型要再次弹出进度条确认（下载新模型）
+    if (webllmSel) {
+        webllmSel.onchange = null;
+        webllmSel.addEventListener('change', function() {
+            if (backendSel && backendSel.value === 'webllm') {
+                var newModel = this.value;
+                var loaded = webllmCurrentModel;
+
+                // 只有当和当前已加载的不同，或还没加载时，才弹出确认 + 进度
+                if (!loaded || loaded !== newModel) {
+                    showWebLLMConfirmForModel(newModel, true, null, function onCancel() {
+                        // 取消更换 → 把下拉切回已加载的模型（或默认）
+                        webllmSel.value = loaded || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+                    });
+                }
+            }
+        });
+    }
+
+    // 显示当前存储后端 + 用量（Phase 1 增强）
+    var detectWebGPUBtn = document.getElementById('detectWebGPUDeviceBtn');
+    var webgpuDeviceInfo = document.getElementById('webgpuDeviceInfo');
+    if (detectWebGPUBtn) {
+        detectWebGPUBtn.onclick = function() {
+            detectCurrentWebGPUDevice({ statusEl: webgpuDeviceInfo, showDialog: false }).catch(function() {});
+        };
+    }
+    if (webgpuDeviceInfo && webgpuLastDeviceReport) {
+        webgpuDeviceInfo.textContent = formatWebGPUDeviceReport(webgpuLastDeviceReport);
+    }
+}
+function bindSettingsStorageControls() {
+    const backendEl = document.getElementById('storageBackend');
+    const usageRow = document.getElementById('storageUsageRow');
+    const usageEl = document.getElementById('storageUsage');
+
+    const backend = StorageService.getBackend();
+
+    if (backendEl) {
+        backendEl.textContent = t('storage_backend') + ' (' + getStorageBackendLabel(backend) + ')';
+        styleStorageBackendBadge(backendEl, backend);
+    }
+
+    if (usageEl) {
+        StorageService.getStorageInfo().then(function(info) {
+            const bar = document.getElementById('storageUsageBar');
+            if (info) {
+                usageEl.textContent = buildStorageUsageText(info);
+                const percent = getStoragePressurePercent(info);
+                if (bar) bar.style.width = percent + '%';
+                if (percent > 85) {
+                    if (bar) bar.style.background = '#f87171';
+                    usageEl.style.color = '#f87171';
+                } else if (percent > 70) {
+                    if (bar) bar.style.background = '#fbbf24';
+                    usageEl.style.color = '#fbbf24';
+                } else {
+                    if (bar) bar.style.background = '#f59e0b';
+                    usageEl.style.color = '';
+                }
+            } else {
+                usageEl.textContent = backend === 'idb' ? 'IndexedDB \u4e3b\u5b58\u50a8' : 'localStorage \u5e94\u6025\u5feb\u7167';
+                if (bar) bar.style.width = '0%';
+            }
+        }).catch(function() {
+            usageEl.textContent = '\u65e0\u6cd5\u8bfb\u53d6\u5b58\u50a8\u7528\u91cf';
+            const bar = document.getElementById('storageUsageBar');
+            if (bar) bar.style.width = '0%';
+        });
+    }
+
+    const hintEl = document.getElementById('storageHint');
+    if (hintEl) {
+        StorageService.getStorageInfo().then(function(info) {
+            const canonical = getStorageBackendLabel((info && info.backend) || backend);
+            const opfs = getOPFSStatusText(info || {});
+            hintEl.textContent = `\u4e3b\u5b58\u50a8\u4f7f\u7528 ${canonical}\uff0clocalStorage \u4fdd\u7559\u5e94\u6025\u5feb\u7167\uff0c${opfs}\u3002`;
+            hintEl.style.color = backend === 'idb' ? '#60a5fa' : '#fbbf24';
+        }).catch(function() {
+            hintEl.textContent = backend === 'idb'
+                ? 'IndexedDB \u4e3b\u5b58\u50a8\uff0clocalStorage \u4fdd\u7559\u5e94\u6025\u5feb\u7167\u3002'
+                : 'localStorage \u5e94\u6025\u5feb\u7167\u6b63\u5728\u4f7f\u7528\uff0c\u5efa\u8bae\u5b9a\u671f\u5bfc\u51fa\u5907\u4efd\u3002';
+            hintEl.style.color = backend === 'idb' ? '#60a5fa' : '#fbbf24';
+        });
+    }
+
+    updateStorageStatusUI();
+
+    const clearBtn = document.getElementById('clearOPFSBtn');
+    if (clearBtn) {
+        clearBtn.style.display = 'flex';
+        clearBtn.textContent = t('clear_opfs_data') || '清除所有用户数据（OPFS + LS 快照）';
+        if (backend === 'idb') {
+            clearBtn.style.background = 'rgba(239,68,68,0.15)';
+            clearBtn.style.color = '';
+        } else {
+            clearBtn.style.background = 'rgba(245,158,11,0.15)';
+            clearBtn.style.color = '#fbbf24';
+        }
+
+        clearBtn.onclick = async function() {
+            if (!await showGlassConfirm('\u786e\u5b9a\u8981\u6c38\u4e45\u5220\u9664\u6240\u6709\u7528\u6237\u6570\u636e\u5417\uff1f\n\u5305\u62ec\u89d2\u8272\u5361\u3001\u5bf9\u8bdd\u3001\u4e16\u754c\u4e66\u3001WebLLM \u6a21\u578b\u7f13\u5b58\u7b49\u3002\n\u6b64\u64cd\u4f5c\u4e0d\u53ef\u6062\u590d\uff0c\u9875\u9762\u5c06\u91cd\u65b0\u52a0\u8f7d\u3002', { title: '\u6e05\u9664\u6240\u6709\u7528\u6237\u6570\u636e', danger: true, okText: '\u6c38\u4e45\u5220\u9664' })) {
+                return;
+            }
+
+            try {
+                if (typeof StorageService !== 'undefined' && typeof StorageService.clearAllData === 'function') {
+                    await StorageService.clearAllData();
+                } else {
+                    if (typeof OPFSStorage !== 'undefined' && OPFSStorage.clear) await OPFSStorage.clear();
+                    try {
+                        localStorage.removeItem(STORAGE_KEY);
+                        localStorage.removeItem('opentavern-last-backup');
+                        Object.keys(localStorage).forEach(k => { if (k.startsWith('opentavern')) localStorage.removeItem(k); });
+                        // 兜底写空
+                        const empty = JSON.stringify({lastSaved: Date.now(), conversations: {}, characters: {}, worldBooks: {}});
+                        localStorage.setItem(STORAGE_KEY, empty);
+                    } catch (e) {}
+                }
+
+                // 立即在 UI 上反馈已清空（reload 前）
+                try {
+                    if (typeof updateStorageInfo === 'function') updateStorageInfo();
+                    const usageEl = document.getElementById('storageUsage');
+                    const bar = document.getElementById('storageUsageBar');
+                    if (usageEl) usageEl.textContent = '0.0 MB / ~0 GB (已清除)';
+                    if (bar) bar.style.width = '0%';
+                } catch (_) {}
+
+                alert('所有用户数据已清除。页面即将重新加载...');
+                location.reload();
+            } catch (err) {
+                console.error('[Storage] 清除所有数据失败:', err);
+                alert('清除失败：' + (err.message || err));
+            }
+        };
+    }
+
+    // 【Storage Fix】绑定清除 WebLLM 缓存按钮
+    const clearWebLLMBtn = document.getElementById('clearWebLLMBtn');
+    if (clearWebLLMBtn) {
+        clearWebLLMBtn.onclick = async function() {
+            if (!await showGlassConfirm('\u786e\u5b9a\u8981\u6e05\u9664 WebLLM \u4e0b\u8f7d\u7684\u6a21\u578b\u7f13\u5b58\u5417\uff1f\n\u8fd9\u4f1a\u91ca\u653e\u5927\u91cf\u7a7a\u95f4\uff0c\u4f46\u4e0b\u6b21\u4f7f\u7528\u672c\u5730\u6a21\u578b\u65f6\u9700\u8981\u91cd\u65b0\u4e0b\u8f7d\u3002', { title: '\u6e05\u9664 WebLLM \u6a21\u578b\u7f13\u5b58', okText: '\u6e05\u9664' })) return;
+            if (typeof clearWebLLMCache === 'function') {
+                await clearWebLLMCache();
+            }
+        };
+    }
+
+    // 【Recovery Tool】绑定扫描和恢复
+    const scanBtn = document.getElementById('scanStorageBtn');
+    const candidatesDiv = document.getElementById('storageCandidates');
+    if (scanBtn && candidatesDiv) {
+        scanBtn.onclick = async function() {
+            const originalText = scanBtn.textContent;
+            scanBtn.textContent = '扫描中...';
+            scanBtn.disabled = true;
+            candidatesDiv.innerHTML = '';
+
+            try {
+                const list = await scanAllStorageBackends();
+                if (list.length === 0) {
+                    candidatesDiv.innerHTML = '<div class="text-[10px] text-zinc-500 px-1">未检测到其他存储后端的数据。</div>';
+                } else {
+                    list.forEach(function(cand) {
+                        const row = document.createElement('div');
+                        row.className = 'glass rounded p-1.5 flex items-center justify-between text-[10px]';
+                        const timeStr = cand.lastSaved ? new Date(cand.lastSaved).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '未知时间';
+                        row.innerHTML = `
+                            <div>
+                                <span class="font-medium text-blue-300">${cand.backend}</span>
+                                <span class="text-zinc-500 ml-1">${timeStr}</span><br>
+                                <span class="text-zinc-400">${cand.hasUserData ? '' : '空快照 · '}对话 ${cand.convCount} · 角色 ${cand.charCount} · 世界书 ${cand.wbCount}</span>
+                            </div>
+                        `;
+                        const restoreBtn = document.createElement('button');
+                        restoreBtn.className = 'ml-2 px-2 py-0.5 text-[10px] rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30';
+                        restoreBtn.textContent = '恢复';
+                        restoreBtn.onclick = function() {
+                            restoreFromStorageCandidate(cand);
+                        };
+                        row.appendChild(restoreBtn);
+                        candidatesDiv.appendChild(row);
+                    });
+                }
+            } catch (e) {
+                candidatesDiv.innerHTML = '<div class="text-[10px] text-red-400">扫描出错</div>';
+                console.error('[Recovery] scan error', e);
+            }
+
+            scanBtn.textContent = '重新扫描';
+            scanBtn.disabled = false;
+        };
+    }
+}
+function closeSettings() {
+    state.settings.apiEndpoint = dom.apiEndpoint.value.trim();
+    state.settings.apiKey = dom.apiKey.value.trim();
+    state.settings.saveApiKey = dom.saveApiKey ? !!dom.saveApiKey.checked : false;
+    state.settings.ollamaCompatMode = dom.ollamaCompatMode ? !!dom.ollamaCompatMode.checked : false;
+    state.settings.model = dom.modelName.value.trim() || 'gpt-4o';
+    state.settings.contextLength = parseInt(dom.contextLength.value) || 20;
+    state.settings.maxTokens = parseInt(dom.maxTokens.value) || 1024;
+    state.settings.temperature = parseFloat(dom.temperature.value) || 0.7;
+    state.settings.topP = parseFloat(dom.topP.value) || 0.9;
+    state.settings.userName = dom.userName.value.trim() || 'User';
+    state.settings.systemPrompt = dom.systemPrompt.value.trim();
+    if (dom.postHistoryInstructions) state.settings.postHistoryInstructions = dom.postHistoryInstructions.value.trim();
+    if (dom.twoStageEnabled) state.settings.twoStageEnabled = !!dom.twoStageEnabled.checked;
+    if (dom.twoStageTemperature) state.settings.twoStageTemperature = Number.isFinite(parseFloat(dom.twoStageTemperature.value)) ? parseFloat(dom.twoStageTemperature.value) : 0.3;
+    if (dom.twoStageTopP) state.settings.twoStageTopP = Number.isFinite(parseFloat(dom.twoStageTopP.value)) ? parseFloat(dom.twoStageTopP.value) : 0.85;
+    if (dom.twoStageIncludeRecentContext) state.settings.twoStageIncludeRecentContext = !!dom.twoStageIncludeRecentContext.checked;
+    if (dom.twoStageSystemPrompt) state.settings.twoStageSystemPrompt = dom.twoStageSystemPrompt.value.trim() || DEFAULT_TWO_STAGE_PROMPT;
+    if (dom.twoStagePostHistoryInstructions) state.settings.twoStagePostHistoryInstructions = dom.twoStagePostHistoryInstructions.value.trim();
+    if (dom.requestCotEnabled) state.settings.requestCotEnabled = !!dom.requestCotEnabled.checked;
+    if (dom.showCotEnabled) state.settings.showCotEnabled = !!dom.showCotEnabled.checked;
+    if (dom.userDescription) state.settings.userDescription = dom.userDescription.value.trim();
+    ensureSillyTavernPresetSettings();
+    state.settings.summaryEnabled = dom.summaryEnabled.checked;
+    if (dom.summaryThreshold) {
+        state.settings.summaryThreshold = parseInt(dom.summaryThreshold.value) || 12;
+    }
+    if (dom.summaryMaxWords) {
+        state.settings.summaryMaxWords = parseInt(dom.summaryMaxWords.value) || 0;
+    }
+    if (dom.summaryPrompt) state.settings.summaryPrompt = dom.summaryPrompt.value.trim();
+
+    // World Info Budget
+    state.settings.worldInfoBudgetEnabled = dom.worldInfoBudgetEnabled.checked;
+    state.settings.worldInfoBudget = parseInt(dom.worldInfoBudget.value) || 2048;
+
+    // 界面主题
+    state.settings.uiTheme = dom.uiTheme ? (dom.uiTheme.value || 'new-light') : 'new-light';
+    state.settings.uiTheme = typeof normalizeUiTheme === 'function' ? normalizeUiTheme(state.settings.uiTheme) : state.settings.uiTheme;
+    if (typeof cacheUiTheme === 'function') cacheUiTheme(state.settings.uiTheme);
+
+    // 效能模式（低功耗）
+    state.settings.lowPowerMode = dom.lowPowerMode ? !!dom.lowPowerMode.checked : false;
+
+    // Summarization API
+    state.settings.summarizeUseMainAPI = dom.summarizeUseMainAPI.checked;
+    state.settings.summarizeApiEndpoint = dom.summarizeApiEndpoint.value.trim();
+    state.settings.summarizeApiKey = dom.summarizeApiKey.value.trim();
+    state.settings.summarizeModel = dom.summarizeModel.value.trim() || 'deepseek-v4-flash';
+
+    // ComfyUI txt2img
+    ensureComfySettings();
+    if (dom.comfyEnabled) state.settings.comfyEnabled = !!dom.comfyEnabled.checked;
+    if (dom.comfyServer) state.settings.comfyServer = normalizeComfyServer(dom.comfyServer.value);
+    if (dom.comfyPositiveNodeId) state.settings.comfyPositiveNodeId = dom.comfyPositiveNodeId.value.trim();
+    if (dom.comfyNegativeNodeId) state.settings.comfyNegativeNodeId = dom.comfyNegativeNodeId.value.trim();
+    if (dom.comfySeedNodeId) state.settings.comfySeedNodeId = dom.comfySeedNodeId.value.trim();
+    if (dom.comfyNegativePrompt) state.settings.comfyNegativePrompt = dom.comfyNegativePrompt.value.trim();
+    if (dom.comfyPromptTemplate) state.settings.comfyPromptTemplate = dom.comfyPromptTemplate.value.trim() || defaultSettings().comfyPromptTemplate;
+
+    // Cloud Sync
+    ensureCloudSyncSettings();
+    if (dom.cloudSyncEnabled) state.settings.cloudSyncEnabled = !!dom.cloudSyncEnabled.checked;
+    if (dom.cloudSyncAutoUpload) state.settings.cloudSyncAutoUpload = !!dom.cloudSyncAutoUpload.checked;
+    if (dom.cloudSyncEndpoint) state.settings.cloudSyncEndpoint = dom.cloudSyncEndpoint.value.trim() || '/api/sync';
+    if (dom.cloudSyncToken) state.settings.cloudSyncToken = dom.cloudSyncToken.value.trim();
+    if (dom.cloudSyncEncrypted) state.settings.cloudSyncEncrypted = !!dom.cloudSyncEncrypted.checked;
+    if (dom.cloudSyncPassphrase) state.settings.cloudSyncPassphrase = dom.cloudSyncPassphrase.value;
+
+    // WebLLM 后端（从表单读取）
+    var backendSel2 = document.getElementById('inferenceBackend');
+    var webllmSel2 = document.getElementById('webllmModel');
+    if (backendSel2) {
+        state.settings.inferenceBackend = backendSel2.value || 'remote-api';
+    }
+    if (webllmSel2) {
+        state.settings.webllmModel = webllmSel2.value || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+    }
+
+    persistState();
+    dom.settingsModal.classList.add('hidden');
+
+    // 立即应用界面主题
+    if (typeof applyUiTheme === 'function') {
+        applyUiTheme(state.settings.uiTheme);
+    }
+
+    // 立即应用效能模式（暂停/恢复 shader + 应用 CSS 类）
+    if (typeof applyPerformanceMode === 'function') {
+        applyPerformanceMode(state.settings.lowPowerMode);
+    }
+    updateInputState();
+
+    // 设置变更后清理相关缓存，确保 token 条和世界书激活正确刷新
+    var conv = getActiveConv();
+    if (conv) {
+        conv._wiCache = null;
+    }
+    renderTokenBar();
+
+    // 关键修复：用户在中途修改总结阈值后，关闭设置时主动检查一次
+    // 让改阈值能立即对当前对话产生效果（尤其是调低阈值时）
+    if (state.settings.summaryEnabled) {
+        setTimeout(function() { autoSummarize(); }, 120);
+    }
+
+    // 显式通知 settings 变更
+    appStore.notify('settings');
+}
 // ==================== Send Message ====================
 function sendMessage() {
     if (state.isGenerating) return;
@@ -12124,7 +13252,6 @@ function sendMessage() {
         start();
     }
 }
-
 // ==================== Event Bindings ====================
 function bindEvents() {
     dom.sendBtn.addEventListener('click', sendMessage);
@@ -12286,449 +13413,6 @@ function bindEvents() {
     // World Book button (below character card)
     dom.worldBookBtn.addEventListener('click', openWorldBookModal);
 
-    // Settings modal
-    function openSettings() {
-        applyTranslations(); // 确保设置弹窗内的 data-i18n 标签（包括新增的预设标签）被正确翻译
-        dom.apiEndpoint.value = state.settings.apiEndpoint;
-        dom.apiKey.value = state.settings.apiKey;
-        if (dom.saveApiKey) dom.saveApiKey.checked = !!state.settings.saveApiKey;
-        if (dom.ollamaCompatMode) dom.ollamaCompatMode.checked = !!state.settings.ollamaCompatMode;
-        dom.modelName.value = state.settings.model;
-        dom.contextLength.value = state.settings.contextLength;
-        dom.contextLenVal.textContent = state.settings.contextLength;
-        dom.maxTokens.value = state.settings.maxTokens;
-        dom.maxTokensVal.textContent = state.settings.maxTokens;
-        dom.temperature.value = state.settings.temperature;
-        dom.tempVal.textContent = state.settings.temperature;
-        dom.topP.value = state.settings.topP;
-        dom.topPVal.textContent = state.settings.topP;
-        dom.userName.value = state.settings.userName;
-        dom.systemPrompt.value = state.settings.systemPrompt;
-        if (dom.postHistoryInstructions) dom.postHistoryInstructions.value = state.settings.postHistoryInstructions || '';
-        if (dom.twoStageEnabled) dom.twoStageEnabled.checked = !!state.settings.twoStageEnabled;
-        if (dom.twoStageTemperature) dom.twoStageTemperature.value = state.settings.twoStageTemperature;
-        if (dom.twoStageTempVal) dom.twoStageTempVal.textContent = state.settings.twoStageTemperature;
-        if (dom.twoStageTopP) dom.twoStageTopP.value = state.settings.twoStageTopP;
-        if (dom.twoStageTopPVal) dom.twoStageTopPVal.textContent = state.settings.twoStageTopP;
-        if (dom.twoStageIncludeRecentContext) dom.twoStageIncludeRecentContext.checked = !!state.settings.twoStageIncludeRecentContext;
-        if (dom.twoStageSystemPrompt) dom.twoStageSystemPrompt.value = state.settings.twoStageSystemPrompt || DEFAULT_TWO_STAGE_PROMPT;
-        if (dom.twoStagePostHistoryInstructions) dom.twoStagePostHistoryInstructions.value = state.settings.twoStagePostHistoryInstructions || '';
-        if (dom.requestCotEnabled) dom.requestCotEnabled.checked = !!state.settings.requestCotEnabled;
-        if (dom.showCotEnabled) dom.showCotEnabled.checked = state.settings.showCotEnabled !== false;
-        if (dom.restoreTwoStagePromptBtn && dom.twoStageSystemPrompt) {
-            dom.restoreTwoStagePromptBtn.onclick = function() {
-                dom.twoStageSystemPrompt.value = DEFAULT_TWO_STAGE_PROMPT;
-                state.settings.twoStageSystemPrompt = DEFAULT_TWO_STAGE_PROMPT;
-                persistState(true);
-            };
-        }
-        if (dom.fillRoleplayPromptBtn) {
-            dom.fillRoleplayPromptBtn.onclick = function() {
-                dom.systemPrompt.value = BASE_SYSTEM_PROMPT;
-                state.settings.systemPrompt = BASE_SYSTEM_PROMPT;
-                persistState(true);
-            };
-        }
-        if (dom.fillPostHistoryBtn && dom.postHistoryInstructions) {
-            dom.fillPostHistoryBtn.onclick = function() {
-                dom.postHistoryInstructions.value = DEFAULT_FIRST_STAGE_POST_HISTORY_INSTRUCTIONS;
-                state.settings.postHistoryInstructions = DEFAULT_FIRST_STAGE_POST_HISTORY_INSTRUCTIONS;
-                persistState(true);
-            };
-        }
-        if (dom.userDescription) dom.userDescription.value = state.settings.userDescription || '';
-        ensureSillyTavernPresetSettings();
-        renderSillyTavernPresetSettings();
-        dom.summaryEnabled.checked = state.settings.summaryEnabled !== false;
-        if (dom.summaryThreshold) {
-            dom.summaryThreshold.value = state.settings.summaryThreshold || 12;
-            if (dom.summaryThresholdVal) {
-                dom.summaryThresholdVal.textContent = state.settings.summaryThreshold || 12;
-            }
-            updateSummaryThresholdWarning();
-        }
-        if (dom.summaryMaxWords) {
-            dom.summaryMaxWords.value = (state.settings.summaryMaxWords != null ? state.settings.summaryMaxWords : 0);
-            dom.summaryMaxWords.addEventListener('input', function() {
-                state.settings.summaryMaxWords = parseInt(this.value) || 0;
-            });
-        }
-        if (dom.summaryPrompt) dom.summaryPrompt.value = state.settings.summaryPrompt || '';
-
-        // World Info Budget
-        dom.worldInfoBudgetEnabled.checked = state.settings.worldInfoBudgetEnabled !== false;
-        dom.worldInfoBudget.value = state.settings.worldInfoBudget || 2048;
-        dom.worldInfoBudgetVal.textContent = state.settings.worldInfoBudget || 2048;
-
-        // 界面主题
-        if (dom.uiTheme) {
-            dom.uiTheme.value = state.settings.uiTheme || 'new-light';
-        }
-
-        // 效能模式（低功耗）
-        if (dom.lowPowerMode) {
-            dom.lowPowerMode.checked = !!state.settings.lowPowerMode;
-        }
-
-        // Summarization API
-        dom.summarizeUseMainAPI.checked = state.settings.summarizeUseMainAPI !== false;
-        dom.summarizeApiEndpoint.value = state.settings.summarizeApiEndpoint || '';
-        dom.summarizeApiKey.value = state.settings.summarizeApiKey || '';
-        dom.summarizeModel.value = state.settings.summarizeModel || 'deepseek-v4-flash';
-
-        // ComfyUI txt2img
-        ensureComfySettings();
-        if (dom.comfyEnabled) dom.comfyEnabled.checked = !!state.settings.comfyEnabled;
-        if (dom.comfyServer) dom.comfyServer.value = state.settings.comfyServer || 'http://127.0.0.1:8188';
-        if (dom.comfyPositiveNodeId) dom.comfyPositiveNodeId.value = state.settings.comfyPositiveNodeId || '';
-        if (dom.comfyNegativeNodeId) dom.comfyNegativeNodeId.value = state.settings.comfyNegativeNodeId || '';
-        if (dom.comfySeedNodeId) dom.comfySeedNodeId.value = state.settings.comfySeedNodeId || '';
-        if (dom.comfyNegativePrompt) dom.comfyNegativePrompt.value = state.settings.comfyNegativePrompt || '';
-        if (dom.comfyPromptTemplate) dom.comfyPromptTemplate.value = state.settings.comfyPromptTemplate || '';
-        updateComfyWorkflowStatus();
-
-        // Toggle custom section visibility
-        toggleSummarizeCustomSection();
-
-        // ===== WebLLM 后端设置（新增） =====
-        var backendSel = document.getElementById('inferenceBackend');
-        var webllmSection = document.getElementById('webllmModelSection');
-        var webllmSel = document.getElementById('webllmModel');
-
-        var currentBackend = state.settings.inferenceBackend || 'remote-api';
-        if (backendSel) backendSel.value = currentBackend;
-
-        var currentModel = state.settings.webllmModel || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
-        if (webllmSel) webllmSel.value = currentModel;
-
-        function toggleWebLLMSection() {
-            if (webllmSection) {
-                if (backendSel && backendSel.value === 'webllm') {
-                    webllmSection.classList.remove('hidden');
-                } else {
-                    webllmSection.classList.add('hidden');
-                }
-            }
-        }
-        toggleWebLLMSection();
-
-        // 监听后端切换 → 切换到 webllm 时立即弹出重要确认框（并让用户在确认中明确选择要下载哪个模型）
-        if (backendSel) {
-            backendSel.onchange = null; // 避免重复绑定
-            var prevBackend = currentBackend;
-            backendSel.addEventListener('change', function() {
-                toggleWebLLMSection();
-
-                if (this.value === 'webllm' && prevBackend !== 'webllm') {
-                    // 立即弹出（此时 webllmModelSection 已可见，用户可以看到/修改要下载的模型）
-                    // 使用新函数，isModelSwitch=false，让确认框内出现 1B / 3B 两个明确选择按钮
-                    showWebLLMConfirmForModel(null, false, null, function onCancel() {
-                        // 用户取消 → 切回远程
-                        backendSel.value = 'remote-api';
-                        if (webllmSection) webllmSection.classList.add('hidden');
-                        prevBackend = 'remote-api';
-                    });
-                }
-                prevBackend = this.value;
-            });
-        }
-
-        // 监听模型下拉变化：当后端已经是 webllm 时，更换模型要再次弹出进度条确认（下载新模型）
-        if (webllmSel) {
-            webllmSel.onchange = null;
-            webllmSel.addEventListener('change', function() {
-                if (backendSel && backendSel.value === 'webllm') {
-                    var newModel = this.value;
-                    var loaded = webllmCurrentModel;
-
-                    // 只有当和当前已加载的不同，或还没加载时，才弹出确认 + 进度
-                    if (!loaded || loaded !== newModel) {
-                        showWebLLMConfirmForModel(newModel, true, null, function onCancel() {
-                            // 取消更换 → 把下拉切回已加载的模型（或默认）
-                            webllmSel.value = loaded || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
-                        });
-                    }
-                }
-            });
-        }
-
-        // 显示当前存储后端 + 用量（Phase 1 增强）
-        var detectWebGPUBtn = document.getElementById('detectWebGPUDeviceBtn');
-        var webgpuDeviceInfo = document.getElementById('webgpuDeviceInfo');
-        if (detectWebGPUBtn) {
-            detectWebGPUBtn.onclick = function() {
-                detectCurrentWebGPUDevice({ statusEl: webgpuDeviceInfo, showDialog: false }).catch(function() {});
-            };
-        }
-        if (webgpuDeviceInfo && webgpuLastDeviceReport) {
-            webgpuDeviceInfo.textContent = formatWebGPUDeviceReport(webgpuLastDeviceReport);
-        }
-
-        const backendEl = document.getElementById('storageBackend');
-        const usageRow = document.getElementById('storageUsageRow');
-        const usageEl = document.getElementById('storageUsage');
-
-        const backend = StorageService.getBackend();
-
-        if (backendEl) {
-            backendEl.textContent = t('storage_backend') + ' (' + getStorageBackendLabel(backend) + ')';
-            styleStorageBackendBadge(backendEl, backend);
-        }
-
-        if (usageEl) {
-            StorageService.getStorageInfo().then(function(info) {
-                const bar = document.getElementById('storageUsageBar');
-                if (info) {
-                    usageEl.textContent = buildStorageUsageText(info);
-                    const percent = getStoragePressurePercent(info);
-                    if (bar) bar.style.width = percent + '%';
-                    if (percent > 85) {
-                        if (bar) bar.style.background = '#f87171';
-                        usageEl.style.color = '#f87171';
-                    } else if (percent > 70) {
-                        if (bar) bar.style.background = '#fbbf24';
-                        usageEl.style.color = '#fbbf24';
-                    } else {
-                        if (bar) bar.style.background = '#f59e0b';
-                        usageEl.style.color = '';
-                    }
-                } else {
-                    usageEl.textContent = backend === 'idb' ? 'IndexedDB \u4e3b\u5b58\u50a8' : 'localStorage \u5e94\u6025\u5feb\u7167';
-                    if (bar) bar.style.width = '0%';
-                }
-            }).catch(function() {
-                usageEl.textContent = '\u65e0\u6cd5\u8bfb\u53d6\u5b58\u50a8\u7528\u91cf';
-                const bar = document.getElementById('storageUsageBar');
-                if (bar) bar.style.width = '0%';
-            });
-        }
-
-        const hintEl = document.getElementById('storageHint');
-        if (hintEl) {
-            StorageService.getStorageInfo().then(function(info) {
-                const canonical = getStorageBackendLabel((info && info.backend) || backend);
-                const opfs = getOPFSStatusText(info || {});
-                hintEl.textContent = `\u4e3b\u5b58\u50a8\u4f7f\u7528 ${canonical}\uff0clocalStorage \u4fdd\u7559\u5e94\u6025\u5feb\u7167\uff0c${opfs}\u3002`;
-                hintEl.style.color = backend === 'idb' ? '#60a5fa' : '#fbbf24';
-            }).catch(function() {
-                hintEl.textContent = backend === 'idb'
-                    ? 'IndexedDB \u4e3b\u5b58\u50a8\uff0clocalStorage \u4fdd\u7559\u5e94\u6025\u5feb\u7167\u3002'
-                    : 'localStorage \u5e94\u6025\u5feb\u7167\u6b63\u5728\u4f7f\u7528\uff0c\u5efa\u8bae\u5b9a\u671f\u5bfc\u51fa\u5907\u4efd\u3002';
-                hintEl.style.color = backend === 'idb' ? '#60a5fa' : '#fbbf24';
-            });
-        }
-
-        updateStorageStatusUI();
-
-        const clearBtn = document.getElementById('clearOPFSBtn');
-        if (clearBtn) {
-            clearBtn.style.display = 'flex';
-            clearBtn.textContent = t('clear_opfs_data') || '清除所有用户数据（OPFS + LS 快照）';
-            if (backend === 'idb') {
-                clearBtn.style.background = 'rgba(239,68,68,0.15)';
-                clearBtn.style.color = '';
-            } else {
-                clearBtn.style.background = 'rgba(245,158,11,0.15)';
-                clearBtn.style.color = '#fbbf24';
-            }
-
-            clearBtn.onclick = async function() {
-                if (!await showGlassConfirm('\u786e\u5b9a\u8981\u6c38\u4e45\u5220\u9664\u6240\u6709\u7528\u6237\u6570\u636e\u5417\uff1f\n\u5305\u62ec\u89d2\u8272\u5361\u3001\u5bf9\u8bdd\u3001\u4e16\u754c\u4e66\u3001WebLLM \u6a21\u578b\u7f13\u5b58\u7b49\u3002\n\u6b64\u64cd\u4f5c\u4e0d\u53ef\u6062\u590d\uff0c\u9875\u9762\u5c06\u91cd\u65b0\u52a0\u8f7d\u3002', { title: '\u6e05\u9664\u6240\u6709\u7528\u6237\u6570\u636e', danger: true, okText: '\u6c38\u4e45\u5220\u9664' })) {
-                    return;
-                }
-
-                try {
-                    if (typeof StorageService !== 'undefined' && typeof StorageService.clearAllData === 'function') {
-                        await StorageService.clearAllData();
-                    } else {
-                        if (typeof OPFSStorage !== 'undefined' && OPFSStorage.clear) await OPFSStorage.clear();
-                        try {
-                            localStorage.removeItem(STORAGE_KEY);
-                            localStorage.removeItem('opentavern-last-backup');
-                            Object.keys(localStorage).forEach(k => { if (k.startsWith('opentavern')) localStorage.removeItem(k); });
-                            // 兜底写空
-                            const empty = JSON.stringify({lastSaved: Date.now(), conversations: {}, characters: {}, worldBooks: {}});
-                            localStorage.setItem(STORAGE_KEY, empty);
-                        } catch (e) {}
-                    }
-
-                    // 立即在 UI 上反馈已清空（reload 前）
-                    try {
-                        if (typeof updateStorageInfo === 'function') updateStorageInfo();
-                        const usageEl = document.getElementById('storageUsage');
-                        const bar = document.getElementById('storageUsageBar');
-                        if (usageEl) usageEl.textContent = '0.0 MB / ~0 GB (已清除)';
-                        if (bar) bar.style.width = '0%';
-                    } catch (_) {}
-
-                    alert('所有用户数据已清除。页面即将重新加载...');
-                    location.reload();
-                } catch (err) {
-                    console.error('[Storage] 清除所有数据失败:', err);
-                    alert('清除失败：' + (err.message || err));
-                }
-            };
-        }
-
-        // 【Storage Fix】绑定清除 WebLLM 缓存按钮
-        const clearWebLLMBtn = document.getElementById('clearWebLLMBtn');
-        if (clearWebLLMBtn) {
-            clearWebLLMBtn.onclick = async function() {
-                if (!await showGlassConfirm('\u786e\u5b9a\u8981\u6e05\u9664 WebLLM \u4e0b\u8f7d\u7684\u6a21\u578b\u7f13\u5b58\u5417\uff1f\n\u8fd9\u4f1a\u91ca\u653e\u5927\u91cf\u7a7a\u95f4\uff0c\u4f46\u4e0b\u6b21\u4f7f\u7528\u672c\u5730\u6a21\u578b\u65f6\u9700\u8981\u91cd\u65b0\u4e0b\u8f7d\u3002', { title: '\u6e05\u9664 WebLLM \u6a21\u578b\u7f13\u5b58', okText: '\u6e05\u9664' })) return;
-                if (typeof clearWebLLMCache === 'function') {
-                    await clearWebLLMCache();
-                }
-            };
-        }
-
-        // 【Recovery Tool】绑定扫描和恢复
-        const scanBtn = document.getElementById('scanStorageBtn');
-        const candidatesDiv = document.getElementById('storageCandidates');
-        if (scanBtn && candidatesDiv) {
-            scanBtn.onclick = async function() {
-                const originalText = scanBtn.textContent;
-                scanBtn.textContent = '扫描中...';
-                scanBtn.disabled = true;
-                candidatesDiv.innerHTML = '';
-
-                try {
-                    const list = await scanAllStorageBackends();
-                    if (list.length === 0) {
-                        candidatesDiv.innerHTML = '<div class="text-[10px] text-zinc-500 px-1">未检测到其他存储后端的数据。</div>';
-                    } else {
-                        list.forEach(function(cand) {
-                            const row = document.createElement('div');
-                            row.className = 'glass rounded p-1.5 flex items-center justify-between text-[10px]';
-                            const timeStr = cand.lastSaved ? new Date(cand.lastSaved).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '未知时间';
-                            row.innerHTML = `
-                                <div>
-                                    <span class="font-medium text-blue-300">${cand.backend}</span>
-                                    <span class="text-zinc-500 ml-1">${timeStr}</span><br>
-                                    <span class="text-zinc-400">${cand.hasUserData ? '' : '空快照 · '}对话 ${cand.convCount} · 角色 ${cand.charCount} · 世界书 ${cand.wbCount}</span>
-                                </div>
-                            `;
-                            const restoreBtn = document.createElement('button');
-                            restoreBtn.className = 'ml-2 px-2 py-0.5 text-[10px] rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30';
-                            restoreBtn.textContent = '恢复';
-                            restoreBtn.onclick = function() {
-                                restoreFromStorageCandidate(cand);
-                            };
-                            row.appendChild(restoreBtn);
-                            candidatesDiv.appendChild(row);
-                        });
-                    }
-                } catch (e) {
-                    candidatesDiv.innerHTML = '<div class="text-[10px] text-red-400">扫描出错</div>';
-                    console.error('[Recovery] scan error', e);
-                }
-
-                scanBtn.textContent = '重新扫描';
-                scanBtn.disabled = false;
-            };
-        }
-
-        dom.settingsModal.classList.remove('hidden');
-    }
-    function closeSettings() {
-        state.settings.apiEndpoint = dom.apiEndpoint.value.trim();
-        state.settings.apiKey = dom.apiKey.value.trim();
-        state.settings.saveApiKey = dom.saveApiKey ? !!dom.saveApiKey.checked : false;
-        state.settings.ollamaCompatMode = dom.ollamaCompatMode ? !!dom.ollamaCompatMode.checked : false;
-        state.settings.model = dom.modelName.value.trim() || 'gpt-4o';
-        state.settings.contextLength = parseInt(dom.contextLength.value) || 20;
-        state.settings.maxTokens = parseInt(dom.maxTokens.value) || 1024;
-        state.settings.temperature = parseFloat(dom.temperature.value) || 0.7;
-        state.settings.topP = parseFloat(dom.topP.value) || 0.9;
-        state.settings.userName = dom.userName.value.trim() || 'User';
-        state.settings.systemPrompt = dom.systemPrompt.value.trim();
-        if (dom.postHistoryInstructions) state.settings.postHistoryInstructions = dom.postHistoryInstructions.value.trim();
-        if (dom.twoStageEnabled) state.settings.twoStageEnabled = !!dom.twoStageEnabled.checked;
-        if (dom.twoStageTemperature) state.settings.twoStageTemperature = Number.isFinite(parseFloat(dom.twoStageTemperature.value)) ? parseFloat(dom.twoStageTemperature.value) : 0.3;
-        if (dom.twoStageTopP) state.settings.twoStageTopP = Number.isFinite(parseFloat(dom.twoStageTopP.value)) ? parseFloat(dom.twoStageTopP.value) : 0.85;
-        if (dom.twoStageIncludeRecentContext) state.settings.twoStageIncludeRecentContext = !!dom.twoStageIncludeRecentContext.checked;
-        if (dom.twoStageSystemPrompt) state.settings.twoStageSystemPrompt = dom.twoStageSystemPrompt.value.trim() || DEFAULT_TWO_STAGE_PROMPT;
-        if (dom.twoStagePostHistoryInstructions) state.settings.twoStagePostHistoryInstructions = dom.twoStagePostHistoryInstructions.value.trim();
-        if (dom.requestCotEnabled) state.settings.requestCotEnabled = !!dom.requestCotEnabled.checked;
-        if (dom.showCotEnabled) state.settings.showCotEnabled = !!dom.showCotEnabled.checked;
-        if (dom.userDescription) state.settings.userDescription = dom.userDescription.value.trim();
-        ensureSillyTavernPresetSettings();
-        state.settings.summaryEnabled = dom.summaryEnabled.checked;
-        if (dom.summaryThreshold) {
-            state.settings.summaryThreshold = parseInt(dom.summaryThreshold.value) || 12;
-        }
-        if (dom.summaryMaxWords) {
-            state.settings.summaryMaxWords = parseInt(dom.summaryMaxWords.value) || 0;
-        }
-        if (dom.summaryPrompt) state.settings.summaryPrompt = dom.summaryPrompt.value.trim();
-
-        // World Info Budget
-        state.settings.worldInfoBudgetEnabled = dom.worldInfoBudgetEnabled.checked;
-        state.settings.worldInfoBudget = parseInt(dom.worldInfoBudget.value) || 2048;
-
-        // 界面主题
-        state.settings.uiTheme = dom.uiTheme ? (dom.uiTheme.value || 'new-light') : 'new-light';
-        state.settings.uiTheme = typeof normalizeUiTheme === 'function' ? normalizeUiTheme(state.settings.uiTheme) : state.settings.uiTheme;
-        if (typeof cacheUiTheme === 'function') cacheUiTheme(state.settings.uiTheme);
-
-        // 效能模式（低功耗）
-        state.settings.lowPowerMode = dom.lowPowerMode ? !!dom.lowPowerMode.checked : false;
-
-        // Summarization API
-        state.settings.summarizeUseMainAPI = dom.summarizeUseMainAPI.checked;
-        state.settings.summarizeApiEndpoint = dom.summarizeApiEndpoint.value.trim();
-        state.settings.summarizeApiKey = dom.summarizeApiKey.value.trim();
-        state.settings.summarizeModel = dom.summarizeModel.value.trim() || 'deepseek-v4-flash';
-
-        // ComfyUI txt2img
-        ensureComfySettings();
-        if (dom.comfyEnabled) state.settings.comfyEnabled = !!dom.comfyEnabled.checked;
-        if (dom.comfyServer) state.settings.comfyServer = normalizeComfyServer(dom.comfyServer.value);
-        if (dom.comfyPositiveNodeId) state.settings.comfyPositiveNodeId = dom.comfyPositiveNodeId.value.trim();
-        if (dom.comfyNegativeNodeId) state.settings.comfyNegativeNodeId = dom.comfyNegativeNodeId.value.trim();
-        if (dom.comfySeedNodeId) state.settings.comfySeedNodeId = dom.comfySeedNodeId.value.trim();
-        if (dom.comfyNegativePrompt) state.settings.comfyNegativePrompt = dom.comfyNegativePrompt.value.trim();
-        if (dom.comfyPromptTemplate) state.settings.comfyPromptTemplate = dom.comfyPromptTemplate.value.trim() || defaultSettings().comfyPromptTemplate;
-
-        // WebLLM 后端（从表单读取）
-        var backendSel2 = document.getElementById('inferenceBackend');
-        var webllmSel2 = document.getElementById('webllmModel');
-        if (backendSel2) {
-            state.settings.inferenceBackend = backendSel2.value || 'remote-api';
-        }
-        if (webllmSel2) {
-            state.settings.webllmModel = webllmSel2.value || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
-        }
-
-        persistState();
-        dom.settingsModal.classList.add('hidden');
-
-        // 立即应用界面主题
-        if (typeof applyUiTheme === 'function') {
-            applyUiTheme(state.settings.uiTheme);
-        }
-
-        // 立即应用效能模式（暂停/恢复 shader + 应用 CSS 类）
-        if (typeof applyPerformanceMode === 'function') {
-            applyPerformanceMode(state.settings.lowPowerMode);
-        }
-        updateInputState();
-
-        // 设置变更后清理相关缓存，确保 token 条和世界书激活正确刷新
-        var conv = getActiveConv();
-        if (conv) {
-            conv._wiCache = null;
-        }
-        renderTokenBar();
-
-        // 关键修复：用户在中途修改总结阈值后，关闭设置时主动检查一次
-        // 让改阈值能立即对当前对话产生效果（尤其是调低阈值时）
-        if (state.settings.summaryEnabled) {
-            setTimeout(function() { autoSummarize(); }, 120);
-        }
-
-        // 显式通知 settings 变更
-        appStore.notify('settings');
-    }
     if (dom.sidebarSettingsBtn) dom.sidebarSettingsBtn.addEventListener('click', openSettings);
     if (dom.topSettingsBtn) dom.topSettingsBtn.addEventListener('click', openSettings);
     if (dom.settingsCloseBtn) dom.settingsCloseBtn.addEventListener('click', closeSettings);
@@ -12764,19 +13448,6 @@ function bindEvents() {
     bindSlider(dom.worldInfoBudget, dom.worldInfoBudgetVal);
 
     // 实时更新“触发阈值高于上下文长度”的警告
-    function updateSummaryThresholdWarning() {
-        if (!dom.summaryThreshold || !dom.contextLength) return;
-        var warning = document.getElementById('summaryThresholdWarning');
-        if (!warning) return;
-
-        var threshold = parseInt(dom.summaryThreshold.value) || 0;
-        var ctxLen = parseInt(dom.contextLength.value) || 0;
-        if (threshold > ctxLen) {
-            warning.classList.remove('hidden');
-        } else {
-            warning.classList.add('hidden');
-        }
-    }
 
     if (dom.contextLength) {
         dom.contextLength.addEventListener('input', updateSummaryThresholdWarning);
@@ -12799,267 +13470,15 @@ function bindEvents() {
         });
     }
 
-    // Import modal close
-    dom.importCloseBtn.addEventListener('click', function() { dom.importModal.classList.add('hidden'); });
-    dom.importBackdrop.addEventListener('click', function() { dom.importModal.classList.add('hidden'); });
+    bindCharacterImportModalEvents();
 
-    // File import (supports .json and SillyTavern .png embedded cards)
-    dom.importFileInput.addEventListener('change', async function(e) {
-        var file = e.target.files[0];
-        if (!file) return;
-
-        dom.importStatus.classList.remove('hidden');
-        dom.importStatus.textContent = 'Reading...';
-
-        try {
-            let json;
-            const lowerName = (file.name || '').toLowerCase();
-            let attachedPreview = null;
-
-            if (lowerName.endsWith('.png')) {
-                // For PNG cards, also capture the visual image itself as preview (so imported cards show their art)
-                attachedPreview = await new Promise(function(resolve, reject) {
-                    var r = new FileReader();
-                    r.onload = function() { resolve(r.result); };
-                    r.onerror = reject;
-                    r.readAsDataURL(file);
-                });
-                json = await extractCharaFromPng(file);
-            } else {
-                // JSON path (original)
-                const text = await new Promise(function(resolve, reject) {
-                    var r = new FileReader();
-                    r.onload = function() { resolve(r.result); };
-                    r.onerror = reject;
-                    r.readAsText(file);
-                });
-                json = JSON.parse(text);
-            }
-
-            var character = importCharacterCard(json);
-            if (attachedPreview) {
-                character.previewImage = attachedPreview;
-            }
-            var conv = getActiveConv();
-            if (!conv) { newConversation(); conv = getActiveConv(); }
-
-            var hasMsgs = conv.messages.some(function(m) { return m.role !== 'system'; });
-            if (hasMsgs) {
-                saveCurrentConversation();
-                // 捕获旧对话的世界书（legacy + 新 global）
-                var oldWorldInfo = conv.worldInfo ? JSON.parse(JSON.stringify(conv.worldInfo)) : null;
-                var oldWorldBookIds = Array.isArray(conv.worldBookIds) ? conv.worldBookIds.slice() : [];
-
-                var newConv = defaultConversation();
-                state.conversations[newConv.id] = newConv;
-                state.conversationOrder.unshift(newConv.id);
-                state.activeConvId = newConv.id;
-                conv = newConv;
-
-                if (oldWorldInfo) {
-                    conv.worldInfo = oldWorldInfo;
-                }
-                if (oldWorldBookIds.length > 0) {
-                    conv.worldBookIds = oldWorldBookIds;
-                }
-            }
-
-            conv.character = character;
-            conv.title = t('chat_with') + character.name;
-            conv.messages = [];
-
-            currentCharacterName = character.name;
-
-            // ===== 自动导入角色卡内嵌的 character_book（支持 v1/v2/v3）并关联到当前对话 =====
-            var embeddedBook = null;
-            try {
-                embeddedBook = importCharacterBookFromCard(json, character.name);
-                if (embeddedBook) {
-                    conv.worldBookIds = conv.worldBookIds || [];
-                    if (!conv.worldBookIds.includes(embeddedBook.id)) {
-                        conv.worldBookIds.push(embeddedBook.id);
-                    }
-                }
-            } catch (e) {
-                console.warn('导入角色卡内嵌世界书失败（不影响角色导入）:', e);
-            }
-
-            // 注册到全局角色库
-            if (character.name) {
-                const key = character.name.trim().toLowerCase();
-                if (!state.characters) state.characters = {};
-                state.characters[key] = JSON.parse(JSON.stringify(character));
-            }
-
-            var charName = character.name;
-            var userName = state.settings.userName || 'User';
-            var firstMes = replacePlaceholders(character.first_mes, charName, userName);
-            if (firstMes) {
-                conv.messages.push({ role: 'assistant', content: firstMes });
-            }
-
-            conv.updated = Date.now();
-            persistState();
-
-            // 让卡片库（如果可见或稍后返回）立刻看到新导入的卡；解决“导入后需刷新页面才显示”的问题
-            if (typeof renderLibraryGrids === 'function') {
-                renderLibraryGrids();
-            }
-
-            renderAll();
-            dom.importModal.classList.add('hidden');
-            dom.importStatus.classList.remove('hidden');
-
-            var successText = t('import_success') + character.name;
-            if (embeddedBook) {
-                var entryCount = Object.keys(embeddedBook.entries || {}).length;
-                successText += '（已自动关联内嵌世界书 · ' + entryCount + ' 条目）';
-            }
-            dom.importStatus.textContent = successText;
-            dom.importStatus.className = 'text-xs text-emerald-400 mt-3 text-center';
-            setTimeout(function() { dom.importStatus.classList.add('hidden'); }, 2800);
-        } catch (err) {
-            dom.importStatus.classList.remove('hidden');
-            dom.importStatus.textContent = t('import_error') + ': ' + (err.message || err);
-            dom.importStatus.className = 'text-xs text-red-400 mt-3 text-center';
-        } finally {
-            if (dom.importFileInput) dom.importFileInput.value = '';
-        }
-    });
-
-    // Prompt viewer
-    var currentPromptViewerStage = 'main';
-
-    function setPromptStageButtons(stage) {
-        currentPromptViewerStage = stage || 'main';
-        var active = ['bg-amber-500/20', 'text-amber-300', 'border-amber-500/20'];
-        var inactive = ['bg-white/5', 'text-zinc-400', 'border-white/10'];
-        [
-            { btn: dom.promptStageMainBtn, stage: 'main' },
-            { btn: dom.promptStageSecondBtn, stage: 'second' }
-        ].forEach(function(item) {
-            if (!item.btn) return;
-            item.btn.classList.remove.apply(item.btn.classList, active.concat(inactive));
-            item.btn.classList.add.apply(item.btn.classList, item.stage === currentPromptViewerStage ? active : inactive);
-        });
-    }
-
-    function findLatestMainAssistantMessage(conv) {
-        if (!conv || !Array.isArray(conv.messages)) return null;
-        for (var i = conv.messages.length - 1; i >= 0; i--) {
-            var m = conv.messages[i];
-            if (m && m.role === 'assistant' && m.stage !== 'second') return m;
-        }
-        return null;
-    }
-
-    function refreshPromptViewer() {
-        try {
-            var messages;
-            if (currentPromptViewerStage === 'second') {
-                var conv = getActiveConv();
-                var latestMain = findLatestMainAssistantMessage(conv);
-                messages = buildMessagesForSecondStage(latestMain);
-            } else {
-                messages = buildMessagesForAPI();
-            }
-            var text = formatPromptMessages(messages);
-            dom.promptViewerContent.textContent = text || t('no_messages_to_send');
-        } catch (err) {
-            console.error('showFullPrompt error:', err);
-            alert('无法生成提示词预览：' + (err.message || err));
-        }
-    }
-
-    function showFullPrompt() {
-        setPromptStageButtons('main');
-        refreshPromptViewer();
-        dom.promptViewerModal.classList.remove('hidden');
-    }
-    dom.viewPromptBtn.addEventListener('click', showFullPrompt);
-    if (dom.promptStageMainBtn) dom.promptStageMainBtn.addEventListener('click', function() {
-        setPromptStageButtons('main');
-        refreshPromptViewer();
-    });
-    if (dom.promptStageSecondBtn) dom.promptStageSecondBtn.addEventListener('click', function() {
-        setPromptStageButtons('second');
-        refreshPromptViewer();
-    });
-    dom.promptViewerCloseBtn.addEventListener('click', function() { dom.promptViewerModal.classList.add('hidden'); });
-    dom.promptViewerBackdrop.addEventListener('click', function() { dom.promptViewerModal.classList.add('hidden'); });
-
-    // Copy prompt
-    dom.copyPromptBtn.addEventListener('click', function() {
-        var text = dom.promptViewerContent.textContent;
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(function() {
-                dom.copyPromptBtn.textContent = t('copied');
-                setTimeout(function() { dom.copyPromptBtn.textContent = t('copy'); }, 1500);
-            });
-        }
-    });
-
-    // 总结管理器入口（只保留主按钮）
-    dom.summarizeBtn.addEventListener('click', openSummaryManager);
-
-    // 总结管理器内部事件绑定（只绑定一次）
-    if (dom.summaryManagerCloseBtn) {
-        dom.summaryManagerCloseBtn.addEventListener('click', function() {
-            dom.summaryManagerModal.classList.add('hidden');
-        });
-    }
-    if (dom.summaryManagerBackdrop) {
-        dom.summaryManagerBackdrop.addEventListener('click', function() {
-            dom.summaryManagerModal.classList.add('hidden');
-        });
-    }
-
-    // 模式切换
-    if (dom.modeRecentBtn) {
-        dom.modeRecentBtn.addEventListener('click', function() {
-            dom.modeRecentPanel.classList.remove('hidden');
-            dom.modeRangePanel.classList.add('hidden');
-            dom.modeRecentBtn.classList.add('bg-white/10', 'text-zinc-100');
-            dom.modeRangeBtn.classList.remove('bg-white/10', 'text-zinc-100');
-            if (dom.rangePreview) dom.rangePreview.innerHTML = '';
-        });
-    }
-    if (dom.modeRangeBtn) {
-        dom.modeRangeBtn.addEventListener('click', function() {
-            dom.modeRecentPanel.classList.add('hidden');
-            dom.modeRangePanel.classList.remove('hidden');
-            dom.modeRangeBtn.classList.add('bg-white/10', 'text-zinc-100');
-            dom.modeRecentBtn.classList.remove('bg-white/10', 'text-zinc-100');
-        });
-    }
-
-    // 自定义范围预览
-    if (dom.previewRangeBtn) {
-        dom.previewRangeBtn.addEventListener('click', previewCustomRange);
-    }
-    if (dom.rangeStart) {
-        dom.rangeStart.addEventListener('input', previewCustomRange);
-    }
-    if (dom.rangeEnd) {
-        dom.rangeEnd.addEventListener('input', previewCustomRange);
-    }
-
-    // 生成总结按钮
-    if (dom.summaryGenerateBtn) {
-        dom.summaryGenerateBtn.addEventListener('click', doGenerateSummary);
-    }
+    bindPromptAndSummaryWorkflowEvents();
 
     // Summary threshold slider in settings
     bindSlider(dom.summaryThreshold, dom.summaryThresholdVal);
     updateSummaryThresholdWarning();
 
     // Summarization API section toggle helper
-    function toggleSummarizeCustomSection() {
-        var useMain = !!(dom.summarizeUseMainAPI && dom.summarizeUseMainAPI.checked);
-        if (dom.summarizeCustomApiSection) {
-            dom.summarizeCustomApiSection.style.display = useMain ? 'none' : '';
-        }
-    }
 
     if (dom.summarizeUseMainAPI) {
         dom.summarizeUseMainAPI.addEventListener('change', toggleSummarizeCustomSection);
@@ -13111,7 +13530,6 @@ function bindEvents() {
         }
     });
 }
-
 // ==================== Initialize ====================
 async function init() {
     cacheDom();
@@ -13248,5 +13666,4 @@ init().then(function() {
         console.error('Fallback initialization failed:', e);
     }
 });
-
 })();

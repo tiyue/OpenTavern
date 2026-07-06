@@ -1,0 +1,13 @@
+name = "opentavern"
+compatibility_date = "2026-07-05"
+pages_build_output_dir = "."
+
+# Cloud Sync uses a D1 binding named SYNC_DB.
+# Create one with:
+#   wrangler d1 create opentavern-sync
+# Then uncomment and fill database_id below.
+#
+# [[d1_databases]]
+# binding = "SYNC_DB"
+# database_name = "opentavern-sync"
+# database_id = "replace-with-your-d1-database-id"
