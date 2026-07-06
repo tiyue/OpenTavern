@@ -7936,7 +7936,7 @@ function processTimedEffects(conv, activatedEntries) {
 
     return finalEntries;
 }
-// ==================== API Client ====================
+// ==================== Generation CoT Helpers ====================
 function extractCotDelta(delta) {
     if (!delta) return '';
     var val = delta.reasoning_content || delta.reasoning || delta.thinking || delta.cot;
@@ -7963,6 +7963,67 @@ function splitInlineCot(content, existingCot) {
     return { content: text, cot: cot.trim() };
 }
 
+function buildCotAwareParts(captureCot, content, cot) {
+    return captureCot
+        ? splitInlineCot(content || '', cot || '')
+        : { content: content || '', cot: '' };
+}
+// ==================== Generation API Request Helpers ====================
+function shouldCaptureCotForRequest(settings, requestOptions) {
+    requestOptions = requestOptions || {};
+    return !!settings.requestCotEnabled && requestOptions.requestCot !== false;
+}
+
+function buildChatCompletionPayload(settings, messages, requestOptions) {
+    requestOptions = requestOptions || {};
+    return {
+        model: settings.model,
+        messages: messages,
+        max_tokens: requestOptions.maxTokens || settings.maxTokens,
+        temperature: typeof requestOptions.temperature === 'number' ? requestOptions.temperature : settings.temperature,
+        top_p: typeof requestOptions.topP === 'number' ? requestOptions.topP : settings.topP,
+        stream: true
+    };
+}
+
+function buildChatCompletionFetchOptions(settings, payload, controller) {
+    return {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + settings.apiKey
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+    };
+}
+
+async function readChatCompletionError(response) {
+    var text = await response.text();
+    var errMsg = 'API Error ' + response.status;
+    try {
+        var errJson = JSON.parse(text);
+        if (errJson.error && errJson.error.message) errMsg += ': ' + errJson.error.message;
+    } catch(e) {
+        if (text) errMsg += ': ' + text.slice(0, 200);
+    }
+    return new Error(errMsg);
+}
+// ==================== Generation Stream State Helpers ====================
+function beginGenerationStreamState() {
+    var controller = new AbortController();
+    state.abortController = controller;
+    state.isGenerating = true;
+    appStore.notify('isGenerating');
+    return controller;
+}
+
+function finishGenerationStreamState() {
+    state.isGenerating = false;
+    appStore.notify('isGenerating');
+    state.abortController = null;
+}
+// ==================== API Client ====================
 function streamChatWithMessages(messages, onToken, onComplete, onError, requestOptions) {
     var settings = state.settings;
     if (isWebLLMBackend()) {
@@ -7974,45 +8035,20 @@ function streamChatWithMessages(messages, onToken, onComplete, onError, requestO
         return;
     }
 
-    var controller = new AbortController();
-    state.abortController = controller;
-    state.isGenerating = true;
-    appStore.notify('isGenerating');
-
+    var controller = beginGenerationStreamState();
     var endpoint = normalizeApiEndpoint(settings.apiEndpoint);
     if (shouldUseOllamaCompat(settings.apiEndpoint)) {
         messages = normalizeMessagesForOllamaCompatibility(messages);
     }
     requestOptions = requestOptions || {};
-    var captureCot = !!settings.requestCotEnabled && requestOptions.requestCot !== false;
-    var payload = {
-        model: settings.model,
-        messages: messages,
-        max_tokens: requestOptions.maxTokens || settings.maxTokens,
-        temperature: typeof requestOptions.temperature === 'number' ? requestOptions.temperature : settings.temperature,
-        top_p: typeof requestOptions.topP === 'number' ? requestOptions.topP : settings.topP,
-        stream: true
-    };
+    var captureCot = shouldCaptureCotForRequest(settings, requestOptions);
+    var payload = buildChatCompletionPayload(settings, messages, requestOptions);
 
-    fetch(endpoint, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + settings.apiKey
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-    }).then(function(response) {
+    fetch(endpoint, buildChatCompletionFetchOptions(settings, payload, controller)).then(function(response) {
         if (!response.ok) {
-            return response.text().then(function(text) {
-                var errMsg = 'API Error ' + response.status;
-                try {
-                    var errJson = JSON.parse(text);
-                    if (errJson.error && errJson.error.message) errMsg += ': ' + errJson.error.message;
-                } catch(e) {
-                    if (text) errMsg += ': ' + text.slice(0, 200);
-                }
-                onError(new Error(errMsg));
+            return readChatCompletionError(response).then(function(err) {
+                finishGenerationStreamState();
+                onError(err);
             });
         }
 
@@ -8025,10 +8061,8 @@ function streamChatWithMessages(messages, onToken, onComplete, onError, requestO
         function pump() {
             reader.read().then(function(result) {
                 if (result.done) {
-                    state.isGenerating = false;
-                    appStore.notify('isGenerating');
-                    state.abortController = null;
-                    var finalParts = captureCot ? splitInlineCot(fullContent, fullCot) : { content: fullContent, cot: '' };
+                    finishGenerationStreamState();
+                    var finalParts = buildCotAwareParts(captureCot, fullContent, fullCot);
                     onComplete(finalParts.content, finalParts.cot);
                     return;
                 }
@@ -8040,10 +8074,8 @@ function streamChatWithMessages(messages, onToken, onComplete, onError, requestO
                     if (!line || line.indexOf('data: ') !== 0) continue;
                     var data = line.slice(6);
                     if (data === '[DONE]') {
-                        state.isGenerating = false;
-                        appStore.notify('isGenerating');
-                        state.abortController = null;
-                        var doneParts = captureCot ? splitInlineCot(fullContent, fullCot) : { content: fullContent, cot: '' };
+                        finishGenerationStreamState();
+                        var doneParts = buildCotAwareParts(captureCot, fullContent, fullCot);
                         onComplete(doneParts.content, doneParts.cot);
                         return;
                     }
@@ -8055,18 +8087,16 @@ function streamChatWithMessages(messages, onToken, onComplete, onError, requestO
                         if (cotDelta) fullCot += cotDelta;
                         if (contentDelta) fullContent += contentDelta;
                         if (contentDelta || cotDelta) {
-                            var parts = captureCot ? splitInlineCot(fullContent, fullCot) : { content: fullContent, cot: '' };
+                            var parts = buildCotAwareParts(captureCot, fullContent, fullCot);
                             onToken(contentDelta, parts.content, parts.cot);
                         }
                     } catch(e) { /* skip malformed */ }
                 }
                 pump();
             }).catch(function(e) {
-                state.isGenerating = false;
-                appStore.notify('isGenerating');
-                state.abortController = null;
+                finishGenerationStreamState();
                 if (e.name === 'AbortError') {
-                    var abortParts = captureCot ? splitInlineCot(fullContent, fullCot) : { content: fullContent, cot: '' };
+                    var abortParts = buildCotAwareParts(captureCot, fullContent, fullCot);
                     onComplete(abortParts.content, abortParts.cot);
                 }
                 else onError(e);
@@ -8074,9 +8104,7 @@ function streamChatWithMessages(messages, onToken, onComplete, onError, requestO
         }
         pump();
     }).catch(function(e) {
-        state.isGenerating = false;
-        appStore.notify('isGenerating');
-        state.abortController = null;
+        finishGenerationStreamState();
         if (e.name === 'AbortError') onComplete('', '');
         else onError(e);
     });

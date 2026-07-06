@@ -304,6 +304,109 @@ async function assertFrontendApiConnectionHelpers() {
   assert(errorText === 'HTTP 401 - bad key', 'HTTP error message parser did not preserve API error detail.');
 }
 
+async function assertFrontendGenerationHelpers() {
+  const sources = await Promise.all([
+    '../src/app/50-generation-cot-utils.js',
+    '../src/app/50-generation-api-request.js',
+    '../src/app/50-generation-stream-state.js',
+    '../src/app/50-generation-integrations.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+  const notifications = [];
+  const context = {
+    state: {
+      isGenerating: false,
+      abortController: null,
+      settings: {
+        apiEndpoint: 'https://chat.example/v1/chat/completions',
+        apiKey: 'chat-key',
+        model: 'chat-model',
+        maxTokens: 1024,
+        temperature: 0.7,
+        topP: 0.9,
+        requestCotEnabled: false,
+      },
+    },
+    appStore: {
+      notify(key) { notifications.push(key); },
+    },
+    isWebLLMBackend: () => false,
+    streamChatWebLLMWithMessages() { throw new Error('WebLLM path should not be used.'); },
+    t: (key) => key,
+    normalizeApiEndpoint: (value) => value,
+    shouldUseOllamaCompat: () => false,
+    normalizeMessagesForOllamaCompatibility: (messages) => messages,
+    fetch: async () => ({
+      ok: false,
+      status: 500,
+      async text() { return JSON.stringify({ error: { message: 'server exploded' } }); },
+    }),
+    AbortController,
+    Error,
+    JSON,
+    String,
+    Array,
+    Object,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__extract = extractCotDelta;\nthis.__split = splitInlineCot;\nthis.__parts = buildCotAwareParts;\nthis.__capture = shouldCaptureCotForRequest;\nthis.__payload = buildChatCompletionPayload;\nthis.__fetchOptions = buildChatCompletionFetchOptions;\nthis.__readError = readChatCompletionError;\nthis.__begin = beginGenerationStreamState;\nthis.__finish = finishGenerationStreamState;\nthis.__stream = streamChatWithMessages;`, context);
+
+  assert(context.__extract({ reasoning_content: 'chain' }) === 'chain', 'CoT delta should read reasoning_content.');
+  assert(context.__extract({ thinking: [{ text: 'a' }, { content: 'b' }, 'c'] }) === 'abc', 'CoT delta should flatten array parts.');
+
+  const split = context.__split('hello <think>hidden</think> world <thinking>more</thinking>', 'seed');
+  assert(split.content === 'hello  world', 'Inline CoT splitter should remove think blocks from content.');
+  assert(split.cot === 'seed\nhidden\nmore', 'Inline CoT splitter should append think blocks to existing CoT.');
+  const noCotParts = context.__parts(false, 'visible', 'secret');
+  assert(noCotParts.content === 'visible' && noCotParts.cot === '', 'CoT parts should ignore CoT when capture is disabled.');
+
+  const settings = {
+    model: 'chat-model',
+    apiKey: 'secret',
+    requestCotEnabled: true,
+    maxTokens: 1024,
+    temperature: 0.7,
+    topP: 0.9,
+  };
+  const messages = [{ role: 'user', content: 'hi' }];
+  const payload = context.__payload(settings, messages, { maxTokens: 256, temperature: 0.2 });
+  assert(payload.model === 'chat-model' && payload.messages === messages && payload.stream === true, 'Payload should preserve model/messages/stream.');
+  assert(payload.max_tokens === 256 && payload.temperature === 0.2 && payload.top_p === 0.9, 'Payload should apply request overrides and defaults.');
+  assert(context.__capture(settings, {}) === true && context.__capture(settings, { requestCot: false }) === false, 'CoT capture flag should respect request override.');
+
+  const controller = new AbortController();
+  const fetchOptions = context.__fetchOptions(settings, payload, controller);
+  assert(fetchOptions.method === 'POST', 'Fetch options should use POST.');
+  assert(fetchOptions.headers.Authorization === 'Bearer secret', 'Fetch options should include bearer token.');
+  assert(JSON.parse(fetchOptions.body).model === 'chat-model', 'Fetch options should serialize payload.');
+  assert(fetchOptions.signal === controller.signal, 'Fetch options should use the provided abort signal.');
+
+  const parsedError = await context.__readError({
+    status: 429,
+    async text() { return JSON.stringify({ error: { message: 'rate limited' } }); },
+  });
+  assert(parsedError.message === 'API Error 429: rate limited', 'API error parser should preserve provider message.');
+
+  const startedController = context.__begin();
+  assert(context.state.isGenerating === true && context.state.abortController === startedController, 'Generation begin should set active stream state.');
+  context.__finish();
+  assert(context.state.isGenerating === false && context.state.abortController === null, 'Generation finish should clear active stream state.');
+  assert(notifications.join(',') === 'isGenerating,isGenerating', 'Generation state helpers should notify state changes.');
+
+  notifications.length = 0;
+  let streamErrorMessage = '';
+  await new Promise((resolve) => {
+    context.__stream(
+      [{ role: 'user', content: 'hi' }],
+      () => {},
+      () => { throw new Error('HTTP error path should not complete.'); },
+      (err) => { streamErrorMessage = err && err.message; resolve(); }
+    );
+  });
+  assert(streamErrorMessage === 'API Error 500: server exploded', 'Streaming HTTP error should preserve API error detail.');
+  assert(context.state.isGenerating === false && context.state.abortController === null, 'Streaming HTTP error should clear active generation state.');
+  assert(notifications.join(',') === 'isGenerating,isGenerating', 'Streaming HTTP error should notify begin and finish state changes.');
+}
+
 async function assertFrontendPublicCardAssets() {
   const dataSource = await readFile(new URL('../src/app/60-public-card-data.js', import.meta.url), 'utf8');
   const librarySource = await readFile(new URL('../src/app/60-public-card-library.js', import.meta.url), 'utf8');
@@ -992,6 +1095,7 @@ async function main() {
   await assertFrontendCloudSnapshotApply();
   await assertFrontendSummaryService();
   await assertFrontendApiConnectionHelpers();
+  await assertFrontendGenerationHelpers();
   await assertFrontendPublicCardAssets();
   await assertFrontendPublicCardGridFiltering();
   await assertFrontendI18nRuntime();
