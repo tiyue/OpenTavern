@@ -258,6 +258,8 @@
   "62-sillytavern-preset-settings-list-ui.js",
   "62-sillytavern-preset-settings-ui.js",
   "62-sillytavern-preset-runtime.js",
+  "63-conversation-import-records.js",
+  "63-conversation-import-merge.js",
   "63-conversation-import-helpers.js",
   "63-conversation-transfer.js",
   "64-conversation-list-ui.js",

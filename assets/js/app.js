@@ -12211,7 +12211,7 @@ function buildSillyTavernPresetMessageBuckets(charName, userName) {
     buckets.inChat.sort(function(a, b) { return (a._order || 0) - (b._order || 0); });
     return buckets;
 }
-// ==================== Conversation Import Helpers ====================
+// ==================== Conversation Import Records ====================
 function getConversationImportRecords(data) {
     return data && Array.isArray(data.conversations) ? data.conversations : null;
 }
@@ -12244,7 +12244,7 @@ function importConversationRecords(convsToImport) {
 
     return { imported, skipped, conversations: importedConvs };
 }
-
+// ==================== Conversation Import Merge Helpers ====================
 function mergeImportedTopLevelCharacters(characters) {
     if (!characters || typeof characters !== 'object') return;
     if (!state.characters) state.characters = {};
@@ -12309,7 +12309,7 @@ function applySuccessfulConversationImport(data, importResult) {
     persistState(true);
     requestRender('activeConvId');
 }
-
+// ==================== Conversation Import Helpers ====================
 function buildConversationImportSuccessMessage(imported, skipped) {
     var msg = t('import_conv_success') + imported + t('import_conv_success_suffix');
     if (skipped > 0) msg += ' ' + skipped + t('import_conv_duplicate');

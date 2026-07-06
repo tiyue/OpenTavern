@@ -3637,7 +3637,11 @@ async function assertFrontendAppInitHelpers() {
 }
 
 async function assertFrontendConversationImportHelpers() {
-  const source = await readFile(new URL('../src/app/63-conversation-import-helpers.js', import.meta.url), 'utf8');
+  const sources = await Promise.all([
+    '../src/app/63-conversation-import-records.js',
+    '../src/app/63-conversation-import-merge.js',
+    '../src/app/63-conversation-import-helpers.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   let renderRequested = null;
   let persistCount = 0;
   const context = {
@@ -3666,7 +3670,7 @@ async function assertFrontendConversationImportHelpers() {
     Array,
   };
 
-  vm.runInNewContext(`${source}\nthis.__records = getConversationImportRecords;\nthis.__import = importConversationRecords;\nthis.__apply = applySuccessfulConversationImport;\nthis.__message = buildConversationImportSuccessMessage;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__records = getConversationImportRecords;\nthis.__import = importConversationRecords;\nthis.__apply = applySuccessfulConversationImport;\nthis.__message = buildConversationImportSuccessMessage;`, context);
 
   const data = {
     conversations: [
