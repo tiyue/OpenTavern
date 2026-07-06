@@ -193,6 +193,8 @@
   "60-public-card-detail-ui.js",
   "60-public-card-import-ui.js",
   "60-public-card-library-ui.js",
+  "60-library-sidebar-ui.js",
+  "60-library-tabs-ui.js",
   "60-library-view-ui.js",
   "60-library-conversation-actions.js",
   "60-library-ui-render.js",

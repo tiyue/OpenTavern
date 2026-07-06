@@ -1390,6 +1390,93 @@ async function assertFrontendComfyUIHelpers() {
   assert(statusEl.textContent === 'no workflow' && statusEl.style.color === '', 'ComfyUI workflow status should show the empty state.');
 }
 
+async function assertFrontendLibraryViewHelpers() {
+  const sources = await Promise.all([
+    '../src/app/60-library-sidebar-ui.js',
+    '../src/app/60-library-tabs-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function classList() {
+    const values = new Set();
+    return {
+      values,
+      add(...names) { names.forEach((name) => values.add(name)); },
+      remove(...names) { names.forEach((name) => values.delete(name)); },
+      toggle(name, force) { if (force) values.add(name); else values.delete(name); },
+    };
+  }
+  function element() {
+    return {
+      classList: classList(),
+      style: {},
+      dataset: {},
+      value: '',
+      _wired: false,
+      listeners: {},
+      addEventListener(type, handler) { this.listeners[type] = handler; },
+      closest() { return this.closestResult || null; },
+    };
+  }
+
+  const myGrid = element();
+  const pubGrid = element();
+  const tabMy = element();
+  const tabPub = element();
+  const search = element();
+  const convList = element();
+  const sidebar = element();
+  const charBlock = element();
+  const worldBlock = element();
+  const fallbackWorldBlock = element();
+  const filters = [{ ...element(), dataset: { filter: 'all' } }, { ...element(), dataset: { filter: 'female' } }];
+  const context = {
+    activeLibraryTab: 'my',
+    libraryFilter: 'female',
+    librarySearchQuery: 'arona',
+    document: {
+      getElementById(id) {
+        return { myCardsGrid: myGrid, publicCardsGrid: pubGrid, tabMy, tabPublic: tabPub, librarySearch: search, convList, sidebar }[id] || null;
+      },
+      querySelector(selector) {
+        if (selector === '#sidebar span[data-i18n="char_card_title"]') return { closest: () => charBlock };
+        if (selector === '#sidebar span[data-i18n="world_book"]') return { closest: () => worldBlock };
+        if (selector === '#sidebar .glass.rounded-xl.px-3.py-2') return fallbackWorldBlock;
+        return null;
+      },
+      querySelectorAll(selector) {
+        return selector === '#libraryView [data-filter]' ? filters : [];
+      },
+    },
+    Set,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__tab = setActiveTab;\nthis.__wire = wireLibraryTabButtons;\nthis.__filters = syncLibraryFilterButtons;\nthis.__search = syncLibrarySearchInput;\nthis.__sidebar = setLibrarySidebarMode;\nthis.__conv = showLibraryConversationList;`, context);
+
+  context.__tab('public');
+  assert(myGrid.classList.values.has('hidden') && !pubGrid.classList.values.has('hidden'), 'Library tabs should show the selected grid.');
+  assert(tabPub.classList.values.has('active') && !tabMy.classList.values.has('active'), 'Library tabs should mark the active tab button.');
+  assert(context.activeLibraryTab === 'public', 'Library tabs should persist the active tab state.');
+
+  context.__wire();
+  assert(tabMy._wired === true && tabPub._wired === true && typeof tabMy.listeners.click === 'function', 'Library tab buttons should be wired once.');
+
+  context.__filters();
+  assert(filters[1].classList.values.has('bg-amber-500/20') && !filters[0].classList.values.has('bg-amber-500/20'), 'Library filters should highlight the active filter.');
+
+  context.__search();
+  assert(search.value === 'arona', 'Library search input should mirror the stored search query.');
+
+  context.__sidebar(true);
+  assert(charBlock.style.display === 'none' && worldBlock.style.display === 'none' && fallbackWorldBlock.style.display === 'none', 'Library mode should hide character and world book sidebar sections.');
+  assert(sidebar.classList.values.has('library-mode'), 'Library mode should mark the sidebar.');
+
+  context.__sidebar(false);
+  assert(charBlock.style.display === '' && worldBlock.style.display === '' && !sidebar.classList.values.has('library-mode'), 'Chat mode should restore sidebar sections.');
+
+  context.__conv();
+  assert(convList.style.display === '', 'Library conversation list helper should show the conversation list.');
+}
+
 async function assertFrontendWorldBookEntryListFiltering() {
   const source = await readFile(new URL('../src/app/43-worldbook-entry-list-filter.js', import.meta.url), 'utf8');
   const context = {
@@ -2093,6 +2180,7 @@ async function main() {
   await assertFrontendWebGPUDeviceHelpers();
   await assertFrontendGroupChatCoreHelpers();
   await assertFrontendComfyUIHelpers();
+  await assertFrontendLibraryViewHelpers();
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendWorldBookEntryListUIHelpers();
   await assertFrontendWorldBookEntryLiveHelpers();
