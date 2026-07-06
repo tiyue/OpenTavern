@@ -6969,7 +6969,7 @@ function selectWIEntry(uid) {
     var entry = getActiveWI().entries[wiState.selectedUid];
     fillEditorFromEntry(entry);
 }
-// ==================== World Book Entry List Helpers ====================
+// ==================== World Book Entry List Filtering ====================
 function getCurrentWorldBookFilter() {
     return dom.wiSearch ? dom.wiSearch.value.trim() : '';
 }
@@ -6992,7 +6992,7 @@ function getFilteredWorldInfoEntries(wi, filter) {
     entries.sort(function(a, b) { return (b.order || 0) - (a.order || 0); });
     return entries;
 }
-
+// ==================== World Book Entry List Helpers ====================
 function appendBackToWorldBookListRow(container) {
     var backRow = document.createElement('div');
     backRow.className = 'text-xs text-amber-400 px-2 py-1 mb-2 cursor-pointer hover:underline flex items-center gap-1';

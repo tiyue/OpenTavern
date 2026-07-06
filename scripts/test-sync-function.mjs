@@ -467,6 +467,32 @@ async function assertFrontendWorldBookActivation() {
   assert(second === first, 'World book activation cache was not reused for the same conversation fingerprint.');
 }
 
+async function assertFrontendWorldBookEntryListFiltering() {
+  const source = await readFile(new URL('../src/app/43-worldbook-entry-list-filter.js', import.meta.url), 'utf8');
+  const context = {
+    dom: { wiSearch: { value: '  kivotos  ' } },
+    normalizeWIEntry: (entry) => entry,
+    Object,
+    Array,
+    String,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__filter = getCurrentWorldBookFilter;\nthis.__entries = getFilteredWorldInfoEntries;`, context);
+
+  const wi = {
+    entries: {
+      low: { uid: 'low', key: ['academy'], keysecondary: [], comment: 'Kivotos note', order: 10 },
+      high: { uid: 'high', key: ['Kivotos'], keysecondary: [], comment: '', order: 50 },
+      secondary: { uid: 'secondary', key: [], keysecondary: ['Kivotos'], comment: '', order: 30 },
+      other: { uid: 'other', key: ['Gehenna'], keysecondary: [], comment: '', order: 100 },
+    },
+  };
+
+  assert(context.__filter() === 'kivotos', 'World book filter did not trim search text.');
+  const filtered = context.__entries(wi, context.__filter());
+  assert(filtered.map((entry) => entry.uid).join(',') === 'high,secondary,low', 'World book entries were not filtered and sorted by order.');
+}
+
 async function assertFrontendFileProtocolOPFSSilence() {
   const opfsSources = await Promise.all([
     '../src/app/20-storage-opfs-environment.js',
@@ -859,6 +885,7 @@ async function main() {
   await assertFrontendSillyTavernPresetNormalizer();
   await assertFrontendNewChatPickerMultiSelection();
   await assertFrontendWorldBookActivation();
+  await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendFileProtocolOPFSSilence();
   await assertFrontendStorageServicePipeline();
   await assertFrontendStorageServiceFileProtocolStatus();
