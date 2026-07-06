@@ -11108,7 +11108,7 @@ function renderMessagesFullHistory(conv) {
     container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
 }
-// ==================== SillyTavern Preset UI ====================
+// ==================== SillyTavern Preset Model ====================
 function defaultSillyTavernPreset() {
     return { name: '', importedAt: '', prompts: [], promptOrder: [] };
 }
@@ -11173,7 +11173,7 @@ function normalizePromptRole(role) {
     if (r === 'user' || r === 'assistant' || r === 'system') return r;
     return 'system';
 }
-
+// ==================== SillyTavern Preset Normalizer ====================
 function getSillyTavernPromptOrderItems(promptOrder) {
     var items = [];
     function addOrderArray(arr) {
@@ -11296,6 +11296,8 @@ function normalizeSillyTavernPreset(raw) {
         })
     };
 }
+// ==================== SillyTavern Preset Module Index ====================
+// Preset model and import normalizer are split into adjacent chunks.
 function renderSillyTavernPresetSettings() {
     if (!dom.stPresetList || !dom.stPresetStatus) return;
     var preset = ensureSillyTavernPresetSettings();

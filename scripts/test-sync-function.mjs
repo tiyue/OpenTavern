@@ -224,6 +224,66 @@ async function assertFrontendI18nRuntime() {
   assert(context.__t('missing_key_for_test') === 'missing_key_for_test', 'Missing i18n keys should fall back to the key name.');
 }
 
+async function assertFrontendSillyTavernPresetNormalizer() {
+  const sources = await Promise.all([
+    '../src/app/62-sillytavern-preset-model.js',
+    '../src/app/62-sillytavern-preset-normalizer.js',
+    '../src/app/62-sillytavern-preset-runtime.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const context = {
+    state: { settings: {} },
+    DEFAULT_TWO_STAGE_PROMPT: 'two stage default',
+    defaultSettings: () => ({}),
+    t: (key) => key,
+    replacePlaceholders: (text, charName, userName) => text.replaceAll('{{char}}', charName).replaceAll('{{user}}', userName),
+    Date,
+    Object,
+    String,
+    Array,
+    parseInt,
+    isNaN,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__normalize = normalizeSillyTavernPreset;\nthis.__ensure = ensureSillyTavernPresetSettings;\nthis.__buildBuckets = buildSillyTavernPresetMessageBuckets;\nthis.__role = normalizePromptRole;`, context);
+
+  assert(context.__role('0') === 'system', 'SillyTavern numeric system role was not normalized.');
+  assert(context.__role('1') === 'user', 'SillyTavern numeric user role was not normalized.');
+  assert(context.__role('2') === 'assistant', 'SillyTavern numeric assistant role was not normalized.');
+
+  const preset = context.__normalize({
+    name: 'Imported ST Preset',
+    prompts: [
+      { identifier: 'main', name: 'Main', role: '0', content: 'Hello {{char}}' },
+      { identifier: 'after', role: 'system', content: 'After {{user}}' },
+      { identifier: 'depth', role: 'assistant', content: 'Depth note', injection_depth: 2 },
+    ],
+    prompt_order: [{
+      order: [
+        { identifier: 'main', enabled: true, order: 2, position: 'before_history' },
+        { identifier: 'chat_history', enabled: true, order: 3 },
+        { identifier: 'after', enabled: true, order: 4, position: 'after_history' },
+        { identifier: 'depth', enabled: true, order: 5, position: 'in_chat', depth: 2 },
+      ],
+    }],
+  });
+
+  assert(preset.name === 'Imported ST Preset', 'SillyTavern preset name was not preserved.');
+  assert(preset.prompts.length === 3, 'SillyTavern preset prompts were not preserved.');
+  assert(preset.prompts[0].role === 'system', 'SillyTavern preset prompt role was not normalized.');
+  assert(preset.promptOrder.length === 4, 'SillyTavern prompt order was not preserved.');
+
+  context.state.settings.sillyTavernPreset = preset;
+  context.__ensure();
+  const buckets = context.__buildBuckets('Arona', 'Sensei');
+  assert(buckets.beforeHistory[0].content === 'Hello Arona', 'Before-history preset prompt did not render with placeholders.');
+  assert(buckets.afterHistory[0].content === 'After Sensei', 'After-history preset prompt was not bucketed correctly.');
+  assert(buckets.inChat[0]._depth === 2, 'In-chat preset prompt depth was not preserved.');
+
+  const legacy = context.__normalize({ main_prompt: 'legacy main prompt' });
+  assert(legacy.prompts[0].identifier === 'main_prompt', 'Legacy SillyTavern prompt fields were not imported.');
+}
+
 async function assertFrontendFileProtocolOPFSSilence() {
   const opfsSource = await readFile(new URL('../src/app/20-storage-opfs.js', import.meta.url), 'utf8');
   const warnings = [];
@@ -268,6 +328,7 @@ async function main() {
   await assertFrontendSummaryService();
   await assertFrontendPublicCardAssets();
   await assertFrontendI18nRuntime();
+  await assertFrontendSillyTavernPresetNormalizer();
   await assertFrontendFileProtocolOPFSSilence();
 
   const { db } = createMockD1();
