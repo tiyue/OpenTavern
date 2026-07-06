@@ -13192,7 +13192,7 @@ function createMessageEditTextarea(originalContent, originalBubbleWidth) {
     }
     return ta;
 }
-// ==================== Settings Modal Hydration ====================
+// ==================== Settings Basic Hydration ====================
 function hydratePrimaryApiSettings() {
     dom.apiEndpoint.value = state.settings.apiEndpoint;
     dom.apiKey.value = state.settings.apiKey;
@@ -13236,7 +13236,7 @@ function bindSettingsPromptShortcutButtons() {
         };
     }
 }
-
+// ==================== Settings Advanced Hydration ====================
 function hydrateTwoStageSettings() {
     if (dom.twoStageEnabled) dom.twoStageEnabled.checked = !!state.settings.twoStageEnabled;
     if (dom.twoStageTemperature) dom.twoStageTemperature.value = state.settings.twoStageTemperature;
@@ -13248,7 +13248,10 @@ function hydrateTwoStageSettings() {
     if (dom.twoStagePostHistoryInstructions) dom.twoStagePostHistoryInstructions.value = state.settings.twoStagePostHistoryInstructions || '';
     if (dom.requestCotEnabled) dom.requestCotEnabled.checked = !!state.settings.requestCotEnabled;
     if (dom.showCotEnabled) dom.showCotEnabled.checked = state.settings.showCotEnabled !== false;
+    bindTwoStageRestoreButton();
+}
 
+function bindTwoStageRestoreButton() {
     if (dom.restoreTwoStagePromptBtn && dom.twoStageSystemPrompt) {
         dom.restoreTwoStagePromptBtn.onclick = function() {
             dom.twoStageSystemPrompt.value = DEFAULT_TWO_STAGE_PROMPT;
@@ -13256,11 +13259,6 @@ function hydrateTwoStageSettings() {
             persistState(true);
         };
     }
-}
-
-function hydrateSillyTavernPresetSettings() {
-    ensureSillyTavernPresetSettings();
-    renderSillyTavernPresetSettings();
 }
 
 function hydrateSummarySettings() {
@@ -13302,6 +13300,11 @@ function hydrateSummarizationApiSettings() {
     dom.summarizeApiKey.value = state.settings.summarizeApiKey || '';
     dom.summarizeModel.value = state.settings.summarizeModel || 'deepseek-v4-flash';
 }
+// ==================== Settings Integration Hydration ====================
+function hydrateSillyTavernPresetSettings() {
+    ensureSillyTavernPresetSettings();
+    renderSillyTavernPresetSettings();
+}
 
 function hydrateComfySettingsControls() {
     ensureComfySettings();
@@ -13314,6 +13317,8 @@ function hydrateComfySettingsControls() {
     if (dom.comfyPromptTemplate) dom.comfyPromptTemplate.value = state.settings.comfyPromptTemplate || '';
     updateComfyWorkflowStatus();
 }
+// ==================== Settings Modal Hydration ====================
+// Split into basic, advanced, and integration hydration helper chunks.
 // ==================== Settings Modal ====================
 function updateSummaryThresholdWarning() {
     if (!dom.summaryThreshold || !dom.contextLength) return;

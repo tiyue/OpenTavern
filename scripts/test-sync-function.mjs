@@ -735,6 +735,116 @@ async function assertFrontendSettingsSaveHelpers() {
   assert(events.includes('auto'), 'Settings save should trigger auto summarize when enabled.');
 }
 
+async function assertFrontendSettingsHydrationHelpers() {
+  const sources = await Promise.all([
+    '../src/app/68-settings-basic-hydration.js',
+    '../src/app/68-settings-advanced-hydration.js',
+    '../src/app/68-settings-integration-hydration.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function input(value = '') {
+    return {
+      value,
+      textContent: '',
+      checked: false,
+      listeners: {},
+      addEventListener(type, handler) { this.listeners[type] = handler; },
+    };
+  }
+
+  const events = [];
+  const context = {
+    state: { settings: {
+      apiEndpoint: 'https://api.example',
+      apiKey: 'key',
+      saveApiKey: true,
+      ollamaCompatMode: true,
+      model: 'model-a',
+      contextLength: 32,
+      maxTokens: 2048,
+      temperature: 0.4,
+      topP: 0.8,
+      userName: 'Sensei',
+      systemPrompt: 'system',
+      postHistoryInstructions: 'post',
+      userDescription: 'desc',
+      twoStageEnabled: true,
+      twoStageTemperature: 0.25,
+      twoStageTopP: 0.75,
+      twoStageIncludeRecentContext: true,
+      twoStageSystemPrompt: '',
+      twoStagePostHistoryInstructions: 'two post',
+      requestCotEnabled: true,
+      showCotEnabled: false,
+      summaryEnabled: true,
+      summaryThreshold: 18,
+      summaryMaxWords: 600,
+      summaryPrompt: 'summary',
+      worldInfoBudgetEnabled: true,
+      worldInfoBudget: 4096,
+      uiTheme: 'new-dark',
+      lowPowerMode: true,
+      summarizeUseMainAPI: false,
+      summarizeApiEndpoint: 'https://summary.example',
+      summarizeApiKey: 'summary-key',
+      summarizeModel: 'summary-model',
+      comfyEnabled: true,
+      comfyServer: 'http://127.0.0.1:8188',
+      comfyPositiveNodeId: '1',
+      comfyNegativeNodeId: '2',
+      comfySeedNodeId: '3',
+      comfyNegativePrompt: 'neg',
+      comfyPromptTemplate: 'template',
+    } },
+    dom: {
+      apiEndpoint: input(), apiKey: input(), saveApiKey: input(), ollamaCompatMode: input(), modelName: input(),
+      contextLength: input(), contextLenVal: input(), maxTokens: input(), maxTokensVal: input(), temperature: input(), tempVal: input(), topP: input(), topPVal: input(),
+      userName: input(), systemPrompt: input(), postHistoryInstructions: input(), userDescription: input(), fillRoleplayPromptBtn: input(), fillPostHistoryBtn: input(),
+      twoStageEnabled: input(), twoStageTemperature: input(), twoStageTempVal: input(), twoStageTopP: input(), twoStageTopPVal: input(), twoStageIncludeRecentContext: input(), twoStageSystemPrompt: input(), twoStagePostHistoryInstructions: input(), requestCotEnabled: input(), showCotEnabled: input(), restoreTwoStagePromptBtn: input(),
+      summaryEnabled: input(), summaryThreshold: input(), summaryThresholdVal: input(), summaryMaxWords: input(), summaryPrompt: input(),
+      worldInfoBudgetEnabled: input(), worldInfoBudget: input(), worldInfoBudgetVal: input(), uiTheme: input(), lowPowerMode: input(),
+      summarizeUseMainAPI: input(), summarizeApiEndpoint: input(), summarizeApiKey: input(), summarizeModel: input(),
+      comfyEnabled: input(), comfyServer: input(), comfyPositiveNodeId: input(), comfyNegativeNodeId: input(), comfySeedNodeId: input(), comfyNegativePrompt: input(), comfyPromptTemplate: input(),
+    },
+    BASE_SYSTEM_PROMPT: 'base system',
+    DEFAULT_FIRST_STAGE_POST_HISTORY_INSTRUCTIONS: 'default post',
+    DEFAULT_TWO_STAGE_PROMPT: 'default two stage',
+    persistState: () => events.push('persist'),
+    updateSummaryThresholdWarning: () => events.push('summary-warning'),
+    ensureSillyTavernPresetSettings: () => events.push('st-ensure'),
+    renderSillyTavernPresetSettings: () => events.push('st-render'),
+    ensureComfySettings: () => events.push('comfy-ensure'),
+    updateComfyWorkflowStatus: () => events.push('comfy-status'),
+    parseInt,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__primary = hydratePrimaryApiSettings;\nthis.__generation = hydrateGenerationSettings;\nthis.__prompt = hydratePromptSettings;\nthis.__two = hydrateTwoStageSettings;\nthis.__summary = hydrateSummarySettings;\nthis.__budget = hydrateWorldInfoBudgetSettings;\nthis.__theme = hydrateThemePerformanceSettings;\nthis.__summaryApi = hydrateSummarizationApiSettings;\nthis.__st = hydrateSillyTavernPresetSettings;\nthis.__comfy = hydrateComfySettingsControls;`, context);
+
+  context.__primary();
+  context.__generation();
+  context.__prompt();
+  context.__two();
+  context.__summary();
+  context.__budget();
+  context.__theme();
+  context.__summaryApi();
+  context.__st();
+  context.__comfy();
+
+  assert(context.dom.apiEndpoint.value === 'https://api.example' && context.dom.saveApiKey.checked === true, 'Settings hydration should fill primary API controls.');
+  assert(context.dom.contextLenVal.textContent === 32 && context.dom.tempVal.textContent === 0.4, 'Settings hydration should fill generation slider labels.');
+  assert(context.dom.twoStageSystemPrompt.value === 'default two stage' && context.dom.showCotEnabled.checked === false, 'Settings hydration should fill two-stage controls.');
+  assert(context.dom.summaryThresholdVal.textContent === 18 && context.dom.summaryMaxWords.value === 600, 'Settings hydration should fill summary controls.');
+  assert(context.dom.worldInfoBudgetVal.textContent === 4096 && context.dom.uiTheme.value === 'new-dark', 'Settings hydration should fill world info and theme controls.');
+  assert(context.dom.summarizeApiEndpoint.value === 'https://summary.example' && context.dom.comfyServer.value === 'http://127.0.0.1:8188', 'Settings hydration should fill integration controls.');
+  assert(events.includes('st-ensure') && events.includes('comfy-status') && events.includes('summary-warning'), 'Settings hydration should call dependent render/status helpers.');
+
+  context.dom.fillRoleplayPromptBtn.onclick();
+  context.dom.restoreTwoStagePromptBtn.onclick();
+  assert(context.state.settings.systemPrompt === 'base system' && context.state.settings.twoStageSystemPrompt === 'default two stage', 'Settings hydration shortcut buttons should restore defaults.');
+  assert(events.filter((event) => event === 'persist').length === 2, 'Settings hydration shortcut buttons should persist changes.');
+}
+
 async function assertFrontendPublicCardAssets() {
   const dataSource = await readFile(new URL('../src/app/60-public-card-data.js', import.meta.url), 'utf8');
   const assetSource = await readFile(new URL('../src/app/60-public-card-assets.js', import.meta.url), 'utf8');
@@ -2302,6 +2412,7 @@ async function main() {
   await assertFrontendCharacterImportHelpers();
   await assertFrontendWorldInfoNormalizerHelpers();
   await assertFrontendSettingsSaveHelpers();
+  await assertFrontendSettingsHydrationHelpers();
   await assertFrontendPublicCardAssets();
   await assertFrontendPublicCardGridFiltering();
   await assertFrontendI18nRuntime();
