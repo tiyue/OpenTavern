@@ -6549,6 +6549,7 @@ function bindWorldBookCharacterFilterControls() {
         });
     }
 }
+// ==================== World Book Entry Key UI ====================
 function addWIKeyFromInput(isPrimary) {
     var input = isPrimary ? dom.wiKeyInput : dom.wiSecInput;
     var val = input.value.trim();
@@ -6604,7 +6605,7 @@ function renderChips(isPrimary) {
         container.appendChild(empty);
     }
 }
-
+// ==================== World Book Entry Editor UI ====================
 function updateStrategyButtons(entry) {
     if (!entry) return;
     var c = dom.wiStratConstant;

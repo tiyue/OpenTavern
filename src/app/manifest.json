@@ -66,6 +66,7 @@
   "43-worldbook-modal-controls.js",
   "43-worldbook-entry-live-bindings.js",
   "43-worldbook-entry-trigger-bindings.js",
+  "43-worldbook-entry-key-ui.js",
   "43-worldbook-entry-editor-ui.js",
   "43-worldbook-entry-actions.js",
   "43-worldbook-entry-list-helpers.js",
