@@ -47,19 +47,19 @@ const DEFAULT_FIRST_STAGE_POST_HISTORY_INSTRUCTIONS = [
     '- 保持角色卡所定义的说话风格与口癖。',
     '-完全沉浸在正文，严禁输出除正文以外的结构，包括但不限于：可选项、剧情走向、状态栏、好感度等等，输出正文以外的内容是严重错误'
 ].join('\n');
-// ==================== WebLLM 懒加载相关（关键：页面初始化时绝不执行任何 import 或初始化） ====================
-let webllmEngine = null;           // MLCEngine 实例，只有在用户确认后才创建
-let webllmCurrentModel = null;     // 当前已加载的模型 ID
+// ==================== WebLLM Local Backend State ====================
+// Keep this chunk side-effect light. The WebLLM engine is created only after user confirmation.
+let webllmEngine = null;
+let webllmCurrentModel = null;
+
 const WEBLLM_MODEL_INFO = {
     'Llama-3.2-1B-Instruct-q4f16_1-MLC': { label: 'Llama-3.2-1B', sizeMB: 850 },
     'Llama-3.2-3B-Instruct-q4f16_1-MLC': { label: 'Llama-3.2-3B', sizeMB: 2100 }
 };
-
-
+// ==================== App Dialog Helpers ====================
 const nativeAlert = window.alert ? window.alert.bind(window) : null;
 const nativeConfirm = window.confirm ? window.confirm.bind(window) : null;
 let _appDialogQueue = Promise.resolve();
-let webgpuLastDeviceReport = null;
 
 function showGlassDialog(options) {
     options = options || {};
@@ -68,7 +68,10 @@ function showGlassDialog(options) {
             const modal = document.getElementById('appDialogModal');
             if (!modal) {
                 if (options.showCancel && nativeConfirm) resolve(nativeConfirm(String(options.message || '')));
-                else { if (nativeAlert) nativeAlert(String(options.message || '')); resolve(true); }
+                else {
+                    if (nativeAlert) nativeAlert(String(options.message || ''));
+                    resolve(true);
+                }
                 return;
             }
 
@@ -105,6 +108,7 @@ function showGlassDialog(options) {
                 document.removeEventListener('keydown', onKeyDown, true);
                 resolve(value);
             }
+
             function onKeyDown(ev) {
                 if (ev.key === 'Escape') cleanup(showCancel ? false : true);
             }
@@ -114,7 +118,9 @@ function showGlassDialog(options) {
             if (backdrop) backdrop.onclick = function() { cleanup(showCancel ? false : true); };
             document.addEventListener('keydown', onKeyDown, true);
             modal.classList.remove('hidden');
-            setTimeout(function() { try { (showCancel && cancelBtn ? cancelBtn : okBtn).focus(); } catch (_) {} }, 0);
+            setTimeout(function() {
+                try { (showCancel && cancelBtn ? cancelBtn : okBtn).focus(); } catch (_) {}
+            }, 0);
         });
     };
     const next = _appDialogQueue.then(run, run);
@@ -131,6 +137,12 @@ function showGlassConfirm(message, options) {
     options = Object.assign({ showCancel: true }, options || {}, { message: message });
     return showGlassDialog(options);
 }
+
+window.showGlassAlert = showGlassAlert;
+window.showGlassConfirm = showGlassConfirm;
+window.alert = function(message) { showGlassAlert(message); };
+// ==================== WebGPU Device Helpers ====================
+let webgpuLastDeviceReport = null;
 
 function getPlainAdapterInfo(info) {
     if (!info) return {};
@@ -268,10 +280,7 @@ async function withHighPerformanceWebGPUAdapterRequest(fn) {
     }
 }
 
-window.showGlassAlert = showGlassAlert;
-window.showGlassConfirm = showGlassConfirm;
 window.detectCurrentWebGPUDevice = detectCurrentWebGPUDevice;
-window.alert = function(message) { showGlassAlert(message); };
 function isWebLLMBackend() {
     return !!(state && state.settings && state.settings.inferenceBackend === 'webllm');
 }
@@ -1867,125 +1876,122 @@ function t(key) {
     if (!dict) dict = i18n['en'];
     return dict[key] !== undefined ? dict[key] : (i18n['en'][key] || key);
 }
+// ==================== WebGL Shader Sources ====================
+var WEBGL_VERTEX_SHADER_SOURCE = [
+    'attribute vec2 a_position;',
+    'void main() {',
+    '  gl_Position = vec4(a_position, 0.0, 1.0);',
+    '}'
+].join('\n');
+
+var WEBGL_FRAGMENT_SHADER_SOURCE = [
+    'precision mediump float;',
+
+    '#define S(a,b,t) smoothstep(a,b,t)',
+
+    'mat2 Rot(float a) {',
+    '  float s = sin(a);',
+    '  float c = cos(a);',
+    '  return mat2(c, -s, s, c);',
+    '}',
+
+    'vec2 hash(vec2 p) {',
+    '  p = vec2(dot(p,vec2(2127.1,81.17)), dot(p,vec2(1269.5,283.37)));',
+    '  return fract(sin(p)*43758.5453);',
+    '}',
+
+    'float noise(in vec2 p) {',
+    '  vec2 i = floor(p);',
+    '  vec2 f = fract(p);',
+    '  vec2 u = f*f*(3.0-2.0*f);',
+    '  float n = mix(mix(dot(-1.0+2.0*hash(i+vec2(0.0,0.0)), f-vec2(0.0,0.0)),',
+    '                     dot(-1.0+2.0*hash(i+vec2(1.0,0.0)), f-vec2(1.0,0.0)), u.x),',
+    '               mix(dot(-1.0+2.0*hash(i+vec2(0.0,1.0)), f-vec2(0.0,1.0)),',
+    '                     dot(-1.0+2.0*hash(i+vec2(1.0,1.0)), f-vec2(1.0,1.0)), u.x), u.y);',
+    '  return 0.5 + 0.5*n;',
+    '}',
+
+    'uniform vec2 u_resolution;',
+    'uniform float u_time;',
+
+    'void mainImage(out vec4 fragColor, in vec2 fragCoord) {',
+    '  vec2 uv = fragCoord/u_resolution.xy;',
+    '  float ratio = u_resolution.x / u_resolution.y;',
+
+    '  vec2 tuv = uv;',
+    '  tuv -= .5;',
+
+    '  float degree = noise(vec2(u_time*.1, tuv.x*tuv.y));',
+    '  tuv.y *= 1./ratio;',
+    '  tuv *= Rot(radians((degree-.5)*720.+180.));',
+    '  tuv.y *= ratio;',
+
+    '  float frequency = 5.;',
+    '  float amplitude = 30.;',
+    '  float speed = u_time * 2.;',
+    '  tuv.x += sin(tuv.y*frequency+speed)/amplitude;',
+    '  tuv.y += sin(tuv.x*frequency*1.5+speed)/(amplitude*.5);',
+
+    '  vec3 colorYellow = vec3(0.18, 0.11, 0.06);',
+    '  vec3 colorDeepBlue = vec3(0.09, 0.06, 0.04);',
+    '  vec3 layer1 = mix(colorYellow, colorDeepBlue, S(-.3, .2, (tuv*Rot(radians(-5.))).x));',
+
+    '  vec3 colorRed = vec3(0.22, 0.08, 0.05);',
+    '  vec3 colorBlue = vec3(0.13, 0.09, 0.06);',
+    '  vec3 layer2 = mix(colorRed, colorBlue, S(-.3, .2, (tuv*Rot(radians(-5.))).x));',
+
+    '  vec3 finalComp = mix(layer1, layer2, S(.5, -.3, tuv.y));',
+
+    '  fragColor = vec4(finalComp, 1.0);',
+    '}',
+
+    'void main() {',
+    '  vec2 fragCoord = gl_FragCoord.xy;',
+    '  vec4 color;',
+    '  mainImage(color, fragCoord);',
+    '  gl_FragColor = color;',
+    '}'
+].join('\n');
 // ==================== WebGL Background ====================
 var shaderCanvas = document.getElementById('shaderCanvas');
-var gl = shaderCanvas.getContext('webgl') || shaderCanvas.getContext('experimental-webgl');
+var gl = shaderCanvas ? (shaderCanvas.getContext('webgl') || shaderCanvas.getContext('experimental-webgl')) : null;
+
+function createWebGLShader(glContext, type, source) {
+    var shader = glContext.createShader(type);
+    glContext.shaderSource(shader, source);
+    glContext.compileShader(shader);
+    if (!glContext.getShaderParameter(shader, glContext.COMPILE_STATUS)) {
+        console.warn('Shader compile error:', glContext.getShaderInfoLog(shader));
+        glContext.deleteShader(shader);
+        return null;
+    }
+    return shader;
+}
+
+function createWebGLProgram(glContext, vertexShader, fragmentShader) {
+    if (!vertexShader || !fragmentShader) return null;
+    var program = glContext.createProgram();
+    glContext.attachShader(program, vertexShader);
+    glContext.attachShader(program, fragmentShader);
+    glContext.linkProgram(program);
+    if (!glContext.getProgramParameter(program, glContext.LINK_STATUS)) {
+        console.warn('Program link error:', glContext.getProgramInfoLog(program));
+        glContext.deleteProgram(program);
+        return null;
+    }
+    return program;
+}
 
 if (gl) {
-    var vertexShaderSource = [
-        'attribute vec2 a_position;',
-        'void main() {',
-        '  gl_Position = vec4(a_position, 0.0, 1.0);',
-        '}'
-    ].join('\n');
-
-    var fragmentShaderSource = [
-        'precision mediump float;',
-
-        '#define S(a,b,t) smoothstep(a,b,t)',
-
-        'mat2 Rot(float a) {',
-        '  float s = sin(a);',
-        '  float c = cos(a);',
-        '  return mat2(c, -s, s, c);',
-        '}',
-
-        'vec2 hash(vec2 p) {',
-        '  p = vec2(dot(p,vec2(2127.1,81.17)), dot(p,vec2(1269.5,283.37)));',
-        '  return fract(sin(p)*43758.5453);',
-        '}',
-
-        'float noise(in vec2 p) {',
-        '  vec2 i = floor(p);',
-        '  vec2 f = fract(p);',
-        '  vec2 u = f*f*(3.0-2.0*f);',
-        '  float n = mix(mix(dot(-1.0+2.0*hash(i+vec2(0.0,0.0)), f-vec2(0.0,0.0)),',
-        '                     dot(-1.0+2.0*hash(i+vec2(1.0,0.0)), f-vec2(1.0,0.0)), u.x),',
-        '               mix(dot(-1.0+2.0*hash(i+vec2(0.0,1.0)), f-vec2(0.0,1.0)),',
-        '                     dot(-1.0+2.0*hash(i+vec2(1.0,1.0)), f-vec2(1.0,1.0)), u.x), u.y);',
-        '  return 0.5 + 0.5*n;',
-        '}',
-
-        'uniform vec2 u_resolution;',
-        'uniform float u_time;',
-
-        'void mainImage(out vec4 fragColor, in vec2 fragCoord) {',
-        '  vec2 uv = fragCoord/u_resolution.xy;',
-        '  float ratio = u_resolution.x / u_resolution.y;',
-
-        '  vec2 tuv = uv;',
-        '  tuv -= .5;',
-
-        // Rotation driven by noise
-        '  float degree = noise(vec2(u_time*.1, tuv.x*tuv.y));',
-        '  tuv.y *= 1./ratio;',
-        '  tuv *= Rot(radians((degree-.5)*720.+180.));',
-        '  tuv.y *= ratio;',
-
-        // Sine wave warp
-        '  float frequency = 5.;',
-        '  float amplitude = 30.;',
-        '  float speed = u_time * 2.;',
-        '  tuv.x += sin(tuv.y*frequency+speed)/amplitude;',
-        '  tuv.y += sin(tuv.x*frequency*1.5+speed)/(amplitude*.5);',
-
-        // Layer 1: warm cream → deep blue
-        '  vec3 colorYellow = vec3(0.18, 0.11, 0.06);',
-        '  vec3 colorDeepBlue = vec3(0.09, 0.06, 0.04);',
-        '  vec3 layer1 = mix(colorYellow, colorDeepBlue, S(-.3, .2, (tuv*Rot(radians(-5.))).x));',
-
-        // Layer 2: pink → sky blue
-        '  vec3 colorRed = vec3(0.22, 0.08, 0.05);',
-        '  vec3 colorBlue = vec3(0.13, 0.09, 0.06);',
-        '  vec3 layer2 = mix(colorRed, colorBlue, S(-.3, .2, (tuv*Rot(radians(-5.))).x));',
-
-        // Blend layers vertically
-        '  vec3 finalComp = mix(layer1, layer2, S(.5, -.3, tuv.y));',
-
-        '  fragColor = vec4(finalComp, 1.0);',
-        '}',
-
-        'void main() {',
-        '  vec2 fragCoord = gl_FragCoord.xy;',
-        '  vec4 color;',
-        '  mainImage(color, fragCoord);',
-        '  gl_FragColor = color;',
-        '}'
-    ].join('\n');
-
-    function createShader(gl, type, source) {
-        var shader = gl.createShader(type);
-        gl.shaderSource(shader, source);
-        gl.compileShader(shader);
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            console.warn('Shader compile error:', gl.getShaderInfoLog(shader));
-            gl.deleteShader(shader);
-            return null;
-        }
-        return shader;
-    }
-
-    var vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-    var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-    var program = (function() {
-        if (!vertexShader || !fragmentShader) return null;
-        var p = gl.createProgram();
-        gl.attachShader(p, vertexShader);
-        gl.attachShader(p, fragmentShader);
-        gl.linkProgram(p);
-        if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
-            console.warn('Program link error:', gl.getProgramInfoLog(p));
-            gl.deleteProgram(p);
-            return null;
-        }
-        return p;
-    })();
+    var vertexShader = createWebGLShader(gl, gl.VERTEX_SHADER, WEBGL_VERTEX_SHADER_SOURCE);
+    var fragmentShader = createWebGLShader(gl, gl.FRAGMENT_SHADER, WEBGL_FRAGMENT_SHADER_SOURCE);
+    var program = createWebGLProgram(gl, vertexShader, fragmentShader);
 
     if (program) {
         gl.useProgram(program);
         var positionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
         var positionLocation = gl.getAttribLocation(program, 'a_position');
         gl.enableVertexAttribArray(positionLocation);
         gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
@@ -2001,15 +2007,12 @@ if (gl) {
         window.addEventListener('resize', resizeShader);
         resizeShader();
 
-        // Mobile / Tablet full-height fix: use dynamic viewport + safe area
         function updateAppHeight() {
-            // Prefer dvh if supported, fallback to innerHeight for older browsers / keyboard issues
             var h = window.innerHeight;
             document.documentElement.style.setProperty('--app-height', h + 'px');
         }
         window.addEventListener('resize', updateAppHeight);
         window.addEventListener('orientationchange', updateAppHeight);
-        // Also update on load
         setTimeout(updateAppHeight, 0);
 
         var shaderStartTime = performance.now();
@@ -2017,11 +2020,9 @@ if (gl) {
 
         function renderShader(now) {
             if (document.hidden) {
-                // 页面不可见时节流，停止绘制
                 shaderAnimationFrame = null;
                 return;
             }
-            // 效能模式下额外保护（applyPerformanceMode 会负责暂停）
             if (window.__lowPowerMode) {
                 shaderAnimationFrame = null;
                 return;
@@ -2038,7 +2039,6 @@ if (gl) {
             }
         }
 
-        // 效能模式专用：暂停着色器（取消 RAF + 隐藏 canvas，彻底释放 GPU）
         function pauseShader() {
             window.__lowPowerMode = true;
             if (shaderAnimationFrame) {
@@ -2048,7 +2048,6 @@ if (gl) {
             if (shaderCanvas) shaderCanvas.style.display = 'none';
         }
 
-        // 恢复着色器（显示 canvas 并重启 RAF）
         function resumeShader() {
             window.__lowPowerMode = false;
             if (shaderCanvas) shaderCanvas.style.display = '';
@@ -2057,7 +2056,6 @@ if (gl) {
             }
         }
 
-        // 页面可见性变化时控制动画（低功耗时不恢复）
         document.addEventListener('visibilitychange', function() {
             var themed = document.body && (document.body.classList.contains('theme-new-light') || document.body.classList.contains('theme-new-dark'));
             if (!document.hidden && !window.__lowPowerMode && !themed) {
@@ -2065,23 +2063,18 @@ if (gl) {
             }
         });
 
-        // 初始启动：新版工作区主题不需要经典玻璃 shader。
         startShaderAnimation();
 
-        // 暴露控制函数供 applyPerformanceMode 调用
         window.__pauseShader = pauseShader;
         window.__resumeShader = resumeShader;
     }
 }
-
-// ==================== 效能模式应用函数（供设置开关与启动时调用） ====================
+// ==================== Theme and Performance Mode ====================
 function applyPerformanceMode(enabled) {
     var isLow = !!enabled;
-    // 1. body 类控制 CSS 规则（blur、shader display、动画等）
     if (document.body) {
         document.body.classList.toggle('low-power', isLow);
     }
-    // 2. 着色器控制（使用 shader 块暴露的函数）
     try {
         if (isLow) {
             if (typeof window.__pauseShader === 'function') window.__pauseShader();
@@ -2089,12 +2082,10 @@ function applyPerformanceMode(enabled) {
             if (typeof window.__resumeShader === 'function') window.__resumeShader();
         }
     } catch (e) {
-        // 静默失败（shader 可能尚未就绪，启动时 apply 会再试）
+        // Shader controls may not be ready during early startup.
     }
-    // 未来可在此添加更多节流（如限制流式渲染频率等）
 }
 
-// ==================== 界面主题应用函数（独立于效能模式） ====================
 function applyUiTheme(theme) {
     var value = typeof normalizeUiTheme === 'function' ? normalizeUiTheme(theme) : (theme || 'new-light');
     if (typeof cacheUiTheme === 'function') cacheUiTheme(value);
