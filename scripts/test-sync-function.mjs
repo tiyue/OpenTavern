@@ -769,6 +769,10 @@ async function assertFrontendWorldBookActivation() {
     '../src/app/44-worldbook-budget.js',
     '../src/app/44-worldbook-timed-effects.js',
     '../src/app/44-worldbook-activation-helpers.js',
+    '../src/app/44-worldbook-activation-collection.js',
+    '../src/app/44-worldbook-activation-cache.js',
+    '../src/app/44-worldbook-activation-selection.js',
+    '../src/app/44-worldbook-activation-result.js',
     '../src/app/44-worldbook-activation.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
@@ -856,6 +860,103 @@ async function assertFrontendWorldBookActivation() {
 
   const second = context.__activate(activeConv);
   assert(second === first, 'World book activation cache was not reused for the same conversation fingerprint.');
+}
+
+async function assertFrontendWorldBookActivationHelpers() {
+  const sources = await Promise.all([
+    '../src/app/44-worldbook-activation-collection.js',
+    '../src/app/44-worldbook-activation-cache.js',
+    '../src/app/44-worldbook-activation-selection.js',
+    '../src/app/44-worldbook-activation-result.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  let activeConv = null;
+  const context = {
+    state: {
+      settings: {},
+      worldBooks: {
+        wb1: {
+          entries: {
+            global: { uid: 'global', key: ['Kivotos'], content: 'Global lore' },
+          },
+        },
+      },
+    },
+    normalizeWIEntry(entry) { return Object.assign({}, entry); },
+    passesCharacterFilter: () => true,
+    passesProbability: () => true,
+    buildScanText: () => 'Kivotos trigger',
+    entryMatchesKeys: (entry) => (entry.key || []).includes('Kivotos'),
+    entryMatchesSecondary: () => true,
+    applyWorldInfoBudget(entries) { return { entries, trimmed: entries.length > 2 }; },
+    getActiveConv() { return activeConv; },
+    WI_POS: { AFTER_CHAR: 1, OUTLET: 6 },
+    JSON,
+    Date,
+    Object,
+    Array,
+    String,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__collect = collectWorldInfoActivationEntries;\nthis.__combined = buildCombinedWorldInfo;\nthis.__enabled = getEnabledWorldInfoEntries;\nthis.__key = buildWorldInfoActivationCacheKey;\nthis.__cache = cacheActivatedWorldInfoResult;\nthis.__direct = activateDirectWorldInfoEntries;\nthis.__recursive = expandRecursiveWorldInfoEntries;\nthis.__dedupe = dedupeWorldInfoEntries;\nthis.__winner = chooseWorldInfoGroupWinner;\nthis.__groups = resolveWorldInfoInclusionGroups;\nthis.__budget = applyWorldInfoBudgetWithWarning;\nthis.__grouped = groupActivatedWorldInfoByPosition;`, context);
+
+  const conv = {
+    worldBookIds: ['wb1'],
+    worldInfo: { entries: { local: { uid: 'local', constant: true, content: 'Local lore' } } },
+    messages: [
+      { role: 'user', content: 'Kivotos first' },
+      { role: 'assistant', content: 'reply' },
+      { role: 'user', content: 'last message' },
+    ],
+  };
+  const entries = context.__collect(conv);
+  assert(entries.length === 2, 'World book activation collection should include linked and legacy entries.');
+  assert(entries.find((entry) => entry.uid === 'global')._sourceWorldBookId === 'wb1', 'Linked world book entries should keep source world book id.');
+
+  const combined = context.__combined(entries.concat([{ uid: 'disabled', disable: true }]));
+  assert(Object.keys(combined.entries).length === 3, 'Combined world info should index entries by uid.');
+  assert(context.__enabled(combined).map((entry) => entry.uid).join(',') === 'global,local', 'Enabled world info helper should filter disabled entries.');
+
+  const keyA = context.__key(conv, combined);
+  const keyB = context.__key(Object.assign({}, conv, { messages: conv.messages.concat({ role: 'assistant', content: 'new tail' }) }), combined);
+  assert(keyA !== keyB, 'World info activation cache key should change when message fingerprint changes.');
+  const result = { entries: [] };
+  context.__cache(conv, keyA, result);
+  assert(conv._wiCache.key === keyA && conv._wiCache.result === result, 'World info activation cache should store key and result.');
+
+  const direct = context.__direct([
+    { uid: 'hit', key: ['Kivotos'], content: 'hit' },
+    { uid: 'constant', constant: true, content: 'constant' },
+    { uid: 'miss', key: ['Other'], content: 'miss' },
+  ], conv, 'Arona', []);
+  assert(direct.map((entry) => entry.uid).join(',') === 'hit,constant', 'Direct world info activation should include key hits and constants.');
+
+  const recursive = context.__recursive([{ uid: 'base', content: 'mentions recursive-key' }], [
+    { uid: 'base', content: 'mentions recursive-key' },
+    { uid: 'recursive', key: ['recursive-key'], content: 'recursive' },
+  ], 'Arona', []);
+  assert(recursive.some((entry) => entry.uid === 'recursive' && entry.isRecursive === true), 'Recursive world info activation should mark recursive entries.');
+
+  assert(context.__dedupe([{ uid: 'a' }, { uid: 'a' }, { uid: 'b' }]).map((entry) => entry.uid).join(',') === 'a,b', 'World info dedupe should keep first uid occurrence.');
+  const winner = context.__winner([
+    { uid: 'low', group: 'g', key: ['a'], useGroupScoring: true },
+    { uid: 'high', group: 'g', key: ['a', 'b'], keysecondary: ['c'], selectiveLogic: 0, useGroupScoring: true },
+  ]);
+  assert(winner.uid === 'high', 'World info group scoring should select highest score.');
+  const resolved = context.__groups([{ uid: 'solo' }, { uid: 'low', group: 'g', order: 1 }, { uid: 'high', group: 'g', order: 5 }]);
+  assert(resolved.map((entry) => entry.uid).sort().join(',') === 'high,solo', 'World info inclusion groups should keep one winner per group.');
+
+  activeConv = {};
+  const budgeted = context.__budget([{ uid: '1' }, { uid: '2' }, { uid: '3' }]);
+  assert(budgeted.length === 3 && activeConv._wiBudgetWarning === true, 'World info budget helper should set warning on trimmed result.');
+
+  const grouped = context.__grouped([
+    { uid: 'normal', position: 1 },
+    { uid: 'late', position: 6, outletName: 'Lore', order: 20 },
+    { uid: 'early', position: 6, outletName: 'Lore', order: 5 },
+  ]);
+  assert(grouped.byPosition[1][0].uid === 'normal', 'World info grouping should preserve normal positions.');
+  assert(grouped.outlets.Lore.map((entry) => entry.uid).join(',') === 'early,late', 'World info outlets should sort by order.');
 }
 
 async function assertFrontendWorldBookEntryListFiltering() {
@@ -1286,6 +1387,7 @@ async function main() {
   await assertFrontendSillyTavernPresetSettingsRows();
   await assertFrontendNewChatPickerMultiSelection();
   await assertFrontendWorldBookActivation();
+  await assertFrontendWorldBookActivationHelpers();
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendFileProtocolOPFSSilence();
   await assertFrontendStorageServicePipeline();

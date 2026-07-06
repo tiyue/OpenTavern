@@ -7635,6 +7635,8 @@ function applyWorldInfoBudget(entries, settings) {
     return { entries: final, trimmed: trimmed };
 }
 // ==================== World Book Activation Helpers ====================
+// Split into collection, cache, selection, and result helper chunks.
+// ==================== World Book Activation Collection ====================
 function collectWorldInfoActivationEntries(conv) {
     var entries = [];
     if (!conv) return entries;
@@ -7671,6 +7673,11 @@ function buildCombinedWorldInfo(entries) {
     return wi;
 }
 
+function getEnabledWorldInfoEntries(wi) {
+    return Object.keys(wi.entries).map(function(k) { return wi.entries[k]; })
+        .filter(function(e) { return e && !e.disable; });
+}
+// ==================== World Book Activation Cache ====================
 function buildWorldInfoActivationCacheKey(conv, wi) {
     var messages = conv.messages || [];
     var lastMsg = messages.length > 0 ? messages[messages.length - 1] : null;
@@ -7689,11 +7696,14 @@ function buildWorldInfoActivationCacheKey(conv, wi) {
     return messages.length + '|' + lastContentHash + '|' + wiEntryCount + '|' + fingerprint;
 }
 
-function getEnabledWorldInfoEntries(wi) {
-    return Object.keys(wi.entries).map(function(k) { return wi.entries[k]; })
-        .filter(function(e) { return e && !e.disable; });
+function cacheActivatedWorldInfoResult(conv, cacheKey, result) {
+    if (!conv) return;
+    conv._wiCache = {
+        key: cacheKey,
+        result: result
+    };
 }
-
+// ==================== World Book Activation Selection ====================
 function activateDirectWorldInfoEntries(all, conv, charName, charTags) {
     var activated = [];
 
@@ -7784,7 +7794,7 @@ function resolveWorldInfoInclusionGroups(activated) {
 
     return activated;
 }
-
+// ==================== World Book Activation Result Helpers ====================
 function applyWorldInfoBudgetWithWarning(activated) {
     var settings = state.settings || {};
     var budgetResult = applyWorldInfoBudget(activated, settings);
@@ -7819,14 +7829,6 @@ function groupActivatedWorldInfoByPosition(activated) {
     });
 
     return { byPosition: byPos, outlets: outlets };
-}
-
-function cacheActivatedWorldInfoResult(conv, cacheKey, result) {
-    if (!conv) return;
-    conv._wiCache = {
-        key: cacheKey,
-        result: result
-    };
 }
 // ==================== World Book Activation Engine ====================
 function getActivatedWorldInfo(conv) {
