@@ -812,6 +812,8 @@ async function assertFrontendI18nRuntime() {
 async function assertFrontendSillyTavernPresetNormalizer() {
   const sources = await Promise.all([
     '../src/app/62-sillytavern-preset-model.js',
+    '../src/app/62-sillytavern-preset-order-normalizer.js',
+    '../src/app/62-sillytavern-preset-prompt-normalizer.js',
     '../src/app/62-sillytavern-preset-normalizer.js',
     '../src/app/62-sillytavern-preset-runtime.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
