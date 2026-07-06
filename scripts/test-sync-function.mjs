@@ -473,6 +473,114 @@ async function assertFrontendStorageServicePipeline() {
   assert(JSON.parse(localStorageMock[context.STORAGE_KEY]).characters.local.name === 'Local Card', 'StorageService localStorage fallback did not persist character cards.');
 }
 
+async function assertFrontendStorageServiceFileProtocolStatus() {
+  const sources = await Promise.all([
+    '../src/app/20-storage-service-helpers.js',
+    '../src/app/20-storage-service-maintenance.js',
+    '../src/app/20-storage-service-load.js',
+    '../src/app/20-storage-service-save.js',
+    '../src/app/20-storage-service.js',
+    '../src/app/21-storage-usage-format.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const warnings = [];
+  const errors = [];
+  const infos = [];
+  let opfsTouched = false;
+  const localStorageMock = {
+    getItem(key) { return Object.prototype.hasOwnProperty.call(this, key) ? this[key] : null; },
+    setItem(key, value) { this[key] = String(value); },
+    removeItem(key) { delete this[key]; },
+  };
+  const context = {
+    STORAGE_KEY: 'opentavern-test-storage',
+    STORAGE_BACKUP_PREFIX: 'opentavern-test-backup-',
+    STORAGE_CLEAR_KEY: 'opentavern-test-clear',
+    IDBStorage: {
+      async _open() {},
+      async loadAll() {
+        return {
+          settings: { lang: 'zh-CN' },
+          conversations: {},
+          characters: {},
+          worldBooks: {},
+          lastSaved: 1,
+        };
+      },
+      async saveAll() {},
+    },
+    OPFSStorage: {
+      async _getRoot() {
+        opfsTouched = true;
+        throw new Error('OPFS should be skipped on file://.');
+      },
+      async loadAll() {
+        opfsTouched = true;
+        throw new Error('OPFS load should be skipped on file://.');
+      },
+      async saveAll() {
+        opfsTouched = true;
+        throw new Error('OPFS save should be skipped on file://.');
+      },
+    },
+    localStorage: localStorageMock,
+    location: { protocol: 'file:' },
+    navigator: {
+      userAgent: 'TestBrowser',
+      vendor: 'TestVendor',
+      storage: {
+        async estimate() { return { usage: 0, quota: 1000000 }; },
+        async persisted() { return true; },
+        async getDirectory() {
+          opfsTouched = true;
+          throw new Error('navigator.storage.getDirectory should be skipped on file://.');
+        },
+      },
+    },
+    window: {
+      indexedDB: {},
+      addEventListener() {},
+      isSecureContext: false,
+    },
+    document: { addEventListener() {} },
+    console: {
+      log() {},
+      info: (...args) => infos.push(args.join(' ')),
+      warn: (...args) => warnings.push(args.join(' ')),
+      error: (...args) => errors.push(args.join(' ')),
+    },
+    Blob,
+    Date,
+    Error,
+    JSON,
+    Object,
+    Array,
+    Number,
+    String,
+    setTimeout,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__StorageService = StorageService;\nthis.__getOPFSStatusText = getOPFSStatusText;\nthis.__buildStorageUsageText = buildStorageUsageText;`, context);
+  const service = context.__StorageService;
+  await service.init();
+  const info = await service.getStorageInfo();
+  const opfsText = context.__getOPFSStatusText(info);
+  const usageText = context.__buildStorageUsageText(info);
+
+  assert(service._opfsSkipped === true, 'StorageService should mark OPFS as skipped on file://.');
+  assert(service._opfsFailed === false, 'StorageService should not mark file:// OPFS skip as a failure.');
+  assert(info.fileProtocol === true, 'Storage info should expose file protocol mode.');
+  assert(info.opfsSkipped === true && info.opfsSkippedReason === 'file-protocol', 'Storage info should expose OPFS skip reason.');
+  assert(!info.opfsFailureReason, 'file:// OPFS skip should not populate failure reason.');
+  assert(!opfsTouched, 'StorageService should not touch OPFS APIs on file://.');
+  assert(opfsText.includes('\u672c\u5730\u6587\u4ef6\u6a21\u5f0f'), 'OPFS status should describe local file mode.');
+  assert(!opfsText.includes('\u4e0d\u53ef\u7528'), 'OPFS status should not say unavailable for file://.');
+  assert(!usageText.includes('\u4e0d\u53ef\u7528'), 'Storage usage text should not say unavailable for file://.');
+  assert(!infos.some((msg) => /OPFS unavailable|file:\/\/ mode/i.test(msg)), 'file:// path should not log OPFS unavailable info.');
+  assert(warnings.length === 0, `file:// path should not warn: ${warnings.join('\n')}`);
+  assert(errors.length === 0, `file:// path should not error: ${errors.join('\n')}`);
+}
+
 async function main() {
   await assertFrontendCloudSnapshot();
   await assertFrontendSummaryService();
@@ -482,6 +590,7 @@ async function main() {
   await assertFrontendSillyTavernPresetNormalizer();
   await assertFrontendFileProtocolOPFSSilence();
   await assertFrontendStorageServicePipeline();
+  await assertFrontendStorageServiceFileProtocolStatus();
 
   const { db } = createMockD1();
   const env = { SYNC_DB: db };

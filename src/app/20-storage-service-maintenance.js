@@ -70,10 +70,13 @@ async function getStorageServiceInfo(service) {
             originUsed,
             quota,
             persisted,
+            fileProtocol: storageIsFileProtocol(),
             idbAvailable: service._idbAvailable || ('indexedDB' in window),
             idbLastError: service._idbFailureReason,
             opfsAvailable: service._opfsReadableAvailable,
             opfsMirrorAvailable: service._opfsMirrorAvailable,
+            opfsSkipped: service._opfsSkipped,
+            opfsSkippedReason: service._opfsSkippedReason,
             opfsFailureReason: service._opfsFailureReason,
             safariOpfsReadOnly: service._isSafari() && service._opfsReadableAvailable
         };

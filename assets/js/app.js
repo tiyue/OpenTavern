@@ -2576,10 +2576,13 @@ async function getStorageServiceInfo(service) {
             originUsed,
             quota,
             persisted,
+            fileProtocol: storageIsFileProtocol(),
             idbAvailable: service._idbAvailable || ('indexedDB' in window),
             idbLastError: service._idbFailureReason,
             opfsAvailable: service._opfsReadableAvailable,
             opfsMirrorAvailable: service._opfsMirrorAvailable,
+            opfsSkipped: service._opfsSkipped,
+            opfsSkippedReason: service._opfsSkippedReason,
             opfsFailureReason: service._opfsFailureReason,
             safariOpfsReadOnly: service._isSafari() && service._opfsReadableAvailable
         };
@@ -2836,6 +2839,8 @@ var StorageService = {
     _useOPFS: true,
     _opfsReadableAvailable: false,
     _opfsMirrorAvailable: false,
+    _opfsSkipped: false,
+    _opfsSkippedReason: null,
     _opfsFailed: false,
     _opfsFailureReason: null,
     _idbAvailable: false,
@@ -2963,15 +2968,20 @@ var StorageService = {
 
         this._opfsReadableAvailable = false;
         this._opfsMirrorAvailable = false;
+        this._opfsSkipped = false;
+        this._opfsSkippedReason = null;
         this._opfsFailed = false;
         this._opfsFailureReason = null;
 
         try {
-            if (!this._useOPFS) throw new Error('OPFS disabled by policy');
+            if (!this._useOPFS) {
+                this._opfsSkipped = true;
+                this._opfsSkippedReason = 'disabled';
+                return;
+            }
             if (storageIsFileProtocol()) {
-                this._opfsFailed = true;
-                this._opfsFailureReason = 'file:// mode uses IndexedDB/localStorage; OPFS is skipped.';
-                console.info('[Storage] file:// mode: using IndexedDB/localStorage; OPFS skipped.');
+                this._opfsSkipped = true;
+                this._opfsSkippedReason = 'file-protocol';
                 return;
             }
             if (!window.isSecureContext) throw new Error('insecure-context');
@@ -3105,11 +3115,17 @@ function formatStorageMB(bytes) {
 }
 
 function getOPFSStatusText(info) {
+    var isFileMode = !!(info && (info.fileProtocol || info.opfsSkippedReason === 'file-protocol')) ||
+        (typeof location !== 'undefined' && location.protocol === 'file:');
+    if (isFileMode) {
+        return '\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\uff1a\u5df2\u8df3\u8fc7 OPFS\uff0c\u4f7f\u7528 IndexedDB/localStorage';
+    }
+    if (info && info.opfsSkipped) {
+        return 'OPFS \u5df2\u8df3\u8fc7\uff1a\u4f7f\u7528 IndexedDB/localStorage';
+    }
     if (!info || !info.opfsAvailable) {
         var reason = String(info && info.opfsFailureReason || '').toLowerCase();
-        if (reason.includes('file://') || (typeof location !== 'undefined' && location.protocol === 'file:')) {
-            return '\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\uff1a\u4f7f\u7528 IndexedDB/localStorage';
-        }
+        if (reason.includes('file://')) return '\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\uff1a\u5df2\u8df3\u8fc7 OPFS\uff0c\u4f7f\u7528 IndexedDB/localStorage';
         return 'OPFS \u672a\u542f\u7528\uff1a\u4f7f\u7528 IndexedDB/localStorage';
     }
     if (info.opfsMirrorAvailable) return 'OPFS: \u955c\u50cf\u53ef\u5199';

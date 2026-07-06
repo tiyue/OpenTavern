@@ -4,6 +4,8 @@ var StorageService = {
     _useOPFS: true,
     _opfsReadableAvailable: false,
     _opfsMirrorAvailable: false,
+    _opfsSkipped: false,
+    _opfsSkippedReason: null,
     _opfsFailed: false,
     _opfsFailureReason: null,
     _idbAvailable: false,
@@ -131,15 +133,20 @@ var StorageService = {
 
         this._opfsReadableAvailable = false;
         this._opfsMirrorAvailable = false;
+        this._opfsSkipped = false;
+        this._opfsSkippedReason = null;
         this._opfsFailed = false;
         this._opfsFailureReason = null;
 
         try {
-            if (!this._useOPFS) throw new Error('OPFS disabled by policy');
+            if (!this._useOPFS) {
+                this._opfsSkipped = true;
+                this._opfsSkippedReason = 'disabled';
+                return;
+            }
             if (storageIsFileProtocol()) {
-                this._opfsFailed = true;
-                this._opfsFailureReason = 'file:// mode uses IndexedDB/localStorage; OPFS is skipped.';
-                console.info('[Storage] file:// mode: using IndexedDB/localStorage; OPFS skipped.');
+                this._opfsSkipped = true;
+                this._opfsSkippedReason = 'file-protocol';
                 return;
             }
             if (!window.isSecureContext) throw new Error('insecure-context');
