@@ -574,6 +574,78 @@ async function assertFrontendCharacterImportHelpers() {
   assert(context.__post({ post_history_instructions: 'card post' }, 'second') === 'card post', 'Second-stage post-history should fall back to character card when unset.');
 }
 
+async function assertFrontendCharacterImportEventHelpers() {
+  const sources = await Promise.all([
+    '../src/app/66-character-import-conversation.js',
+    '../src/app/66-character-import-status-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function classList() {
+    const values = new Set();
+    return {
+      values,
+      add(name) { values.add(name); },
+      remove(name) { values.delete(name); },
+    };
+  }
+
+  const oldConv = {
+    id: 'old',
+    messages: [{ role: 'user', content: 'hi' }],
+    worldInfo: { entries: { a: {} } },
+    worldBookIds: ['wb1'],
+  };
+  const newConv = { id: 'new', messages: [] };
+  const status = { classList: classList(), textContent: '', className: '' };
+  const importModal = { classList: classList() };
+  const context = {
+    state: {
+      settings: { userName: 'Sensei' },
+      conversations: { old: oldConv },
+      conversationOrder: ['old'],
+      activeConvId: 'old',
+      characters: {},
+    },
+    currentCharacterName: null,
+    dom: {
+      importStatus: status,
+      importModal,
+      importFileInput: { value: 'file.png' },
+    },
+    getActiveConv() { return context.state.conversations[context.state.activeConvId]; },
+    newConversation() {},
+    saveCurrentConversation() { context.saved = true; },
+    defaultConversation() { return newConv; },
+    importCharacterBookFromCard() { return { id: 'book', entries: { e1: {}, e2: {} } }; },
+    replacePlaceholders(text, charName, userName) { return text.replace('{{char}}', charName).replace('{{user}}', userName); },
+    t: (key) => ({ chat_with: 'Chat with ', import_success: 'Loaded: ' }[key] || key),
+    JSON,
+    Object,
+    Set,
+    console,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__prepare = prepareConversationForImportedCharacter;\nthis.__apply = applyImportedCharacterToConversation;\nthis.__book = attachEmbeddedCharacterBook;\nthis.__register = registerImportedCharacter;\nthis.__first = addImportedCharacterFirstMessage;\nthis.__status = setCharacterImportStatus;\nthis.__success = buildCharacterImportSuccessText;\nthis.__hide = hideCharacterImportModal;\nthis.__reset = resetCharacterImportFileInput;`, context);
+
+  const conv = context.__prepare();
+  assert(conv.id === 'new' && context.saved === true && conv.worldBookIds[0] === 'wb1', 'Character import should start a new conversation when the current one has messages and preserve world books.');
+
+  const character = { name: 'Arona', first_mes: 'Hello {{user}}, I am {{char}}' };
+  context.__apply(conv, character);
+  const embeddedBook = context.__book({}, character, conv);
+  context.__register(character);
+  context.__first(conv, character);
+  assert(conv.title === 'Chat with Arona' && conv.messages[0].content === 'Hello Sensei, I am Arona', 'Character import should apply character metadata and first message.');
+  assert(conv.worldBookIds.includes('book') && context.state.characters.arona.name === 'Arona', 'Character import should link embedded books and register the character.');
+
+  context.__status('ok', 'success');
+  assert(status.textContent === 'ok' && status.className.includes('emerald'), 'Character import status should render success state.');
+  assert(context.__success(character, embeddedBook).includes('2 entries'), 'Character import success text should include embedded world book count.');
+  context.__hide();
+  context.__reset();
+  assert(importModal.classList.values.has('hidden') && context.dom.importFileInput.value === '', 'Character import UI helpers should hide modal and reset file input.');
+}
+
 async function assertFrontendWorldInfoNormalizerHelpers() {
   const sources = await Promise.all([
     '../src/app/41-world-info-constants.js',
@@ -2410,6 +2482,7 @@ async function main() {
   await assertFrontendGenerationHelpers();
   await assertFrontendPromptMessageHelpers();
   await assertFrontendCharacterImportHelpers();
+  await assertFrontendCharacterImportEventHelpers();
   await assertFrontendWorldInfoNormalizerHelpers();
   await assertFrontendSettingsSaveHelpers();
   await assertFrontendSettingsHydrationHelpers();

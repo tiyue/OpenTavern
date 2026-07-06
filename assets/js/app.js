@@ -12739,125 +12739,162 @@ function updateAnnouncementLangButtons() {
         }
     });
 }
+// ==================== Character Import File Reader ====================
+async function readCharacterImportFile(file) {
+    var lowerName = (file.name || '').toLowerCase();
+    if (lowerName.endsWith('.png')) {
+        return {
+            json: await extractCharaFromPng(file),
+            attachedPreview: await readFileAsDataUrl(file)
+        };
+    }
+    return {
+        json: JSON.parse(await readFileAsText(file)),
+        attachedPreview: null
+    };
+}
+
+function readFileAsDataUrl(file) {
+    return new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function() { resolve(reader.result); };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+function readFileAsText(file) {
+    return new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function() { resolve(reader.result); };
+        reader.onerror = reject;
+        reader.readAsText(file);
+    });
+}
+// ==================== Character Import Conversation Helpers ====================
+function prepareConversationForImportedCharacter() {
+    var conv = getActiveConv();
+    if (!conv) {
+        newConversation();
+        conv = getActiveConv();
+    }
+
+    var hasMsgs = conv.messages.some(function(m) { return m.role !== 'system'; });
+    if (!hasMsgs) return conv;
+
+    saveCurrentConversation();
+    var oldWorldInfo = conv.worldInfo ? JSON.parse(JSON.stringify(conv.worldInfo)) : null;
+    var oldWorldBookIds = Array.isArray(conv.worldBookIds) ? conv.worldBookIds.slice() : [];
+    var newConv = defaultConversation();
+    state.conversations[newConv.id] = newConv;
+    state.conversationOrder.unshift(newConv.id);
+    state.activeConvId = newConv.id;
+
+    if (oldWorldInfo) newConv.worldInfo = oldWorldInfo;
+    if (oldWorldBookIds.length > 0) newConv.worldBookIds = oldWorldBookIds;
+    return newConv;
+}
+
+function applyImportedCharacterToConversation(conv, character) {
+    conv.character = character;
+    conv.title = t('chat_with') + character.name;
+    conv.messages = [];
+    currentCharacterName = character.name;
+}
+
+function attachEmbeddedCharacterBook(json, character, conv) {
+    var embeddedBook = null;
+    try {
+        embeddedBook = importCharacterBookFromCard(json, character.name);
+        if (embeddedBook) {
+            conv.worldBookIds = conv.worldBookIds || [];
+            if (!conv.worldBookIds.includes(embeddedBook.id)) {
+                conv.worldBookIds.push(embeddedBook.id);
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to import embedded character book; character import continues:', e);
+    }
+    return embeddedBook;
+}
+
+function registerImportedCharacter(character) {
+    if (!character.name) return;
+    var key = character.name.trim().toLowerCase();
+    if (!state.characters) state.characters = {};
+    state.characters[key] = JSON.parse(JSON.stringify(character));
+}
+
+function addImportedCharacterFirstMessage(conv, character) {
+    var charName = character.name;
+    var userName = state.settings.userName || 'User';
+    var firstMes = replacePlaceholders(character.first_mes, charName, userName);
+    if (firstMes) {
+        conv.messages.push({ role: 'assistant', content: firstMes });
+    }
+}
+// ==================== Character Import Status UI ====================
+function hideCharacterImportModal() {
+    dom.importModal.classList.add('hidden');
+}
+
+function resetCharacterImportFileInput() {
+    if (dom.importFileInput) dom.importFileInput.value = '';
+}
+
+function setCharacterImportStatus(text, type) {
+    dom.importStatus.classList.remove('hidden');
+    dom.importStatus.textContent = text;
+    if (type === 'success') {
+        dom.importStatus.className = 'text-xs text-emerald-400 mt-3 text-center';
+    } else if (type === 'error') {
+        dom.importStatus.className = 'text-xs text-red-400 mt-3 text-center';
+    }
+}
+
+function buildCharacterImportSuccessText(character, embeddedBook) {
+    var successText = t('import_success') + character.name;
+    if (embeddedBook) {
+        var entryCount = Object.keys(embeddedBook.entries || {}).length;
+        successText += ' (embedded world book linked: ' + entryCount + ' entries)';
+    }
+    return successText;
+}
 // ==================== Character Import Modal Events ====================
 function bindCharacterImportModalEvents() {
-    dom.importCloseBtn.addEventListener('click', function() { dom.importModal.classList.add('hidden'); });
-    dom.importBackdrop.addEventListener('click', function() { dom.importModal.classList.add('hidden'); });
+    dom.importCloseBtn.addEventListener('click', function() { hideCharacterImportModal(); });
+    dom.importBackdrop.addEventListener('click', function() { hideCharacterImportModal(); });
 
     dom.importFileInput.addEventListener('change', async function(e) {
         var file = e.target.files[0];
         if (!file) return;
 
-        dom.importStatus.classList.remove('hidden');
-        dom.importStatus.textContent = 'Reading...';
+        setCharacterImportStatus('Reading...', 'neutral');
 
         try {
-            let json;
-            const lowerName = (file.name || '').toLowerCase();
-            let attachedPreview = null;
-
-            if (lowerName.endsWith('.png')) {
-                attachedPreview = await new Promise(function(resolve, reject) {
-                    var r = new FileReader();
-                    r.onload = function() { resolve(r.result); };
-                    r.onerror = reject;
-                    r.readAsDataURL(file);
-                });
-                json = await extractCharaFromPng(file);
-            } else {
-                const text = await new Promise(function(resolve, reject) {
-                    var r = new FileReader();
-                    r.onload = function() { resolve(r.result); };
-                    r.onerror = reject;
-                    r.readAsText(file);
-                });
-                json = JSON.parse(text);
+            var imported = await readCharacterImportFile(file);
+            var character = importCharacterCard(imported.json);
+            if (imported.attachedPreview) {
+                character.previewImage = imported.attachedPreview;
             }
 
-            var character = importCharacterCard(json);
-            if (attachedPreview) {
-                character.previewImage = attachedPreview;
-            }
-            var conv = getActiveConv();
-            if (!conv) { newConversation(); conv = getActiveConv(); }
-
-            var hasMsgs = conv.messages.some(function(m) { return m.role !== 'system'; });
-            if (hasMsgs) {
-                saveCurrentConversation();
-                var oldWorldInfo = conv.worldInfo ? JSON.parse(JSON.stringify(conv.worldInfo)) : null;
-                var oldWorldBookIds = Array.isArray(conv.worldBookIds) ? conv.worldBookIds.slice() : [];
-
-                var newConv = defaultConversation();
-                state.conversations[newConv.id] = newConv;
-                state.conversationOrder.unshift(newConv.id);
-                state.activeConvId = newConv.id;
-                conv = newConv;
-
-                if (oldWorldInfo) {
-                    conv.worldInfo = oldWorldInfo;
-                }
-                if (oldWorldBookIds.length > 0) {
-                    conv.worldBookIds = oldWorldBookIds;
-                }
-            }
-
-            conv.character = character;
-            conv.title = t('chat_with') + character.name;
-            conv.messages = [];
-
-            currentCharacterName = character.name;
-
-            var embeddedBook = null;
-            try {
-                embeddedBook = importCharacterBookFromCard(json, character.name);
-                if (embeddedBook) {
-                    conv.worldBookIds = conv.worldBookIds || [];
-                    if (!conv.worldBookIds.includes(embeddedBook.id)) {
-                        conv.worldBookIds.push(embeddedBook.id);
-                    }
-                }
-            } catch (e) {
-                console.warn('Failed to import embedded character book; character import continues:', e);
-            }
-
-            if (character.name) {
-                const key = character.name.trim().toLowerCase();
-                if (!state.characters) state.characters = {};
-                state.characters[key] = JSON.parse(JSON.stringify(character));
-            }
-
-            var charName = character.name;
-            var userName = state.settings.userName || 'User';
-            var firstMes = replacePlaceholders(character.first_mes, charName, userName);
-            if (firstMes) {
-                conv.messages.push({ role: 'assistant', content: firstMes });
-            }
+            var conv = prepareConversationForImportedCharacter();
+            applyImportedCharacterToConversation(conv, character);
+            var embeddedBook = attachEmbeddedCharacterBook(imported.json, character, conv);
+            registerImportedCharacter(character);
+            addImportedCharacterFirstMessage(conv, character);
 
             conv.updated = Date.now();
             persistState();
-
-            if (typeof renderLibraryGrids === 'function') {
-                renderLibraryGrids();
-            }
-
+            if (typeof renderLibraryGrids === 'function') renderLibraryGrids();
             renderAll();
-            dom.importModal.classList.add('hidden');
-            dom.importStatus.classList.remove('hidden');
-
-            var successText = t('import_success') + character.name;
-            if (embeddedBook) {
-                var entryCount = Object.keys(embeddedBook.entries || {}).length;
-                successText += ' (embedded world book linked: ' + entryCount + ' entries)';
-            }
-            dom.importStatus.textContent = successText;
-            dom.importStatus.className = 'text-xs text-emerald-400 mt-3 text-center';
+            hideCharacterImportModal();
+            setCharacterImportStatus(buildCharacterImportSuccessText(character, embeddedBook), 'success');
             setTimeout(function() { dom.importStatus.classList.add('hidden'); }, 2800);
         } catch (err) {
-            dom.importStatus.classList.remove('hidden');
-            dom.importStatus.textContent = t('import_error') + ': ' + (err.message || err);
-            dom.importStatus.className = 'text-xs text-red-400 mt-3 text-center';
+            setCharacterImportStatus(t('import_error') + ': ' + (err.message || err), 'error');
         } finally {
-            if (dom.importFileInput) dom.importFileInput.value = '';
+            resetCharacterImportFileInput();
         }
     });
 }
