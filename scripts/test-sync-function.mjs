@@ -1001,6 +1001,31 @@ async function assertFrontendWorldBookEntryListFiltering() {
   assert(filtered.map((entry) => entry.uid).join(',') === 'high,secondary,low', 'World book entries were not filtered and sorted by order.');
 }
 
+async function assertFrontendWorldBookEntryLiveHelpers() {
+  const sources = await Promise.all([
+    '../src/app/43-worldbook-entry-live-core.js',
+    '../src/app/43-worldbook-entry-live-match.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const entry = { uid: 'e1', extensions: {} };
+  const context = {
+    wiState: { selectedUid: 'e1' },
+    getActiveWI() { return { entries: { e1: entry } }; },
+    Object,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__entry = getSelectedWorldBookEntry;\nthis.__setPath = setWorldBookEntryPathValue;\nthis.__syncExt = syncWorldBookEntryExtensionField;\nthis.__matchExtKey = getWorldBookMatchExtensionKey;`, context);
+
+  assert(context.__entry() === entry, 'World book live binding should resolve the selected entry.');
+  context.__setPath(entry, 'characterFilter.isExclude', true);
+  assert(entry.characterFilter.isExclude === true, 'World book live binding should write nested checkbox paths.');
+  context.__syncExt(entry, 'position', 6);
+  context.__syncExt(entry, 'role', 1);
+  context.__syncExt(entry, 'comment', 'ignored');
+  assert(entry.extensions.position === 6 && entry.extensions.role === 1 && entry.extensions.comment === undefined, 'World book live binding should sync supported extension fields only.');
+  assert(context.__matchExtKey('matchCharacterDescription') === 'match_character_description', 'World book match extension keys should use snake_case.');
+}
+
 async function assertFrontendFileProtocolOPFSSilence() {
   const opfsSources = await Promise.all([
     '../src/app/20-storage-opfs-environment.js',
@@ -1412,6 +1437,7 @@ async function main() {
   await assertFrontendWorldBookActivation();
   await assertFrontendWorldBookActivationHelpers();
   await assertFrontendWorldBookEntryListFiltering();
+  await assertFrontendWorldBookEntryLiveHelpers();
   await assertFrontendFileProtocolOPFSSilence();
   await assertFrontendStorageServicePipeline();
   await assertFrontendStorageServiceFileProtocolStatus();

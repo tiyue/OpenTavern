@@ -6529,24 +6529,50 @@ function bindWorldBookModalControls() {
         console.warn('wiImportFile not cached, import will not work');
     }
 }
-// ==================== World Book Entry Field Bindings ====================
+// ==================== World Book Entry Live Binding Core ====================
+function getSelectedWorldBookEntry() {
+    if (!wiState.selectedUid) return null;
+    var wi = getActiveWI();
+    return wi && wi.entries ? wi.entries[wiState.selectedUid] : null;
+}
+
+function setWorldBookEntryPathValue(entry, path, value) {
+    if (!entry || !path) return;
+    if (path.indexOf('.') > -1) {
+        var parts = path.split('.');
+        if (!entry[parts[0]]) entry[parts[0]] = {};
+        entry[parts[0]][parts[1]] = value;
+    } else {
+        entry[path] = value;
+    }
+}
+
+function syncWorldBookEntryExtensionField(entry, prop, value) {
+    if (!entry || !entry.extensions) return;
+    if (prop === 'position' || prop === 'depth' || prop === 'role' || prop === 'probability') {
+        entry.extensions[prop] = value;
+    }
+}
+
+function markWorldBookEntryDirtyAndRenderList() {
+    wiState.dirty = true;
+    renderWIEntryList(dom.wiSearch.value.trim());
+}
+// ==================== World Book Entry Scalar Field Bindings ====================
 function bindWIEntryLiveInput(id, prop, isNum) {
     var el = dom[id];
     if (!el) return;
     el.addEventListener('input', function() {
-        if (!wiState.selectedUid) return;
-        var entry = getActiveWI().entries[wiState.selectedUid];
+        var entry = getSelectedWorldBookEntry();
         if (!entry) return;
         var val = isNum ? (parseInt(this.value, 10) || 0) : this.value;
         entry[prop] = val;
-        if (prop === 'position' && entry.extensions) entry.extensions.position = val;
-        if (prop === 'depth' && entry.extensions) entry.extensions.depth = val;
-        wiState.dirty = true;
-        renderWIEntryList(dom.wiSearch.value.trim());
+        syncWorldBookEntryExtensionField(entry, prop, val);
+        markWorldBookEntryDirtyAndRenderList();
     });
 }
 
-function bindWorldBookEntryLiveFields() {
+function bindWorldBookEntryScalarFields() {
     bindWIEntryLiveInput('wiComment', 'comment');
     bindWIEntryLiveInput('wiOrder', 'order', true);
     bindWIEntryLiveInput('wiAutomationId', 'automationId');
@@ -6558,24 +6584,20 @@ function bindWorldBookEntryLiveFields() {
     bindWIEntryLiveInput('wiCooldown', 'cooldown', true);
     bindWIEntryLiveInput('wiDelay', 'delay', true);
     bindWIEntryLiveInput('wiScanDepth', 'scanDepth', true);
+}
 
+function bindWorldBookEntryContentField() {
     if (dom.wiContent) {
         dom.wiContent.addEventListener('input', function() {
-            if (!wiState.selectedUid) return;
-            var entry = getActiveWI().entries[wiState.selectedUid];
+            var entry = getSelectedWorldBookEntry();
             if (!entry) return;
             entry.content = this.value;
             wiState.dirty = true;
             updateWIDirtyIndicator();
         });
     }
-
-    bindWorldBookEntryCheckboxes();
-    bindWorldBookEntryStrategyControls();
-    bindWorldBookEntryPositionControls();
-    bindWorldBookEntryMatchControls();
 }
-
+// ==================== World Book Entry Checkbox Bindings ====================
 function bindWorldBookEntryCheckboxes() {
     var checkboxes = [
         ['wiDisable', 'disable'],
@@ -6594,27 +6616,18 @@ function bindWorldBookEntryCheckboxes() {
         var el = dom[pair[0]];
         if (!el) return;
         el.addEventListener('change', function() {
-            if (!wiState.selectedUid) return;
-            var entry = getActiveWI().entries[wiState.selectedUid];
+            var entry = getSelectedWorldBookEntry();
             if (!entry) return;
-            var path = pair[1];
-            if (path.indexOf('.') > -1) {
-                var parts = path.split('.');
-                if (!entry[parts[0]]) entry[parts[0]] = {};
-                entry[parts[0]][parts[1]] = this.checked;
-            } else {
-                entry[path] = this.checked;
-            }
-            wiState.dirty = true;
-            renderWIEntryList(dom.wiSearch.value.trim());
+            setWorldBookEntryPathValue(entry, pair[1], this.checked);
+            markWorldBookEntryDirtyAndRenderList();
         });
     });
 }
-
+// ==================== World Book Entry Strategy Bindings ====================
 function bindWorldBookEntryStrategyControls() {
     dom.wiStratConstant.addEventListener('click', function() {
-        if (!wiState.selectedUid) return;
-        var entry = getActiveWI().entries[wiState.selectedUid];
+        var entry = getSelectedWorldBookEntry();
+        if (!entry) return;
         entry.constant = true;
         entry.selective = false;
         wiState.dirty = true;
@@ -6622,8 +6635,8 @@ function bindWorldBookEntryStrategyControls() {
         renderWIEntryList(dom.wiSearch.value.trim());
     });
     dom.wiStratSelective.addEventListener('click', function() {
-        if (!wiState.selectedUid) return;
-        var entry = getActiveWI().entries[wiState.selectedUid];
+        var entry = getSelectedWorldBookEntry();
+        if (!entry) return;
         entry.constant = false;
         entry.selective = true;
         wiState.dirty = true;
@@ -6631,41 +6644,45 @@ function bindWorldBookEntryStrategyControls() {
         renderWIEntryList(dom.wiSearch.value.trim());
     });
 }
-
+// ==================== World Book Entry Position Bindings ====================
 function bindWorldBookEntryPositionControls() {
     dom.wiPosition.addEventListener('change', function() {
-        if (!wiState.selectedUid) return;
-        var entry = getActiveWI().entries[wiState.selectedUid];
+        var entry = getSelectedWorldBookEntry();
+        if (!entry) return;
         entry.position = parseInt(this.value, 10) || 0;
-        if (entry.extensions) entry.extensions.position = entry.position;
+        syncWorldBookEntryExtensionField(entry, 'position', entry.position);
         wiState.dirty = true;
         updatePositionConditionalRows(entry.position);
         renderWIEntryList(dom.wiSearch.value.trim());
     });
 
     dom.wiRole.addEventListener('change', function() {
-        if (!wiState.selectedUid) return;
-        var entry = getActiveWI().entries[wiState.selectedUid];
+        var entry = getSelectedWorldBookEntry();
+        if (!entry) return;
         entry.role = parseInt(this.value, 10) || 0;
-        if (entry.extensions) entry.extensions.role = entry.role;
+        syncWorldBookEntryExtensionField(entry, 'role', entry.role);
         wiState.dirty = true;
     });
 
     dom.wiProbability.addEventListener('input', function() {
-        if (!wiState.selectedUid) return;
-        var entry = getActiveWI().entries[wiState.selectedUid];
+        var entry = getSelectedWorldBookEntry();
+        if (!entry) return;
         entry.probability = parseInt(this.value, 10) || 100;
-        if (entry.extensions) entry.extensions.probability = entry.probability;
+        syncWorldBookEntryExtensionField(entry, 'probability', entry.probability);
         dom.wiProbVal.textContent = entry.probability;
         wiState.dirty = true;
     });
 
     dom.wiSelectiveLogic.addEventListener('change', function() {
-        if (!wiState.selectedUid) return;
-        var entry = getActiveWI().entries[wiState.selectedUid];
+        var entry = getSelectedWorldBookEntry();
+        if (!entry) return;
         entry.selectiveLogic = parseInt(this.value, 10) || 0;
         wiState.dirty = true;
     });
+}
+// ==================== World Book Entry Match Source Bindings ====================
+function getWorldBookMatchExtensionKey(prop) {
+    return prop.replace(/([A-Z])/g, '_$1').toLowerCase();
 }
 
 function bindWorldBookEntryMatchControls() {
@@ -6675,13 +6692,22 @@ function bindWorldBookEntryMatchControls() {
         var el = dom[id];
         if (!el) return;
         el.addEventListener('change', function() {
-            if (!wiState.selectedUid) return;
-            var entry = getActiveWI().entries[wiState.selectedUid];
+            var entry = getSelectedWorldBookEntry();
+            if (!entry) return;
             entry[matchProps[i]] = this.checked;
-            if (entry.extensions) entry.extensions[matchProps[i].replace(/([A-Z])/g, '_$1').toLowerCase()] = this.checked;
+            if (entry.extensions) entry.extensions[getWorldBookMatchExtensionKey(matchProps[i])] = this.checked;
             wiState.dirty = true;
         });
     });
+}
+// ==================== World Book Entry Field Bindings ====================
+function bindWorldBookEntryLiveFields() {
+    bindWorldBookEntryScalarFields();
+    bindWorldBookEntryContentField();
+    bindWorldBookEntryCheckboxes();
+    bindWorldBookEntryStrategyControls();
+    bindWorldBookEntryPositionControls();
+    bindWorldBookEntryMatchControls();
 }
 // ==================== World Book Entry Keyword & Trigger Bindings ====================
 function bindWorldBookEntryKeywordControls() {
