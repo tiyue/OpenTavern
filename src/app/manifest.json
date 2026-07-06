@@ -266,6 +266,9 @@
   "71-event-settings-bindings.js",
   "71-event-announcement-hotkeys.js",
   "71-event-bindings.js",
+  "72-app-init-storage.js",
+  "72-app-init-ui.js",
+  "72-app-startup-runtime.js",
   "72-app-init.js",
   "99-shell-end.js"
 ]

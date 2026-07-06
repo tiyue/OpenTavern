@@ -2409,6 +2409,116 @@ async function assertFrontendStateInitialization() {
   assert(persisted === true, 'initState should persist first character migration when user data exists.');
 }
 
+async function assertFrontendAppInitHelpers() {
+  const sources = await Promise.all([
+    '../src/app/72-app-init-storage.js',
+    '../src/app/72-app-init-ui.js',
+    '../src/app/72-app-startup-runtime.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function classList(initial = []) {
+    const values = new Set(initial);
+    return {
+      values,
+      add(name) { values.add(name); },
+      remove(name) { values.delete(name); },
+      contains(name) { return values.has(name); },
+      toggle(name, force) { if (force) values.add(name); else values.delete(name); },
+    };
+  }
+  function langButton(lang) {
+    return {
+      classList: classList(['text-zinc-400']),
+      getAttribute(name) { return name === 'data-lang' ? lang : ''; },
+    };
+  }
+
+  const events = [];
+  const zhBtn = langButton('zh-CN');
+  const enBtn = langButton('en');
+  const visibleModal = { classList: classList() };
+  const hiddenModal = { classList: classList(['hidden']) };
+  const activeConv = {
+    id: 'c1',
+    character: { name: 'Arona', first_mes: 'Hello {{user}} from {{char}}' },
+    messages: [],
+  };
+  const context = {
+    state: {
+      settings: { lang: 'en', apiKey: '', apiEndpoint: '', userName: 'Sensei' },
+      conversations: {},
+      conversationOrder: [],
+      activeConvId: null,
+    },
+    dom: {
+      messageInput: { placeholder: '', disabled: false },
+      sendBtn: { disabled: false },
+      settingsModal: hiddenModal,
+      importModal: visibleModal,
+      charEditorModal: hiddenModal,
+      summaryManagerModal: hiddenModal,
+      worldBookModal: hiddenModal,
+    },
+    document: {
+      documentElement: { lang: '' },
+      querySelectorAll(selector) { return selector === '.lang-btn' ? [zhBtn, enBtn] : []; },
+    },
+    window: {},
+    StorageService: {
+      async getStorageInfo() { return { used: 12 }; },
+      getBackend() { return 'idb'; },
+    },
+    clearWebLLMCache() { events.push('clear-webllm'); },
+    defaultConversation() { return { id: 'fallback', messages: [] }; },
+    getActiveConv() { return activeConv; },
+    replacePlaceholders(text, charName, userName) {
+      return text.replace('{{char}}', charName).replace('{{user}}', userName);
+    },
+    persistState() { events.push('persist'); },
+    renderAll() { events.push('render'); },
+    isWebLLMBackend() { return false; },
+    t: (key) => ({ input_placeholder_no_api: 'missing api' }[key] || key),
+    shouldShowAnnouncement() { return true; },
+    showAnnouncementModal() { events.push('announcement'); },
+    updateStorageInfo() { events.push('storage-info'); },
+    updateStorageStatusUI() { events.push('storage-status'); },
+    cacheDom() { events.push('cache'); },
+    bindEvents() { events.push('bind'); },
+    showBackupReminderIfNeeded() { events.push('backup'); },
+    setTimeout(fn) { fn(); },
+    console: { log() {}, warn() {}, error() {} },
+    Object,
+    Date,
+    Set,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__fallback = ensureFallbackConversation;\nthis.__lang = applyInitialLanguageState;\nthis.__input = updateStartupInputAvailability;\nthis.__first = migrateActiveConversationFirstMessage;\nthis.__modal = isAnyStartupModalOpen;\nthis.__announce = scheduleAnnouncementModal;\nthis.__debug = installAppDebugGlobals;\nthis.__storageStatus = refreshStartupStorageStatus;`, context);
+
+  context.__fallback();
+  assert(context.state.activeConvId === 'fallback' && context.state.conversationOrder[0] === 'fallback', 'App init fallback should create a default conversation.');
+
+  context.__lang();
+  assert(context.document.documentElement.lang === 'en', 'App init should apply document language.');
+  assert(enBtn.classList.values.has('active') && zhBtn.classList.values.has('text-zinc-400'), 'App init should update language button state.');
+
+  context.__input();
+  assert(context.dom.messageInput.disabled === true && context.dom.sendBtn.disabled === true && context.dom.messageInput.placeholder === 'missing api', 'App init should disable remote chat input when API settings are missing.');
+
+  assert(context.__first() === true && activeConv.messages[0].content === 'Hello Sensei from Arona', 'App init should migrate empty character conversations with first_mes.');
+  assert(events.includes('persist') && events.includes('render'), 'App init first message migration should persist and render.');
+
+  assert(context.__modal() === true, 'App init should detect open modals before showing announcement.');
+  visibleModal.classList.add('hidden');
+  context.__announce();
+  assert(events.includes('announcement'), 'App init should show announcement when no modal is open.');
+
+  context.__debug();
+  const debugInfo = await context.window.debugStorage();
+  assert(debugInfo.used === 12 && context.window.clearWebLLMCache === context.clearWebLLMCache, 'App init should install debug globals.');
+  context.__storageStatus();
+  assert(events.includes('storage-info'), 'App init should refresh storage info after startup.');
+}
+
 async function assertFrontendConversationImportHelpers() {
   const source = await readFile(new URL('../src/app/63-conversation-import-helpers.js', import.meta.url), 'utf8');
   let renderRequested = null;
@@ -2514,6 +2624,7 @@ async function main() {
   await assertFrontendStorageServicePipeline();
   await assertFrontendStorageServiceFileProtocolStatus();
   await assertFrontendStateInitialization();
+  await assertFrontendAppInitHelpers();
   await assertFrontendConversationImportHelpers();
 
   const { db } = createMockD1();
