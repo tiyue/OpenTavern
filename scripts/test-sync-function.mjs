@@ -514,6 +514,9 @@ async function assertFrontendFileProtocolOPFSSilence() {
 async function assertFrontendStorageServicePipeline() {
   const sources = await Promise.all([
     '../src/app/20-storage-service-helpers.js',
+    '../src/app/20-storage-service-maintenance.js',
+    '../src/app/20-storage-service-info.js',
+    '../src/app/20-storage-service-clear.js',
     '../src/app/20-storage-service-load.js',
     '../src/app/20-storage-service-save.js',
     '../src/app/20-storage-service-init.js',
@@ -610,6 +613,8 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
   const sources = await Promise.all([
     '../src/app/20-storage-service-helpers.js',
     '../src/app/20-storage-service-maintenance.js',
+    '../src/app/20-storage-service-info.js',
+    '../src/app/20-storage-service-clear.js',
     '../src/app/20-storage-service-load.js',
     '../src/app/20-storage-service-save.js',
     '../src/app/20-storage-service-init.js',

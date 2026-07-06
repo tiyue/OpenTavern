@@ -2562,23 +2562,11 @@ function handleStorageQuotaExceeded(service, err, dataSnapshot) {
     try {
         const ts = new Date().toISOString().replace(/[:.]/g, '-');
         const backupName = `opentavern-backup-quota-${ts}.json`;
-        const toExport = dataSnapshot || {
-            settings: state ? getSafeSettingsForPersist() : {},
-            conversations: state ? state.conversations : {},
-            conversationOrder: state ? state.conversationOrder : [],
-            activeConvId: state ? state.activeConvId : null,
-            worldBooks: state ? (state.worldBooks || {}) : {},
-            characters: state ? (state.characters || {}) : {},
-            lastSaved: Date.now()
-        };
+        const toExport = dataSnapshot || buildStorageQuotaBackupSnapshot();
         if (typeof downloadJsonFile === 'function') {
             downloadJsonFile(toExport, backupName);
         } else {
-            const blob = new Blob([JSON.stringify(toExport, null, 2)], {type:'application/json'});
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = backupName;
-            document.body.appendChild(a); a.click(); a.remove();
+            downloadStorageQuotaBackupBlob(toExport, backupName);
         }
     } catch (exportErr) {
         console.error('[Storage] Auto backup export on quota fail failed:', exportErr);
@@ -2586,45 +2574,42 @@ function handleStorageQuotaExceeded(service, err, dataSnapshot) {
     try { alert('Storage quota is full. OpenTavern tried to export a backup. Save the backup file, then clear browser storage space.'); } catch(_) {}
 }
 
+function buildStorageQuotaBackupSnapshot() {
+    return {
+        settings: state ? getSafeSettingsForPersist() : {},
+        conversations: state ? state.conversations : {},
+        conversationOrder: state ? state.conversationOrder : [],
+        activeConvId: state ? state.activeConvId : null,
+        worldBooks: state ? (state.worldBooks || {}) : {},
+        characters: state ? (state.characters || {}) : {},
+        lastSaved: Date.now()
+    };
+}
+
+function downloadStorageQuotaBackupBlob(data, filename) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+}
+// ==================== StorageService Info Helpers ====================
 async function getStorageServiceInfo(service) {
     try {
-        let webllmUsed = 0;
-        try {
-            if (typeof getWebLLMUsedSize === 'function') webllmUsed = await getWebLLMUsedSize();
-        } catch (_) {}
-
-        let appUsed = 0;
-        try {
-            let current = service._lastSaveSnapshot || null;
-            if (!service._isValidSnapshot(current)) {
-                const picked = await service._readNewestStoredSnapshotNoSync();
-                current = picked && picked.data;
-            }
-            if (current) appUsed = new Blob([JSON.stringify(current)]).size || 0;
-        } catch (_) {}
-
-        let quota = null;
-        let originUsed = 0;
-        let persisted = null;
-        try {
-            if (navigator.storage && navigator.storage.estimate) {
-                const est = await navigator.storage.estimate();
-                quota = est.quota || null;
-                originUsed = est.usage || 0;
-            }
-            if (navigator.storage && navigator.storage.persisted) {
-                persisted = await navigator.storage.persisted();
-            }
-        } catch (_) {}
+        const webllmUsed = await readStorageServiceWebLLMUsage();
+        const appUsed = await readStorageServiceAppUsage(service);
+        const browserInfo = await readStorageServiceBrowserQuota();
 
         return {
             backend: service.getBackend(),
             used: appUsed,
             webllmUsed,
             totalUsed: appUsed + webllmUsed,
-            originUsed,
-            quota,
-            persisted,
+            originUsed: browserInfo.originUsed,
+            quota: browserInfo.quota,
+            persisted: browserInfo.persisted,
             fileProtocol: storageIsFileProtocol(),
             idbAvailable: service._idbAvailable || ('indexedDB' in window),
             idbLastError: service._idbFailureReason,
@@ -2636,6 +2621,48 @@ async function getStorageServiceInfo(service) {
             safariOpfsReadOnly: service._isSafari() && service._opfsReadableAvailable
         };
     } catch (e) {}
+    return getStorageServiceFallbackInfo(service);
+}
+
+async function readStorageServiceWebLLMUsage() {
+    try {
+        if (typeof getWebLLMUsedSize === 'function') return await getWebLLMUsedSize();
+    } catch (_) {}
+    return 0;
+}
+
+async function readStorageServiceAppUsage(service) {
+    try {
+        let current = service._lastSaveSnapshot || null;
+        if (!service._isValidSnapshot(current)) {
+            const picked = await service._readNewestStoredSnapshotNoSync();
+            current = picked && picked.data;
+        }
+        return current ? (new Blob([JSON.stringify(current)]).size || 0) : 0;
+    } catch (_) {}
+    return 0;
+}
+
+async function readStorageServiceBrowserQuota() {
+    let quota = null;
+    let originUsed = 0;
+    let persisted = null;
+
+    try {
+        if (navigator.storage && navigator.storage.estimate) {
+            const est = await navigator.storage.estimate();
+            quota = est.quota || null;
+            originUsed = est.usage || 0;
+        }
+        if (navigator.storage && navigator.storage.persisted) {
+            persisted = await navigator.storage.persisted();
+        }
+    } catch (_) {}
+
+    return { quota, originUsed, persisted };
+}
+
+function getStorageServiceFallbackInfo(service) {
     const isFileMode = storageIsFileProtocol();
     return {
         backend: service.getBackend(),
@@ -2656,10 +2683,24 @@ async function getStorageServiceInfo(service) {
         safariOpfsReadOnly: false
     };
 }
-
+// ==================== StorageService Clear Helpers ====================
 async function clearStorageServiceData(service) {
     let cleared = { opfs: false, idb: false, ls: false };
-    const emptyData = {
+    const emptyData = createEmptyStorageServiceSnapshot();
+
+    await clearStorageServiceOPFS(service, emptyData, cleared);
+    await clearStorageServiceIDB(cleared);
+    clearStorageServiceLocalSnapshot(emptyData, cleared);
+    await clearStorageServiceLegacyIDB(cleared);
+    await clearStorageServiceWebLLMCache(cleared);
+
+    console.log('[Storage] clearAllData result:', cleared);
+    if (typeof updateStorageInfo === 'function') setTimeout(() => updateStorageInfo(), 80);
+    return cleared;
+}
+
+function createEmptyStorageServiceSnapshot() {
+    return {
         lastSaved: Date.now(),
         conversations: {},
         conversationOrder: [],
@@ -2669,7 +2710,9 @@ async function clearStorageServiceData(service) {
         settings: {},
         charactersMigrated: true
     };
+}
 
+async function clearStorageServiceOPFS(service, emptyData, cleared) {
     try {
         if (typeof OPFSStorage !== 'undefined' && typeof OPFSStorage.saveAll === 'function' && service._opfsMirrorAvailable && !service._isSafari()) {
             await OPFSStorage.saveAll(emptyData).catch(() => {});
@@ -2678,15 +2721,23 @@ async function clearStorageServiceData(service) {
             try { await OPFSStorage.clear(); } catch (_) {}
         }
         cleared.opfs = true;
-    } catch (e) { console.warn('[Storage] OPFS clear/reset error:', e); }
+    } catch (e) {
+        console.warn('[Storage] OPFS clear/reset error:', e);
+    }
+}
 
+async function clearStorageServiceIDB(cleared) {
     try {
         if (typeof IDBStorage !== 'undefined' && typeof IDBStorage.clear === 'function') {
             await IDBStorage.clear();
             cleared.idb = true;
         }
-    } catch (e) { console.warn('[Storage] IDB clear/reset error:', e); }
+    } catch (e) {
+        console.warn('[Storage] IDB clear/reset error:', e);
+    }
+}
 
+function clearStorageServiceLocalSnapshot(emptyData, cleared) {
     try {
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem('opentavern-last-backup');
@@ -2699,7 +2750,9 @@ async function clearStorageServiceData(service) {
         } catch (_) {}
         cleared.ls = true;
     } catch (e) {}
+}
 
+async function clearStorageServiceLegacyIDB(cleared) {
     try {
         if ('indexedDB' in window) {
             await new Promise((resolve) => {
@@ -2708,18 +2761,18 @@ async function clearStorageServiceData(service) {
             });
             cleared.legacyIdb = true;
         }
-    } catch (e) { console.warn('[Storage] legacy IDB clear error:', e); }
+    } catch (e) {
+        console.warn('[Storage] legacy IDB clear error:', e);
+    }
+}
 
+async function clearStorageServiceWebLLMCache(cleared) {
     try {
         if (typeof clearWebLLMCache === 'function') {
             await clearWebLLMCache({ silent: true });
             cleared.webllm = true;
         }
     } catch (e) {}
-
-    console.log('[Storage] clearAllData result:', cleared);
-    if (typeof updateStorageInfo === 'function') setTimeout(() => updateStorageInfo(), 80);
-    return cleared;
 }
 // ==================== StorageService Load Pipeline ====================
 async function syncStorageServiceSnapshotToAvailableBackends(service, data, source) {
