@@ -10934,7 +10934,7 @@ function createChatMessageElement(msg, conv) {
     holder.innerHTML = renderChatMessageHtml(msg, conv);
     return holder.firstElementChild;
 }
-// ==================== Chat Message Renderer ====================
+// ==================== Chat History Window UI ====================
 /**
  * 确保消息列表顶部有“加载更早历史”的UI
  * 支持点击加载更多（增量增加窗口），并附加滚动到顶部自动加载
@@ -11016,7 +11016,7 @@ function loadMoreHistory(conv, container, silent) {
         // 可选：如果用户想一次看全，可以在这里提供额外提示
     }
 }
-
+// ==================== Chat Message Renderer ====================
 function renderMessages() {
     var conv = getActiveConv();
     if (!conv) return;
