@@ -106,7 +106,11 @@ async function assertFrontendCloudSnapshot() {
 }
 
 async function assertFrontendSummaryService() {
-  const promptSource = await readFile(new URL('../src/app/53-summary-prompt-builder.js', import.meta.url), 'utf8');
+  const promptSources = await Promise.all([
+    '../src/app/53-summary-default-prompts.js',
+    '../src/app/53-summary-prompt-limits.js',
+    '../src/app/53-summary-prompt-builder.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const apiSource = await readFile(new URL('../src/app/53-summary-api-client.js', import.meta.url), 'utf8');
   const serviceSource = await readFile(new URL('../src/app/53-summarization-service.js', import.meta.url), 'utf8');
   let capturedRequest = null;
@@ -152,7 +156,7 @@ async function assertFrontendSummaryService() {
     normalizeMessagesForOllamaCompatibility: (messages) => messages,
   };
 
-  vm.runInNewContext(`${promptSource}\n${apiSource}\n${serviceSource}`, context);
+  vm.runInNewContext(`${promptSources.join('\n')}\n${apiSource}\n${serviceSource}`, context);
   const result = await new Promise((resolve, reject) => {
     context.generateSummary([
       { role: 'user', content: 'hello' },

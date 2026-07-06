@@ -8433,41 +8433,7 @@ function saveCurrentConversation() {
     }
     persistState();
 }
-// ==================== Summary Prompt Builder ====================
-function buildSummaryPromptConfig(settings) {
-    var lang = settings.lang || 'zh-CN';
-    var summaryPrompt = String(settings.summaryPrompt || '').trim() || getDefaultSummaryPrompt(lang);
-    var maxWords = parseInt(settings.summaryMaxWords, 10) || 0;
-
-    if (maxWords > 0) {
-        summaryPrompt += getSummaryWordLimitSuffix(lang, maxWords);
-    }
-
-    return {
-        prompt: summaryPrompt,
-        maxWords: maxWords,
-        maxTokens: getSummaryMaxTokens(maxWords)
-    };
-}
-
-function getSummaryWordLimitSuffix(lang, maxWords) {
-    if (lang === 'zh-TW') {
-        return '\n\n【字數限制】總結內容不得超過' + maxWords + '字，必須嚴格遵守上述5段結構。';
-    }
-    if (lang === 'en') {
-        return '\n\n[Word Limit] Keep the entire summary under ' + maxWords + ' words while strictly following the 5-section structure above.';
-    }
-    return '\n\n【字数限制】总结内容不得超过' + maxWords + '字，必须严格遵守上述5段结构。';
-}
-
-function getSummaryMaxTokens(maxWords) {
-    if (maxWords > 0) {
-        var budget = Math.max(1536, Math.ceil(maxWords * 1.8) + 256);
-        return Math.min(budget, 8192);
-    }
-    return 6144;
-}
-
+// ==================== Default Summary Prompts ====================
 function getDefaultSummaryPrompt(lang) {
     if (lang === 'zh-TW') return getSummaryPromptZhTW();
     if (lang === 'en') return getSummaryPromptEn();
@@ -8505,6 +8471,40 @@ function getSummaryPromptEn() {
         '[MANDATORY OUTPUT FORMAT]\nStrictly follow this structure. Do not add any preface or extra explanation:\n\n[Conversation Segment Summary]\n\n1. Key Events Timeline\n   - Use bullet points to list important events and actions in chronological order (stay objective)\n\n2. Character State Updates\n   - User: current emotional state, attitude, level of investment toward the character\n   - [Actual Character Name]: current emotional state, inner thoughts, perception of User\n\n3. Relationship Dynamics (Most Important)\n   In 1-2 sentences, clearly describe the current relationship stage, intimacy level, emotional tension, and key changes between User and the character. Be specific.\n\n4. Important Revelations and Turning Points\n   - List key information, emotional outbursts, and relationship milestones from this segment\n\n5. Current Tensions and Unresolved Conflicts\n   - Point out remaining tensions, misunderstandings, or open development possibilities at the end of the segment',
         '[Strict Constraints]\n- Stay highly faithful to the original dialogue text. Do not add unsubstantiated details or over-dramatize.\n- Keep language concise and logically clear. Strictly forbidden to output long RP-style continuous narrative or theatrical descriptions.\n- If multiple characters are involved, label each one separately.\n- Regardless of how long the content is, you MUST completely output all 5 sections above without truncating mid-way.'
     ].join('\n\n');
+}
+// ==================== Summary Prompt Limits ====================
+function getSummaryWordLimitSuffix(lang, maxWords) {
+    if (lang === 'zh-TW') {
+        return '\n\n【字數限制】總結內容不得超過' + maxWords + '字，必須嚴格遵守上述5段結構。';
+    }
+    if (lang === 'en') {
+        return '\n\n[Word Limit] Keep the entire summary under ' + maxWords + ' words while strictly following the 5-section structure above.';
+    }
+    return '\n\n【字数限制】总结内容不得超过' + maxWords + '字，必须严格遵守上述5段结构。';
+}
+
+function getSummaryMaxTokens(maxWords) {
+    if (maxWords > 0) {
+        var budget = Math.max(1536, Math.ceil(maxWords * 1.8) + 256);
+        return Math.min(budget, 8192);
+    }
+    return 6144;
+}
+// ==================== Summary Prompt Builder ====================
+function buildSummaryPromptConfig(settings) {
+    var lang = settings.lang || 'zh-CN';
+    var summaryPrompt = String(settings.summaryPrompt || '').trim() || getDefaultSummaryPrompt(lang);
+    var maxWords = parseInt(settings.summaryMaxWords, 10) || 0;
+
+    if (maxWords > 0) {
+        summaryPrompt += getSummaryWordLimitSuffix(lang, maxWords);
+    }
+
+    return {
+        prompt: summaryPrompt,
+        maxWords: maxWords,
+        maxTokens: getSummaryMaxTokens(maxWords)
+    };
 }
 // ==================== Summary API Client ====================
 function requestSummaryCompletion(endpoint, apiKey, model, summaryMessages, maxTokens) {

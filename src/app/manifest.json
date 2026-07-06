@@ -84,6 +84,8 @@
   "52-generation-message-lifecycle.js",
   "52-generation-second-stage-runtime.js",
   "52-conversation-save.js",
+  "53-summary-default-prompts.js",
+  "53-summary-prompt-limits.js",
   "53-summary-prompt-builder.js",
   "53-summary-api-client.js",
   "53-summarization-service.js",
