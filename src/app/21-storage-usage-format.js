@@ -12,7 +12,7 @@ function formatStorageMB(bytes) {
 
 function getOPFSStatusText(info) {
     var isFileMode = !!(info && (info.fileProtocol || info.opfsSkippedReason === 'file-protocol')) ||
-        (typeof location !== 'undefined' && location.protocol === 'file:');
+        (typeof storageIsFileProtocol === 'function' && storageIsFileProtocol());
     if (isFileMode) {
         return '\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\uff1a\u5df2\u8df3\u8fc7 OPFS\uff0c\u4f7f\u7528 IndexedDB/localStorage';
     }
@@ -21,7 +21,7 @@ function getOPFSStatusText(info) {
     }
     if (!info || !info.opfsAvailable) {
         var reason = String(info && info.opfsFailureReason || '').toLowerCase();
-        if (reason.includes('file://')) return '\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\uff1a\u5df2\u8df3\u8fc7 OPFS\uff0c\u4f7f\u7528 IndexedDB/localStorage';
+        if (/file:|file-protocol|blocked on file/.test(reason)) return '\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\uff1a\u5df2\u8df3\u8fc7 OPFS\uff0c\u4f7f\u7528 IndexedDB/localStorage';
         return 'OPFS \u672a\u542f\u7528\uff1a\u4f7f\u7528 IndexedDB/localStorage';
     }
     if (info.opfsMirrorAvailable) return 'OPFS: \u955c\u50cf\u53ef\u5199';

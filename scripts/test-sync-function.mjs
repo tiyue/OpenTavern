@@ -449,8 +449,7 @@ async function assertFrontendFileProtocolOPFSSilence() {
   const warnings = [];
   const errors = [];
   const context = {
-    location: { protocol: 'file:' },
-    window: { isSecureContext: false },
+    window: { location: { protocol: 'file:' }, isSecureContext: false },
     navigator: {
       storage: {
         getDirectory() {
@@ -479,6 +478,8 @@ async function assertFrontendFileProtocolOPFSSilence() {
   await context.__opfs.clear();
 
   assert(info && info.backend === 'opfs' && info.used === 0, 'OPFS info should be empty on file://.');
+  assert(info.fileProtocol === true, 'OPFS info should expose file protocol mode.');
+  assert(info.opfsSkipped === true && info.opfsSkippedReason === 'file-protocol', 'OPFS info should expose file protocol skip state.');
   assert(warnings.length === 0, `OPFS file:// path should not warn: ${warnings.join('\n')}`);
   assert(errors.length === 0, `OPFS file:// path should not error: ${errors.join('\n')}`);
 }
@@ -628,7 +629,6 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
       },
     },
     localStorage: localStorageMock,
-    location: { protocol: 'file:' },
     navigator: {
       userAgent: 'TestBrowser',
       vendor: 'TestVendor',
@@ -642,6 +642,7 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
       },
     },
     window: {
+      location: { protocol: 'file:' },
       indexedDB: {},
       addEventListener() {},
       isSecureContext: false,

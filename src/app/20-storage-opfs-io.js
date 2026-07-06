@@ -53,7 +53,17 @@ async function doSaveAllOPFSStorage(storage, data) {
 }
 
 async function getOPFSStorageInfo(storage) {
-    if (storage._isFileProtocol()) return { backend: 'opfs', used: 0, quota: null };
+    if (storage._isFileProtocol()) {
+        return {
+            backend: 'opfs',
+            used: 0,
+            quota: null,
+            fileProtocol: true,
+            opfsAvailable: false,
+            opfsSkipped: true,
+            opfsSkippedReason: 'file-protocol'
+        };
+    }
 
     try {
         const est = (navigator.storage && navigator.storage.estimate) ? await navigator.storage.estimate() : { usage: 0, quota: null };

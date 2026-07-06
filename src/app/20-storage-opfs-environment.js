@@ -1,18 +1,27 @@
 // ==================== OPFS Environment Helpers ====================
+function getOPFSLocationProtocol() {
+    try {
+        if (typeof location !== 'undefined' && location && location.protocol) return location.protocol;
+        if (typeof window !== 'undefined' && window.location && window.location.protocol) return window.location.protocol;
+    } catch (_) {}
+    return '';
+}
+
 function opfsStorageIsFileProtocol() {
-    return typeof location !== 'undefined' && location.protocol === 'file:';
+    return getOPFSLocationProtocol() === 'file:';
 }
 
 function isKnownOPFSUnsupportedError(e) {
     return !!(e && (
         e.name === 'SecurityError' ||
-        /file:|unsafe|OPFS (blocked|unavailable)/i.test(e.message || '')
+        /file:|file-protocol|unsafe|OPFS (blocked|unavailable)/i.test(e.message || '')
     ));
 }
 
 function warnOPFSUnsupportedOnce(storage) {
+    if (opfsStorageIsFileProtocol()) return;
     if (!storage._warnedUnsupported) {
-        console.warn('[OPFS] Not available in current environment (file:// or insecure context). Using fallback storage.');
+        console.warn('[OPFS] Skipped in this environment; using fallback storage.');
         storage._warnedUnsupported = true;
     }
 }

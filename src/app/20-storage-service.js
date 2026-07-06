@@ -172,9 +172,17 @@ var StorageService = {
                 console.warn('[Storage] OPFS write probe failed; keeping IndexedDB/localStorage canonical:', this._opfsFailureReason);
             }
         } catch (e) {
+            const msg = e && e.message ? e.message : String(e);
+            if (storageIsFileProtocol() || /file:|file-protocol|blocked on file/i.test(msg)) {
+                this._opfsSkipped = true;
+                this._opfsSkippedReason = 'file-protocol';
+                this._opfsFailed = false;
+                this._opfsFailureReason = null;
+                return;
+            }
             this._opfsFailed = true;
-            this._opfsFailureReason = e && e.message ? e.message : String(e);
-            console.info('[Storage] OPFS unavailable; IndexedDB/localStorage remain canonical:', e && e.message);
+            this._opfsFailureReason = msg;
+            console.info('[Storage] OPFS unavailable; IndexedDB/localStorage remain canonical:', msg);
         }
     },
 

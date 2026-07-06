@@ -2124,20 +2124,29 @@ function cacheUiTheme(theme) {
 // 保存时优先 OPFS，成功后顺便写 LS；OPFS 跳过时直接写 LS。
 // 所有记录带 lastSaved。
 // ==================== OPFS Environment Helpers ====================
+function getOPFSLocationProtocol() {
+    try {
+        if (typeof location !== 'undefined' && location && location.protocol) return location.protocol;
+        if (typeof window !== 'undefined' && window.location && window.location.protocol) return window.location.protocol;
+    } catch (_) {}
+    return '';
+}
+
 function opfsStorageIsFileProtocol() {
-    return typeof location !== 'undefined' && location.protocol === 'file:';
+    return getOPFSLocationProtocol() === 'file:';
 }
 
 function isKnownOPFSUnsupportedError(e) {
     return !!(e && (
         e.name === 'SecurityError' ||
-        /file:|unsafe|OPFS (blocked|unavailable)/i.test(e.message || '')
+        /file:|file-protocol|unsafe|OPFS (blocked|unavailable)/i.test(e.message || '')
     ));
 }
 
 function warnOPFSUnsupportedOnce(storage) {
+    if (opfsStorageIsFileProtocol()) return;
     if (!storage._warnedUnsupported) {
-        console.warn('[OPFS] Not available in current environment (file:// or insecure context). Using fallback storage.');
+        console.warn('[OPFS] Skipped in this environment; using fallback storage.');
         storage._warnedUnsupported = true;
     }
 }
@@ -2248,7 +2257,17 @@ async function doSaveAllOPFSStorage(storage, data) {
 }
 
 async function getOPFSStorageInfo(storage) {
-    if (storage._isFileProtocol()) return { backend: 'opfs', used: 0, quota: null };
+    if (storage._isFileProtocol()) {
+        return {
+            backend: 'opfs',
+            used: 0,
+            quota: null,
+            fileProtocol: true,
+            opfsAvailable: false,
+            opfsSkipped: true,
+            opfsSkippedReason: 'file-protocol'
+        };
+    }
 
     try {
         const est = (navigator.storage && navigator.storage.estimate) ? await navigator.storage.estimate() : { usage: 0, quota: null };
@@ -2499,8 +2518,16 @@ function storageDetectSafari() {
     }
 }
 
+function storageGetLocationProtocol() {
+    try {
+        if (typeof location !== 'undefined' && location && location.protocol) return location.protocol;
+        if (typeof window !== 'undefined' && window.location && window.location.protocol) return window.location.protocol;
+    } catch (_) {}
+    return '';
+}
+
 function storageIsFileProtocol() {
-    return typeof location !== 'undefined' && location.protocol === 'file:';
+    return storageGetLocationProtocol() === 'file:';
 }
 
 function storageHasUserData(data) {
@@ -2609,7 +2636,25 @@ async function getStorageServiceInfo(service) {
             safariOpfsReadOnly: service._isSafari() && service._opfsReadableAvailable
         };
     } catch (e) {}
-    return { backend: service.getBackend(), used: 0, webllmUsed: 0, totalUsed: 0, originUsed: 0, quota: null, persisted: null };
+    const isFileMode = storageIsFileProtocol();
+    return {
+        backend: service.getBackend(),
+        used: 0,
+        webllmUsed: 0,
+        totalUsed: 0,
+        originUsed: 0,
+        quota: null,
+        persisted: null,
+        fileProtocol: isFileMode,
+        idbAvailable: service._idbAvailable || (typeof window !== 'undefined' && 'indexedDB' in window),
+        idbLastError: service._idbFailureReason,
+        opfsAvailable: false,
+        opfsMirrorAvailable: false,
+        opfsSkipped: isFileMode || service._opfsSkipped,
+        opfsSkippedReason: isFileMode ? 'file-protocol' : service._opfsSkippedReason,
+        opfsFailureReason: isFileMode ? null : service._opfsFailureReason,
+        safariOpfsReadOnly: false
+    };
 }
 
 async function clearStorageServiceData(service) {
@@ -3029,9 +3074,17 @@ var StorageService = {
                 console.warn('[Storage] OPFS write probe failed; keeping IndexedDB/localStorage canonical:', this._opfsFailureReason);
             }
         } catch (e) {
+            const msg = e && e.message ? e.message : String(e);
+            if (storageIsFileProtocol() || /file:|file-protocol|blocked on file/i.test(msg)) {
+                this._opfsSkipped = true;
+                this._opfsSkippedReason = 'file-protocol';
+                this._opfsFailed = false;
+                this._opfsFailureReason = null;
+                return;
+            }
             this._opfsFailed = true;
-            this._opfsFailureReason = e && e.message ? e.message : String(e);
-            console.info('[Storage] OPFS unavailable; IndexedDB/localStorage remain canonical:', e && e.message);
+            this._opfsFailureReason = msg;
+            console.info('[Storage] OPFS unavailable; IndexedDB/localStorage remain canonical:', msg);
         }
     },
 
@@ -3138,7 +3191,7 @@ function formatStorageMB(bytes) {
 
 function getOPFSStatusText(info) {
     var isFileMode = !!(info && (info.fileProtocol || info.opfsSkippedReason === 'file-protocol')) ||
-        (typeof location !== 'undefined' && location.protocol === 'file:');
+        (typeof storageIsFileProtocol === 'function' && storageIsFileProtocol());
     if (isFileMode) {
         return '\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\uff1a\u5df2\u8df3\u8fc7 OPFS\uff0c\u4f7f\u7528 IndexedDB/localStorage';
     }
@@ -3147,7 +3200,7 @@ function getOPFSStatusText(info) {
     }
     if (!info || !info.opfsAvailable) {
         var reason = String(info && info.opfsFailureReason || '').toLowerCase();
-        if (reason.includes('file://')) return '\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\uff1a\u5df2\u8df3\u8fc7 OPFS\uff0c\u4f7f\u7528 IndexedDB/localStorage';
+        if (/file:|file-protocol|blocked on file/.test(reason)) return '\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\uff1a\u5df2\u8df3\u8fc7 OPFS\uff0c\u4f7f\u7528 IndexedDB/localStorage';
         return 'OPFS \u672a\u542f\u7528\uff1a\u4f7f\u7528 IndexedDB/localStorage';
     }
     if (info.opfsMirrorAvailable) return 'OPFS: \u955c\u50cf\u53ef\u5199';
