@@ -283,6 +283,101 @@ async function assertFrontendSummaryService() {
   assert(capturedRequest.body.messages[1].content.includes('Assistant: world'), 'Summary assistant message was not labeled correctly.');
 }
 
+async function assertFrontendAutoSummarizationHelpers() {
+  const sources = await Promise.all([
+    '../src/app/54-summarization-auto-threshold.js',
+    '../src/app/54-summarization-auto-selection.js',
+    '../src/app/54-summarization-auto-runtime.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function makeMessages(count) {
+    return Array.from({ length: count }, (_, idx) => ({
+      role: idx % 2 === 0 ? 'user' : 'assistant',
+      content: `message-${idx}`,
+    }));
+  }
+
+  let activeConv = null;
+  const events = [];
+  const context = {
+    state: {
+      settings: {
+        summaryEnabled: false,
+        summaryThreshold: 12,
+        contextLength: 20,
+      },
+    },
+    getActiveConv() {
+      return activeConv;
+    },
+    performSummarization(subset, startIdx, endIdx, cb) {
+      events.push({
+        type: 'summary',
+        count: subset.length,
+        startIdx,
+        endIdx,
+        first: subset[0] && subset[0].content,
+      });
+      cb(null);
+    },
+    renderTokenBar() {
+      events.push({ type: 'token' });
+    },
+    Math,
+    Array,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__auto = autoSummarize;\nthis.__select = buildAutoSummarySelection;\nthis.__visible = getActualVisibleCountForSummary;`, context);
+
+  function reset(settings, conv) {
+    events.length = 0;
+    context.state.settings = settings;
+    activeConv = conv;
+  }
+
+  reset(
+    { summaryEnabled: false, summaryThreshold: 12, contextLength: 20 },
+    { messages: makeMessages(20), summaries: [] }
+  );
+  context.__auto();
+  assert(events.length === 0, 'Auto summarization should not run while disabled.');
+
+  reset(
+    { summaryEnabled: true, summaryThreshold: 12, contextLength: 20 },
+    { messages: makeMessages(5), summaries: [] }
+  );
+  context.__auto();
+  assert(events.length === 0, 'Auto summarization should not run for short conversations.');
+
+  reset(
+    { summaryEnabled: true, summaryThreshold: 12, contextLength: 20 },
+    {
+      messages: [{ role: 'system', content: 'hidden' }, ...makeMessages(20)],
+      summaries: [{ coveredEnd: 3 }, { coveredEnd: 7 }],
+    }
+  );
+  context.__auto();
+  assert(events[0].type === 'summary' && events[0].startIdx === 8 && events[0].endIdx === 15, 'Auto summarization should continue after the max coveredEnd summary.');
+  assert(events[0].count === 8 && events[0].first === 'message-8', 'Auto summarization selected the wrong post-summary batch.');
+  assert(events[1].type === 'token', 'Auto summarization should refresh the token bar after completion.');
+
+  const scaledSelection = context.__select(
+    { messages: makeMessages(24), summaries: [] },
+    { summaryThreshold: 20 },
+    () => 0
+  );
+  assert(scaledSelection.targetKeep === 7 && scaledSelection.minSummarizeBatch === 7, 'Auto summarization should scale keep/min-batch with threshold.');
+  assert(scaledSelection.subset.length === 17, 'Auto summarization batch size should not be fixed at four messages.');
+
+  reset(
+    { summaryEnabled: true, summaryThreshold: 9, contextLength: 20 },
+    { messages: makeMessages(9), summaries: [] }
+  );
+  assert(context.__visible() === 9, 'Auto summarization visible-count fallback should match current visible messages.');
+  context.__auto();
+  assert(events[0].type === 'summary' && events[0].count === 5 && events[0].startIdx === 0 && events[0].endIdx === 4, 'Auto summarization fallback should trigger at the visible-count threshold.');
+}
+
 async function assertFrontendSummaryManagerHelpers() {
   const sources = await Promise.all([
     '../src/app/58-summary-manager-range-ui.js',
@@ -2688,6 +2783,7 @@ async function main() {
   await assertFrontendStateStoreDefaults();
   await assertFrontendCloudSnapshotApply();
   await assertFrontendSummaryService();
+  await assertFrontendAutoSummarizationHelpers();
   await assertFrontendSummaryManagerHelpers();
   await assertFrontendApiConnectionHelpers();
   await assertFrontendGenerationHelpers();
