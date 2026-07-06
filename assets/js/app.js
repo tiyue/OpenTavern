@@ -6239,7 +6239,7 @@ function getMergedWorldInfoForConv(conv) {
     }
     return conv.worldInfo;
 }
-// ==================== World Book Import / Export Formats ====================
+// ==================== World Book Import Format ====================
 function normalizeImportedWorldInfo(raw) {
     var wi = { name: '', entries: {} };
     if (!raw) return wi;
@@ -6265,7 +6265,7 @@ function normalizeImportedWorldInfo(raw) {
     if (raw.name) wi.name = raw.name;
     return wi;
 }
-
+// ==================== World Book Export Format ====================
 function entriesToSTFormat(worldInfo) {
     var out = { entries: {} };
     if (worldInfo && worldInfo.name) out.name = worldInfo.name;
@@ -6348,6 +6348,9 @@ function getCharacterBookForExport(conv) {
 
     return characterBook;
 }
+// World book import/export format helpers are split across:
+// - 42-worldbook-import-format.js
+// - 42-worldbook-export-format.js
 // ==================== Global World Book Registry ====================
 var wiState = {
     modalOpen: false,

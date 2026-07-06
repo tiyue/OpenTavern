@@ -1218,6 +1218,81 @@ async function assertFrontendWorldInfoNormalizerHelpers() {
   assert(Array.isArray(entry.triggers) && entry.characterFilter.isExclude === false, 'World info normalizer should ensure required shape.');
 }
 
+async function assertFrontendWorldBookFormatHelpers() {
+  const sources = await Promise.all([
+    '../src/app/42-worldbook-import-format.js',
+    '../src/app/42-worldbook-export-format.js',
+    '../src/app/42-worldbook-format.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const context = {
+    state: {
+      worldBooks: {
+        wb1: {
+          name: 'Alpha Book',
+          entries: {
+            '2': { uid: 2, id: 2, content: 'second', insertion_order: 20, position: 1, depth: 3, outletName: 'Lore' },
+          },
+        },
+        wb2: {
+          name: 'Beta Book',
+          entries: {
+            '1': { uid: 1, id: 1, content: 'first', order: 10, role: 1, triggers: ['go'] },
+          },
+        },
+      },
+    },
+    normalizeWIEntry(entry) {
+      return Object.assign({}, entry);
+    },
+    JSON,
+    Object,
+    Array,
+    Date: { now: () => 999 },
+    parseInt,
+    isNaN,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__import = normalizeImportedWorldInfo;\nthis.__st = entriesToSTFormat;\nthis.__book = getCharacterBookForExport;`, context);
+
+  const importedArray = context.__import({
+    name: 'Imported',
+    entries: [{ id: '7', content: 'seven' }, { content: 'zero' }],
+  });
+  assert(importedArray.name === 'Imported' && importedArray.entries['7'].uid === 7 && importedArray.entries['1'].uid === 1, 'World book import should normalize array entries and numeric ids.');
+
+  const importedObject = context.__import({
+    worldInfo: {
+      entries: {
+        custom: { content: 'custom uid' },
+      },
+    },
+  });
+  assert(importedObject.entries['999'].uid === 999, 'World book import should fall back to Date.now for non-numeric object keys.');
+
+  const st = context.__st({
+    name: 'Exported',
+    entries: {
+      '4': {
+        uid: 4,
+        content: 'entry',
+        position: 4,
+        depth: 2,
+        role: 1,
+        outletName: 'Outlet',
+        matchWholeWords: true,
+      },
+    },
+  });
+  assert(st.name === 'Exported' && st.entries['4'].extensions.position === 4 && st.entries['4'].extensions.outlet_name === 'Outlet', 'World book ST export should mirror extension fields.');
+  assert(Array.isArray(st.entries['4'].extensions.triggers), 'World book ST export should always include triggers.');
+
+  const book = context.__book({ worldBookIds: ['wb1', 'wb2'] });
+  assert(book.name === 'Alpha Book + Beta Book', 'Character book export should combine world book names.');
+  assert(book.entries.map((entry) => entry.content).join(',') === 'first,second', 'Character book export should sort merged entries by order.');
+  assert(book.entries[1].extensions.depth === 3, 'Character book export should keep ST extension mappings.');
+}
+
 async function assertFrontendSettingsSaveHelpers() {
   const sources = await Promise.all([
     '../src/app/68-settings-cloud-sync-form.js',
@@ -3306,6 +3381,7 @@ async function main() {
   await assertFrontendCharacterImportHelpers();
   await assertFrontendCharacterImportEventHelpers();
   await assertFrontendWorldInfoNormalizerHelpers();
+  await assertFrontendWorldBookFormatHelpers();
   await assertFrontendSettingsSaveHelpers();
   await assertFrontendSettingsHydrationHelpers();
   await assertFrontendPublicCardAssets();

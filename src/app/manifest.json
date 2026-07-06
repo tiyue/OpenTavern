@@ -109,6 +109,8 @@
   "41-second-stage-prompt-builder.js",
   "42-worldbook.js",
   "42-worldbook-model.js",
+  "42-worldbook-import-format.js",
+  "42-worldbook-export-format.js",
   "42-worldbook-format.js",
   "42-worldbook-registry.js",
   "42-character-registry.js",
