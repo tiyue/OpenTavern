@@ -38,9 +38,7 @@ function bindSettingsStorageStatusControls(backend) {
     const hintEl = document.getElementById('storageHint');
     if (hintEl) {
         StorageService.getStorageInfo().then(function(info) {
-            const canonical = getStorageBackendLabel((info && info.backend) || backend);
-            const opfs = getOPFSStatusText(info || {});
-            hintEl.textContent = `\u4e3b\u5b58\u50a8\u4f7f\u7528 ${canonical}\uff0clocalStorage \u4fdd\u7559\u5e94\u6025\u5feb\u7167\uff0c${opfs}\u3002`;
+            hintEl.textContent = buildStorageHintText(info || {}, backend);
             hintEl.style.color = backend === 'idb' ? '#60a5fa' : '#fbbf24';
         }).catch(function() {
             hintEl.textContent = backend === 'idb'

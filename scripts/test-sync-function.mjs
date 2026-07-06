@@ -105,6 +105,80 @@ async function assertFrontendCloudSnapshot() {
   assert(Number.isFinite(snapshot.lastSaved), 'Frontend cloud snapshot did not include a timestamp.');
 }
 
+async function assertFrontendCloudSnapshotApply() {
+  const cloudSource = await readFile(new URL('../src/app/22-cloud-sync.js', import.meta.url), 'utf8');
+  const applySource = await readFile(new URL('../src/app/22-cloud-sync-apply.js', import.meta.url), 'utf8');
+  let persisted = false;
+  let notified = null;
+  let rendered = false;
+  const context = {
+    state: {
+      settings: {
+        cloudSyncEnabled: true,
+        cloudSyncAutoUpload: true,
+        cloudSyncEndpoint: 'https://sync.example/api',
+        cloudSyncToken: 'local-token',
+        cloudSyncEncrypted: true,
+        cloudSyncPassphrase: 'local-passphrase',
+      },
+      conversations: {},
+      conversationOrder: [],
+      activeConvId: null,
+      characters: {},
+      worldBooks: {},
+    },
+    defaultSettings: () => ({
+      model: 'default-model',
+      cloudSyncEnabled: false,
+      cloudSyncAutoUpload: false,
+      cloudSyncEndpoint: '/api/sync',
+      cloudSyncToken: '',
+      cloudSyncEncrypted: false,
+      cloudSyncPassphrase: '',
+      cloudSyncLastAt: 0,
+      cloudSyncLastStatus: '',
+    }),
+    normalizeConversation(conv) { conv.normalized = true; },
+    defaultConversation() { return { id: 'default', messages: [] }; },
+    persistState() { persisted = true; },
+    appStore: { notify(value) { notified = value; } },
+    requestFullRender() { rendered = true; },
+    updateInputState() {},
+    updateStorageInfo() {},
+    Date,
+    Object,
+    Array,
+    Number,
+    String,
+  };
+
+  vm.runInNewContext(`${cloudSource}\n${applySource}\nthis.__apply = applyCloudSyncSnapshot;`, context);
+  const applied = context.__apply({
+    settings: { model: 'remote-model', cloudSyncToken: 'remote-token' },
+    conversations: { c1: { id: 'c1', messages: [{ role: 'user', content: 'hello cloud' }] } },
+    conversationOrder: ['c1'],
+    activeConvId: 'c1',
+    characters: { arona: { id: 'arona', name: 'Arona' } },
+    worldBooks: { wb1: { id: 'wb1', entries: [] } },
+    charactersMigrated: true,
+    lastSaved: 123,
+  });
+
+  assert(applied.settings.model === 'remote-model', 'Applied cloud snapshot did not return remote settings.');
+  assert(context.state.settings.model === 'remote-model', 'Cloud apply did not restore settings.');
+  assert(context.state.settings.cloudSyncToken === 'local-token', 'Cloud apply must preserve local cloud sync token.');
+  assert(context.state.settings.cloudSyncPassphrase === 'local-passphrase', 'Cloud apply must preserve local cloud sync passphrase.');
+  assert(context.state.conversations.c1.normalized === true, 'Cloud apply did not normalize restored conversations.');
+  assert(context.state.conversations.c1.messages[0].content === 'hello cloud', 'Cloud apply did not restore chat history.');
+  assert(context.state.characters.arona.name === 'Arona', 'Cloud apply did not restore character cards.');
+  assert(context.state.worldBooks.wb1.id === 'wb1', 'Cloud apply did not restore world books.');
+  assert(context.state.activeConvId === 'c1', 'Cloud apply did not restore active conversation.');
+  assert(context.state._charactersMigrated === true, 'Cloud apply did not restore character migration flag.');
+  assert(persisted === true, 'Cloud apply did not persist restored snapshot.');
+  assert(rendered === true, 'Cloud apply did not request a full render.');
+  assert(Array.isArray(notified) && notified.includes('characters') && notified.includes('worldBooks'), 'Cloud apply did not notify restored data domains.');
+}
+
 async function assertFrontendSummaryService() {
   const promptSources = await Promise.all([
     '../src/app/53-summary-default-prompts.js',
@@ -758,12 +832,13 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
     setTimeout,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__StorageService = StorageService;\nthis.__getOPFSStatusText = getOPFSStatusText;\nthis.__buildStorageUsageText = buildStorageUsageText;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__StorageService = StorageService;\nthis.__getOPFSStatusText = getOPFSStatusText;\nthis.__buildStorageUsageText = buildStorageUsageText;\nthis.__buildStorageHintText = buildStorageHintText;`, context);
   const service = context.__StorageService;
   await service.init();
   const info = await service.getStorageInfo();
   const opfsText = context.__getOPFSStatusText(info);
   const usageText = context.__buildStorageUsageText(info);
+  const hintText = context.__buildStorageHintText(info, service.getBackend());
 
   assert(service._opfsSkipped === true, 'StorageService should mark OPFS as skipped on file://.');
   assert(service._opfsFailed === false, 'StorageService should not mark file:// OPFS skip as a failure.');
@@ -772,8 +847,11 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
   assert(!info.opfsFailureReason, 'file:// OPFS skip should not populate failure reason.');
   assert(!opfsTouched, 'StorageService should not touch OPFS APIs on file://.');
   assert(opfsText.includes('\u672c\u5730\u6587\u4ef6\u6a21\u5f0f'), 'OPFS status should describe local file mode.');
+  assert(hintText.includes('\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\u5df2\u8df3\u8fc7 OPFS'), 'Storage hint should describe OPFS as skipped in local file mode.');
   assert(!opfsText.includes('\u4e0d\u53ef\u7528'), 'OPFS status should not say unavailable for file://.');
   assert(!usageText.includes('\u4e0d\u53ef\u7528'), 'Storage usage text should not say unavailable for file://.');
+  assert(!hintText.includes('\u4e0d\u53ef\u7528'), 'Storage hint should not say unavailable for file://.');
+  assert(!hintText.includes('\u6b63\u5728\u4f7f\u7528 OPFS'), 'Storage hint should not claim OPFS is active on file://.');
   assert(!infos.some((msg) => /OPFS unavailable|file:\/\/ mode/i.test(msg)), 'file:// path should not log OPFS unavailable info.');
   assert(warnings.length === 0, `file:// path should not warn: ${warnings.join('\n')}`);
   assert(errors.length === 0, `file:// path should not error: ${errors.join('\n')}`);
@@ -911,6 +989,7 @@ async function assertFrontendConversationImportHelpers() {
 
 async function main() {
   await assertFrontendCloudSnapshot();
+  await assertFrontendCloudSnapshotApply();
   await assertFrontendSummaryService();
   await assertFrontendApiConnectionHelpers();
   await assertFrontendPublicCardAssets();

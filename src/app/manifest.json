@@ -36,6 +36,7 @@
   "22-cloud-sync.js",
   "22-cloud-sync-crypto.js",
   "22-cloud-sync-transport.js",
+  "22-cloud-sync-apply.js",
   "22-cloud-sync-operations.js",
   "22-cloud-sync-scheduler.js",
   "23-storage-legacy-idb.js",

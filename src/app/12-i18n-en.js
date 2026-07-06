@@ -349,9 +349,10 @@ i18n['en'] = {
         // Phase 4 Storage & Backup
         storage_backend: 'Storage Backend',
         storage_used_space: 'Used Space',
+        storage_hint_pending: 'Storage backend is initializing. localStorage keeps an emergency snapshot.',
         storage_hint_ls: 'Local file mode skips OPFS and stores data with IndexedDB/localStorage.',
-        storage_hint_opfs: 'Using OPFS (large capacity, good perf) + localStorage strong snapshot fallback.',
-        clear_opfs_data: 'Clear ALL user data (OPFS + localStorage snapshot, incl. WebLLM)',
+        storage_hint_opfs: 'IndexedDB is primary storage; OPFS is used as a mirror/recovery source when available, with localStorage as the emergency snapshot.',
+        clear_opfs_data: 'Clear ALL user data (IndexedDB + OPFS + localStorage snapshot, incl. WebLLM)',
         storage_usage_calculating: 'Calculating...',
         storage_high_warning: 'Storage space is tight. Please back up soon!',
 

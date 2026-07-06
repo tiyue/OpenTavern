@@ -350,9 +350,10 @@ i18n['zh-TW'] = {
         // Phase 4 Storage & Backup
         storage_backend: '儲存後端',
         storage_used_space: '已用空間',
-        storage_hint_ls: '本機檔案模式會略過 OPFS，使用 IndexedDB/localStorage 儲存資料。',
-        storage_hint_opfs: '正在使用 OPFS（容量大、性能佳），localStorage 作為強快照兜底。',
-        clear_opfs_data: '清除所有用戶資料（OPFS + localStorage 快照，含 WebLLM 快取）',
+        storage_hint_pending: '儲存後端初始化中，localStorage 保留應急快照。',
+        storage_hint_ls: '本機檔案模式已略過 OPFS，使用 IndexedDB/localStorage 儲存資料。',
+        storage_hint_opfs: 'IndexedDB 為主儲存，OPFS 可用時作為鏡像/恢復來源，localStorage 保留應急快照。',
+        clear_opfs_data: '清除所有用戶資料（IndexedDB + OPFS + localStorage 快照，含 WebLLM 快取）',
         storage_usage_calculating: '計算中...',
         storage_high_warning: '儲存空間緊張，建議盡快備份！',
 

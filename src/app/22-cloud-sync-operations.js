@@ -42,52 +42,6 @@ async function uploadCloudSyncSnapshot(statusEl, options) {
     return result;
 }
 
-function applyCloudSyncSnapshot(snapshot) {
-    var data = normalizeCloudSyncSnapshot(snapshot);
-    var currentCloud = {
-        cloudSyncEnabled: state.settings && state.settings.cloudSyncEnabled,
-        cloudSyncAutoUpload: state.settings && state.settings.cloudSyncAutoUpload,
-        cloudSyncEndpoint: state.settings && state.settings.cloudSyncEndpoint,
-        cloudSyncToken: state.settings && state.settings.cloudSyncToken,
-        cloudSyncEncrypted: state.settings && state.settings.cloudSyncEncrypted,
-        cloudSyncPassphrase: state.settings && state.settings.cloudSyncPassphrase,
-        cloudSyncLastAt: Date.now(),
-        cloudSyncLastStatus: 'Cloud download applied.'
-    };
-
-    state.settings = Object.assign(defaultSettings(), data.settings || {}, currentCloud);
-    state.conversations = data.conversations || {};
-    state.conversationOrder = data.conversationOrder || Object.keys(state.conversations || {});
-    state.activeConvId = data.activeConvId || null;
-    state.worldBooks = data.worldBooks || {};
-    state.characters = data.characters || {};
-    state._charactersMigrated = !!data.charactersMigrated;
-
-    Object.values(state.conversations || {}).forEach(function(conv) {
-        try { normalizeConversation(conv); } catch (_) {}
-    });
-
-    if (!state.activeConvId || !state.conversations[state.activeConvId]) {
-        var first = (state.conversationOrder || []).find(function(id) { return state.conversations[id]; }) || Object.keys(state.conversations || {})[0];
-        if (first) {
-            state.activeConvId = first;
-        } else {
-            var conv = defaultConversation();
-            state.conversations[conv.id] = conv;
-            state.conversationOrder = [conv.id];
-            state.activeConvId = conv.id;
-        }
-    }
-
-    _cloudSyncSavingStatus = true;
-    try { persistState(true); } finally { _cloudSyncSavingStatus = false; }
-    appStore.notify(['settings', 'conversations', 'characters', 'worldBooks', 'activeConvId']);
-    if (typeof requestFullRender === 'function') requestFullRender();
-    if (typeof updateInputState === 'function') updateInputState();
-    if (typeof updateStorageInfo === 'function') updateStorageInfo();
-    return data;
-}
-
 async function downloadCloudSyncSnapshot(statusEl) {
     ensureCloudSyncSettings();
     var target = statusEl || document.getElementById('cloudSyncStatus');

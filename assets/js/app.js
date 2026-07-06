@@ -962,9 +962,10 @@ i18n['zh-CN'] = {
         // Phase 4 Storage & Backup (新增)
         storage_backend: '存储后端',
         storage_used_space: '已用空间',
-        storage_hint_ls: '本地文件模式会跳过 OPFS，使用 IndexedDB/localStorage 保存数据。',
-        storage_hint_opfs: '正在使用 OPFS（容量大、性能好），localStorage 作为强快照兜底。',
-        clear_opfs_data: '清除所有用户数据（OPFS + localStorage 快照，含 WebLLM 缓存）',
+        storage_hint_pending: '存储后端初始化中，localStorage 保留应急快照。',
+        storage_hint_ls: '本地文件模式已跳过 OPFS，使用 IndexedDB/localStorage 保存数据。',
+        storage_hint_opfs: 'IndexedDB 为主存储，OPFS 可用时作为镜像/恢复来源，localStorage 保留应急快照。',
+        clear_opfs_data: '清除所有用户数据（IndexedDB + OPFS + localStorage 快照，含 WebLLM 缓存）',
         storage_usage_calculating: '计算中...',
         storage_high_warning: '存储空间紧张，建议尽快备份！',
 
@@ -1404,9 +1405,10 @@ i18n['zh-TW'] = {
         // Phase 4 Storage & Backup
         storage_backend: '儲存後端',
         storage_used_space: '已用空間',
-        storage_hint_ls: '本機檔案模式會略過 OPFS，使用 IndexedDB/localStorage 儲存資料。',
-        storage_hint_opfs: '正在使用 OPFS（容量大、性能佳），localStorage 作為強快照兜底。',
-        clear_opfs_data: '清除所有用戶資料（OPFS + localStorage 快照，含 WebLLM 快取）',
+        storage_hint_pending: '儲存後端初始化中，localStorage 保留應急快照。',
+        storage_hint_ls: '本機檔案模式已略過 OPFS，使用 IndexedDB/localStorage 儲存資料。',
+        storage_hint_opfs: 'IndexedDB 為主儲存，OPFS 可用時作為鏡像/恢復來源，localStorage 保留應急快照。',
+        clear_opfs_data: '清除所有用戶資料（IndexedDB + OPFS + localStorage 快照，含 WebLLM 快取）',
         storage_usage_calculating: '計算中...',
         storage_high_warning: '儲存空間緊張，建議盡快備份！',
 
@@ -1798,9 +1800,10 @@ i18n['en'] = {
         // Phase 4 Storage & Backup
         storage_backend: 'Storage Backend',
         storage_used_space: 'Used Space',
+        storage_hint_pending: 'Storage backend is initializing. localStorage keeps an emergency snapshot.',
         storage_hint_ls: 'Local file mode skips OPFS and stores data with IndexedDB/localStorage.',
-        storage_hint_opfs: 'Using OPFS (large capacity, good perf) + localStorage strong snapshot fallback.',
-        clear_opfs_data: 'Clear ALL user data (OPFS + localStorage snapshot, incl. WebLLM)',
+        storage_hint_opfs: 'IndexedDB is primary storage; OPFS is used as a mirror/recovery source when available, with localStorage as the emergency snapshot.',
+        clear_opfs_data: 'Clear ALL user data (IndexedDB + OPFS + localStorage snapshot, incl. WebLLM)',
         storage_usage_calculating: 'Calculating...',
         storage_high_warning: 'Storage space is tight. Please back up soon!',
 
@@ -3262,19 +3265,23 @@ function formatStorageMB(bytes) {
     return ((bytes || 0) / 1024 / 1024).toFixed(1);
 }
 
-function getOPFSStatusText(info) {
-    var isFileMode = !!(info && (info.fileProtocol || info.opfsSkippedReason === 'file-protocol')) ||
+function isStorageInfoFileProtocolMode(info) {
+    return !!(info && (info.fileProtocol || info.opfsSkippedReason === 'file-protocol')) ||
         (typeof storageIsFileProtocol === 'function' && storageIsFileProtocol());
+}
+
+function getOPFSStatusText(info) {
+    var isFileMode = isStorageInfoFileProtocolMode(info);
     if (isFileMode) {
-        return '\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\uff1a\u5df2\u8df3\u8fc7 OPFS\uff0c\u4f7f\u7528 IndexedDB/localStorage';
+        return '\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\uff1aOPFS \u5df2\u8df3\u8fc7\uff0c\u6570\u636e\u4fdd\u5b58\u5230 IndexedDB/localStorage';
     }
     if (info && info.opfsSkipped) {
-        return 'OPFS \u5df2\u8df3\u8fc7\uff1a\u4f7f\u7528 IndexedDB/localStorage';
+        return 'OPFS \u5df2\u8df3\u8fc7\uff1a\u6570\u636e\u4fdd\u5b58\u5230 IndexedDB/localStorage';
     }
     if (!info || !info.opfsAvailable) {
         var reason = String(info && info.opfsFailureReason || '').toLowerCase();
-        if (/file:|file-protocol|blocked on file/.test(reason)) return '\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\uff1a\u5df2\u8df3\u8fc7 OPFS\uff0c\u4f7f\u7528 IndexedDB/localStorage';
-        return 'OPFS \u672a\u542f\u7528\uff1a\u4f7f\u7528 IndexedDB/localStorage';
+        if (/file:|file-protocol|blocked on file/.test(reason)) return '\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\uff1aOPFS \u5df2\u8df3\u8fc7\uff0c\u6570\u636e\u4fdd\u5b58\u5230 IndexedDB/localStorage';
+        return 'OPFS \u672a\u542f\u7528\uff1a\u6570\u636e\u4fdd\u5b58\u5230 IndexedDB/localStorage';
     }
     if (info.opfsMirrorAvailable) return 'OPFS: \u955c\u50cf\u53ef\u5199';
     if (info.safariOpfsReadOnly) return 'OPFS: Safari \u4ec5\u4f5c\u6062\u590d\u6765\u6e90';
@@ -3307,6 +3314,16 @@ function buildStorageUsageText(info) {
     if (info.persisted === false) parts.push('\u975e\u6301\u4e45\u6388\u6743');
     parts.push(getOPFSStatusText(info));
     return parts.join(' · ');
+}
+
+function buildStorageHintText(info, fallbackBackend) {
+    info = info || {};
+    const backendLabel = getStorageBackendLabel(info.backend || fallbackBackend || StorageService.getBackend());
+    const base = `\u4e3b\u5b58\u50a8\u4f7f\u7528 ${backendLabel}\uff0clocalStorage \u4fdd\u7559\u5e94\u6025\u5feb\u7167`;
+    if (isStorageInfoFileProtocolMode(info)) {
+        return `${base}\uff1b\u672c\u5730\u6587\u4ef6\u6a21\u5f0f\u5df2\u8df3\u8fc7 OPFS\u3002`;
+    }
+    return `${base}\uff1b${getOPFSStatusText(info)}\u3002`;
 }
 
 function getStoragePressurePercent(info) {
@@ -3683,6 +3700,74 @@ function setCloudSyncStatus(message, isError) {
         el.className = 'text-[10px] leading-relaxed ' + (isError ? 'text-red-400' : 'text-zinc-500');
     }
 }
+// ==================== Cloud Sync Apply Snapshot ====================
+function applyCloudSyncSnapshot(snapshot) {
+    var data = normalizeCloudSyncSnapshot(snapshot);
+    var currentCloud = getCloudSyncLocalSettingsForRestore();
+
+    state.settings = Object.assign(defaultSettings(), data.settings || {}, currentCloud);
+    state.conversations = data.conversations || {};
+    state.conversationOrder = data.conversationOrder || Object.keys(state.conversations || {});
+    state.activeConvId = data.activeConvId || null;
+    state.worldBooks = data.worldBooks || {};
+    state.characters = data.characters || {};
+    state._charactersMigrated = !!data.charactersMigrated;
+
+    normalizeCloudSyncRestoredConversations();
+    ensureCloudSyncRestoredActiveConversation();
+    persistCloudSyncAppliedSnapshot();
+    notifyCloudSyncSnapshotApplied();
+    return data;
+}
+
+function getCloudSyncLocalSettingsForRestore() {
+    return {
+        cloudSyncEnabled: state.settings && state.settings.cloudSyncEnabled,
+        cloudSyncAutoUpload: state.settings && state.settings.cloudSyncAutoUpload,
+        cloudSyncEndpoint: state.settings && state.settings.cloudSyncEndpoint,
+        cloudSyncToken: state.settings && state.settings.cloudSyncToken,
+        cloudSyncEncrypted: state.settings && state.settings.cloudSyncEncrypted,
+        cloudSyncPassphrase: state.settings && state.settings.cloudSyncPassphrase,
+        cloudSyncLastAt: Date.now(),
+        cloudSyncLastStatus: 'Cloud download applied.'
+    };
+}
+
+function normalizeCloudSyncRestoredConversations() {
+    Object.values(state.conversations || {}).forEach(function(conv) {
+        try { normalizeConversation(conv); } catch (_) {}
+    });
+}
+
+function ensureCloudSyncRestoredActiveConversation() {
+    if (state.activeConvId && state.conversations[state.activeConvId]) return;
+
+    var first = (state.conversationOrder || []).find(function(id) {
+        return state.conversations[id];
+    }) || Object.keys(state.conversations || {})[0];
+
+    if (first) {
+        state.activeConvId = first;
+        return;
+    }
+
+    var conv = defaultConversation();
+    state.conversations[conv.id] = conv;
+    state.conversationOrder = [conv.id];
+    state.activeConvId = conv.id;
+}
+
+function persistCloudSyncAppliedSnapshot() {
+    _cloudSyncSavingStatus = true;
+    try { persistState(true); } finally { _cloudSyncSavingStatus = false; }
+}
+
+function notifyCloudSyncSnapshotApplied() {
+    appStore.notify(['settings', 'conversations', 'characters', 'worldBooks', 'activeConvId']);
+    if (typeof requestFullRender === 'function') requestFullRender();
+    if (typeof updateInputState === 'function') updateInputState();
+    if (typeof updateStorageInfo === 'function') updateStorageInfo();
+}
 // ==================== Cloud Sync Upload / Download ====================
 async function uploadCloudSyncSnapshot(statusEl, options) {
     ensureCloudSyncSettings();
@@ -3725,52 +3810,6 @@ async function uploadCloudSyncSnapshot(statusEl, options) {
     _cloudSyncSavingStatus = true;
     try { await persistState(true); } finally { _cloudSyncSavingStatus = false; }
     return result;
-}
-
-function applyCloudSyncSnapshot(snapshot) {
-    var data = normalizeCloudSyncSnapshot(snapshot);
-    var currentCloud = {
-        cloudSyncEnabled: state.settings && state.settings.cloudSyncEnabled,
-        cloudSyncAutoUpload: state.settings && state.settings.cloudSyncAutoUpload,
-        cloudSyncEndpoint: state.settings && state.settings.cloudSyncEndpoint,
-        cloudSyncToken: state.settings && state.settings.cloudSyncToken,
-        cloudSyncEncrypted: state.settings && state.settings.cloudSyncEncrypted,
-        cloudSyncPassphrase: state.settings && state.settings.cloudSyncPassphrase,
-        cloudSyncLastAt: Date.now(),
-        cloudSyncLastStatus: 'Cloud download applied.'
-    };
-
-    state.settings = Object.assign(defaultSettings(), data.settings || {}, currentCloud);
-    state.conversations = data.conversations || {};
-    state.conversationOrder = data.conversationOrder || Object.keys(state.conversations || {});
-    state.activeConvId = data.activeConvId || null;
-    state.worldBooks = data.worldBooks || {};
-    state.characters = data.characters || {};
-    state._charactersMigrated = !!data.charactersMigrated;
-
-    Object.values(state.conversations || {}).forEach(function(conv) {
-        try { normalizeConversation(conv); } catch (_) {}
-    });
-
-    if (!state.activeConvId || !state.conversations[state.activeConvId]) {
-        var first = (state.conversationOrder || []).find(function(id) { return state.conversations[id]; }) || Object.keys(state.conversations || {})[0];
-        if (first) {
-            state.activeConvId = first;
-        } else {
-            var conv = defaultConversation();
-            state.conversations[conv.id] = conv;
-            state.conversationOrder = [conv.id];
-            state.activeConvId = conv.id;
-        }
-    }
-
-    _cloudSyncSavingStatus = true;
-    try { persistState(true); } finally { _cloudSyncSavingStatus = false; }
-    appStore.notify(['settings', 'conversations', 'characters', 'worldBooks', 'activeConvId']);
-    if (typeof requestFullRender === 'function') requestFullRender();
-    if (typeof updateInputState === 'function') updateInputState();
-    if (typeof updateStorageInfo === 'function') updateStorageInfo();
-    return data;
 }
 
 async function downloadCloudSyncSnapshot(statusEl) {
@@ -13300,9 +13339,7 @@ function bindSettingsStorageStatusControls(backend) {
     const hintEl = document.getElementById('storageHint');
     if (hintEl) {
         StorageService.getStorageInfo().then(function(info) {
-            const canonical = getStorageBackendLabel((info && info.backend) || backend);
-            const opfs = getOPFSStatusText(info || {});
-            hintEl.textContent = `\u4e3b\u5b58\u50a8\u4f7f\u7528 ${canonical}\uff0clocalStorage \u4fdd\u7559\u5e94\u6025\u5feb\u7167\uff0c${opfs}\u3002`;
+            hintEl.textContent = buildStorageHintText(info || {}, backend);
             hintEl.style.color = backend === 'idb' ? '#60a5fa' : '#fbbf24';
         }).catch(function() {
             hintEl.textContent = backend === 'idb'
