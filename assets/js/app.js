@@ -8726,8 +8726,7 @@ function triggerSummarization(turns) {
         renderSummaryHistory();
     });
 }
-
-// 简化后的上下文压力检测：直接使用“上下文长度（消息条数）”作为上限
+// ==================== Auto Summarization Runtime ====================
 function isUnderContextPressure(messageCount) {
     var contextMax = state.settings.contextLength || 20;
     return messageCount > contextMax;
