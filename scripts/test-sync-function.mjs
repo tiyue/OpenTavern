@@ -1263,6 +1263,49 @@ async function assertFrontendWebLLMConfirmHelpers() {
   assert(context.persisted === true && started[0] === 'Llama-3.2-3B-Instruct-q4f16_1-MLC', 'WebLLM confirm should persist and start initialization.');
 }
 
+async function assertFrontendWebGPUDeviceHelpers() {
+  const sources = await Promise.all([
+    '../src/app/11-webgpu-device-info.js',
+    '../src/app/11-webgpu-adapter.js',
+    '../src/app/11-webgpu-device-detection.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const gpu = {
+    calls: [],
+    requestAdapter(options) {
+      this.calls.push(options);
+      return Promise.resolve('adapter');
+    },
+  };
+  const context = {
+    navigator: { gpu },
+    document: { getElementById: () => null },
+    window: {},
+    console,
+    Object,
+    Array,
+    Math,
+    Date,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__plain = getPlainAdapterInfo;\nthis.__format = formatWebGPUDeviceReport;\nthis.__wrap = withHighPerformanceWebGPUAdapterRequest;\nthis.__err = getWebGPUDetectionErrorMessage;`, context);
+
+  const plain = context.__plain({ vendor: 'NVIDIA', architecture: 'Ada', device: '4090', description: 'Discrete GPU' });
+  assert(plain.vendor === 'NVIDIA' && plain.architecture === 'Ada', 'WebGPU adapter info should be normalized.');
+
+  const formatted = context.__format({
+    info: plain,
+    features: ['a', 'b'],
+    maxBufferSize: 256 * 1024 * 1024,
+  });
+  assert(formatted.includes('Discrete GPU') && formatted.includes('Max buffer: 256 MB'), 'WebGPU device report should include adapter and limit details.');
+
+  const wrappedResult = await context.__wrap(async () => context.navigator.gpu.requestAdapter({ forceFallbackAdapter: true }));
+  assert(wrappedResult === 'adapter', 'WebGPU requestAdapter wrapper should return the wrapped function result.');
+  assert(gpu.calls[0].powerPreference === 'high-performance', 'WebGPU requestAdapter wrapper should force high-performance preference.');
+  assert(context.__err(new Error('NO_WEBGPU')).includes('WebGPU'), 'WebGPU detection should map missing WebGPU to a user-facing message.');
+}
+
 async function assertFrontendWorldBookEntryListFiltering() {
   const source = await readFile(new URL('../src/app/43-worldbook-entry-list-filter.js', import.meta.url), 'utf8');
   const context = {
@@ -1963,6 +2006,7 @@ async function main() {
   await assertFrontendWorldBookActivationHelpers();
   await assertFrontendWorldBookMatchingHelpers();
   await assertFrontendWebLLMConfirmHelpers();
+  await assertFrontendWebGPUDeviceHelpers();
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendWorldBookEntryListUIHelpers();
   await assertFrontendWorldBookEntryLiveHelpers();
