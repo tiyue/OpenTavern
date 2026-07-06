@@ -964,6 +964,76 @@ async function assertFrontendPromptMessageHelpers() {
   assert(replaced[0].content === 'A for Sensei\n\nwith Arona B  C Arona', 'Prompt outlet resolution or final placeholder replacement changed.');
 }
 
+async function assertFrontendPromptBuilderContexts() {
+  const sources = await Promise.all([
+    '../src/app/41-world-info-constants.js',
+    '../src/app/40-character-prompt-helpers.js',
+    '../src/app/41-world-info-injection.js',
+    '../src/app/41-prompt-builder.js',
+    '../src/app/41-prompt-second-stage-context.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const context = {
+    state: {
+      settings: {
+        userName: 'Sensei',
+        systemPrompt: 'System for {{char}} and {{user}}',
+        userDescription: 'Likes {{char}}',
+        postHistoryInstructions: 'After history {{user}}',
+        twoStagePostHistoryInstructions: 'Second stage {{char}}',
+      },
+    },
+    isGroupChat(conv) {
+      return !!(conv && conv.group);
+    },
+    getGroupMembers(conv) {
+      return conv.group.members || [];
+    },
+    getCurrentSpeakerCharacter(conv) {
+      return conv.group.members[0].character;
+    },
+    Array,
+    String,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__system = buildSystemPrompt;\nthis.__second = buildSecondStageContextPrompt;\nthis.__pos = WI_POS;`, context);
+
+  const character = {
+    name: 'Arona',
+    personality: 'Kind to {{user}}',
+    scenario: 'In Kivotos',
+    description: 'Blue archive assistant',
+    mes_example: '{{char}}: hello {{user}}',
+  };
+  const wi = {};
+  wi[context.__pos.BEFORE_CHAR] = [{ content: 'Before lore {{char}}' }];
+  wi[context.__pos.AFTER_CHAR] = [{ content: 'After lore {{user}}' }];
+
+  const system = context.__system(character, wi);
+  assert(system.startsWith('Before lore Arona'), 'System prompt should inject before-character world info first.');
+  assert(system.includes('System for Arona and Sensei') && system.includes("User's Persona: Likes Arona"), 'System prompt should include settings and user persona.');
+  assert(system.includes('After history Sensei') && system.includes('Personality: Kind to Sensei'), 'System prompt should include post-history and character fields.');
+  assert(system.includes('Example dialogues:\nArona: hello Sensei') && system.includes('After lore Sensei'), 'System prompt should include examples and after-character world info.');
+
+  const singleSecond = context.__second({ character }, wi);
+  assert(singleSecond.includes('Personality: Kind to Sensei'), 'Single second-stage context should include character context.');
+  assert(singleSecond.includes('Second stage Arona') && singleSecond.includes('Before lore Arona'), 'Single second-stage context should include second-stage post-history and world info.');
+
+  const groupConv = {
+    group: {
+      scenarioOverride: 'Group scene for {{char}}',
+      members: [
+        { character: { name: 'Arona', personality: 'Guide' } },
+        { character: { name: 'Plana', system_prompt: 'Plan {{user}}', description: 'Quiet' } },
+      ],
+    },
+  };
+  const groupSecond = context.__second(groupConv, null, 'plana');
+  assert(groupSecond.includes('多角色群组对话') && groupSecond.includes('Group scene for Plana'), 'Group second-stage context should include group framing and focused scenario.');
+  assert(groupSecond.includes('=== Plana ===') && groupSecond.includes('System Prompt: Plan Sensei'), 'Group second-stage context should include member prompt blocks.');
+  assert(groupSecond.includes('本轮正文的主要发言者/叙事焦点：Plana'), 'Group second-stage context should record the focused speaker.');
+}
+
 async function assertFrontendCharacterImportHelpers() {
   const sources = await Promise.all([
     '../src/app/40-character-card-import.js',
@@ -3232,6 +3302,7 @@ async function main() {
   await assertFrontendApiConnectionHelpers();
   await assertFrontendGenerationHelpers();
   await assertFrontendPromptMessageHelpers();
+  await assertFrontendPromptBuilderContexts();
   await assertFrontendCharacterImportHelpers();
   await assertFrontendCharacterImportEventHelpers();
   await assertFrontendWorldInfoNormalizerHelpers();

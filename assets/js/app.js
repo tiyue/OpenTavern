@@ -5822,7 +5822,7 @@ function buildSystemPrompt(character, worldInfoByPos) {
 
     return parts.join('\n\n').trim();
 }
-
+// ==================== Second Stage Context Prompt ====================
 function buildSecondStageContextPrompt(conv, worldInfoByPos, focusSpeakerName) {
     var parts = [];
     var isGroup = isGroupChat(conv);

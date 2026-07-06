@@ -100,6 +100,7 @@
   "41-world-info-normalizer.js",
   "41-world-info-injection.js",
   "41-prompt-builder.js",
+  "41-prompt-second-stage-context.js",
   "41-prompt-depth-insert.js",
   "41-prompt-summary-messages.js",
   "41-prompt-history-messages.js",
