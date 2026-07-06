@@ -3355,6 +3355,58 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
   assert(errors.length === 0, `file:// path should not error: ${errors.join('\n')}`);
 }
 
+async function assertFrontendStorageStatusRenderHelpers() {
+  const sources = await Promise.all([
+    '../src/app/21-storage-usage-format.js',
+    '../src/app/21-storage-status-render.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const warnings = [];
+  const context = {
+    StorageService: { getBackend: () => 'idb' },
+    storageIsFileProtocol: () => false,
+    showOrHideStorageWarning(percent) { warnings.push(percent); },
+    t: (key) => key === 'storage_high_warning' ? 'high storage' : key,
+    document: {
+      getElementById(id) {
+        return id === 'settingsModal'
+          ? { classList: { removed: [], remove(name) { this.removed.push(name); } } }
+          : null;
+      },
+    },
+    Math,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__usage = applyStorageUsageElements;\nthis.__title = buildStorageStatusTitle;\nthis.__status = applyStorageStatusInfo;\nthis.__bind = bindStorageStatusClick;`, context);
+
+  const usageEl = { textContent: '', style: {} };
+  const bar = { style: {} };
+  context.__usage({ backend: 'idb', used: 90, quota: 100, opfsAvailable: false }, 'idb', usageEl, bar);
+  assert(bar.style.width === '90%' && bar.style.background === '#f87171' && usageEl.style.color === '#f87171', 'Storage usage renderer should mark high storage pressure.');
+  assert(warnings[0] === 90 && usageEl.textContent.includes('IndexedDB'), 'Storage usage renderer should update warning and usage text.');
+
+  context.__usage(null, 'localStorage', usageEl, bar);
+  assert(usageEl.textContent.includes('localStorage') && bar.style.width === '0%', 'Storage usage renderer should show fallback backend text without info.');
+
+  const title = context.__title({ backend: 'idb', used: 1048576, webllmUsed: 2097152, opfsAvailable: true, persisted: false }, 'idb');
+  assert(title.includes('IndexedDB') && title.includes('1.0 MB') && title.includes('2.0 MB') && title.includes('非持久授权'), 'Storage status title should include backend, app usage, model cache, and persistence state.');
+
+  const badge = { style: {}, title: '' };
+  context.__status(badge, { backend: 'idb', used: 95, quota: 100, opfsAvailable: false }, 'idb');
+  assert(badge.style.color === '#f87171' && badge.title.includes('high storage'), 'Storage status badge should show high-pressure styling and warning title.');
+
+  const clickEvents = [];
+  const clickable = {
+    addEventListener(type, handler) {
+      clickEvents.push(type);
+      this.handler = handler;
+    },
+  };
+  context.__bind(clickable);
+  context.__bind(clickable);
+  assert(clickEvents.length === 1 && clickable._storageClickBound === true, 'Storage status click helper should bind only once.');
+}
+
 async function assertFrontendStateInitialization() {
   const sources = await Promise.all([
     '../src/app/34-state-init-helpers.js',
@@ -3649,6 +3701,7 @@ async function main() {
   await assertFrontendIDBStorageHelpers();
   await assertFrontendStorageServicePipeline();
   await assertFrontendStorageServiceFileProtocolStatus();
+  await assertFrontendStorageStatusRenderHelpers();
   await assertFrontendStateInitialization();
   await assertFrontendAppInitHelpers();
   await assertFrontendConversationImportHelpers();
