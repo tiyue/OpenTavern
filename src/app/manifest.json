@@ -48,6 +48,8 @@
   "23-storage-recovery-restore.js",
   "23-storage-recovery.js",
   "24-storage-compat.js",
+  "30-state-store.js",
+  "30-state-default-settings.js",
   "30-state-api-conversation.js",
   "31-api-presets.js",
   "31-api-compat.js",

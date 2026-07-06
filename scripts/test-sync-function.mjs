@@ -105,6 +105,41 @@ async function assertFrontendCloudSnapshot() {
   assert(Number.isFinite(snapshot.lastSaved), 'Frontend cloud snapshot did not include a timestamp.');
 }
 
+async function assertFrontendStateStoreDefaults() {
+  const sources = await Promise.all([
+    '../src/app/30-state-store.js',
+    '../src/app/30-state-default-settings.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const events = [];
+  const context = {
+    DEFAULT_TWO_STAGE_PROMPT: 'two stage default',
+    defaultSillyTavernPreset() { return { prompts: [] }; },
+    console: { error() {} },
+    JSON,
+    Set,
+    Array,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__store = createReactiveStore;\nthis.__defaults = defaultSettings;`, context);
+
+  const defaults = context.__defaults();
+  assert(defaults.cloudSyncEndpoint === '/api/sync', 'Default settings should include the cloud sync endpoint.');
+  assert(defaults.cloudSyncEnabled === false && defaults.cloudSyncAutoUpload === false, 'Cloud sync should be disabled by default.');
+  assert(defaults.sillyTavernPreset.prompts.length === 0, 'Default settings should include a SillyTavern preset object.');
+
+  const store = context.__store({ settings: { lang: 'en' } });
+  const unsubscribeKey = store.subscribe('settings', (key) => events.push(`key:${key}`));
+  const unsubscribeGlobal = store.subscribe((keys) => events.push(`global:${keys.join(',')}`));
+  store.notify('settings');
+  unsubscribeKey();
+  unsubscribeGlobal();
+  store.notify('settings');
+
+  assert(store.state.settings.lang === 'en', 'State store should expose cloned state.');
+  assert(events.join('|') === 'key:settings|global:settings', 'State store notifications or unsubscribe behavior changed.');
+}
+
 async function assertFrontendCloudSnapshotApply() {
   const cloudSource = await readFile(new URL('../src/app/22-cloud-sync.js', import.meta.url), 'utf8');
   const applySource = await readFile(new URL('../src/app/22-cloud-sync-apply.js', import.meta.url), 'utf8');
@@ -1456,6 +1491,7 @@ async function assertFrontendConversationImportHelpers() {
 
 async function main() {
   await assertFrontendCloudSnapshot();
+  await assertFrontendStateStoreDefaults();
   await assertFrontendCloudSnapshotApply();
   await assertFrontendSummaryService();
   await assertFrontendApiConnectionHelpers();
