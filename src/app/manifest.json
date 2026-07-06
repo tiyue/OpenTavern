@@ -123,6 +123,8 @@
   "60-library-card-grid-ui.js",
   "60-library-my-card-item-ui.js",
   "60-library-my-card-grid-ui.js",
+  "60-library-public-card-item-ui.js",
+  "60-library-public-card-detail-modal-ui.js",
   "60-library-public-card-grid-ui.js",
   "60-dom-cache.js",
   "61-chat-shell-ui.js",

@@ -260,6 +260,22 @@ async function assertFrontendPublicCardAssets() {
   }
 }
 
+async function assertFrontendPublicCardGridFiltering() {
+  const source = await readFile(new URL('../src/app/60-library-public-card-grid-ui.js', import.meta.url), 'utf8');
+  const cards = [
+    { name: 'Alpha', tags: ['keep'] },
+    { name: 'Beta', tags: ['skip'] },
+  ];
+  const context = {
+    getPublicCards: () => cards,
+    passesLibraryFilter: (card) => card.tags.includes('keep'),
+  };
+
+  vm.runInNewContext(`${source}\nthis.__filtered = getFilteredPublicLibraryCards;`, context);
+  const filtered = context.__filtered();
+  assert(filtered.length === 1 && filtered[0].name === 'Alpha', 'Public card grid filtering did not use the library filter.');
+}
+
 async function assertFrontendI18nRuntime() {
   const sources = await Promise.all([
     '../src/app/12-i18n-core.js',
@@ -881,6 +897,7 @@ async function main() {
   await assertFrontendSummaryService();
   await assertFrontendApiConnectionHelpers();
   await assertFrontendPublicCardAssets();
+  await assertFrontendPublicCardGridFiltering();
   await assertFrontendI18nRuntime();
   await assertFrontendSillyTavernPresetNormalizer();
   await assertFrontendNewChatPickerMultiSelection();
