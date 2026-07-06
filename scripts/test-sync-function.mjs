@@ -344,6 +344,33 @@ async function assertFrontendSillyTavernPresetNormalizer() {
   assert(legacy.prompts[0].identifier === 'main_prompt', 'Legacy SillyTavern prompt fields were not imported.');
 }
 
+async function assertFrontendNewChatPickerMultiSelection() {
+  const sources = await Promise.all([
+    '../src/app/59-new-chat-picker-helpers.js',
+    '../src/app/59-new-chat-picker-multi-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const context = {
+    Set,
+    Array,
+    Object,
+    t: (key) => key,
+  };
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__createSession = createNewChatPickerSession;\nthis.__selected = getNewChatPickerSelectedCharacters;`, context);
+
+  const characters = [
+    { name: 'Alpha' },
+    { name: 'Beta' },
+    { name: 'Gamma' },
+  ];
+  const session = context.__createSession({}, {}, characters);
+  session.selectedKeys.add('beta');
+  session.selectedKeys.add('alpha');
+
+  const selected = context.__selected(session);
+  assert(selected.map((c) => c.name).join(',') === 'Beta,Alpha', 'New chat multi-select should preserve click order.');
+}
+
 async function assertFrontendWorldBookActivation() {
   const sources = await Promise.all([
     '../src/app/41-world-info-normalizer.js',
@@ -695,6 +722,7 @@ async function main() {
   await assertFrontendPublicCardAssets();
   await assertFrontendI18nRuntime();
   await assertFrontendSillyTavernPresetNormalizer();
+  await assertFrontendNewChatPickerMultiSelection();
   await assertFrontendWorldBookActivation();
   await assertFrontendFileProtocolOPFSSilence();
   await assertFrontendStorageServicePipeline();

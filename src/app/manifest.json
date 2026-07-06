@@ -103,6 +103,7 @@
   "58-summary-manager-ui.js",
   "59-new-chat-workflow.js",
   "59-new-chat-picker-helpers.js",
+  "59-new-chat-picker-multi-ui.js",
   "59-new-chat-picker-ui.js",
   "59-quick-new-chat-ui.js",
   "60-public-card-data.js",
