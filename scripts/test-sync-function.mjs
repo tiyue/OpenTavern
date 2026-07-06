@@ -140,6 +140,64 @@ async function assertFrontendStateStoreDefaults() {
   assert(events.join('|') === 'key:settings|global:settings', 'State store notifications or unsubscribe behavior changed.');
 }
 
+async function assertFrontendStatePersistenceHelpers() {
+  const source = await readFile(new URL('../src/app/35-state-persistence.js', import.meta.url), 'utf8');
+
+  const saved = [];
+  const events = [];
+  const timeouts = [];
+  const cleared = [];
+  const context = {
+    state: {
+      settings: { model: 'raw-model' },
+      conversations: { c1: { id: 'c1', messages: [{ content: 'hello' }] } },
+      conversationOrder: ['c1'],
+      activeConvId: 'c1',
+      worldBooks: { wb1: { id: 'wb1' } },
+      characters: { arona: { name: 'Arona' } },
+      _charactersMigrated: true,
+    },
+    StorageService: {
+      _lastSaveSnapshot: null,
+      async saveAll(data) { saved.push(JSON.parse(JSON.stringify(data))); },
+      _isQuotaError() { return false; },
+    },
+    getSafeSettingsForPersist() { return { model: 'safe-model', apiKey: '' }; },
+    updateStorageInfo() { events.push('storage-info'); },
+    scheduleCloudSyncUpload() { events.push('cloud-upload'); },
+    setTimeout(handler, delay) {
+      const id = `timeout-${timeouts.length}`;
+      timeouts.push({ id, handler, delay });
+      return id;
+    },
+    clearTimeout(id) { cleared.push(id); },
+    Date: { now: () => 123456 },
+    console: { error(message) { events.push(`error:${message}`); } },
+    JSON,
+    Promise,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__persist = persistState;\nthis.__active = getActiveConv;`, context);
+
+  assert(context.__active().id === 'c1', 'Active conversation helper should return the current active conversation.');
+
+  await context.__persist(true);
+  assert(saved.length === 1 && saved[0].settings.model === 'safe-model', 'Immediate persist should save sanitized settings.');
+  assert(saved[0].conversations.c1.messages[0].content === 'hello', 'Immediate persist should include conversations.');
+  assert(saved[0].worldBooks.wb1.id === 'wb1' && saved[0].characters.arona.name === 'Arona', 'Immediate persist should include world books and character cards.');
+  assert(saved[0].charactersMigrated === true && saved[0].lastSaved === 123456, 'Immediate persist should include migration and timestamp metadata.');
+  assert(context.StorageService._lastSaveSnapshot.activeConvId === 'c1', 'Persist should cache the latest snapshot before async storage completes.');
+  assert(events.includes('storage-info') && events.includes('cloud-upload'), 'Immediate persist should refresh storage status and schedule cloud upload.');
+
+  await context.__persist(false);
+  await context.__persist(false);
+  assert(timeouts.length === 2 && timeouts[0].delay === 450 && timeouts[1].delay === 450, 'Debounced persist should schedule saves with the storage debounce delay.');
+  assert(cleared.includes('timeout-0'), 'Debounced persist should clear the previous pending save.');
+  timeouts[1].handler();
+  await Promise.resolve();
+  assert(saved.length === 2, 'Debounced persist handler should eventually save the snapshot.');
+}
+
 async function assertFrontendWebGLBackgroundHelpers() {
   const sources = await Promise.all([
     '../src/app/13-webgl-program.js',
@@ -3842,6 +3900,7 @@ async function assertFrontendConversationImportHelpers() {
 async function main() {
   await assertFrontendCloudSnapshot();
   await assertFrontendStateStoreDefaults();
+  await assertFrontendStatePersistenceHelpers();
   await assertFrontendWebGLBackgroundHelpers();
   await assertFrontendCloudSnapshotApply();
   await assertFrontendSummaryService();

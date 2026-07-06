@@ -91,6 +91,7 @@
   "34-state-init-settings.js",
   "34-state-init-conversations.js",
   "34-state-init.js",
+  "35-state-persistence.js",
   "35-state-persistence-i18n.js",
   "40-character-prompt-worldbook.js",
   "40-character-card-import.js",

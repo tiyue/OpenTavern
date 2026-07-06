@@ -5453,7 +5453,6 @@ function persistState(immediate) {
 function getActiveConv() {
     return state.conversations[state.activeConvId];
 }
-
 // ==================== Translation DOM Updates ====================
 function applyTranslations() {
     // data-i18n — text content
