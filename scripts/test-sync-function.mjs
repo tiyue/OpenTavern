@@ -2189,6 +2189,81 @@ async function assertFrontendStateLifecycleHelpers() {
   assert(events.includes('character') && events.includes('input'), 'Render subscriptions should call handlers for changed keys.');
 }
 
+async function assertFrontendMessageContentHelpers() {
+  const sources = await Promise.all([
+    '../src/app/61-message-text-format.js',
+    '../src/app/61-message-status-bar-render.js',
+    '../src/app/61-message-options-render.js',
+    '../src/app/61-message-attachments-render.js',
+    '../src/app/61-message-cot-render.js',
+    '../src/app/61-message-content-render.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  class FakeDOMParser {
+    parseFromString(text) {
+      if (!/^<options[\s>]/i.test(String(text || ''))) {
+        return { getElementsByTagName: () => [] };
+      }
+      const optionBlocks = Array.from(String(text).matchAll(/<option\b[^>]*>([\s\S]*?)<\/option>/gi)).map((match) => match[1]);
+      return {
+        getElementsByTagName(name) {
+          if (name === 'parsererror') return [];
+          if (name !== 'option') return [];
+          return optionBlocks.map((block) => ({
+            getElementsByTagName(childName) {
+              const childMatch = new RegExp(`<${childName}[^>]*>([\\s\\S]*?)<\\/${childName}>`, 'i').exec(block);
+              return childMatch ? [{ textContent: childMatch[1] }] : [];
+            },
+          }));
+        },
+      };
+    }
+  }
+
+  const context = {
+    state: { settings: { showCotEnabled: true } },
+    window: { DOMPurify: true },
+    DOMPurify: { sanitize: (html) => html.replace(/\sonclick="[^"]*"/g, '') },
+    DOMParser: FakeDOMParser,
+    t: (key) => key === 'cot_block_title' ? 'Thinking' : key,
+    String,
+    Array,
+    RegExp,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__escape = escapeHtml;\nthis.__highlight = highlightDialogue;\nthis.__status = sanitizeStatusBarHtml;\nthis.__assistant = renderAssistantContent;\nthis.__attachments = renderMessageAttachments;\nthis.__bubble = renderMessageBubbleContent;\nthis.__cot = renderCotBlock;\nthis.__options = renderOptionsXml;`, context);
+
+  assert(context.__escape('<b title="x">&') === '&lt;b title=&quot;x&quot;&gt;&amp;', 'Message escapeHtml should escape unsafe HTML characters.');
+
+  const highlighted = context.__highlight('她说“你好”与「世界」');
+  assert(highlighted.includes('dialogue-highlight') && highlighted.includes('“你好”') && highlighted.includes('「世界」'), 'Message dialogue highlighter should wrap Chinese dialogue quotes.');
+
+  const status = context.__status('<details open onclick="bad"><summary>状态栏</summary><span>ok</span></details>');
+  assert(status.includes('class="status-bar" open') && status.includes('status-bar-content') && !status.includes('onclick'), 'Status bar sanitizer should normalize allowed status blocks.');
+
+  const assistant = context.__assistant('前文<details open><summary>状态栏</summary><span>HP</span></details>后文');
+  assert(assistant.includes('前文') && assistant.includes('status-bar-content') && assistant.includes('后文'), 'Assistant content should preserve text around status blocks.');
+
+  const attachments = context.__attachments({
+    attachments: [
+      { type: 'image', dataUrl: 'data:image/png;base64,abc', source: 'comfyui', prompt: '<prompt>' },
+      { type: 'file', url: 'skip' },
+    ],
+  });
+  assert(attachments.includes('msg-attachment-image') && attachments.includes('ComfyUI') && attachments.includes('&lt;prompt&gt;') && !attachments.includes('skip'), 'Message attachment renderer should render escaped image attachments only.');
+
+  const bubble = context.__bubble({ role: 'user', content: '<hello>', attachments: [] }, true);
+  assert(bubble === '&lt;hello&gt;', 'User message bubble should render escaped plain text.');
+
+  const cot = context.__cot('<think>', true);
+  assert(cot.includes('msg-cot streaming') && cot.includes('&lt;think&gt;'), 'CoT renderer should escape and mark streaming blocks.');
+  context.state.settings.showCotEnabled = false;
+  assert(context.__cot('hidden', false) === '', 'CoT renderer should honor disabled display setting.');
+
+  const optionsHtml = context.__options('<options><option><title>Go</title><description>选择“前进”</description></option></options>');
+  assert(optionsHtml.includes('Go') && optionsHtml.includes('dialogue-highlight'), 'Options XML renderer should render option cards and highlight dialogue.');
+}
+
 async function assertFrontendChatMessageRendererHelpers() {
   const sources = await Promise.all([
     '../src/app/61-chat-message-window-state.js',
@@ -3084,6 +3159,7 @@ async function main() {
   await assertFrontendComfyUIHelpers();
   await assertFrontendLibraryViewHelpers();
   await assertFrontendStateLifecycleHelpers();
+  await assertFrontendMessageContentHelpers();
   await assertFrontendChatMessageRendererHelpers();
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendWorldBookEntryListUIHelpers();
