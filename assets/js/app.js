@@ -12911,12 +12911,9 @@ function bindWebLLMSettingsControls() {
         webgpuDeviceInfo.textContent = formatWebGPUDeviceReport(webgpuLastDeviceReport);
     }
 }
-function bindSettingsStorageControls() {
+function bindSettingsStorageStatusControls(backend) {
     const backendEl = document.getElementById('storageBackend');
-    const usageRow = document.getElementById('storageUsageRow');
     const usageEl = document.getElementById('storageUsage');
-
-    const backend = StorageService.getBackend();
 
     if (backendEl) {
         backendEl.textContent = t('storage_backend') + ' (' + getStorageBackendLabel(backend) + ')';
@@ -12965,115 +12962,132 @@ function bindSettingsStorageControls() {
             hintEl.style.color = backend === 'idb' ? '#60a5fa' : '#fbbf24';
         });
     }
+}
+function bindSettingsStorageClearControls(backend) {
+    bindClearAllStorageButton(backend);
+    bindClearWebLLMCacheButton();
+}
 
-    updateStorageStatusUI();
-
+function bindClearAllStorageButton(backend) {
     const clearBtn = document.getElementById('clearOPFSBtn');
-    if (clearBtn) {
-        clearBtn.style.display = 'flex';
-        clearBtn.textContent = t('clear_opfs_data') || '清除所有用户数据（OPFS + LS 快照）';
-        if (backend === 'idb') {
-            clearBtn.style.background = 'rgba(239,68,68,0.15)';
-            clearBtn.style.color = '';
-        } else {
-            clearBtn.style.background = 'rgba(245,158,11,0.15)';
-            clearBtn.style.color = '#fbbf24';
+    if (!clearBtn) return;
+
+    clearBtn.style.display = 'flex';
+    clearBtn.textContent = t('clear_opfs_data') || '清除所有用户数据（OPFS + LS 快照）';
+    if (backend === 'idb') {
+        clearBtn.style.background = 'rgba(239,68,68,0.15)';
+        clearBtn.style.color = '';
+    } else {
+        clearBtn.style.background = 'rgba(245,158,11,0.15)';
+        clearBtn.style.color = '#fbbf24';
+    }
+
+    clearBtn.onclick = async function() {
+        if (!await showGlassConfirm('\u786e\u5b9a\u8981\u6c38\u4e45\u5220\u9664\u6240\u6709\u7528\u6237\u6570\u636e\u5417\uff1f\n\u5305\u62ec\u89d2\u8272\u5361\u3001\u5bf9\u8bdd\u3001\u4e16\u754c\u4e66\u3001WebLLM \u6a21\u578b\u7f13\u5b58\u7b49\u3002\n\u6b64\u64cd\u4f5c\u4e0d\u53ef\u6062\u590d\uff0c\u9875\u9762\u5c06\u91cd\u65b0\u52a0\u8f7d\u3002', { title: '\u6e05\u9664\u6240\u6709\u7528\u6237\u6570\u636e', danger: true, okText: '\u6c38\u4e45\u5220\u9664' })) {
+            return;
         }
 
-        clearBtn.onclick = async function() {
-            if (!await showGlassConfirm('\u786e\u5b9a\u8981\u6c38\u4e45\u5220\u9664\u6240\u6709\u7528\u6237\u6570\u636e\u5417\uff1f\n\u5305\u62ec\u89d2\u8272\u5361\u3001\u5bf9\u8bdd\u3001\u4e16\u754c\u4e66\u3001WebLLM \u6a21\u578b\u7f13\u5b58\u7b49\u3002\n\u6b64\u64cd\u4f5c\u4e0d\u53ef\u6062\u590d\uff0c\u9875\u9762\u5c06\u91cd\u65b0\u52a0\u8f7d\u3002', { title: '\u6e05\u9664\u6240\u6709\u7528\u6237\u6570\u636e', danger: true, okText: '\u6c38\u4e45\u5220\u9664' })) {
-                return;
+        try {
+            if (typeof StorageService !== 'undefined' && typeof StorageService.clearAllData === 'function') {
+                await StorageService.clearAllData();
+            } else {
+                if (typeof OPFSStorage !== 'undefined' && OPFSStorage.clear) await OPFSStorage.clear();
+                try {
+                    localStorage.removeItem(STORAGE_KEY);
+                    localStorage.removeItem('opentavern-last-backup');
+                    Object.keys(localStorage).forEach(k => { if (k.startsWith('opentavern')) localStorage.removeItem(k); });
+                    const empty = JSON.stringify({lastSaved: Date.now(), conversations: {}, characters: {}, worldBooks: {}});
+                    localStorage.setItem(STORAGE_KEY, empty);
+                } catch (e) {}
             }
 
             try {
-                if (typeof StorageService !== 'undefined' && typeof StorageService.clearAllData === 'function') {
-                    await StorageService.clearAllData();
-                } else {
-                    if (typeof OPFSStorage !== 'undefined' && OPFSStorage.clear) await OPFSStorage.clear();
-                    try {
-                        localStorage.removeItem(STORAGE_KEY);
-                        localStorage.removeItem('opentavern-last-backup');
-                        Object.keys(localStorage).forEach(k => { if (k.startsWith('opentavern')) localStorage.removeItem(k); });
-                        // 兜底写空
-                        const empty = JSON.stringify({lastSaved: Date.now(), conversations: {}, characters: {}, worldBooks: {}});
-                        localStorage.setItem(STORAGE_KEY, empty);
-                    } catch (e) {}
-                }
+                if (typeof updateStorageInfo === 'function') updateStorageInfo();
+                const usageEl = document.getElementById('storageUsage');
+                const bar = document.getElementById('storageUsageBar');
+                if (usageEl) usageEl.textContent = '0.0 MB / ~0 GB (\u5df2\u6e05\u9664)';
+                if (bar) bar.style.width = '0%';
+            } catch (_) {}
 
-                // 立即在 UI 上反馈已清空（reload 前）
-                try {
-                    if (typeof updateStorageInfo === 'function') updateStorageInfo();
-                    const usageEl = document.getElementById('storageUsage');
-                    const bar = document.getElementById('storageUsageBar');
-                    if (usageEl) usageEl.textContent = '0.0 MB / ~0 GB (已清除)';
-                    if (bar) bar.style.width = '0%';
-                } catch (_) {}
+            alert('\u6240\u6709\u7528\u6237\u6570\u636e\u5df2\u6e05\u9664\u3002\u9875\u9762\u5373\u5c06\u91cd\u65b0\u52a0\u8f7d...');
+            location.reload();
+        } catch (err) {
+            console.error('[Storage] \u6e05\u9664\u6240\u6709\u6570\u636e\u5931\u8d25', err);
+            alert('\u6e05\u9664\u5931\u8d25\uff1a' + (err.message || err));
+        }
+    };
+}
 
-                alert('所有用户数据已清除。页面即将重新加载...');
-                location.reload();
-            } catch (err) {
-                console.error('[Storage] 清除所有数据失败:', err);
-                alert('清除失败：' + (err.message || err));
-            }
-        };
-    }
-
-    // 【Storage Fix】绑定清除 WebLLM 缓存按钮
+function bindClearWebLLMCacheButton() {
     const clearWebLLMBtn = document.getElementById('clearWebLLMBtn');
-    if (clearWebLLMBtn) {
-        clearWebLLMBtn.onclick = async function() {
-            if (!await showGlassConfirm('\u786e\u5b9a\u8981\u6e05\u9664 WebLLM \u4e0b\u8f7d\u7684\u6a21\u578b\u7f13\u5b58\u5417\uff1f\n\u8fd9\u4f1a\u91ca\u653e\u5927\u91cf\u7a7a\u95f4\uff0c\u4f46\u4e0b\u6b21\u4f7f\u7528\u672c\u5730\u6a21\u578b\u65f6\u9700\u8981\u91cd\u65b0\u4e0b\u8f7d\u3002', { title: '\u6e05\u9664 WebLLM \u6a21\u578b\u7f13\u5b58', okText: '\u6e05\u9664' })) return;
-            if (typeof clearWebLLMCache === 'function') {
-                await clearWebLLMCache();
-            }
-        };
-    }
+    if (!clearWebLLMBtn) return;
 
-    // 【Recovery Tool】绑定扫描和恢复
+    clearWebLLMBtn.onclick = async function() {
+        if (!await showGlassConfirm('\u786e\u5b9a\u8981\u6e05\u9664 WebLLM \u4e0b\u8f7d\u7684\u6a21\u578b\u7f13\u5b58\u5417\uff1f\n\u8fd9\u4f1a\u91ca\u653e\u5927\u91cf\u7a7a\u95f4\uff0c\u4f46\u4e0b\u6b21\u4f7f\u7528\u672c\u5730\u6a21\u578b\u65f6\u9700\u8981\u91cd\u65b0\u4e0b\u8f7d\u3002', { title: '\u6e05\u9664 WebLLM \u6a21\u578b\u7f13\u5b58', okText: '\u6e05\u9664' })) return;
+        if (typeof clearWebLLMCache === 'function') {
+            await clearWebLLMCache();
+        }
+    };
+}
+function bindSettingsStorageRecoveryControls() {
     const scanBtn = document.getElementById('scanStorageBtn');
     const candidatesDiv = document.getElementById('storageCandidates');
-    if (scanBtn && candidatesDiv) {
-        scanBtn.onclick = async function() {
-            const originalText = scanBtn.textContent;
-            scanBtn.textContent = '扫描中...';
-            scanBtn.disabled = true;
-            candidatesDiv.innerHTML = '';
+    if (!scanBtn || !candidatesDiv) return;
 
-            try {
-                const list = await scanAllStorageBackends();
-                if (list.length === 0) {
-                    candidatesDiv.innerHTML = '<div class="text-[10px] text-zinc-500 px-1">未检测到其他存储后端的数据。</div>';
-                } else {
-                    list.forEach(function(cand) {
-                        const row = document.createElement('div');
-                        row.className = 'glass rounded p-1.5 flex items-center justify-between text-[10px]';
-                        const timeStr = cand.lastSaved ? new Date(cand.lastSaved).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '未知时间';
-                        row.innerHTML = `
-                            <div>
-                                <span class="font-medium text-blue-300">${cand.backend}</span>
-                                <span class="text-zinc-500 ml-1">${timeStr}</span><br>
-                                <span class="text-zinc-400">${cand.hasUserData ? '' : '空快照 · '}对话 ${cand.convCount} · 角色 ${cand.charCount} · 世界书 ${cand.wbCount}</span>
-                            </div>
-                        `;
-                        const restoreBtn = document.createElement('button');
-                        restoreBtn.className = 'ml-2 px-2 py-0.5 text-[10px] rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30';
-                        restoreBtn.textContent = '恢复';
-                        restoreBtn.onclick = function() {
-                            restoreFromStorageCandidate(cand);
-                        };
-                        row.appendChild(restoreBtn);
-                        candidatesDiv.appendChild(row);
-                    });
-                }
-            } catch (e) {
-                candidatesDiv.innerHTML = '<div class="text-[10px] text-red-400">扫描出错</div>';
-                console.error('[Recovery] scan error', e);
+    scanBtn.onclick = async function() {
+        scanBtn.textContent = '\u626b\u63cf\u4e2d...';
+        scanBtn.disabled = true;
+        candidatesDiv.innerHTML = '';
+
+        try {
+            const list = await scanAllStorageBackends();
+            if (list.length === 0) {
+                candidatesDiv.innerHTML = '<div class="text-[10px] text-zinc-500 px-1">\u672a\u68c0\u6d4b\u5230\u5176\u4ed6\u5b58\u50a8\u540e\u7aef\u7684\u6570\u636e\u3002</div>';
+            } else {
+                list.forEach(function(candidate) {
+                    candidatesDiv.appendChild(createStorageRecoveryCandidateRow(candidate));
+                });
             }
+        } catch (e) {
+            candidatesDiv.innerHTML = '<div class="text-[10px] text-red-400">\u626b\u63cf\u51fa\u9519</div>';
+            console.error('[Recovery] scan error', e);
+        }
 
-            scanBtn.textContent = '重新扫描';
-            scanBtn.disabled = false;
-        };
-    }
+        scanBtn.textContent = '\u91cd\u65b0\u626b\u63cf';
+        scanBtn.disabled = false;
+    };
+}
+
+function createStorageRecoveryCandidateRow(candidate) {
+    const row = document.createElement('div');
+    row.className = 'glass rounded p-1.5 flex items-center justify-between text-[10px]';
+    const timeStr = candidate.lastSaved
+        ? new Date(candidate.lastSaved).toLocaleString('zh-CN', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'})
+        : '\u672a\u77e5\u65f6\u95f4';
+    row.innerHTML = `
+        <div>
+            <span class="font-medium text-blue-300">${escapeHtml(candidate.backend)}</span>
+            <span class="text-zinc-500 ml-1">${escapeHtml(timeStr)}</span><br>
+            <span class="text-zinc-400">${candidate.hasUserData ? '' : '\u7a7a\u5feb\u7167 \u00b7 '}\u5bf9\u8bdd ${candidate.convCount} \u00b7 \u89d2\u8272 ${candidate.charCount} \u00b7 \u4e16\u754c\u4e66 ${candidate.wbCount}</span>
+        </div>
+    `;
+
+    const restoreBtn = document.createElement('button');
+    restoreBtn.className = 'ml-2 px-2 py-0.5 text-[10px] rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30';
+    restoreBtn.textContent = '\u6062\u590d';
+    restoreBtn.onclick = function() {
+        restoreFromStorageCandidate(candidate);
+    };
+    row.appendChild(restoreBtn);
+    return row;
+}
+function bindSettingsStorageControls() {
+    const backend = StorageService.getBackend();
+
+    bindSettingsStorageStatusControls(backend);
+    updateStorageStatusUI();
+    bindSettingsStorageClearControls(backend);
+    bindSettingsStorageRecoveryControls();
 }
 function closeSettings() {
     state.settings.apiEndpoint = dom.apiEndpoint.value.trim();
