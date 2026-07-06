@@ -5426,44 +5426,30 @@ function setLanguage(lang) {
     requestFullRender();
     if (typeof updateSidebarCloseButton === 'function') updateSidebarCloseButton();
 }
-// ==================== Character Import ====================
-function importCharacterCard(jsonData) {
-    if (!jsonData) throw new Error(t('import_invalid_format'));
+// ==================== Character Prompt / World Book Helpers ====================
+// Split into card import, embedded book import, PNG extraction, and prompt helper chunks.
+// ==================== Character Card Import ====================
+function getCharacterCardPayload(jsonData) {
+    if (!jsonData) return null;
 
-    let data = null;
-    let detectedVersion = 'unknown';
+    if (jsonData.spec === 'chara_card_v3' && jsonData.data) return jsonData.data;
+    if (jsonData.spec === 'chara_card_v2' && jsonData.data) return jsonData.data;
+    if (jsonData.name && (jsonData.description || jsonData.personality || jsonData.first_mes)) return jsonData;
+    if (jsonData.data && jsonData.data.name) return jsonData.data;
+    return null;
+}
 
-    // V3
-    if (jsonData.spec === 'chara_card_v3' && jsonData.data) {
-        detectedVersion = 'v3';
-        data = jsonData.data;
-    }
-    // V2
-    else if (jsonData.spec === 'chara_card_v2' && jsonData.data) {
-        detectedVersion = 'v2';
-        data = jsonData.data;
-    }
-    // V1（扁平）或无 spec 的旧格式
-    else if (jsonData.name && (jsonData.description || jsonData.personality || jsonData.first_mes)) {
-        detectedVersion = 'v1';
-        data = jsonData; // 直接使用扁平对象
-    }
-    // 兜底：尝试从 data 里拿（有些工具导出不规范）
-    else if (jsonData.data && jsonData.data.name) {
-        detectedVersion = 'unknown-wrapped';
-        data = jsonData.data;
-    }
+function detectCharacterCardVersion(jsonData) {
+    if (!jsonData) return 'unknown';
+    if (jsonData.spec === 'chara_card_v3' && jsonData.data) return 'v3';
+    if (jsonData.spec === 'chara_card_v2' && jsonData.data) return 'v2';
+    if (jsonData.name && (jsonData.description || jsonData.personality || jsonData.first_mes)) return 'v1';
+    if (jsonData.data && jsonData.data.name) return 'unknown-wrapped';
+    return 'unknown';
+}
 
-    if (!data) {
-        throw new Error(t('import_invalid_format'));
-    }
-    if (!data.name) {
-        throw new Error(t('import_missing_name'));
-    }
-
-    // 归一化成 OpenTavern 内部使用的角色对象
-    // 强制将文本字段转为字符串，防止来自某些导出卡的非字符串值导致 .replace 报错
-    const character = {
+function normalizeImportedCharacterCardData(data) {
+    return {
         name: String(data.name || 'Unnamed'),
         description: String(data.description || ''),
         personality: String(data.personality || ''),
@@ -5477,67 +5463,88 @@ function importCharacterCard(jsonData) {
         alternate_greetings: Array.isArray(data.alternate_greetings) ? data.alternate_greetings : [],
         extensions: data.extensions || {},
     };
-
-    console.log('[Import] 检测到角色卡版本:', detectedVersion, 'name:', character.name);
-    return character;
 }
 
-/**
- * 从 chara_card (v1/v2/v3) 中提取内嵌的世界书 (character_book) 数据，
- * 并创建为全局可复用的 World Book，然后返回创建的 book 对象。
- * 支持 v3/v2 的 data.character_book 以及 v1/扁平格式的根级 character_book。
- * 如果没有内嵌世界书或没有有效条目，则返回 null。
- */
-function importCharacterBookFromCard(jsonData, characterName) {
+function importCharacterCard(jsonData) {
+    if (!jsonData) throw new Error(t('import_invalid_format'));
+
+    var data = getCharacterCardPayload(jsonData);
+    var detectedVersion = detectCharacterCardVersion(jsonData);
+
+    if (!data) {
+        throw new Error(t('import_invalid_format'));
+    }
+    if (!data.name) {
+        throw new Error(t('import_missing_name'));
+    }
+
+    const character = normalizeImportedCharacterCardData(data);
+    console.log('[Import] Detected character card version', detectedVersion, 'name:', character.name);
+    return character;
+}
+// ==================== Character Book Import ====================
+function getEmbeddedCharacterBook(jsonData) {
     if (!jsonData) return null;
+    if (jsonData.data && jsonData.data.character_book) return jsonData.data.character_book;
+    if (jsonData.character_book) return jsonData.character_book;
+    return null;
+}
 
-    var cb = null;
-    if (jsonData.data && jsonData.data.character_book) {
-        cb = jsonData.data.character_book;
-    } else if (jsonData.character_book) {
-        // 兼容 v1 扁平格式或非标准导出（character_book 直接在根）
-        cb = jsonData.character_book;
-    }
+function getImportedCharacterBookName(characterBook, characterName) {
+    return (characterBook && characterBook.name) ||
+        (characterName ? (characterName + ' 的世界书') : 'Imported Character Book');
+}
 
-    if (!cb) {
-        return null;
-    }
-    // 复用现有的归一化逻辑（支持 entries 为数组或对象）
+function importCharacterBookFromCard(jsonData, characterName) {
+    var cb = getEmbeddedCharacterBook(jsonData);
+    if (!cb) return null;
+
     var normalized = normalizeImportedWorldInfo(cb);
-
     if (!normalized || !normalized.entries || Object.keys(normalized.entries).length === 0) {
         return null;
     }
 
-    // 智能命名：优先使用 character_book 自带的 name，其次用角色名 + 后缀
-    var bookName = (cb && cb.name) || (characterName ? (characterName + ' 的世界书') : 'Imported Character Book');
-
-    // 创建全局世界书
-    var book = createNewWorldBook(bookName);
+    var book = createNewWorldBook(getImportedCharacterBookName(cb, characterName));
     book.entries = normalized.entries;
 
-    // 如果 normalized 有名字也尊重它
     if (normalized.name) {
         book.name = normalized.name;
     }
 
     return book;
 }
-
-/**
- * 从 SillyTavern PNG 角色卡文件中提取嵌入的 character 数据。
- * 支持常见的 "chara" / "ccv3" tEXt / iTXt chunk（base64 编码的 JSON）。
- * 返回可直接传给 importCharacterCard 的 JSON 对象。
- */
-async function extractCharaFromPng(file) {
-    const buffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-
-    // PNG signature
+// ==================== SillyTavern PNG Character Extraction ====================
+function assertSillyTavernPngSignature(bytes) {
     const sig = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
     for (let i = 0; i < 8; i++) {
         if (bytes[i] !== sig[i]) throw new Error('Not a valid PNG file');
     }
+}
+
+function decodeBase64Utf8Json(b64) {
+    const binary = atob(b64);
+    const decoded = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        decoded[i] = binary.charCodeAt(i);
+    }
+    const jsonStr = new TextDecoder('utf-8').decode(decoded);
+    return JSON.parse(jsonStr);
+}
+
+function readPngTextChunk(chunkData) {
+    let keywordEnd = 0;
+    while (keywordEnd < chunkData.length && chunkData[keywordEnd] !== 0) keywordEnd++;
+    const keyword = new TextDecoder('utf-8').decode(chunkData.slice(0, keywordEnd));
+    const valueBytes = chunkData.slice(keywordEnd + 1);
+    const value = new TextDecoder('utf-8').decode(valueBytes);
+    return { keyword, value };
+}
+
+async function extractCharaFromPng(file) {
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+
+    assertSillyTavernPngSignature(bytes);
 
     let offset = 8;
     while (offset < bytes.length) {
@@ -5546,21 +5553,9 @@ async function extractCharaFromPng(file) {
         const chunkData = bytes.slice(offset + 8, offset + 8 + length);
 
         if (type === 'tEXt' || type === 'iTXt') {
-            // keyword is null-terminated
-            let keywordEnd = 0;
-            while (keywordEnd < chunkData.length && chunkData[keywordEnd] !== 0) keywordEnd++;
-            const keyword = new TextDecoder('utf-8').decode(chunkData.slice(0, keywordEnd));
-            if (keyword === 'chara' || keyword === 'ccv3') {
-                const valueBytes = chunkData.slice(keywordEnd + 1);
-                const b64 = new TextDecoder('utf-8').decode(valueBytes);
-                // base64 -> bytes -> string
-                const binary = atob(b64);
-                const decoded = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) {
-                    decoded[i] = binary.charCodeAt(i);
-                }
-                const jsonStr = new TextDecoder('utf-8').decode(decoded);
-                return JSON.parse(jsonStr);
+            const textChunk = readPngTextChunk(chunkData);
+            if (textChunk.keyword === 'chara' || textChunk.keyword === 'ccv3') {
+                return decodeBase64Utf8Json(textChunk.value);
             }
         }
 
@@ -5570,7 +5565,7 @@ async function extractCharaFromPng(file) {
 
     throw new Error('No SillyTavern character data found in PNG (missing chara/ccv3 chunk)');
 }
-
+// ==================== Character Prompt Helpers ====================
 function replacePlaceholders(text, charName, userName) {
     text = String(text || '');
     if (!text) return '';

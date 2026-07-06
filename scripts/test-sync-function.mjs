@@ -507,6 +507,73 @@ async function assertFrontendPromptMessageHelpers() {
   assert(replaced[0].content === 'A for Sensei\n\nwith Arona B  C Arona', 'Prompt outlet resolution or final placeholder replacement changed.');
 }
 
+async function assertFrontendCharacterImportHelpers() {
+  const sources = await Promise.all([
+    '../src/app/40-character-card-import.js',
+    '../src/app/40-character-book-import.js',
+    '../src/app/40-character-prompt-helpers.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  let createdBookName = null;
+  const context = {
+    state: {
+      settings: {
+        postHistoryInstructions: ' custom first ',
+        twoStagePostHistoryInstructions: '',
+      },
+    },
+    t: (key) => key,
+    normalizeImportedWorldInfo(book) {
+      return {
+        name: book.normalizedName,
+        entries: {
+          e1: { uid: 'e1', content: 'Kivotos' },
+        },
+      };
+    },
+    createNewWorldBook(name) {
+      createdBookName = name;
+      return { id: 'wb1', name, entries: {} };
+    },
+    console: { log() {} },
+    JSON,
+    Object,
+    Array,
+    String,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__import = importCharacterCard;\nthis.__book = importCharacterBookFromCard;\nthis.__replace = replacePlaceholders;\nthis.__post = getEffectivePostHistoryInstructions;`, context);
+
+  const imported = context.__import({
+    spec: 'chara_card_v2',
+    data: {
+      name: 'Arona',
+      description: 123,
+      first_mes: 'Hello {{user}}',
+      tags: ['ai'],
+      extensions: { source: 'test' },
+    },
+  });
+  assert(imported.name === 'Arona' && imported.description === '123', 'Character import should normalize v2 card fields to strings.');
+  assert(imported.tags[0] === 'ai' && imported.extensions.source === 'test', 'Character import should preserve tags and extensions.');
+
+  const book = context.__book({
+    data: {
+      character_book: {
+        name: 'Embedded Lore',
+        normalizedName: 'Normalized Lore',
+        entries: [],
+      },
+    },
+  }, 'Arona');
+  assert(book && book.id === 'wb1' && book.name === 'Normalized Lore', 'Character book import should create and name a world book.');
+  assert(createdBookName === 'Embedded Lore', 'Character book import should use embedded book name when creating the book.');
+
+  assert(context.__replace('Hi {{char}} from {{user}}', 'Arona', 'Sensei') === 'Hi Arona from Sensei', 'Placeholder replacement changed.');
+  assert(context.__post({ post_history_instructions: 'card post' }, 'first') === 'custom first', 'First-stage post-history override should win.');
+  assert(context.__post({ post_history_instructions: 'card post' }, 'second') === 'card post', 'Second-stage post-history should fall back to character card when unset.');
+}
+
 async function assertFrontendSettingsSaveHelpers() {
   const sources = await Promise.all([
     '../src/app/68-settings-cloud-sync-form.js',
@@ -1497,6 +1564,7 @@ async function main() {
   await assertFrontendApiConnectionHelpers();
   await assertFrontendGenerationHelpers();
   await assertFrontendPromptMessageHelpers();
+  await assertFrontendCharacterImportHelpers();
   await assertFrontendSettingsSaveHelpers();
   await assertFrontendPublicCardAssets();
   await assertFrontendPublicCardGridFiltering();
