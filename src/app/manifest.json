@@ -19,6 +19,8 @@
   "12-i18n.js",
   "12-i18n-runtime.js",
   "13-webgl-shader-sources.js",
+  "13-webgl-program.js",
+  "13-webgl-layout.js",
   "13-webgl-background.js",
   "13-webgl-theme.js",
   "20-storage.js",
