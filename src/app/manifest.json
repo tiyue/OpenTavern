@@ -25,6 +25,7 @@
   "20-storage-service-maintenance.js",
   "20-storage-service-load.js",
   "20-storage-service-save.js",
+  "20-storage-service-init.js",
   "20-storage-service.js",
   "21-storage-backup-reminder.js",
   "21-storage-usage-format.js",
