@@ -925,6 +925,73 @@ async function assertFrontendNewChatPickerMultiSelection() {
   assert(selected.map((c) => c.name).join(',') === 'Beta,Alpha', 'New chat multi-select should preserve click order.');
 }
 
+async function assertFrontendNewChatWorkflowHelpers() {
+  const sources = await Promise.all([
+    '../src/app/59-new-chat-worldinfo.js',
+    '../src/app/59-new-chat-first-message.js',
+    '../src/app/59-new-chat-single.js',
+    '../src/app/59-new-chat-group.js',
+    '../src/app/59-new-chat-finalize.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const events = [];
+  const context = {
+    state: {
+      settings: { userName: 'Sensei' },
+      conversations: {},
+      conversationOrder: [],
+      activeConvId: null,
+    },
+    dom: { messagesContainer: { innerHTML: 'old' } },
+    currentView: 'library',
+    currentCharacterName: null,
+    makeId: () => 'group-id',
+    replacePlaceholders: (text, charName, userName) => String(text || '').replaceAll('{{char}}', charName || '').replaceAll('{{user}}', userName || 'User'),
+    t: (key) => key === 'chat_with' ? 'Chat with ' : key,
+    isGroupChat: (conv) => !!(conv && conv.group),
+    persistState: () => events.push('persist'),
+    requestRender: (key) => events.push(`render:${key}`),
+    renderTokenBar: () => events.push('token'),
+    clearPendingGroupMention: () => events.push('clear-mention'),
+    switchView: (view) => events.push(`switch:${view}`),
+    isMobile: () => true,
+    closeSidebar: () => events.push('close-sidebar'),
+    JSON,
+    Array,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__copyWorldInfo = copyWorldInfoFromCurrentConversation;\nthis.__single = configureSingleCharacterConversation;\nthis.__group = configureGroupConversation;\nthis.__register = registerNewConversation;\nthis.__render = renderNewConversationState;\nthis.__finalizeUi = finalizeNewConversationUi;`, context);
+
+  const conv = { id: 'c1', messages: [] };
+  const current = { worldInfo: { entries: { e1: { content: 'lore' } } } };
+  context.__copyWorldInfo(conv, current);
+  current.worldInfo.entries.e1.content = 'changed';
+  assert(conv.worldInfo.entries.e1.content === 'lore', 'New chat should deep-copy current world info.');
+
+  context.__single(conv, { name: 'Arona', first_mes: 'Hello {{user}}' });
+  assert(conv.character.name === 'Arona' && conv.messages[0].content === 'Hello Sensei', 'Single-character new chat setup failed.');
+  assert(conv.title === 'Chat with Arona', 'Single-character new chat title changed.');
+
+  const groupConv = { id: 'g1', messages: [] };
+  context.__group(groupConv, [
+    { name: 'Arona', first_mes: 'Hi {{user}}' },
+    { name: 'Plana', first_mes: 'Ignored' },
+  ]);
+  assert(groupConv.group.members.length === 2 && groupConv.group.members[0].order === 0, 'Group chat members were not created.');
+  assert(groupConv.messages[0].speaker === 'Arona' && groupConv.messages[0].content === 'Hi Sensei', 'Group chat first message was not attributed.');
+
+  groupConv._wiBudgetWarning = true;
+  context.__register(groupConv);
+  assert(context.state.activeConvId === 'g1' && context.state.conversationOrder[0] === 'g1', 'New chat registration did not update active conversation.');
+  assert(groupConv._wiBudgetWarning === false && groupConv._historyWindow === 150 && groupConv._wiCache === null, 'New chat runtime state was not initialized.');
+
+  context.__render(groupConv);
+  context.__finalizeUi();
+  assert(events.includes('persist') && events.includes('render:activeConvId') && events.includes('token'), 'New chat render side effects did not run.');
+  assert(!events.includes('clear-mention'), 'Group chats should keep pending group mention state.');
+  assert(events.includes('switch:chat') && events.includes('close-sidebar'), 'New chat UI finalization did not run.');
+}
+
 async function assertFrontendWorldBookActivation() {
   const sources = await Promise.all([
     '../src/app/41-world-info-constants.js',
@@ -1664,6 +1731,7 @@ async function main() {
   await assertFrontendSillyTavernPresetNormalizer();
   await assertFrontendSillyTavernPresetSettingsRows();
   await assertFrontendNewChatPickerMultiSelection();
+  await assertFrontendNewChatWorkflowHelpers();
   await assertFrontendWorldBookActivation();
   await assertFrontendWorldBookActivationHelpers();
   await assertFrontendWorldBookMatchingHelpers();
