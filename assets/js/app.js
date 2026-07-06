@@ -3149,8 +3149,8 @@ function createStorageServiceRuntimeState() {
         _isSafariBrowser: null
     };
 }
-// ==================== StorageService API Delegates ====================
-function createStorageServiceAPI() {
+// ==================== StorageService Helper API ====================
+function createStorageServiceHelperAPI() {
     return {
         _isQuotaError(e) {
             return storageIsQuotaError(e);
@@ -3176,8 +3176,12 @@ function createStorageServiceAPI() {
 
         _cloneForPersist(data) {
             return storageCloneForPersist(data);
-        },
-
+        }
+    };
+}
+// ==================== StorageService Local Snapshot API ====================
+function createStorageServiceLocalSnapshotAPI() {
+    return {
         _readLocalSnapshot() {
             try {
                 const raw = localStorage.getItem(STORAGE_KEY);
@@ -3211,8 +3215,12 @@ function createStorageServiceAPI() {
             const withUserData = valid.filter(c => this._hasUserData(c.data));
             return (withUserData.length ? withUserData : valid)
                 .sort((a, b) => this._snapshotTime(b.data) - this._snapshotTime(a.data))[0] || null;
-        },
-
+        }
+    };
+}
+// ==================== StorageService Operations API ====================
+function createStorageServiceOperationsAPI() {
+    return {
         async _syncSnapshotToAvailableBackends(data, source) {
             return syncStorageServiceSnapshotToAvailableBackends(this, data, source);
         },
@@ -3262,6 +3270,15 @@ function createStorageServiceAPI() {
             return clearStorageServiceData(this);
         }
     };
+}
+// ==================== StorageService API Delegates ====================
+function createStorageServiceAPI() {
+    return Object.assign(
+        {},
+        createStorageServiceHelperAPI(),
+        createStorageServiceLocalSnapshotAPI(),
+        createStorageServiceOperationsAPI()
+    );
 }
 // ==================== StorageService (IndexedDB primary + localStorage snapshot + optional OPFS mirror) ====================
 var StorageService = Object.assign(
