@@ -360,6 +360,23 @@ async function assertFrontendSillyTavernPresetNormalizer() {
   assert(legacy.prompts[0].identifier === 'main_prompt', 'Legacy SillyTavern prompt fields were not imported.');
 }
 
+async function assertFrontendSillyTavernPresetSettingsRows() {
+  const source = await readFile(new URL('../src/app/62-sillytavern-preset-settings-list-ui.js', import.meta.url), 'utf8');
+  const context = { Array };
+
+  vm.runInNewContext(`${source}\nthis.__rows = getSillyTavernPresetRows;`, context);
+  const rows = context.__rows({
+    prompts: [
+      { id: 'late', order: 20 },
+      { id: 'early', order: 1 },
+      { id: 'middle', order: 10 },
+    ],
+  });
+
+  assert(rows.map((row) => row.prompt.id).join(',') === 'early,middle,late', 'SillyTavern preset settings rows should sort by prompt order.');
+  assert(rows.map((row) => row.index).join(',') === '1,2,0', 'SillyTavern preset settings rows should preserve original prompt indexes.');
+}
+
 async function assertFrontendNewChatPickerMultiSelection() {
   const sources = await Promise.all([
     '../src/app/59-new-chat-picker-helpers.js',
@@ -900,6 +917,7 @@ async function main() {
   await assertFrontendPublicCardGridFiltering();
   await assertFrontendI18nRuntime();
   await assertFrontendSillyTavernPresetNormalizer();
+  await assertFrontendSillyTavernPresetSettingsRows();
   await assertFrontendNewChatPickerMultiSelection();
   await assertFrontendWorldBookActivation();
   await assertFrontendWorldBookEntryListFiltering();
