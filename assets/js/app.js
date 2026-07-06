@@ -7335,6 +7335,7 @@ function refreshWorldBookLeftPanel() {
         renderWIEntryList(filter);
     }
 }
+// ==================== World Book Import UI ====================
 function handleWIFileImport(e) {
     var file = e.target.files[0];
     if (!file) return;
@@ -7344,64 +7345,74 @@ function handleWIFileImport(e) {
             var json = JSON.parse(ev.target.result);
             var normalized = normalizeImportedWorldInfo(json);
 
-            // Phase 4: In global manager mode, import as a completely new independent world book
             if (wiState.viewMode === 'books' || !wiState.currentWorldBookId) {
-                const newBook = createNewWorldBook(normalized.name || 'Imported World Book');
-                newBook.entries = normalized.entries;
-                if (normalized.name) newBook.name = normalized.name;
-
-                wiState.currentWorldBookId = newBook.id;
-                wiState.viewMode = 'entries';
-                wiState.dirty = true;
-                updateWIDirtyIndicator();
-
-                if (dom.wiBookName) dom.wiBookName.value = newBook.name;
-                if (dom.wiSearch) dom.wiSearch.value = '';
-
-                renderWIEntryList('');
-                showNoSelection();
-                updateWorldBookModalHeader();
-                renderWorldInfoBadge();
-
-                // Immediate persist: imported world books must be durable immediately (user complaint: they get persisted but then "cannot be deleted" if timing is bad).
-                persistState(true);
-
-                alert('已作为新世界书导入（' + Object.keys(newBook.entries).length + ' 条目）');
+                importWorldInfoAsNewBook(normalized);
             } else {
-                // Legacy / current book import
-                var wi = getActiveWI();
-                wi.entries = normalized.entries;
-                if (normalized.name) {
-                    wi.name = normalized.name;
-                    if (dom.wiBookName) dom.wiBookName.value = normalized.name;
-                }
-                wiState.dirty = true;
-                updateWIDirtyIndicator();
-
-                if (dom.wiSearch) dom.wiSearch.value = '';
-                renderWIEntryList('');
-                showNoSelection();
-                renderWorldInfoBadge();
-                persistState(true);
-                alert('世界书导入成功（' + Object.keys(wi.entries).length + ' 条目）');
+                importWorldInfoIntoCurrentBook(normalized);
             }
         } catch (err) {
-            alert('导入失败: ' + err.message);
+            alert('\u5bfc\u5165\u5931\u8d25: ' + err.message);
         }
         if (dom.wiImportFile) dom.wiImportFile.value = '';
     };
     reader.readAsText(file);
 }
 
-function exportCurrentWorldInfo() {
-    var wi = getActiveWI();
-    var data = entriesToSTFormat(wi);
-    var name = (wi.name || 'world_info').replace(/[^a-zA-Z0-9一-鿿]/g, '_');
-    downloadJsonFile(data, name + '.json');
-    recordBackupMade(); // Phase 4
+function importWorldInfoAsNewBook(normalized) {
+    var newBook = createNewWorldBook(normalized.name || 'Imported World Book');
+    newBook.entries = normalized.entries;
+    if (normalized.name) newBook.name = normalized.name;
+
+    wiState.currentWorldBookId = newBook.id;
+    wiState.viewMode = 'entries';
+    wiState.dirty = true;
+    updateWIDirtyIndicator();
+
+    if (dom.wiBookName) dom.wiBookName.value = newBook.name;
+    if (dom.wiSearch) dom.wiSearch.value = '';
+
+    renderWIEntryList('');
+    showNoSelection();
+    updateWorldBookModalHeader();
+    renderWorldInfoBadge();
+    persistState(true);
+
+    alert('\u5df2\u4f5c\u4e3a\u65b0\u4e16\u754c\u4e66\u5bfc\u5165\uff08' + Object.keys(newBook.entries).length + ' \u6761\u76ee\uff09');
 }
 
-// Simple render hook for count badge (Phase 3: support multiple global world books)
+function importWorldInfoIntoCurrentBook(normalized) {
+    var wi = getActiveWI();
+    wi.entries = normalized.entries;
+    if (normalized.name) {
+        wi.name = normalized.name;
+        if (dom.wiBookName) dom.wiBookName.value = normalized.name;
+    }
+    wiState.dirty = true;
+    updateWIDirtyIndicator();
+
+    if (dom.wiSearch) dom.wiSearch.value = '';
+    renderWIEntryList('');
+    showNoSelection();
+    renderWorldInfoBadge();
+    persistState(true);
+    alert('\u4e16\u754c\u4e66\u5bfc\u5165\u6210\u529f\uff08' + Object.keys(wi.entries).length + ' \u6761\u76ee\uff09');
+}
+// ==================== World Book Export UI ====================
+function sanitizeWorldInfoFileName(name) {
+    return String(name || 'world_info')
+        .replace(/[^\w\u4e00-\u9fff-]+/g, '_')
+        .replace(/^_+|_+$/g, '') || 'world_info';
+}
+
+function exportCurrentWorldInfo() {
+    var wi = getActiveWI();
+    if (!wi) return;
+    var data = entriesToSTFormat(wi);
+    var name = sanitizeWorldInfoFileName(wi.name || 'world_info');
+    downloadJsonFile(data, name + '.json');
+    recordBackupMade();
+}
+// ==================== World Book Badge UI ====================
 function renderWorldInfoBadge() {
     var el = dom.wiEntryCount;
     if (!el) return;
@@ -7415,7 +7426,6 @@ function renderWorldInfoBadge() {
 
     var count = 0;
 
-    // New model: count entries from all assigned world books
     if (Array.isArray(conv.worldBookIds) && conv.worldBookIds.length > 0) {
         conv.worldBookIds.forEach(function(wbId) {
             var wb = state.worldBooks && state.worldBooks[wbId];
@@ -7425,13 +7435,17 @@ function renderWorldInfoBadge() {
         });
     }
 
-    // Legacy fallback
     if (conv.worldInfo && conv.worldInfo.entries) {
         count += Object.keys(conv.worldInfo.entries).length;
     }
 
     el.textContent = count > 0 ? count : '';
-    el.title = count + ' ' + t('world_book_entry') + (conv.worldBookIds && conv.worldBookIds.length > 1 ? ' (来自 ' + conv.worldBookIds.length + ' 个世界书)' : '');
+    el.title = count + ' ' + t('world_book_entry') + buildWorldInfoBadgeSourceSuffix(conv);
+}
+
+function buildWorldInfoBadgeSourceSuffix(conv) {
+    if (!conv.worldBookIds || conv.worldBookIds.length <= 1) return '';
+    return ' (\u6765\u81ea ' + conv.worldBookIds.length + ' \u4e2a\u4e16\u754c\u4e66)';
 }
 
 function renderWorldInfoBudgetWarning() {
@@ -7451,7 +7465,6 @@ function renderWorldInfoBudgetWarning() {
 
     el.classList.remove('hidden');
 
-    // Wire dismiss once
     if (!dismissBtn._wired) {
         dismissBtn.addEventListener('click', function() {
             if (conv) conv._wiBudgetWarning = false;
@@ -7460,6 +7473,8 @@ function renderWorldInfoBudgetWarning() {
         dismissBtn._wired = true;
     }
 }
+// ==================== World Book Import / Export UI ====================
+// Split into import, export, and badge helper chunks.
 // ==================== World Book Key Matching ====================
 function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

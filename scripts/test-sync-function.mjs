@@ -1402,6 +1402,40 @@ async function assertFrontendWorldBookEntryEditorHelpers() {
   assert(context.wiState.selectedUid === null && context.wiState.primaryKeys.length === 0, 'World book no-selection state should clear selection and keys.');
 }
 
+async function assertFrontendWorldBookImportExportUIHelpers() {
+  const sources = await Promise.all([
+    '../src/app/43-worldbook-export-ui.js',
+    '../src/app/43-worldbook-badge-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const badgeEl = { textContent: '', title: '' };
+  const context = {
+    dom: { wiEntryCount: badgeEl },
+    state: {
+      worldBooks: {
+        wb1: { entries: { a: {}, b: {} } },
+        wb2: { entries: { c: {} } },
+      },
+    },
+    getActiveConv() {
+      return { worldBookIds: ['wb1', 'wb2'], worldInfo: { entries: { legacy: {} } } };
+    },
+    t: (key) => key,
+    String,
+    Object,
+    Array,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__name = sanitizeWorldInfoFileName;\nthis.__badge = renderWorldInfoBadge;\nthis.__suffix = buildWorldInfoBadgeSourceSuffix;`, context);
+
+  assert(context.__name('Lore: A/B?') === 'Lore_A_B', 'World book export filename should replace unsafe characters.');
+  assert(context.__name('') === 'world_info', 'World book export filename should keep a non-empty fallback.');
+
+  context.__badge();
+  assert(badgeEl.textContent === 4, 'World book badge should count linked and legacy entries.');
+  assert(badgeEl.title.includes('\u6765\u81ea 2 \u4e2a\u4e16\u754c\u4e66'), 'World book badge title should describe multiple linked books.');
+}
+
 async function assertFrontendFileProtocolOPFSSilence() {
   const opfsSources = await Promise.all([
     '../src/app/20-storage-opfs-environment.js',
@@ -1855,6 +1889,7 @@ async function main() {
   await assertFrontendWorldBookEntryListUIHelpers();
   await assertFrontendWorldBookEntryLiveHelpers();
   await assertFrontendWorldBookEntryEditorHelpers();
+  await assertFrontendWorldBookImportExportUIHelpers();
   await assertFrontendFileProtocolOPFSSilence();
   await assertFrontendIDBStorageHelpers();
   await assertFrontendStorageServicePipeline();
