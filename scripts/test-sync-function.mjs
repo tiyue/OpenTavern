@@ -2736,6 +2736,56 @@ async function assertFrontendMessageActionHelpers() {
   assert(events.includes('stream') && events.includes('bubble:regen') && events.includes('input'), 'Primary regenerate should restart streaming and update input state.');
 }
 
+async function assertFrontendChatTopBarUI() {
+  const source = await readFile(new URL('../src/app/61-chat-topbar-ui.js', import.meta.url), 'utf8');
+  let activeConv = null;
+  const dom = {
+    chatTitle: { textContent: '' },
+    charAvatar: { textContent: '', innerHTML: '', className: '' },
+    chatSubtitle: { textContent: '' },
+  };
+  const context = {
+    dom,
+    getActiveConv() { return activeConv; },
+    isGroupChat(conv) { return !!(conv && conv.group); },
+    getGroupMembers(conv) { return conv.group.members; },
+    t: (key) => ({
+      new_chat_title: 'New',
+      no_character: 'No character',
+      char_tag_separator: ' / ',
+    }[key] || key),
+  };
+
+  vm.runInNewContext(`${source}\nthis.__render = renderTopBar;`, context);
+
+  activeConv = {
+    title: 'Group Chat',
+    group: {
+      members: [
+        { character: { name: 'Arona' } },
+        { character: { name: 'Plana' } },
+        { character: { name: 'Hikari' } },
+        { character: { name: 'Nozomi' } },
+      ],
+    },
+  };
+  context.__render();
+  assert(dom.chatTitle.textContent === 'Group Chat' && dom.charAvatar.textContent === 'Group', 'Chat top bar should render group title and avatar.');
+  assert(dom.chatSubtitle.textContent === 'Arona、Plana、Hikari 等', 'Chat top bar should summarize group members.');
+
+  activeConv = {
+    title: '',
+    character: { name: 'Arona', previewImage: 'avatar.png', tags: ['blue', 'ai'] },
+  };
+  context.__render();
+  assert(dom.chatTitle.textContent === 'New' && dom.charAvatar.innerHTML.includes('avatar.png'), 'Chat top bar should render single-character image avatars.');
+  assert(dom.chatSubtitle.textContent === 'blue / ai', 'Chat top bar should render character tags.');
+
+  activeConv = { title: 'Plain', character: null };
+  context.__render();
+  assert(dom.charAvatar.textContent === 'Chat' && dom.chatSubtitle.textContent === 'No character', 'Chat top bar should render the no-character fallback.');
+}
+
 async function assertFrontendChatMessageRendererHelpers() {
   const sources = await Promise.all([
     '../src/app/61-chat-message-window-state.js',
@@ -3690,6 +3740,7 @@ async function main() {
   await assertFrontendMessageContentHelpers();
   await assertFrontendMessageEditHelpers();
   await assertFrontendMessageActionHelpers();
+  await assertFrontendChatTopBarUI();
   await assertFrontendChatMessageRendererHelpers();
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendWorldBookEntryListUIHelpers();

@@ -11230,6 +11230,7 @@ function cacheDom() {
     ];
     ids.forEach(function(id) { dom[id] = document.getElementById(id); });
 }
+// ==================== Chat Top Bar UI ====================
 function renderTopBar() {
     var conv = getActiveConv();
     if (!conv) return;
@@ -11272,7 +11273,6 @@ function renderTopBar() {
         if (dom.chatSubtitle) dom.chatSubtitle.textContent = t('no_character');
     }
 }
-
 function renderTokenBar() {
     var conv = getActiveConv();
     if (!conv) return;
