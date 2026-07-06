@@ -10669,7 +10669,7 @@ function triggerCardImageUpload(char) {
     };
     input.click();
 }
-// ==================== My Library Card Items ====================
+// ==================== My Library Card Action Tiles ====================
 function appendMyCardActionTiles(grid) {
     grid.appendChild(createMyCardActionTile({
         iconHtml: '＋',
@@ -10708,49 +10708,7 @@ function openMyCardImportModal() {
     if (dom.importStatus) dom.importStatus.classList.add('hidden');
     if (dom.importFileInput) dom.importFileInput.value = '';
 }
-
-function createMyLibraryCharacterCard(char) {
-    const cardEl = document.createElement('div');
-    cardEl.className = 'glass rounded-2xl overflow-hidden cursor-pointer hover:bg-white/5 transition-all border border-white/5 hover:border-white/10 flex flex-col group';
-
-    cardEl.appendChild(createMyCharacterPreview(char));
-    cardEl.appendChild(createMyCharacterInfo(char));
-    cardEl.addEventListener('click', (e) => {
-        if (isMyCharacterCardControlClick(e)) return;
-        loadOrCreateChatForCharacter(char);
-    });
-
-    return cardEl;
-}
-
-function createMyCharacterPreview(char) {
-    const preview = document.createElement('div');
-    const pSrc = char.previewImage || char.avatar;
-    const letter = (char.name || '?').charAt(0).toUpperCase();
-
-    if (pSrc) {
-        preview.className = 'aspect-[3/4] w-full overflow-hidden bg-zinc-900 rounded-t-2xl relative';
-        const img = document.createElement('img');
-        img.src = pSrc;
-        img.className = 'w-full h-full object-cover';
-        img.alt = char.name || '';
-        img.onerror = () => setMyCharacterPreviewFallback(preview, letter);
-        preview.appendChild(img);
-    } else {
-        setMyCharacterPreviewFallback(preview, letter);
-    }
-
-    preview.appendChild(createMyCharacterCardControls(char));
-    return preview;
-}
-
-function setMyCharacterPreviewFallback(preview, letter) {
-    const controls = preview.querySelector('.my-card-controls');
-    preview.className = 'aspect-[3/4] w-full ot-avatar-fill flex items-center justify-center text-5xl font-bold text-white rounded-t-2xl relative';
-    preview.textContent = letter;
-    if (controls) preview.appendChild(controls);
-}
-
+// ==================== My Library Card Controls ====================
 function createMyCharacterCardControls(char) {
     const controls = document.createElement('div');
     controls.className = 'my-card-controls absolute top-1 right-1 flex items-center gap-1 z-10';
@@ -10783,6 +10741,8 @@ function createMyCharacterDeleteButton(char) {
     return delBtn;
 }
 
+async
+
 async function confirmAndDeleteMyCharacterCard(char) {
     const displayName = char.name || '该角色卡';
     if (!await showGlassConfirm(`\u786e\u5b9a\u4ece\u89d2\u8272\u5e93\u4e2d\u5220\u9664\u300c${displayName}\u300d\uff1f\n\u5df2\u6709\u5bf9\u8bdd\u4e2d\u7684\u89d2\u8272\u5361\u6570\u636e\u4e0d\u4f1a\u53d7\u5f71\u54cd\u3002`, { title: '\u5220\u9664\u89d2\u8272\u5361', danger: true, okText: '\u5220\u9664' })) {
@@ -10793,6 +10753,42 @@ async function confirmAndDeleteMyCharacterCard(char) {
     if (typeof renderMyCards === 'function') renderMyCards();
 }
 
+function isMyCharacterCardControlClick(e) {
+    return !!(
+        e.target.closest('.char-img-btn') ||
+        e.target.closest('.char-delete-btn') ||
+        e.target.closest('button[title="移除角色卡"]')
+    );
+}
+// ==================== My Library Card Preview UI ====================
+function createMyCharacterPreview(char) {
+    const preview = document.createElement('div');
+    const pSrc = char.previewImage || char.avatar;
+    const letter = (char.name || '?').charAt(0).toUpperCase();
+
+    if (pSrc) {
+        preview.className = 'aspect-[3/4] w-full overflow-hidden bg-zinc-900 rounded-t-2xl relative';
+        const img = document.createElement('img');
+        img.src = pSrc;
+        img.className = 'w-full h-full object-cover';
+        img.alt = char.name || '';
+        img.onerror = () => setMyCharacterPreviewFallback(preview, letter);
+        preview.appendChild(img);
+    } else {
+        setMyCharacterPreviewFallback(preview, letter);
+    }
+
+    preview.appendChild(createMyCharacterCardControls(char));
+    return preview;
+}
+
+function setMyCharacterPreviewFallback(preview, letter) {
+    const controls = preview.querySelector('.my-card-controls');
+    preview.className = 'aspect-[3/4] w-full ot-avatar-fill flex items-center justify-center text-5xl font-bold text-white rounded-t-2xl relative';
+    preview.textContent = letter;
+    if (controls) preview.appendChild(controls);
+}
+// ==================== My Library Card Info UI ====================
 function createMyCharacterInfo(char) {
     const info = document.createElement('div');
     info.className = 'p-2';
@@ -10809,13 +10805,19 @@ function createMyCharacterInfo(char) {
     info.appendChild(tags);
     return info;
 }
+// ==================== My Library Card Items ====================
+function createMyLibraryCharacterCard(char) {
+    const cardEl = document.createElement('div');
+    cardEl.className = 'glass rounded-2xl overflow-hidden cursor-pointer hover:bg-white/5 transition-all border border-white/5 hover:border-white/10 flex flex-col group';
 
-function isMyCharacterCardControlClick(e) {
-    return !!(
-        e.target.closest('.char-img-btn') ||
-        e.target.closest('.char-delete-btn') ||
-        e.target.closest('button[title="移除角色卡"]')
-    );
+    cardEl.appendChild(createMyCharacterPreview(char));
+    cardEl.appendChild(createMyCharacterInfo(char));
+    cardEl.addEventListener('click', (e) => {
+        if (isMyCharacterCardControlClick(e)) return;
+        loadOrCreateChatForCharacter(char);
+    });
+
+    return cardEl;
 }
 function renderMyCards() {
     const grid = document.getElementById('myCardsGrid');
