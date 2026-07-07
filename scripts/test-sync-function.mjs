@@ -2665,6 +2665,38 @@ async function assertFrontendMyCardGridFiltering() {
   assert(filtered.length === 1 && filtered[0].name === 'Keep', 'My card grid filtering should use the shared library filter.');
 }
 
+async function assertFrontendMyCardControlHelpers() {
+  const sources = await Promise.all([
+    '../src/app/60-library-my-card-control-helpers.js',
+    '../src/app/60-library-my-card-controls-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const events = [];
+  let confirmResult = false;
+  const context = {
+    showGlassConfirm: async (message, options) => {
+      events.push(`confirm:${message}:${options.okText}`);
+      return confirmResult;
+    },
+    deleteCharacterFromLibrary: (key) => events.push(`delete:${key}`),
+    renderMyCards: () => events.push('render'),
+    document: { createElement: () => ({ addEventListener() {} }) },
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__key = getMyCharacterCardKey;\nthis.__config = getMyCharacterDeleteConfirmConfig;\nthis.__confirm = confirmAndDeleteMyCharacterCard;`, context);
+
+  assert(context.__key({ name: ' Arona ' }) === 'arona', 'My card controls should normalize character keys.');
+  const config = context.__config({ name: 'Arona' });
+  assert(config.message.includes('Arona') && config.options.danger === true, 'My card controls should build a dangerous delete confirmation.');
+
+  await context.__confirm({ name: 'Arona' });
+  assert(!events.includes('delete:arona'), 'My card controls should not delete when confirmation is cancelled.');
+
+  confirmResult = true;
+  await context.__confirm({ name: 'Arona' });
+  assert(events.includes('delete:arona') && events.includes('render'), 'My card controls should delete and refresh after confirmation.');
+}
+
 async function assertFrontendPublicCardGridFiltering() {
   const sources = await Promise.all([
     '../src/app/60-library-public-card-filter.js',
@@ -6198,6 +6230,7 @@ async function main() {
   await assertFrontendLibraryCardFilterHelpers();
   await assertFrontendLibraryCardDisplayHelpers();
   await assertFrontendMyCardGridFiltering();
+  await assertFrontendMyCardControlHelpers();
   await assertFrontendPublicCardGridFiltering();
   await assertFrontendDomCache();
   await assertFrontendPublicCardListUI();
