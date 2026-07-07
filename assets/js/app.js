@@ -12317,45 +12317,12 @@ function parseSillyTavernDepth(prompt) {
     var d = parseInt(raw, 10);
     return isNaN(d) ? 0 : d;
 }
-// ==================== SillyTavern Preset Settings List UI ====================
-function renderSillyTavernPresetSettings() {
-    if (!dom.stPresetList || !dom.stPresetStatus) return;
-
-    var preset = ensureSillyTavernPresetSettings();
-    var rows = getSillyTavernPresetRows(preset);
-    var enabledCount = rows.filter(function(row) { return row.prompt.enabled !== false; }).length;
-
-    if (rows.length === 0) {
-        renderSillyTavernPresetEmptyState();
-        return;
-    }
-
-    dom.stPresetStatus.textContent = (preset.name || 'SillyTavern Preset') + ' - ' + enabledCount + ' / ' + rows.length + ' enabled';
-    setSillyTavernPresetTransferButtonsDisabled(false);
-    dom.stPresetList.innerHTML = rows.map(buildSillyTavernPresetRowHtml).join('');
-    bindSillyTavernPresetToggleEvents(preset);
-}
-
+// ==================== SillyTavern Preset Settings Rows ====================
 function getSillyTavernPresetRows(preset) {
     return (preset.prompts || []).map(function(p, index) {
         return { prompt: p, index: index };
     }).sort(function(a, b) {
         return (a.prompt.order || 0) - (b.prompt.order || 0);
-    });
-}
-
-function renderSillyTavernPresetEmptyState() {
-    dom.stPresetStatus.textContent = t('settings_st_preset_empty');
-    dom.stPresetList.innerHTML = '<div class="text-[11px] text-zinc-600 px-1 py-1">' + escapeHtml(t('settings_st_preset_empty')) + '</div>';
-    setSillyTavernPresetTransferButtonsDisabled(true);
-}
-
-function setSillyTavernPresetTransferButtonsDisabled(disabled) {
-    [dom.stPresetExportBtn, dom.stPresetDeleteBtn].forEach(function(btn) {
-        if (!btn) return;
-        btn.disabled = !!disabled;
-        btn.classList.toggle('opacity-50', !!disabled);
-        btn.classList.toggle('cursor-not-allowed', !!disabled);
     });
 }
 
@@ -12380,7 +12347,22 @@ function buildSillyTavernPresetRowHtml(row) {
         '</label>' +
     '</div>';
 }
+// ==================== SillyTavern Preset Settings Empty UI ====================
+function renderSillyTavernPresetEmptyState() {
+    dom.stPresetStatus.textContent = t('settings_st_preset_empty');
+    dom.stPresetList.innerHTML = '<div class="text-[11px] text-zinc-600 px-1 py-1">' + escapeHtml(t('settings_st_preset_empty')) + '</div>';
+    setSillyTavernPresetTransferButtonsDisabled(true);
+}
 
+function setSillyTavernPresetTransferButtonsDisabled(disabled) {
+    [dom.stPresetExportBtn, dom.stPresetDeleteBtn].forEach(function(btn) {
+        if (!btn) return;
+        btn.disabled = !!disabled;
+        btn.classList.toggle('opacity-50', !!disabled);
+        btn.classList.toggle('cursor-not-allowed', !!disabled);
+    });
+}
+// ==================== SillyTavern Preset Settings Toggle UI ====================
 function bindSillyTavernPresetToggleEvents(preset) {
     dom.stPresetList.querySelectorAll('.st-preset-toggle').forEach(function(input) {
         input.addEventListener('change', function() {
@@ -12394,6 +12376,24 @@ function bindSillyTavernPresetToggleEvents(preset) {
             }
         });
     });
+}
+// ==================== SillyTavern Preset Settings List UI ====================
+function renderSillyTavernPresetSettings() {
+    if (!dom.stPresetList || !dom.stPresetStatus) return;
+
+    var preset = ensureSillyTavernPresetSettings();
+    var rows = getSillyTavernPresetRows(preset);
+    var enabledCount = rows.filter(function(row) { return row.prompt.enabled !== false; }).length;
+
+    if (rows.length === 0) {
+        renderSillyTavernPresetEmptyState();
+        return;
+    }
+
+    dom.stPresetStatus.textContent = (preset.name || 'SillyTavern Preset') + ' - ' + enabledCount + ' / ' + rows.length + ' enabled';
+    setSillyTavernPresetTransferButtonsDisabled(false);
+    dom.stPresetList.innerHTML = rows.map(buildSillyTavernPresetRowHtml).join('');
+    bindSillyTavernPresetToggleEvents(preset);
 }
 // ==================== SillyTavern Preset Import UI ====================
 function importSillyTavernPresetFile(file) {

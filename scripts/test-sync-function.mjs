@@ -2654,6 +2654,9 @@ async function assertFrontendSillyTavernPresetNormalizer() {
 async function assertFrontendSillyTavernPresetSettingsRows() {
   const sources = await Promise.all([
     '../src/app/62-sillytavern-preset-placement.js',
+    '../src/app/62-sillytavern-preset-settings-rows.js',
+    '../src/app/62-sillytavern-preset-settings-empty-ui.js',
+    '../src/app/62-sillytavern-preset-settings-toggle-ui.js',
     '../src/app/62-sillytavern-preset-settings-list-ui.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const context = {
