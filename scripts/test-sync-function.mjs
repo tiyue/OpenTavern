@@ -65,6 +65,16 @@ async function assertRejects(promise, message) {
   assert(rejected, message);
 }
 
+function assertThrows(fn, message) {
+  let thrown = false;
+  try {
+    fn();
+  } catch (_) {
+    thrown = true;
+  }
+  assert(thrown, message);
+}
+
 async function assertFrontendCloudSnapshot() {
   const compatSource = await readFile(new URL('../src/app/24-storage-compat.js', import.meta.url), 'utf8');
   const cloudSource = await readFile(new URL('../src/app/22-cloud-sync.js', import.meta.url), 'utf8');
@@ -441,6 +451,7 @@ async function assertFrontendCloudSnapshotApply() {
   });
 
   assert(falseMigratedApplied.charactersMigrated === false && context.state._charactersMigrated === false, 'Cloud apply should not treat string "false" as migrated.');
+  assertThrows(() => context.__apply([]), 'Cloud apply should reject array snapshots instead of treating them as object maps.');
 }
 
 async function assertFrontendCloudSyncCrypto() {
@@ -4801,6 +4812,12 @@ async function main() {
   await assertOk(post, 'POST');
   const postJson = await readJson(post);
   assert(postJson.success && postJson.updatedAt, 'POST response missing success metadata.');
+
+  const badArraySnapshot = await onRequest({
+    request: request('POST', 'test-token-array', { data: [] }),
+    env,
+  });
+  assert(badArraySnapshot.status === 400, 'Array sync payloads should be rejected.');
 
   const getA = await onRequest({ request: request('GET', tokenA), env });
   await assertOk(getA, 'GET A');

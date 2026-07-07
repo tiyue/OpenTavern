@@ -56,7 +56,7 @@ function normalizeCloudSyncActiveConversation(data) {
 function normalizeCloudSyncSnapshot(raw) {
     var data = raw && raw.data !== undefined ? raw.data : raw;
     if (data && data.snapshot !== undefined) data = data.snapshot;
-    if (!data || typeof data !== 'object') throw new Error('Cloud snapshot is empty or invalid.');
+    if (!isCloudSyncObjectMap(data)) throw new Error('Cloud snapshot is empty or invalid.');
     if (data.encrypted === true) return data;
 
     data.settings = normalizeCloudSyncObjectMap(data.settings);

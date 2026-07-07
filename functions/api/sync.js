@@ -91,7 +91,7 @@ function normalizeActiveConversation(snapshot) {
 
 function extractSnapshot(body) {
   const snapshot = body && body.data !== undefined ? body.data : body;
-  if (!snapshot || typeof snapshot !== 'object') throw new Error('Invalid sync payload.');
+  if (!isPlainObject(snapshot)) throw new Error('Invalid sync payload.');
   if (body && body.encrypted === true) snapshot.encrypted = true;
   if (snapshot.encrypted === true) {
     if (!snapshot.payload || !snapshot.iv || !snapshot.salt) {
