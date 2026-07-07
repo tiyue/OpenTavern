@@ -2541,6 +2541,88 @@ async function assertFrontendNewChatPickerMultiSelection() {
   assert(selected.map((c) => c.name).join(',') === 'Beta,Alpha', 'New chat multi-select should preserve click order.');
 }
 
+async function assertFrontendQuickNewChatModalHelpers() {
+  const sources = await Promise.all([
+    '../src/app/59-quick-new-chat-helpers.js',
+    '../src/app/59-quick-new-chat-events.js',
+    '../src/app/59-quick-new-chat-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function classList(initial = []) {
+    const values = new Set(initial);
+    return {
+      values,
+      add(...names) { names.forEach((name) => values.add(name)); },
+      remove(...names) { names.forEach((name) => values.delete(name)); },
+    };
+  }
+  function element(initialClasses = []) {
+    return {
+      classList: classList(initialClasses),
+      listeners: {},
+      innerHTML: '',
+      addEventListener(type, handler) { this.listeners[type] = handler; },
+    };
+  }
+
+  const events = [];
+  let activeConv = { character: { name: 'A<rona>' } };
+  const elements = {
+    quickNewChatModal: element(['hidden']),
+    quickNewChatCloseBtn: element(),
+    quickNewChatBackdrop: element(),
+    quickNewChatWithCurrentBtn: element(),
+    quickReturnToLibraryBtn: element(),
+    quickNewGroupChatBtn: element(),
+  };
+  const context = {
+    state: { characters: { plana: { name: 'Plana' } } },
+    currentCharacterName: 'plana',
+    newChatPickerCameFromQuick: false,
+    document: { getElementById(id) { return elements[id] || null; } },
+    getActiveConv() { return activeConv; },
+    t: (key) => key === 'quick_new_with_current' ? 'With current' : key,
+    escapeHtml: (value) => String(value).replaceAll('<', '&lt;').replaceAll('>', '&gt;'),
+    newConversation(char) { events.push(`new:${char ? char.name : 'blank'}`); },
+    showNewChatCharacterPicker() { events.push('picker'); },
+    renderConversationList() { events.push('render-list'); },
+    switchView(view) { events.push(`switch:${view}`); },
+    Set,
+    Array,
+    Object,
+    String,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__current = getCurrentChatCharacter;\nthis.__show = showQuickNewChatModal;`, context);
+
+  assert(context.__current().name === 'A<rona>', 'Quick new chat should use the active single-chat character.');
+  activeConv = { group: { members: [{ character: { name: 'Group Lead' } }] } };
+  assert(context.__current().name === 'Group Lead', 'Quick new chat should use the first group member as the current character.');
+  activeConv = null;
+  assert(context.__current().name === 'Plana', 'Quick new chat should fall back to the selected library character.');
+
+  activeConv = { character: { name: 'A<rona>' } };
+  context.__show();
+  assert(!elements.quickNewChatModal.classList.values.has('hidden'), 'Quick new chat modal should be shown.');
+  assert(elements.quickNewChatWithCurrentBtn.innerHTML === 'With current（A&lt;rona&gt;）', 'Quick new chat should label the current-character button safely.');
+  assert(elements.quickNewChatModal._wiredQuick === true && typeof elements.quickNewChatWithCurrentBtn.listeners.click === 'function', 'Quick new chat modal should wire its controls once.');
+
+  elements.quickNewChatWithCurrentBtn.listeners.click();
+  assert(events.includes('new:A<rona>') && elements.quickNewChatModal.classList.values.has('hidden'), 'Quick new chat current-character action should create a chat and hide the modal.');
+
+  context.currentCharacterName = 'Plana';
+  elements.quickReturnToLibraryBtn.listeners.click();
+  assert(context.currentCharacterName === null && events.includes('render-list') && events.includes('switch:library'), 'Quick new chat return action should clear selection and open the library.');
+
+  elements.quickNewGroupChatBtn.listeners.click();
+  assert(context.newChatPickerCameFromQuick === true && events.includes('picker'), 'Quick new chat group action should open the picker in quick-return mode.');
+
+  elements.quickNewChatModal = null;
+  events.length = 0;
+  context.__show();
+  assert(events.includes('picker'), 'Quick new chat should fall back to the full picker when the modal is missing.');
+}
+
 async function assertFrontendNewChatWorkflowHelpers() {
   const sources = await Promise.all([
     '../src/app/59-new-chat-worldinfo.js',
@@ -4963,6 +5045,7 @@ async function main() {
   await assertFrontendSillyTavernPresetNormalizer();
   await assertFrontendSillyTavernPresetSettingsRows();
   await assertFrontendNewChatPickerMultiSelection();
+  await assertFrontendQuickNewChatModalHelpers();
   await assertFrontendNewChatWorkflowHelpers();
   await assertFrontendWorldBookActivation();
   await assertFrontendWorldBookActivationHelpers();

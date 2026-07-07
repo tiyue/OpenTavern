@@ -10202,14 +10202,14 @@ function showNewChatCharacterPicker() {
 
     modal.classList.remove('hidden');
 }
-// ==================== Quick New Chat Action Modal (resolves library vs chat button conflict) ====================
+// ==================== Quick New Chat Helpers ====================
 function getCurrentChatCharacter() {
     const conv = getActiveConv();
     if (conv) {
         if (conv.character) return conv.character;
         if (conv.group && Array.isArray(conv.group.members) && conv.group.members.length > 0) {
-            // For group chats, use the first member as representative "current character"
-            return conv.group.members[0] && conv.group.members[0].character ? conv.group.members[0].character : null;
+            var firstMember = conv.group.members[0];
+            return firstMember && firstMember.character ? firstMember.character : null;
         }
     }
     if (currentCharacterName && state && state.characters) {
@@ -10220,76 +10220,71 @@ function getCurrentChatCharacter() {
     return null;
 }
 
+function getQuickNewChatElements() {
+    return {
+        modal: document.getElementById('quickNewChatModal'),
+        closeBtn: document.getElementById('quickNewChatCloseBtn'),
+        backdrop: document.getElementById('quickNewChatBackdrop'),
+        withCurrentBtn: document.getElementById('quickNewChatWithCurrentBtn'),
+        returnBtn: document.getElementById('quickReturnToLibraryBtn'),
+        groupBtn: document.getElementById('quickNewGroupChatBtn')
+    };
+}
+
+function updateQuickNewChatCurrentButtonLabel(button) {
+    if (!button) return;
+    const currentChar = getCurrentChatCharacter();
+    const base = t('quick_new_with_current') || '与当前角色开启新对话';
+    button.innerHTML = currentChar && currentChar.name
+        ? `${base}（${escapeHtml(currentChar.name)}）`
+        : base;
+}
+// ==================== Quick New Chat Events ====================
+function hideQuickNewChatModal(modal) {
+    if (modal) modal.classList.add('hidden');
+}
+
+function startQuickNewChatWithCurrent(modal) {
+    hideQuickNewChatModal(modal);
+    const ch = getCurrentChatCharacter();
+    newConversation(ch || null);
+}
+
+function returnQuickNewChatToLibrary(modal) {
+    hideQuickNewChatModal(modal);
+    currentCharacterName = null;
+    if (typeof renderConversationList === 'function') renderConversationList();
+    if (typeof switchView === 'function') switchView('library');
+}
+
+function openQuickNewChatGroupPicker(modal) {
+    hideQuickNewChatModal(modal);
+    newChatPickerCameFromQuick = true;
+    showNewChatCharacterPicker();
+}
+
+function wireQuickNewChatModal(elements) {
+    const modal = elements && elements.modal;
+    if (!modal || modal._wiredQuick) return;
+    modal._wiredQuick = true;
+
+    if (elements.closeBtn) elements.closeBtn.addEventListener('click', () => hideQuickNewChatModal(modal));
+    if (elements.backdrop) elements.backdrop.addEventListener('click', () => hideQuickNewChatModal(modal));
+    if (elements.withCurrentBtn) elements.withCurrentBtn.addEventListener('click', () => startQuickNewChatWithCurrent(modal));
+    if (elements.returnBtn) elements.returnBtn.addEventListener('click', () => returnQuickNewChatToLibrary(modal));
+    if (elements.groupBtn) elements.groupBtn.addEventListener('click', () => openQuickNewChatGroupPicker(modal));
+}
+// ==================== Quick New Chat Action Modal (resolves library vs chat button conflict) ====================
 function showQuickNewChatModal() {
-    const modal = document.getElementById('quickNewChatModal');
-    if (!modal) {
-        // Fallback: directly open full picker
+    const elements = getQuickNewChatElements();
+    if (!elements.modal) {
         showNewChatCharacterPicker();
         return;
     }
 
-    const closeBtn = document.getElementById('quickNewChatCloseBtn');
-    const backdrop = document.getElementById('quickNewChatBackdrop');
-    const withCurrentBtn = document.getElementById('quickNewChatWithCurrentBtn');
-    const returnBtn = document.getElementById('quickReturnToLibraryBtn');
-    const groupBtn = document.getElementById('quickNewGroupChatBtn');
-
-    // Optionally enhance first button with current name (i18n aware)
-    const currentChar = getCurrentChatCharacter();
-    if (withCurrentBtn) {
-        const base = t('quick_new_with_current') || '与当前角色开启新对话';
-        if (currentChar && currentChar.name) {
-            withCurrentBtn.innerHTML = `${base}（${escapeHtml(currentChar.name)}）`;
-        } else {
-            withCurrentBtn.innerHTML = base;
-        }
-    }
-
-    function hide() {
-        modal.classList.add('hidden');
-    }
-
-    // Wire once
-    if (!modal._wiredQuick) {
-        modal._wiredQuick = true;
-
-        if (closeBtn) closeBtn.addEventListener('click', hide);
-        if (backdrop) backdrop.addEventListener('click', hide);
-
-        if (withCurrentBtn) {
-            withCurrentBtn.addEventListener('click', () => {
-                hide();
-                const ch = getCurrentChatCharacter();
-                if (ch) {
-                    newConversation(ch);
-                } else {
-                    // Current chat has no character (blank chat) → start a fresh blank conversation
-                    newConversation(null);
-                }
-            });
-        }
-
-        if (returnBtn) {
-            returnBtn.addEventListener('click', () => {
-                hide();
-                currentCharacterName = null;
-                if (typeof renderConversationList === 'function') renderConversationList();
-                if (typeof switchView === 'function') switchView('library');
-            });
-        }
-
-        if (groupBtn) {
-            groupBtn.addEventListener('click', () => {
-                hide();
-                // Tell the picker that it was opened from the quick 3-button menu,
-                // so it can offer a "返回" button to come back here.
-                newChatPickerCameFromQuick = true;
-                showNewChatCharacterPicker();
-            });
-        }
-    }
-
-    modal.classList.remove('hidden');
+    updateQuickNewChatCurrentButtonLabel(elements.withCurrentBtn);
+    wireQuickNewChatModal(elements);
+    elements.modal.classList.remove('hidden');
 }
 // ==================== Public Card Library (static cards/ + preview images) ====================
 const PUBLIC_CARDS = [

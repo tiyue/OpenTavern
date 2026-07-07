@@ -227,6 +227,8 @@
   "59-new-chat-picker-multi-confirm.js",
   "59-new-chat-picker-multi-ui.js",
   "59-new-chat-picker-ui.js",
+  "59-quick-new-chat-helpers.js",
+  "59-quick-new-chat-events.js",
   "59-quick-new-chat-ui.js",
   "60-public-card-data.js",
   "60-public-card-assets.js",
