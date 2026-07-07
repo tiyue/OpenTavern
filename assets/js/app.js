@@ -11058,16 +11058,26 @@ var LIBRARY_TAB_ACTIVE_CLASSES = ['active', 'border-b-2', 'border-amber-500', 't
 
 function setActiveTab(tab) {
     activeLibraryTab = tab;
-    var myGrid = document.getElementById('myCardsGrid');
-    var pubGrid = document.getElementById('publicCardsGrid');
-    var tabMy = document.getElementById('tabMy');
-    var tabPub = document.getElementById('tabPublic');
+    var elements = getLibraryTabElements();
     var showMy = tab === 'my';
 
-    if (myGrid) myGrid.classList.toggle('hidden', !showMy);
-    if (pubGrid) pubGrid.classList.toggle('hidden', showMy);
-    setLibraryTabButtonActive(tabMy, showMy);
-    setLibraryTabButtonActive(tabPub, !showMy);
+    setLibraryTabGridVisibility(elements, showMy);
+    setLibraryTabButtonActive(elements.tabMy, showMy);
+    setLibraryTabButtonActive(elements.tabPub, !showMy);
+}
+
+function getLibraryTabElements() {
+    return {
+        myGrid: document.getElementById('myCardsGrid'),
+        pubGrid: document.getElementById('publicCardsGrid'),
+        tabMy: document.getElementById('tabMy'),
+        tabPub: document.getElementById('tabPublic')
+    };
+}
+
+function setLibraryTabGridVisibility(elements, showMy) {
+    if (elements.myGrid) elements.myGrid.classList.toggle('hidden', !showMy);
+    if (elements.pubGrid) elements.pubGrid.classList.toggle('hidden', showMy);
 }
 
 function setLibraryTabButtonActive(button, active) {
@@ -11078,28 +11088,29 @@ function setLibraryTabButtonActive(button, active) {
 }
 
 function wireLibraryTabButtons() {
-    var tabMy = document.getElementById('tabMy');
-    var tabPub = document.getElementById('tabPublic');
-    if (tabMy && !tabMy._wired) {
-        tabMy._wired = true;
-        tabMy.addEventListener('click', function() {
-            setActiveTab('my');
-        });
-    }
-    if (tabPub && !tabPub._wired) {
-        tabPub._wired = true;
-        tabPub.addEventListener('click', function() {
-            setActiveTab('public');
-        });
-    }
+    var elements = getLibraryTabElements();
+    wireLibraryTabButton(elements.tabMy, 'my');
+    wireLibraryTabButton(elements.tabPub, 'public');
+}
+
+function wireLibraryTabButton(button, tab) {
+    if (!button || button._wired) return;
+    button._wired = true;
+    button.addEventListener('click', function() {
+        setActiveTab(tab);
+    });
 }
 
 function syncLibraryFilterButtons() {
     document.querySelectorAll('#libraryView [data-filter]').forEach(function(button) {
-        var active = button.dataset.filter === libraryFilter;
-        button.classList.toggle('bg-amber-500/20', active);
-        button.classList.toggle('text-amber-300', active);
+        syncLibraryFilterButton(button);
     });
+}
+
+function syncLibraryFilterButton(button) {
+    var active = button.dataset.filter === libraryFilter;
+    button.classList.toggle('bg-amber-500/20', active);
+    button.classList.toggle('text-amber-300', active);
 }
 
 function syncLibrarySearchInput() {

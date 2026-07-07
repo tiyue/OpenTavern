@@ -4166,18 +4166,24 @@ async function assertFrontendLibraryViewHelpers() {
     Set,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__tab = setActiveTab;\nthis.__wire = wireLibraryTabButtons;\nthis.__filters = syncLibraryFilterButtons;\nthis.__search = syncLibrarySearchInput;\nthis.__sidebar = setLibrarySidebarMode;\nthis.__conv = showLibraryConversationList;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__tab = setActiveTab;\nthis.__tabElements = getLibraryTabElements;\nthis.__wire = wireLibraryTabButtons;\nthis.__filters = syncLibraryFilterButtons;\nthis.__filterButton = syncLibraryFilterButton;\nthis.__search = syncLibrarySearchInput;\nthis.__sidebar = setLibrarySidebarMode;\nthis.__conv = showLibraryConversationList;`, context);
 
   context.__tab('public');
   assert(myGrid.classList.values.has('hidden') && !pubGrid.classList.values.has('hidden'), 'Library tabs should show the selected grid.');
   assert(tabPub.classList.values.has('active') && !tabMy.classList.values.has('active'), 'Library tabs should mark the active tab button.');
   assert(context.activeLibraryTab === 'public', 'Library tabs should persist the active tab state.');
+  assert(context.__tabElements().tabPub === tabPub, 'Library tabs should collect tab elements from the document.');
 
   context.__wire();
   assert(tabMy._wired === true && tabPub._wired === true && typeof tabMy.listeners.click === 'function', 'Library tab buttons should be wired once.');
+  tabMy.listeners.click();
+  assert(context.activeLibraryTab === 'my' && !myGrid.classList.values.has('hidden'), 'Library tab button clicks should switch tabs.');
 
   context.__filters();
   assert(filters[1].classList.values.has('bg-amber-500/20') && !filters[0].classList.values.has('bg-amber-500/20'), 'Library filters should highlight the active filter.');
+  context.libraryFilter = 'all';
+  context.__filterButton(filters[0]);
+  assert(filters[0].classList.values.has('text-amber-300'), 'Library filter helper should update a single filter button.');
 
   context.__search();
   assert(search.value === 'arona', 'Library search input should mirror the stored search query.');
