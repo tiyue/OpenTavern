@@ -26,15 +26,8 @@ async function clearStorageServiceIDB(cleared) {
 
 function clearStorageServiceLocalSnapshot(emptyData, cleared) {
     try {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem('opentavern-last-backup');
-        Object.keys(localStorage).forEach(k => {
-            if (k.startsWith('opentavern')) localStorage.removeItem(k);
-        });
-        try {
-            localStorage.setItem(STORAGE_CLEAR_KEY, String(emptyData.lastSaved));
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(emptyData));
-        } catch (_) {}
+        removeStorageServiceLocalClearKeys();
+        try { writeStorageServiceLocalEmptySnapshot(emptyData); } catch (_) {}
         cleared.ls = true;
     } catch (e) {}
 }
@@ -61,4 +54,3 @@ async function clearStorageServiceWebLLMCache(cleared) {
         }
     } catch (e) {}
 }
-
