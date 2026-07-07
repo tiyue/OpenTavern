@@ -737,6 +737,102 @@ async function assertFrontendSummaryManagerHelpers() {
   assert(context.dom.summaryRecentTurns.value === 3 && context.dom.rangeEnd.value === 6, 'Summary manager should initialize default ranges.');
 }
 
+async function assertFrontendSummaryHistoryUI() {
+  const sources = await Promise.all([
+    '../src/app/55-summary-history-render.js',
+    '../src/app/55-summary-history-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function button(attrs) {
+    return {
+      attrs,
+      listeners: {},
+      getAttribute(name) { return this.attrs[name]; },
+      addEventListener(type, handler) { this.listeners[type] = handler; },
+    };
+  }
+  function classList(initial = []) {
+    const values = new Set(initial);
+    return {
+      values,
+      contains(name) { return values.has(name); },
+    };
+  }
+
+  const events = [];
+  const editBtn = button({ 'data-edit-id': 's2' });
+  const delBtn = button({ 'data-del-id': 's1' });
+  const list = {
+    innerHTML: '',
+    querySelectorAll(selector) {
+      if (selector === '.summary-edit-btn') return [editBtn];
+      if (selector === '.summary-del-btn') return [delBtn];
+      return [];
+    },
+    querySelector() { return null; },
+  };
+  const conv = {
+    messages: [
+      { role: 'system', content: 'hidden' },
+      { role: 'user', content: 'one' },
+      { role: 'assistant', content: 'two' },
+    ],
+    summaries: [
+      { id: 's1', coveredStart: 0, coveredEnd: 1, created: 1000, text: 'First <summary>' },
+      { id: 's2', coveredStart: 0, coveredEnd: 99, created: 2000, text: 'Compressed summary' },
+    ],
+  };
+  const context = {
+    dom: {
+      summaryHistoryList: list,
+      summaryManagerList: null,
+      summaryManagerModal: { classList: classList(['hidden']) },
+    },
+    getActiveConv() { return conv; },
+    t(key) {
+      const values = {
+        summary_no_history: 'No summaries',
+        summary_covered: 'Turns ',
+        summary_to: '-',
+        summary_turns_suffix: '',
+        summary_edit: 'Edit',
+        summary_delete_confirm: 'Delete?',
+      };
+      return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : key;
+    },
+    escapeHtml(value) {
+      return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    },
+    recordEditSummary(id) { events.push(`edit:${id}`); },
+    recordDeleteSummary(id) { events.push(`delete:${id}`); },
+    persistState() { events.push('persist'); },
+    updateStorageInfo() { events.push('storage'); },
+    renderSummaryManagerList() { events.push('manager-list'); },
+    showGlassConfirm: async () => true,
+    Date,
+    Set,
+    Array,
+    String,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.editSummary = recordEditSummary;\nthis.deleteSummary = recordDeleteSummary;\nthis.__count = getSummaryHistoryMessageCount;\nthis.__range = buildSummaryHistoryRangeText;\nthis.__item = buildSummaryHistoryItemHtml;\nthis.__render = renderSummaryHistory;`, context);
+
+  assert(context.__count(conv) === 2, 'Summary history should count non-system messages only.');
+  assert(context.__range(conv.summaries[0], 2) === 'Turns 1-2', 'Summary history range text should render normal summary bounds.');
+  assert(context.__range(conv.summaries[1], 2) === '历史摘要（已压缩）', 'Summary history range text should mark compressed historical summaries.');
+  assert(context.__item(conv.summaries[0], 2).includes('First &lt;summary&gt;'), 'Summary history item HTML should escape summary text.');
+
+  context.__render();
+  assert(list.innerHTML.indexOf('data-summary-id="s2"') < list.innerHTML.indexOf('data-summary-id="s1"'), 'Summary history should render newest summaries first.');
+  editBtn.listeners.click({ stopPropagation() { events.push('stop-edit'); } });
+  delBtn.listeners.click({ stopPropagation() { events.push('stop-del'); } });
+  assert(events.includes('edit:s2') && events.includes('delete:s1'), 'Summary history action buttons should bind edit and delete handlers.');
+
+  conv.summaries = [];
+  context.__render();
+  assert(list.innerHTML.includes('No summaries'), 'Summary history should render the empty state.');
+}
+
 async function assertFrontendPromptSummaryEvents() {
   const sources = await Promise.all([
     '../src/app/66-prompt-viewer-events.js',
@@ -4204,6 +4300,7 @@ async function main() {
   await assertFrontendSummaryService();
   await assertFrontendAutoSummarizationHelpers();
   await assertFrontendSummaryManagerHelpers();
+  await assertFrontendSummaryHistoryUI();
   await assertFrontendPromptSummaryEvents();
   await assertFrontendApiConnectionHelpers();
   await assertFrontendGenerationHelpers();

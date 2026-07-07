@@ -190,6 +190,7 @@
   "54-summarization-auto-threshold.js",
   "54-summarization-auto-selection.js",
   "54-summarization-auto-runtime.js",
+  "55-summary-history-render.js",
   "55-summary-history-ui.js",
   "57-ui-state.js",
   "58-summary-manager-list-ui.js",
