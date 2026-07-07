@@ -82,12 +82,13 @@ async function assertFrontendCloudSnapshot() {
       },
       _charactersMigrated: true,
     },
+    StorageService: { _lastSaveSnapshot: null },
     console,
     Date,
     JSON,
   };
 
-  vm.runInNewContext(`${compatSource}\n${cloudSource}`, context);
+  vm.runInNewContext(`${compatSource}\n${cloudSource}\nthis.__freshness = getCloudSyncFreshness;`, context);
   const snapshot = context.buildAppDataSnapshot();
 
   assert(snapshot.settings.model === 'frontend-model', 'Frontend cloud snapshot did not include settings.');
@@ -103,6 +104,10 @@ async function assertFrontendCloudSnapshot() {
   assert(snapshot.worldBooks.wb1.entries[0].content === 'Kivotos', 'Frontend cloud snapshot did not include world books.');
   assert(snapshot.charactersMigrated === true, 'Frontend cloud snapshot did not include character migration state.');
   assert(Number.isFinite(snapshot.lastSaved), 'Frontend cloud snapshot did not include a timestamp.');
+  assert(context.__freshness({ lastSaved: 1000 }) === 'newer', 'Cloud freshness should treat a timestamped remote snapshot as newer when no local snapshot is known.');
+  context.StorageService._lastSaveSnapshot = { lastSaved: 2500 };
+  assert(context.__freshness({ lastSaved: 1000 }) === 'older', 'Cloud freshness should compare against the loaded local snapshot timestamp.');
+  assert(context.__freshness({ lastSaved: 2000 }) === 'same', 'Cloud freshness should tolerate small timestamp drift.');
 }
 
 async function assertFrontendStateStoreDefaults() {
@@ -3925,6 +3930,7 @@ async function assertFrontendStorageServicePipeline() {
   assert(loaded.settings.model === 'storage-model', 'StorageService loadAll did not restore settings.');
   assert(loaded.conversations.c1.title === 'Stored chat', 'StorageService loadAll did not restore chats.');
   assert(loaded.characters.arona.name === 'Arona', 'StorageService loadAll did not restore character cards.');
+  assert(service._lastSaveSnapshot && service._lastSaveSnapshot.lastSaved === 1000, 'StorageService loadAll should remember the loaded snapshot timestamp for cloud freshness checks.');
 
   await service.saveAll({
     settings: {},

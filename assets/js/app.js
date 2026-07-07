@@ -2966,6 +2966,7 @@ async function loadStorageServiceData(service, options) {
 
     service._lastLoadedBackend = picked.backend;
     service._lastUsedBackend = service.getBackend();
+    service._lastSaveSnapshot = picked.data;
     console.log('[Storage] Loaded newest snapshot from', picked.backend, 'canonical backend=', service.getBackend());
     if (shouldSync) await service._syncSnapshotToAvailableBackends(picked.data, picked.backend);
     return picked.data;
@@ -3721,8 +3722,8 @@ function normalizeCloudSyncSnapshot(raw) {
 function getCloudSyncFreshness(remote) {
     var remoteTime = Number(remote && remote.lastSaved || 0) || 0;
     var localTime = Number(StorageService && StorageService._lastSaveSnapshot && StorageService._lastSaveSnapshot.lastSaved || 0) || 0;
-    if (!localTime) localTime = Date.now();
     if (!remoteTime) return 'unknown';
+    if (!localTime) return 'newer';
     if (remoteTime > localTime + 1000) return 'newer';
     if (remoteTime < localTime - 1000) return 'older';
     return 'same';

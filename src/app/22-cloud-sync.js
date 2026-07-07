@@ -64,8 +64,8 @@ function normalizeCloudSyncSnapshot(raw) {
 function getCloudSyncFreshness(remote) {
     var remoteTime = Number(remote && remote.lastSaved || 0) || 0;
     var localTime = Number(StorageService && StorageService._lastSaveSnapshot && StorageService._lastSaveSnapshot.lastSaved || 0) || 0;
-    if (!localTime) localTime = Date.now();
     if (!remoteTime) return 'unknown';
+    if (!localTime) return 'newer';
     if (remoteTime > localTime + 1000) return 'newer';
     if (remoteTime < localTime - 1000) return 'older';
     return 'same';
