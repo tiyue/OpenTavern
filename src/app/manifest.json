@@ -238,6 +238,7 @@
   "60-library-sidebar-ui.js",
   "60-library-tabs-ui.js",
   "60-library-view-ui.js",
+  "60-library-conversation-helpers.js",
   "60-library-conversation-actions.js",
   "60-library-ui-render.js",
   "60-library-card-grid-ui.js",

@@ -10899,23 +10899,47 @@ function renderLibrary() {
     syncLibrarySearchInput();
     setLibrarySidebarMode(true);
 }
-// ==================== Library Conversation Actions ====================
-function loadOrCreateChatForCharacter(char) {
-    if (!char || !char.name) return;
+// ==================== Library Conversation Helpers ====================
+function findMostRecentConversationForCharacter(characterName) {
+    if (!characterName) return null;
 
-    currentCharacterName = char.name;
-
-    let recentConv = null;
-    let recentTime = 0;
-    Object.values(state.conversations || {}).forEach(conv => {
-        if (conv.character && conv.character.name === char.name) {
-            const t = conv.updated || conv.created || 0;
+    var recentConv = null;
+    var recentTime = 0;
+    Object.values(state.conversations || {}).forEach(function(conv) {
+        if (conv && conv.character && conv.character.name === characterName) {
+            var t = conv.updated || conv.created || 0;
             if (t > recentTime) {
                 recentTime = t;
                 recentConv = conv;
             }
         }
     });
+    return recentConv;
+}
+
+function getConversationDisplayCharacterName(conv) {
+    if (conv && conv.character && conv.character.name) return conv.character.name;
+    if (!conv || !isGroupChat(conv) || !conv.group || !Array.isArray(conv.group.members)) return null;
+
+    var firstMember = conv.group.members[0];
+    if (!firstMember || !firstMember.character || !firstMember.character.name) return null;
+    return firstMember.character.name;
+}
+
+function resetConversationRuntimeState(conv) {
+    if (!conv) return;
+    conv._showAllMessages = false;
+    conv._lastRenderedVisibleCount = 0;
+    conv._historyWindow = 150;
+    conv._historyScrollHandler = null;
+    conv._wiCache = null;
+}
+// ==================== Library Conversation Actions ====================
+function loadOrCreateChatForCharacter(char) {
+    if (!char || !char.name) return;
+
+    currentCharacterName = char.name;
+    var recentConv = findMostRecentConversationForCharacter(char.name);
 
     if (recentConv) {
         loadConversation(recentConv.id);
@@ -10939,21 +10963,10 @@ async function loadConversation(id) {
         if (!c || !isGroupChat(c)) clearPendingGroupMention();
     }
 
-    var c = state.conversations[id];
-    if (c && c.character && c.character.name) {
-        currentCharacterName = c.character.name;
-    } else if (c && isGroupChat(c) && c.group && c.group.members && c.group.members.length > 0) {
-        currentCharacterName = c.group.members[0].character.name;
-    }
+    var displayName = getConversationDisplayCharacterName(state.conversations[id]);
+    if (displayName) currentCharacterName = displayName;
 
-    var newConv = getActiveConv();
-    if (newConv) {
-        newConv._showAllMessages = false;
-        newConv._lastRenderedVisibleCount = 0;
-        newConv._historyWindow = 150;
-        newConv._historyScrollHandler = null;
-        newConv._wiCache = null;
-    }
+    resetConversationRuntimeState(getActiveConv());
 
     if (dom.messagesContainer) dom.messagesContainer.innerHTML = '';
 

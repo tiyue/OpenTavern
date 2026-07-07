@@ -3247,6 +3247,39 @@ async function assertFrontendComfyUIHelpers() {
   assert(statusEl.textContent === 'no workflow' && statusEl.style.color === '', 'ComfyUI workflow status should show the empty state.');
 }
 
+async function assertFrontendLibraryConversationHelpers() {
+  const source = await readFile(new URL('../src/app/60-library-conversation-helpers.js', import.meta.url), 'utf8');
+  const context = {
+    state: {
+      conversations: {
+        old: { id: 'old', character: { name: 'Arona' }, updated: 100 },
+        recent: { id: 'recent', character: { name: 'Arona' }, created: 200 },
+        other: { id: 'other', character: { name: 'Mika' }, updated: 300 },
+      },
+    },
+    isGroupChat(conv) { return !!(conv && conv.group); },
+    Array,
+    Object,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__recent = findMostRecentConversationForCharacter;\nthis.__name = getConversationDisplayCharacterName;\nthis.__reset = resetConversationRuntimeState;`, context);
+
+  assert(context.__recent('Arona').id === 'recent', 'Library conversation helper should pick the newest matching character conversation.');
+  assert(context.__recent('Missing') === null, 'Library conversation helper should return null when no matching conversation exists.');
+  assert(context.__name({ character: { name: 'Yuuka' } }) === 'Yuuka', 'Library conversation helper should read single-character conversation names.');
+  assert(context.__name({ group: { members: [{ character: { name: 'Nagisa' } }] } }) === 'Nagisa', 'Library conversation helper should read the first group member name.');
+
+  const conv = {
+    _showAllMessages: true,
+    _lastRenderedVisibleCount: 42,
+    _historyWindow: 999,
+    _historyScrollHandler: function noop() {},
+    _wiCache: { active: true },
+  };
+  context.__reset(conv);
+  assert(conv._showAllMessages === false && conv._lastRenderedVisibleCount === 0 && conv._historyWindow === 150 && conv._historyScrollHandler === null && conv._wiCache === null, 'Library conversation helper should reset transient render state.');
+}
+
 async function assertFrontendLibraryViewHelpers() {
   const sources = await Promise.all([
     '../src/app/60-library-sidebar-ui.js',
@@ -4826,6 +4859,7 @@ async function main() {
   await assertFrontendGroupMentionUI();
   await assertFrontendConversationModelHelpers();
   await assertFrontendComfyUIHelpers();
+  await assertFrontendLibraryConversationHelpers();
   await assertFrontendLibraryViewHelpers();
   await assertFrontendMobileSidebarUI();
   await assertFrontendConversationListUI();
