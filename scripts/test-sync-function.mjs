@@ -2714,6 +2714,7 @@ async function assertFrontendI18nRuntime() {
 async function assertFrontendSillyTavernPresetNormalizer() {
   const sources = await Promise.all([
     '../src/app/62-sillytavern-preset-model.js',
+    '../src/app/62-sillytavern-preset-order-items.js',
     '../src/app/62-sillytavern-preset-order-normalizer.js',
     '../src/app/62-sillytavern-preset-prompt-normalizer.js',
     '../src/app/62-sillytavern-preset-normalizer.js',
@@ -2735,7 +2736,7 @@ async function assertFrontendSillyTavernPresetNormalizer() {
     isNaN,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__normalize = normalizeSillyTavernPreset;\nthis.__ensure = ensureSillyTavernPresetSettings;\nthis.__buildBuckets = buildSillyTavernPresetMessageBuckets;\nthis.__role = normalizePromptRole;\nthis.__placement = getSillyTavernPresetPlacement;\nthis.__depth = parseSillyTavernDepth;\nthis.__describePlacement = describeSillyTavernPresetPlacement;\nthis.__historyMarker = isSillyTavernChatHistoryMarker;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__normalize = normalizeSillyTavernPreset;\nthis.__ensure = ensureSillyTavernPresetSettings;\nthis.__buildBuckets = buildSillyTavernPresetMessageBuckets;\nthis.__orderItems = getSillyTavernPromptOrderItems;\nthis.__orderMap = buildSillyTavernOrderMap;\nthis.__serializeOrder = serializeSillyTavernPromptOrderItems;\nthis.__role = normalizePromptRole;\nthis.__placement = getSillyTavernPresetPlacement;\nthis.__depth = parseSillyTavernDepth;\nthis.__describePlacement = describeSillyTavernPresetPlacement;\nthis.__historyMarker = isSillyTavernChatHistoryMarker;`, context);
 
   assert(context.__role('0') === 'system', 'SillyTavern numeric system role was not normalized.');
   assert(context.__role('1') === 'user', 'SillyTavern numeric user role was not normalized.');
@@ -2745,6 +2746,16 @@ async function assertFrontendSillyTavernPresetNormalizer() {
   assert(context.__depth({ injection_depth: '3' }) === 3, 'SillyTavern depth helper should parse injection_depth.');
   assert(context.__describePlacement({ position: 'in_chat', depth: 2 }) === 'in-chat d2', 'SillyTavern placement description should include in-chat depth.');
   assert(context.__historyMarker('conversation-history') === true, 'SillyTavern history marker helper should normalize marker names.');
+  const objectOrderItems = context.__orderItems({
+    order: ['main'],
+    disabled_prompt: false,
+    depth_prompt: { identifier: 'depth_prompt', enabled: true, order: 4, injection_depth: 2 },
+  });
+  assert(objectOrderItems.length === 3 && objectOrderItems[1].identifier === 'disabled_prompt' && objectOrderItems[1].enabled === false, 'SillyTavern order object helpers should preserve boolean prompt toggles.');
+  const orderMap = context.__orderMap(objectOrderItems);
+  assert(orderMap.DEPTH_PROMPT == null && orderMap.depth_prompt.depth === 2, 'SillyTavern order map should preserve exact and lowercase prompt IDs.');
+  const serializedOrder = context.__serializeOrder([{ identifier: 'main', enabled: false, role: 123, order: 1 }, { identifier: '' }]);
+  assert(serializedOrder.length === 1 && serializedOrder[0].role === '123' && serializedOrder[0].enabled === false, 'SillyTavern order serializer should filter empty IDs and stringify roles.');
 
   const preset = context.__normalize({
     name: 'Imported ST Preset',

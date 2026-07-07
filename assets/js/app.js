@@ -12188,25 +12188,7 @@ function normalizePromptRole(role) {
     if (r === 'user' || r === 'assistant' || r === 'system') return r;
     return 'system';
 }
-// ==================== SillyTavern Preset Order Normalizer ====================
-function getSillyTavernPromptOrderItems(promptOrder) {
-    var items = [];
-    if (Array.isArray(promptOrder)) {
-        promptOrder.forEach(function(group) {
-            if (group && Array.isArray(group.order)) addSillyTavernOrderArray(items, group.order);
-            else addSillyTavernOrderArray(items, [group]);
-        });
-    } else if (promptOrder && typeof promptOrder === 'object') {
-        if (Array.isArray(promptOrder.order)) addSillyTavernOrderArray(items, promptOrder.order);
-        Object.keys(promptOrder).forEach(function(key, idx) {
-            var value = promptOrder[key];
-            if (key === 'order') return;
-            appendSillyTavernOrderObject(items, key, value, idx);
-        });
-    }
-    return items;
-}
-
+// ==================== SillyTavern Preset Order Item Helpers ====================
 function addSillyTavernOrderArray(items, arr) {
     if (!Array.isArray(arr)) return;
     arr.forEach(function(item, idx) {
@@ -12231,6 +12213,24 @@ function appendSillyTavernOrderObject(items, fallbackId, item, idx) {
     } else if (typeof item === 'boolean' && fallbackId) {
         items.push({ identifier: fallbackId, enabled: item, order: idx });
     }
+}
+// ==================== SillyTavern Preset Order Normalizer ====================
+function getSillyTavernPromptOrderItems(promptOrder) {
+    var items = [];
+    if (Array.isArray(promptOrder)) {
+        promptOrder.forEach(function(group) {
+            if (group && Array.isArray(group.order)) addSillyTavernOrderArray(items, group.order);
+            else addSillyTavernOrderArray(items, [group]);
+        });
+    } else if (promptOrder && typeof promptOrder === 'object') {
+        if (Array.isArray(promptOrder.order)) addSillyTavernOrderArray(items, promptOrder.order);
+        Object.keys(promptOrder).forEach(function(key, idx) {
+            var value = promptOrder[key];
+            if (key === 'order') return;
+            appendSillyTavernOrderObject(items, key, value, idx);
+        });
+    }
+    return items;
 }
 
 function buildSillyTavernOrderMap(orderItems) {

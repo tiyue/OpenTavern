@@ -315,6 +315,7 @@
   "61-chat-message-window-render.js",
   "61-chat-message-renderer.js",
   "62-sillytavern-preset-model.js",
+  "62-sillytavern-preset-order-items.js",
   "62-sillytavern-preset-order-normalizer.js",
   "62-sillytavern-preset-prompt-normalizer.js",
   "62-sillytavern-preset-normalizer.js",
