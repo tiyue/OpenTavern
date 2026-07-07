@@ -11468,21 +11468,9 @@ function createPublicLibraryCardInfo(card) {
     info.appendChild(tags);
     return info;
 }
-// ==================== Public Library Card Detail Modal ====================
-function showPublicCardDetail(card) {
-    const detailModal = ensurePublicCardDetailModal();
-    fillPublicCardDetailModal(detailModal, card);
-    detailModal.classList.remove('hidden');
-}
-
-function ensurePublicCardDetailModal() {
-    let detailModal = document.getElementById('publicCardDetailModal');
-    if (detailModal) return detailModal;
-
-    detailModal = document.createElement('div');
-    detailModal.id = 'publicCardDetailModal';
-    detailModal.className = 'modal-overlay fixed inset-0 z-[150] flex items-center justify-center hidden';
-    detailModal.innerHTML = `
+// ==================== Public Library Card Detail Modal Helpers ====================
+function buildPublicCardDetailModalHtml() {
+    return `
         <div class="absolute inset-0 bg-black/65 backdrop-blur-sm" id="publicDetailBackdrop"></div>
         <div class="relative glass rounded-3xl w-[92%] max-w-md p-6 shadow-2xl animate-fade-in">
             <div class="flex justify-between items-center mb-4">
@@ -11503,22 +11491,50 @@ function ensurePublicCardDetailModal() {
             </div>
         </div>
     `;
+}
+
+function formatPublicCardDetailAuthor(author) {
+    return '作者: ' + (author || '—');
+}
+
+function renderPublicCardDetailTags(tagsDiv, tags) {
+    tagsDiv.innerHTML = '';
+    (tags || []).forEach(function(tag) {
+        const pill = document.createElement('span');
+        pill.className = 'px-2 py-0.5 bg-white/10 rounded text-xs';
+        pill.textContent = tag;
+        tagsDiv.appendChild(pill);
+    });
+}
+
+function getImportedPublicCardCharacter(card) {
+    return state.characters[(card.name || '').toLowerCase().trim()];
+}
+// ==================== Public Library Card Detail Modal ====================
+function showPublicCardDetail(card) {
+    const detailModal = ensurePublicCardDetailModal();
+    fillPublicCardDetailModal(detailModal, card);
+    detailModal.classList.remove('hidden');
+}
+
+function ensurePublicCardDetailModal() {
+    let detailModal = document.getElementById('publicCardDetailModal');
+    if (detailModal) return detailModal;
+
+    detailModal = document.createElement('div');
+    detailModal.id = 'publicCardDetailModal';
+    detailModal.className = 'modal-overlay fixed inset-0 z-[150] flex items-center justify-center hidden';
+    detailModal.innerHTML = buildPublicCardDetailModalHtml();
     document.body.appendChild(detailModal);
     return detailModal;
 }
 
 function fillPublicCardDetailModal(detailModal, card) {
     document.getElementById('publicDetailName').textContent = card.name || '';
-    document.getElementById('publicDetailAuthor').textContent = '作者: ' + (card.author || '—');
+    document.getElementById('publicDetailAuthor').textContent = formatPublicCardDetailAuthor(card.author);
 
     const tagsDiv = document.getElementById('publicDetailTags');
-    tagsDiv.innerHTML = '';
-    (card.tags || []).forEach(tag => {
-        const pill = document.createElement('span');
-        pill.className = 'px-2 py-0.5 bg-white/10 rounded text-xs';
-        pill.textContent = tag;
-        tagsDiv.appendChild(pill);
-    });
+    renderPublicCardDetailTags(tagsDiv, card.tags);
 
     document.getElementById('publicDetailDesc').textContent = card.description || '';
     bindPublicCardDetailModalActions(detailModal, card);
@@ -11531,7 +11547,7 @@ function bindPublicCardDetailModalActions(detailModal, card) {
     document.getElementById('publicDetailImport').onclick = async () => {
         close();
         await importPublicCard(card);
-        const importedChar = state.characters[(card.name || '').toLowerCase().trim()];
+        const importedChar = getImportedPublicCardCharacter(card);
         if (importedChar) {
             loadOrCreateChatForCharacter(importedChar);
         }

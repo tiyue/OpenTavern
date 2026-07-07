@@ -2724,6 +2724,70 @@ async function assertFrontendPublicCardListUI() {
   assert(context.currentLibraryCard === null, 'Public card list view should reset the selected card.');
 }
 
+async function assertFrontendLibraryPublicCardDetailModal() {
+  const sources = await Promise.all([
+    '../src/app/60-library-public-card-detail-modal-helpers.js',
+    '../src/app/60-library-public-card-detail-modal-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function classList(initial = []) {
+    const values = new Set(initial);
+    return {
+      values,
+      add(name) { values.add(name); },
+      remove(name) { values.delete(name); },
+    };
+  }
+  function makeElement(tag) {
+    return {
+      tag,
+      id: '',
+      className: '',
+      classList: classList(['hidden']),
+      innerHTML: '',
+      textContent: '',
+      children: [],
+      onclick: null,
+      appendChild(child) { this.children.push(child); },
+    };
+  }
+
+  const elements = {};
+  ['publicDetailName', 'publicDetailAuthor', 'publicDetailTags', 'publicDetailDesc', 'publicDetailClose', 'publicDetailBackdrop', 'publicDetailImport'].forEach((id) => {
+    elements[id] = makeElement('div');
+  });
+  const body = { children: [], appendChild(child) { this.children.push(child); elements[child.id] = child; } };
+  const events = [];
+  const context = {
+    state: { characters: { alpha: { name: 'Alpha' } } },
+    document: {
+      body,
+      getElementById(id) { return elements[id] || null; },
+      createElement(tag) { return makeElement(tag); },
+    },
+    importPublicCard: async (card) => { events.push(`import:${card.name}`); },
+    loadOrCreateChatForCharacter: (character) => { events.push(`load:${character.name}`); },
+    Set,
+    Array,
+    String,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__template = buildPublicCardDetailModalHtml;\nthis.__author = formatPublicCardDetailAuthor;\nthis.__tags = renderPublicCardDetailTags;\nthis.__show = showPublicCardDetail;`, context);
+
+  assert(context.__template().includes('publicDetailImport'), 'Public card detail helper should include the import button in the modal template.');
+  assert(context.__author('Tester') === '作者: Tester' && context.__author('') === '作者: —', 'Public card detail helper should format author text.');
+  context.__tags(elements.publicDetailTags, ['AI', 'Guide']);
+  assert(elements.publicDetailTags.children.length === 2 && elements.publicDetailTags.children[0].textContent === 'AI', 'Public card detail helper should render tag pills.');
+
+  context.__show({ name: 'Alpha', author: 'Tester', tags: ['AI'], description: 'Desc' });
+  const modal = elements.publicCardDetailModal;
+  assert(modal && !modal.classList.values.has('hidden') && elements.publicDetailName.textContent === 'Alpha', 'Public card detail modal should render and show selected card data.');
+  elements.publicDetailClose.onclick();
+  assert(modal.classList.values.has('hidden'), 'Public card detail modal close button should hide the modal.');
+  await elements.publicDetailImport.onclick();
+  assert(events.includes('import:Alpha') && events.includes('load:Alpha'), 'Public card detail modal import should import and open the character chat.');
+}
+
 async function assertFrontendI18nRuntime() {
   const sources = await Promise.all([
     '../src/app/12-i18n-core.js',
@@ -5965,6 +6029,7 @@ async function main() {
   await assertFrontendPublicCardGridFiltering();
   await assertFrontendDomCache();
   await assertFrontendPublicCardListUI();
+  await assertFrontendLibraryPublicCardDetailModal();
   await assertFrontendI18nRuntime();
   await assertFrontendSillyTavernPresetNormalizer();
   await assertFrontendSillyTavernPresetSettingsRows();
