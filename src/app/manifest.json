@@ -337,6 +337,7 @@
   "63-conversation-import-merge.js",
   "63-conversation-import-helpers.js",
   "63-conversation-transfer.js",
+  "64-conversation-list-helpers.js",
   "64-conversation-list-ui.js",
   "65-character-panel-ui.js",
   "65-character-library-actions.js",

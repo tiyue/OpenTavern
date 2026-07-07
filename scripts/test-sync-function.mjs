@@ -3936,7 +3936,10 @@ async function assertFrontendMobileSidebarUI() {
 }
 
 async function assertFrontendConversationListUI() {
-  const source = await readFile(new URL('../src/app/64-conversation-list-ui.js', import.meta.url), 'utf8');
+  const sources = await Promise.all([
+    '../src/app/64-conversation-list-helpers.js',
+    '../src/app/64-conversation-list-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
   function listenerElement(attrs) {
     return {
@@ -3992,8 +3995,11 @@ async function assertFrontendConversationListUI() {
     String,
   };
 
-  vm.runInNewContext(`${source}\nthis.__render = renderConversationList;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__visible = getVisibleConversationListOrder;\nthis.__empty = buildConversationListEmptyHtml;\nthis.__item = buildConversationListItemHtml;\nthis.__render = renderConversationList;`, context);
 
+  const visibleOrder = context.__visible();
+  assert(visibleOrder.join(',') === 'c1,c2,g1', 'Conversation list helper should keep matching character, active, and group conversations.');
+  assert(context.__item('c1', context.state.conversations.c1, false).includes('data-exp-id="c1"'), 'Conversation list helper should render export actions for rows.');
   context.__render();
   assert(convList.innerHTML.includes('data-conv-id="c1"') && convList.innerHTML.includes('data-conv-id="c2"') && convList.innerHTML.includes('data-conv-id="g1"'), 'Conversation list should include matching character, active, and group conversations in chat view.');
   assert(!convList.innerHTML.includes('Other chat'), 'Conversation list should filter unrelated conversations in chat view.');
@@ -4011,6 +4017,7 @@ async function assertFrontendConversationListUI() {
   context.state.conversationOrder = [];
   context.__render();
   assert(convList.innerHTML.includes('No conversations'), 'Conversation list should render the empty state.');
+  assert(context.__empty().includes('No conversations'), 'Conversation list empty helper should render localized empty text.');
 }
 
 async function assertFrontendStateLifecycleHelpers() {
