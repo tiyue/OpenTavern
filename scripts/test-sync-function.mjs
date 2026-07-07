@@ -2317,6 +2317,7 @@ async function assertFrontendWorldBookFormatHelpers() {
 async function assertFrontendSettingsSaveHelpers() {
   const sources = await Promise.all([
     '../src/app/68-settings-cloud-sync-form.js',
+    '../src/app/68-settings-save-form-helpers.js',
     '../src/app/68-settings-save-main-form.js',
     '../src/app/68-settings-save-summary-form.js',
     '../src/app/68-settings-save-ui-form.js',
@@ -2417,7 +2418,10 @@ async function assertFrontendSettingsSaveHelpers() {
     Set,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__close = closeSettings;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__close = closeSettings;\nthis.__trimOr = readTrimmedControlValueOr;\nthis.__checkbox = readCheckboxControlValue;\nthis.__finiteFloat = readFiniteFloatControlValue;`, context);
+  assert(context.__trimOr(input('  '), 'fallback') === 'fallback', 'Settings save form helper should default blank trimmed values.');
+  assert(context.__checkbox(null, true) === true, 'Settings save form helper should use checkbox fallback values.');
+  assert(context.__finiteFloat(input('0'), 0.3) === 0 && context.__finiteFloat(input('NaN'), 0.3) === 0.3, 'Settings save form helper should preserve finite floats and default invalid values.');
   context.__close();
 
   assert(context.state.settings.apiEndpoint === 'https://api.example/v1', 'Settings save should trim API endpoint.');
