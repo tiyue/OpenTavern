@@ -4020,6 +4020,75 @@ async function assertFrontendConversationListUI() {
   assert(context.__empty().includes('No conversations'), 'Conversation list empty helper should render localized empty text.');
 }
 
+async function assertFrontendCharacterPanelUI() {
+  const sources = await Promise.all([
+    '../src/app/65-character-panel-helpers.js',
+    '../src/app/65-character-panel-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function classList() {
+    const values = new Set();
+    return {
+      values,
+      add(name) { values.add(name); },
+      remove(name) { values.delete(name); },
+    };
+  }
+  function element() {
+    return { classList: classList(), textContent: '', innerHTML: '', className: '' };
+  }
+
+  let activeConv = null;
+  let badgeRenders = 0;
+  const dom = {
+    charCardPreview: element(),
+    charCardEmptyHint: element(),
+    charEditBtn: element(),
+    charExportBtn: element(),
+    charRemoveBtn: element(),
+    charCardAvatar: element(),
+    charCardName: element(),
+    charCardTagCount: element(),
+  };
+  const context = {
+    dom,
+    getActiveConv() { return activeConv; },
+    isGroupChat(conv) { return !!(conv && conv.group); },
+    getGroupMembers(conv) { return conv.group.members; },
+    renderWorldInfoBadge() { badgeRenders += 1; },
+    t: (key) => ({ char_empty_name: 'Unnamed' }[key] || key),
+    Set,
+    Array,
+    String,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__render = renderCharacterCard;\nthis.__summary = buildGroupCharacterSummary;`, context);
+
+  context.__render();
+  assert(dom.charCardPreview.classList.values.has('hidden') && !dom.charCardEmptyHint.classList.values.has('hidden'), 'Character panel should show the empty state without an active conversation.');
+  assert(dom.charEditBtn.classList.values.has('hidden') && badgeRenders === 1, 'Character panel empty state should hide actions and refresh the world info badge.');
+
+  activeConv = {
+    group: {
+      name: 'Team',
+      members: [
+        { character: { name: 'Arona' } },
+        { character: { name: 'Plana' } },
+        { character: { name: 'Mika' } },
+      ],
+    },
+  };
+  context.__render();
+  assert(dom.charCardName.textContent === 'Team' && dom.charCardAvatar.textContent === 'Group', 'Character panel should render group chat identity.');
+  assert(dom.charCardTagCount.textContent.includes('3 角色') && dom.charCardTagCount.textContent.includes('等'), 'Character panel should summarize group members.');
+  assert(context.__summary(activeConv.group.members).includes('Arona、Plana'), 'Character panel summary helper should include the first two group members.');
+
+  activeConv = { character: { name: 'Arona', previewImage: 'avatar.png', tags: ['ai', 'guide'] } };
+  context.__render();
+  assert(dom.charEditBtn.classList.values.has('hidden') === false && dom.charCardAvatar.innerHTML.includes('avatar.png'), 'Character panel should show actions and image avatars for single-character chats.');
+  assert(dom.charCardName.textContent === 'Arona' && dom.charCardTagCount.textContent === '2 tags', 'Character panel should render single-character metadata.');
+}
+
 async function assertFrontendStateLifecycleHelpers() {
   const sources = await Promise.all([
     '../src/app/33-render-shortcuts.js',
@@ -5905,6 +5974,7 @@ async function main() {
   await assertFrontendLibraryViewHelpers();
   await assertFrontendMobileSidebarUI();
   await assertFrontendConversationListUI();
+  await assertFrontendCharacterPanelUI();
   await assertFrontendStateLifecycleHelpers();
   await assertFrontendMessageContentHelpers();
   await assertFrontendMessageEditHelpers();
