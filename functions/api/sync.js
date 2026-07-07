@@ -37,6 +37,49 @@ async function ensureTable(db) {
   `);
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeObjectMap(value) {
+  return isPlainObject(value) ? value : {};
+}
+
+function normalizeTimestamp(value, fallback = Date.now()) {
+  const timestamp = Number(value);
+  return Number.isFinite(timestamp) ? timestamp : fallback;
+}
+
+function normalizeConversationOrder(snapshot) {
+  const conversationIds = Object.keys(snapshot.conversations);
+  const knownConversationIds = new Set(conversationIds);
+  const seenIds = new Set();
+  const order = [];
+
+  if (Array.isArray(snapshot.conversationOrder)) {
+    for (const id of snapshot.conversationOrder) {
+      if (!knownConversationIds.has(id) || seenIds.has(id)) continue;
+      seenIds.add(id);
+      order.push(id);
+    }
+  }
+
+  for (const id of conversationIds) {
+    if (seenIds.has(id)) continue;
+    seenIds.add(id);
+    order.push(id);
+  }
+
+  snapshot.conversationOrder = order;
+}
+
+function normalizeActiveConversation(snapshot) {
+  const knownConversationIds = new Set(Object.keys(snapshot.conversations));
+  if (!knownConversationIds.has(snapshot.activeConvId)) {
+    snapshot.activeConvId = snapshot.conversationOrder[0] || null;
+  }
+}
+
 function extractSnapshot(body) {
   const snapshot = body && body.data !== undefined ? body.data : body;
   if (!snapshot || typeof snapshot !== 'object') throw new Error('Invalid sync payload.');
@@ -45,15 +88,17 @@ function extractSnapshot(body) {
     if (!snapshot.payload || !snapshot.iv || !snapshot.salt) {
       throw new Error('Invalid encrypted sync payload.');
     }
-    snapshot.lastSaved = Number(snapshot.lastSaved || body.updatedAt || Date.now());
+    snapshot.lastSaved = normalizeTimestamp(snapshot.lastSaved || body.updatedAt);
     return snapshot;
   }
-  if (!snapshot.conversations || typeof snapshot.conversations !== 'object') snapshot.conversations = {};
-  if (!snapshot.settings || typeof snapshot.settings !== 'object') snapshot.settings = {};
-  if (!snapshot.characters || typeof snapshot.characters !== 'object') snapshot.characters = {};
-  if (!snapshot.worldBooks || typeof snapshot.worldBooks !== 'object') snapshot.worldBooks = {};
-  if (!Array.isArray(snapshot.conversationOrder)) snapshot.conversationOrder = Object.keys(snapshot.conversations);
-  snapshot.lastSaved = Number(snapshot.lastSaved || Date.now());
+  snapshot.conversations = normalizeObjectMap(snapshot.conversations);
+  snapshot.settings = normalizeObjectMap(snapshot.settings);
+  snapshot.characters = normalizeObjectMap(snapshot.characters);
+  snapshot.worldBooks = normalizeObjectMap(snapshot.worldBooks);
+  normalizeConversationOrder(snapshot);
+  normalizeActiveConversation(snapshot);
+  snapshot.charactersMigrated = Boolean(snapshot.charactersMigrated);
+  snapshot.lastSaved = normalizeTimestamp(snapshot.lastSaved);
   return snapshot;
 }
 

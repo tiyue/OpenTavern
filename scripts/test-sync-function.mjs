@@ -4560,7 +4560,21 @@ async function main() {
 
   const partialToken = 'test-token-partial';
   const partialPost = await onRequest({
-    request: request('POST', partialToken, { data: { settings: { model: 'partial-model' } } }),
+    request: request('POST', partialToken, {
+      data: {
+        settings: { model: 'partial-model' },
+        conversations: {
+          c2: { id: 'c2', messages: [] },
+          c1: { id: 'c1', messages: [] },
+        },
+        conversationOrder: ['missing', 'c2', 'c2'],
+        activeConvId: 'missing',
+        characters: null,
+        worldBooks: [],
+        charactersMigrated: 'yes',
+        lastSaved: 'not-a-number',
+      },
+    }),
     env,
   });
   await assertOk(partialPost, 'partial POST');
@@ -4568,11 +4582,13 @@ async function main() {
   await assertOk(partialGet, 'partial GET');
   const partialJson = await readJson(partialGet);
   assert(partialJson.data.settings.model === 'partial-model', 'Partial settings were not preserved.');
-  assert(partialJson.data.conversations && typeof partialJson.data.conversations === 'object', 'Missing conversations should normalize to an object.');
-  assert(partialJson.data.characters && typeof partialJson.data.characters === 'object', 'Missing character cards should normalize to an object.');
-  assert(partialJson.data.worldBooks && typeof partialJson.data.worldBooks === 'object', 'Missing world books should normalize to an object.');
-  assert(Array.isArray(partialJson.data.conversationOrder), 'Missing conversation order should normalize to an array.');
-  assert(Number.isFinite(partialJson.data.lastSaved), 'Missing lastSaved should normalize to a timestamp.');
+  assert(partialJson.data.conversations && typeof partialJson.data.conversations === 'object' && !Array.isArray(partialJson.data.conversations), 'Conversations should normalize to an object map.');
+  assert(partialJson.data.characters && typeof partialJson.data.characters === 'object' && !Array.isArray(partialJson.data.characters), 'Character cards should normalize to an object map.');
+  assert(partialJson.data.worldBooks && typeof partialJson.data.worldBooks === 'object' && !Array.isArray(partialJson.data.worldBooks), 'World books should normalize to an object map.');
+  assert(partialJson.data.conversationOrder.join(',') === 'c2,c1', 'Dirty conversation order should normalize to existing unique ids.');
+  assert(partialJson.data.activeConvId === 'c2', 'Invalid active conversation should fall back to the first valid ordered conversation.');
+  assert(partialJson.data.charactersMigrated === true, 'Character migration metadata should normalize to a boolean.');
+  assert(Number.isFinite(partialJson.data.lastSaved), 'Invalid lastSaved should normalize to a timestamp.');
 
   const badEncrypted = await onRequest({
     request: request('POST', tokenB, { encrypted: true, data: { encrypted: true, payload: 'missing-metadata' } }),
