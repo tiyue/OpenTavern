@@ -367,6 +367,7 @@
   "68-settings-cloud-sync-ui.js",
   "68-settings-webllm-ui.js",
   "68-settings-storage-status-ui.js",
+  "68-settings-storage-clear-helpers.js",
   "68-settings-storage-clear-ui.js",
   "68-settings-storage-recovery-ui.js",
   "68-settings-storage-ui.js",

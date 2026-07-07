@@ -5478,6 +5478,43 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
   assert(errors.length === 0, `file:// path should not error: ${errors.join('\n')}`);
 }
 
+async function assertFrontendSettingsStorageClearHelpers() {
+  const source = await readFile(new URL('../src/app/68-settings-storage-clear-helpers.js', import.meta.url), 'utf8');
+  let storageInfoUpdated = 0;
+  const elements = {
+    storageUsage: { textContent: '' },
+    storageUsageBar: { style: {} },
+  };
+  const context = {
+    t: () => '',
+    updateStorageInfo() {
+      storageInfoUpdated += 1;
+    },
+    document: {
+      getElementById(id) {
+        return elements[id] || null;
+      },
+    },
+  };
+
+  vm.runInNewContext(`${source}\nthis.__style = getClearAllStorageButtonStyle;\nthis.__apply = applyClearAllStorageButtonState;\nthis.__clearConfig = getClearAllStorageConfirmConfig;\nthis.__webConfig = getClearWebLLMCacheConfirmConfig;\nthis.__renderCleared = renderStorageUsageClearedState;`, context);
+
+  assert(context.__style('idb').background === 'rgba(239,68,68,0.15)', 'Storage clear helper should use danger styling for IndexedDB.');
+  assert(context.__style('localStorage').color === '#fbbf24', 'Storage clear helper should use warning styling for fallback storage.');
+
+  const btn = { style: {}, textContent: '' };
+  context.__apply(btn, 'idb');
+  assert(btn.style.display === 'flex' && btn.textContent.includes('OPFS'), 'Storage clear helper should show and label the clear button.');
+
+  const clearConfig = context.__clearConfig();
+  assert(clearConfig.options.danger === true && clearConfig.options.okText, 'Storage clear confirmation should be marked dangerous.');
+  const webConfig = context.__webConfig();
+  assert(webConfig.message.includes('WebLLM') && webConfig.options.okText, 'WebLLM clear confirmation should describe model cache deletion.');
+
+  context.__renderCleared();
+  assert(storageInfoUpdated === 1 && elements.storageUsage.textContent.includes('\u5df2\u6e05\u9664') && elements.storageUsageBar.style.width === '0%', 'Storage clear helper should refresh cleared usage UI.');
+}
+
 async function assertFrontendStorageStatusRenderHelpers() {
   const sources = await Promise.all([
     '../src/app/21-storage-opfs-status-text.js',
@@ -5875,6 +5912,7 @@ async function main() {
   await assertFrontendStorageRecoveryScanner();
   await assertFrontendLegacyIDBRecoveryReader();
   await assertFrontendStorageServiceFileProtocolStatus();
+  await assertFrontendSettingsStorageClearHelpers();
   await assertFrontendStorageStatusRenderHelpers();
   await assertFrontendStateInitialization();
   await assertFrontendAppInitHelpers();
