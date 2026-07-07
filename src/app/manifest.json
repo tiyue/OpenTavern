@@ -13,6 +13,7 @@
   "11-webgpu-device.js",
   "11-webllm-engine.js",
   "11-webllm-confirm-helpers.js",
+  "11-webllm-confirm-modal.js",
   "11-webllm-download-ui.js",
   "11-webllm-storage-preflight.js",
   "11-webllm-progress-ui-helpers.js",

@@ -6,16 +6,10 @@ function showWebLLMConfirmDialog(onContinue, onCancel) {
 }
 
 function showWebLLMConfirmForModel(targetModelId, isModelSwitch, onContinue, onCancel) {
-    var modal = document.getElementById('webllmConfirmModal');
-    var backdrop = document.getElementById('webllmConfirmBackdrop');
-    var cancelBtn = document.getElementById('webllmConfirmCancelBtn');
-    var continueBtn = document.getElementById('webllmConfirmContinueBtn');
-    var textEl = document.getElementById('webllmConfirmText');
-    var choiceContainer = document.getElementById('webllmConfirmChoice');
-    var genericActions = document.getElementById('webllmConfirmGenericActions');
+    var elements = getWebLLMConfirmModalElements();
     var modelId = getWebLLMConfirmModelId(targetModelId);
 
-    if (!modal) {
+    if (!elements.modal) {
         var info = getWebLLMModelInfo(modelId);
         showGlassConfirm(buildWebLLMFallbackConfirmMessage(formatWebLLMModelSize(info.sizeMB)), {
             title: t('webllm_confirm_title') || '启用浏览器本地模型'
@@ -29,49 +23,14 @@ function showWebLLMConfirmForModel(targetModelId, isModelSwitch, onContinue, onC
         return;
     }
 
-    if (textEl) {
-        textEl.innerHTML = buildWebLLMConfirmHtml(modelId, isModelSwitch);
-    }
-
-    var isFirstEnable = !isModelSwitch;
-    if (choiceContainer) {
-        choiceContainer.style.display = isFirstEnable ? '' : 'none';
-    }
-    if (genericActions) {
-        genericActions.style.display = isFirstEnable ? 'none' : 'flex';
-    }
-
-    modal.classList.remove('hidden');
+    renderWebLLMConfirmModal(elements, modelId, isModelSwitch);
 
     function cleanup() {
-        cleanupWebLLMConfirmModal(modal, cancelBtn, continueBtn, backdrop);
+        cleanupWebLLMConfirmModal(elements.modal, elements.cancelBtn, elements.continueBtn, elements.backdrop);
     }
+    bindWebLLMConfirmModalHandlers(elements, cleanup, modelId, onContinue, onCancel);
 
-    if (cancelBtn) {
-        cancelBtn.onclick = function() {
-            cleanup();
-            if (onCancel) onCancel();
-        };
-    }
-    if (backdrop) {
-        backdrop.onclick = function() {
-            cleanup();
-            if (onCancel) onCancel();
-        };
-    }
-
-    if (continueBtn) {
-        continueBtn.onclick = function() {
-            cleanup();
-            if (onContinue) {
-                onContinue(modelId);
-            } else {
-                startChosenWebLLMModel(modelId);
-            }
-        };
-    }
-
-    if (isFirstEnable) {
+    if (!isModelSwitch) {
         wireWebLLMChoiceButtons(cleanup, onContinue);
     }
 }

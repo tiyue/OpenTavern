@@ -3242,8 +3242,21 @@ async function assertFrontendWorldBookMatchingHelpers() {
 }
 
 async function assertFrontendWebLLMConfirmHelpers() {
-  const source = await readFile(new URL('../src/app/11-webllm-confirm-helpers.js', import.meta.url), 'utf8');
+  const [source, modalSource] = await Promise.all([
+    '../src/app/11-webllm-confirm-helpers.js',
+    '../src/app/11-webllm-confirm-modal.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const picker = { value: 'Picker-Model' };
+  const dom = {
+    webllmModel: picker,
+    webllmConfirmModal: { classList: { removed: [], remove(name) { this.removed.push(name); } } },
+    webllmConfirmBackdrop: {},
+    webllmConfirmCancelBtn: {},
+    webllmConfirmContinueBtn: {},
+    webllmConfirmText: { innerHTML: '' },
+    webllmConfirmChoice: { style: {} },
+    webllmConfirmGenericActions: { style: {} },
+  };
   const started = [];
   const context = {
     WEBLLM_MODEL_INFO: {
@@ -3251,13 +3264,13 @@ async function assertFrontendWebLLMConfirmHelpers() {
       'Picker-Model': { label: 'Picker', sizeMB: 850 },
     },
     state: { settings: { webllmModel: 'State-Model' } },
-    document: { getElementById: (id) => (id === 'webllmModel' ? picker : null) },
+    document: { getElementById: (id) => dom[id] || null },
     persistState: () => { context.persisted = true; },
     startWebLLMInitialization: (modelId) => { started.push(modelId); },
     String,
   };
 
-  vm.runInNewContext(`${source}\nthis.__model = getWebLLMConfirmModelId;\nthis.__size = formatWebLLMModelSize;\nthis.__html = buildWebLLMConfirmHtml;\nthis.__start = startChosenWebLLMModel;`, context);
+  vm.runInNewContext(`${source}\n${modalSource}\nthis.__model = getWebLLMConfirmModelId;\nthis.__size = formatWebLLMModelSize;\nthis.__html = buildWebLLMConfirmHtml;\nthis.__start = startChosenWebLLMModel;\nthis.__elements = getWebLLMConfirmModalElements;\nthis.__render = renderWebLLMConfirmModal;\nthis.__bind = bindWebLLMConfirmModalHandlers;`, context);
 
   assert(context.__model(null) === 'Picker-Model', 'WebLLM confirm should prefer the visible model picker.');
   assert(context.__model('Direct-Model') === 'Direct-Model', 'WebLLM confirm should prefer an explicit target model.');
@@ -3267,6 +3280,25 @@ async function assertFrontendWebLLMConfirmHelpers() {
   context.__start('Llama-3.2-3B-Instruct-q4f16_1-MLC');
   assert(context.state.settings.inferenceBackend === 'webllm' && picker.value === 'Llama-3.2-3B-Instruct-q4f16_1-MLC', 'WebLLM confirm should sync the selected local model.');
   assert(context.persisted === true && started[0] === 'Llama-3.2-3B-Instruct-q4f16_1-MLC', 'WebLLM confirm should persist and start initialization.');
+
+  const modalElements = context.__elements();
+  assert(modalElements.modal === dom.webllmConfirmModal && modalElements.continueBtn === dom.webllmConfirmContinueBtn, 'WebLLM confirm modal should resolve expected DOM elements.');
+
+  context.__render(modalElements, 'Picker-Model', false);
+  assert(dom.webllmConfirmText.innerHTML.includes('850 MB'), 'WebLLM confirm modal should render the selected model size.');
+  assert(dom.webllmConfirmChoice.style.display === '' && dom.webllmConfirmGenericActions.style.display === 'none', 'WebLLM first-enable modal should show model choices.');
+  assert(dom.webllmConfirmModal.classList.removed.includes('hidden'), 'WebLLM confirm modal should become visible.');
+
+  context.__render(modalElements, 'Picker-Model', true);
+  assert(dom.webllmConfirmChoice.style.display === 'none' && dom.webllmConfirmGenericActions.style.display === 'flex', 'WebLLM switch modal should show generic actions.');
+
+  let cleaned = 0;
+  let canceled = 0;
+  const continued = [];
+  context.__bind(modalElements, () => { cleaned += 1; }, 'Picker-Model', (modelId) => { continued.push(modelId); }, () => { canceled += 1; });
+  dom.webllmConfirmCancelBtn.onclick();
+  dom.webllmConfirmContinueBtn.onclick();
+  assert(cleaned === 2 && canceled === 1 && continued[0] === 'Picker-Model', 'WebLLM confirm modal should clean up and dispatch cancel/continue handlers.');
 }
 
 async function assertFrontendWebGPUDeviceHelpers() {
