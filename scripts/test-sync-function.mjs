@@ -4484,10 +4484,57 @@ async function assertFrontendStorageServiceLoadHelpers() {
   assert(!events.includes('idb-save') && events.includes('local-write') && events.includes('opfs-save'), 'Storage backend sync helper should skip the source backend and mirror to the remaining available backends.');
 }
 
+async function assertFrontendStorageServiceInfoHelpers() {
+  const sources = await Promise.all([
+    '../src/app/20-storage-service-info-readers.js',
+    '../src/app/20-storage-service-info-fallback.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+  const context = {
+    navigator: {
+      storage: {
+        async estimate() { return { usage: 4096, quota: 8192 }; },
+        async persisted() { return true; },
+      },
+    },
+    window: { indexedDB: {} },
+    storageIsFileProtocol: () => true,
+    async getWebLLMUsedSize() { return 2048; },
+    Blob,
+    JSON,
+    Object,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__webllm = readStorageServiceWebLLMUsage;\nthis.__app = readStorageServiceAppUsage;\nthis.__quota = readStorageServiceBrowserQuota;\nthis.__fallback = getStorageServiceFallbackInfo;`, context);
+
+  assert(await context.__webllm() === 2048, 'Storage info reader should report WebLLM usage.');
+  const service = {
+    _lastSaveSnapshot: null,
+    _idbAvailable: false,
+    _idbFailureReason: 'idb down',
+    _opfsSkipped: false,
+    _opfsSkippedReason: null,
+    _opfsFailureReason: 'opfs down',
+    getBackend() { return 'localStorage'; },
+    _isValidSnapshot(data) { return !!(data && data.conversations); },
+    async _readNewestStoredSnapshotNoSync() {
+      return { data: { conversations: { c1: { messages: [{ content: 'hi' }] } }, characters: {}, worldBooks: {} } };
+    },
+  };
+  assert(await context.__app(service) > 0, 'Storage info reader should measure the newest stored app snapshot when no current snapshot is cached.');
+  const quota = await context.__quota();
+  assert(quota.originUsed === 4096 && quota.quota === 8192 && quota.persisted === true, 'Storage info reader should expose browser quota and persistence metadata.');
+
+  const fallback = context.__fallback(service);
+  assert(fallback.fileProtocol === true && fallback.opfsSkippedReason === 'file-protocol' && fallback.opfsFailureReason === null, 'Storage info fallback should describe file:// OPFS skip without a failure reason.');
+  assert(fallback.idbAvailable === true && fallback.idbLastError === 'idb down', 'Storage info fallback should include IDB availability and last error.');
+}
+
 async function assertFrontendStorageServicePipeline() {
   const sources = await Promise.all([
     '../src/app/20-storage-service-helpers.js',
     '../src/app/20-storage-service-maintenance.js',
+    '../src/app/20-storage-service-info-readers.js',
+    '../src/app/20-storage-service-info-fallback.js',
     '../src/app/20-storage-service-info.js',
     '../src/app/20-storage-service-clear-backends.js',
     '../src/app/20-storage-service-clear.js',
@@ -4636,6 +4683,8 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
   const sources = await Promise.all([
     '../src/app/20-storage-service-helpers.js',
     '../src/app/20-storage-service-maintenance.js',
+    '../src/app/20-storage-service-info-readers.js',
+    '../src/app/20-storage-service-info-fallback.js',
     '../src/app/20-storage-service-info.js',
     '../src/app/20-storage-service-clear-backends.js',
     '../src/app/20-storage-service-clear.js',
@@ -5130,6 +5179,7 @@ async function main() {
   await assertFrontendIDBStorageHelpers();
   await assertFrontendStorageServiceLoadHelpers();
   await assertFrontendStorageServiceSaveHelpers();
+  await assertFrontendStorageServiceInfoHelpers();
   await assertFrontendStorageServicePipeline();
   await assertFrontendStorageServiceFileProtocolStatus();
   await assertFrontendStorageStatusRenderHelpers();

@@ -2702,35 +2702,7 @@ function downloadStorageQuotaBackupBlob(data, filename) {
     a.click();
     a.remove();
 }
-// ==================== StorageService Info Helpers ====================
-async function getStorageServiceInfo(service) {
-    try {
-        const webllmUsed = await readStorageServiceWebLLMUsage();
-        const appUsed = await readStorageServiceAppUsage(service);
-        const browserInfo = await readStorageServiceBrowserQuota();
-
-        return {
-            backend: service.getBackend(),
-            used: appUsed,
-            webllmUsed,
-            totalUsed: appUsed + webllmUsed,
-            originUsed: browserInfo.originUsed,
-            quota: browserInfo.quota,
-            persisted: browserInfo.persisted,
-            fileProtocol: storageIsFileProtocol(),
-            idbAvailable: service._idbAvailable || ('indexedDB' in window),
-            idbLastError: service._idbFailureReason,
-            opfsAvailable: service._opfsReadableAvailable,
-            opfsMirrorAvailable: service._opfsMirrorAvailable,
-            opfsSkipped: service._opfsSkipped,
-            opfsSkippedReason: service._opfsSkippedReason,
-            opfsFailureReason: service._opfsFailureReason,
-            safariOpfsReadOnly: service._isSafari() && service._opfsReadableAvailable
-        };
-    } catch (e) {}
-    return getStorageServiceFallbackInfo(service);
-}
-
+// ==================== StorageService Info Readers ====================
 async function readStorageServiceWebLLMUsage() {
     try {
         if (typeof getWebLLMUsedSize === 'function') return await getWebLLMUsedSize();
@@ -2768,7 +2740,7 @@ async function readStorageServiceBrowserQuota() {
 
     return { quota, originUsed, persisted };
 }
-
+// ==================== StorageService Info Fallback ====================
 function getStorageServiceFallbackInfo(service) {
     const isFileMode = storageIsFileProtocol();
     return {
@@ -2789,6 +2761,34 @@ function getStorageServiceFallbackInfo(service) {
         opfsFailureReason: isFileMode ? null : service._opfsFailureReason,
         safariOpfsReadOnly: false
     };
+}
+// ==================== StorageService Info ====================
+async function getStorageServiceInfo(service) {
+    try {
+        const webllmUsed = await readStorageServiceWebLLMUsage();
+        const appUsed = await readStorageServiceAppUsage(service);
+        const browserInfo = await readStorageServiceBrowserQuota();
+
+        return {
+            backend: service.getBackend(),
+            used: appUsed,
+            webllmUsed,
+            totalUsed: appUsed + webllmUsed,
+            originUsed: browserInfo.originUsed,
+            quota: browserInfo.quota,
+            persisted: browserInfo.persisted,
+            fileProtocol: storageIsFileProtocol(),
+            idbAvailable: service._idbAvailable || ('indexedDB' in window),
+            idbLastError: service._idbFailureReason,
+            opfsAvailable: service._opfsReadableAvailable,
+            opfsMirrorAvailable: service._opfsMirrorAvailable,
+            opfsSkipped: service._opfsSkipped,
+            opfsSkippedReason: service._opfsSkippedReason,
+            opfsFailureReason: service._opfsFailureReason,
+            safariOpfsReadOnly: service._isSafari() && service._opfsReadableAvailable
+        };
+    } catch (e) {}
+    return getStorageServiceFallbackInfo(service);
 }
 // ==================== StorageService Backend Clear Helpers ====================
 async function clearStorageServiceOPFS(service, emptyData, cleared) {
