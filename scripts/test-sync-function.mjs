@@ -671,6 +671,7 @@ async function assertFrontendCloudSyncOperations() {
   const context = {
     _cloudSyncSavingStatus: false,
     remoteSnapshot: null,
+    readFails: false,
     encryptAsEncrypted: false,
     state: { settings: { cloudSyncEndpoint: '/api/sync', cloudSyncToken: 'token' } },
     document: {
@@ -678,7 +679,11 @@ async function assertFrontendCloudSyncOperations() {
     },
     ensureCloudSyncSettings() { events.push('ensure'); return context.state.settings; },
     buildAppDataSnapshot() { events.push('snapshot'); return localSnapshot; },
-    readCloudSyncRemoteSnapshot() { events.push('read'); return context.remoteSnapshot; },
+    readCloudSyncRemoteSnapshot() {
+      events.push('read');
+      if (context.readFails) throw new Error('offline');
+      return context.remoteSnapshot;
+    },
     getCloudSyncFreshness(remote) { events.push(`fresh:${remote && remote.freshness || 'same'}`); return (remote && remote.freshness) || 'same'; },
     async encryptCloudSyncSnapshot(snapshot) {
       events.push('encrypt');
@@ -727,9 +732,18 @@ async function assertFrontendCloudSyncOperations() {
 
   events.length = 0;
   capturedRequest = null;
+  context.readFails = true;
+  const failedPreflight = await context.__upload(explicitStatus, { force: false });
+  assert(failedPreflight.skipped === true && failedPreflight.reason === 'preflight-failed' && capturedRequest === null, 'Protected cloud upload should skip when remote freshness cannot be verified.');
+  assert(events.includes('persist:true:true') && events.includes('preserve-last-saved'), 'Protected cloud upload preflight skips should persist the status without changing snapshot freshness.');
+
+  events.length = 0;
+  capturedRequest = null;
+  context.readFails = false;
   context.remoteSnapshot = { freshness: 'newer', lastSaved: 5000 };
   const skipped = await context.__upload(explicitStatus, { force: false });
   assert(skipped.skipped === true && skipped.reason === 'remote-newer' && capturedRequest === null, 'Protected cloud upload should skip when the remote snapshot is newer.');
+  assert(events.includes('persist:true:true') && events.includes('preserve-last-saved'), 'Protected cloud upload remote-newer skips should persist the status without changing snapshot freshness.');
 
   events.length = 0;
   context.remoteSnapshot = { freshness: 'same', lastSaved: 1000 };
@@ -746,6 +760,12 @@ async function assertFrontendCloudSyncOperations() {
   const syncDownloaded = await context.__sync(explicitStatus);
   assert(syncDownloaded.lastSaved === 7000 && appliedSnapshot === syncDownloaded, 'Cloud sync should apply the newer remote snapshot.');
   assert(events.filter((event) => event === 'read').length === 1, 'Cloud sync should reuse the preflight remote snapshot instead of reading twice.');
+
+  events.length = 0;
+  appliedSnapshot = null;
+  context.remoteSnapshot = null;
+  const emptyDownload = await context.__download(explicitStatus);
+  assert(emptyDownload === null && appliedSnapshot === null && events.includes('persist:true:true'), 'Cloud download should persist the empty-remote status.');
 
   events.length = 0;
   appliedSnapshot = null;

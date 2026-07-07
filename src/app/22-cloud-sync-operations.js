@@ -13,11 +13,13 @@ async function uploadCloudSyncSnapshot(statusEl, options) {
             console.warn('[CloudSync] remote preflight failed, skipping protected upload:', err && err.message);
             var verifyMsg = 'Cloud upload skipped: could not verify remote snapshot freshness.';
             setCloudSyncStatus(verifyMsg, true);
+            await persistCloudSyncOperationState();
             return { success: false, skipped: true, reason: 'preflight-failed' };
         }
         if (remote && getCloudSyncFreshness(remote) === 'newer') {
             var skipMsg = 'Cloud upload skipped: remote snapshot is newer. Use Download or Upload now to overwrite.';
             setCloudSyncStatus(skipMsg, true);
+            await persistCloudSyncOperationState();
             return { success: false, skipped: true, reason: 'remote-newer' };
         }
     }
@@ -44,6 +46,7 @@ async function downloadCloudSyncSnapshot(statusEl, rawData) {
     if (!rawData) {
         var emptyMsg = 'No cloud snapshot found for this token.';
         setCloudSyncStatus(emptyMsg, true);
+        await persistCloudSyncOperationState();
         return null;
     }
     var freshness = getCloudSyncFreshness(rawData);
