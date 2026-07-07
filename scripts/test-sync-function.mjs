@@ -1493,6 +1493,52 @@ async function assertFrontendApiConnectionHelpers() {
   assert(errorText === 'HTTP 401 - bad key', 'HTTP error message parser did not preserve API error detail.');
 }
 
+async function assertFrontendApiCompatibilityHelpers() {
+  const sources = await Promise.all([
+    '../src/app/31-api-endpoint-normalizer.js',
+    '../src/app/31-api-ollama-compat.js',
+    '../src/app/31-api-compat.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+  const context = {
+    state: { settings: { ollamaCompatMode: false } },
+    normalizePromptRole(role) {
+      if (role === 'developer') return 'system';
+      if (role === 'assistant') return 'assistant';
+      if (role === 'system') return 'system';
+      return 'user';
+    },
+    String,
+    Array,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__endpoint = normalizeApiEndpoint;\nthis.__likelyOllama = isLikelyOllamaEndpoint;\nthis.__useOllama = shouldUseOllamaCompat;\nthis.__messages = normalizeMessagesForOllamaCompatibility;`, context);
+
+  assert(context.__endpoint('https://api.deepseek.com') === 'https://api.deepseek.com/chat/completions', 'API compat should normalize DeepSeek base endpoints without adding /v1.');
+  assert(context.__endpoint('https://host/openai/v1') === 'https://host/openai/v1/chat/completions', 'API compat should preserve OpenAI-compatible /openai/v1 endpoints.');
+  assert(context.__endpoint('https://chat.example') === 'https://chat.example/v1/chat/completions', 'API compat should add /v1 to unversioned OpenAI-compatible endpoints.');
+  assert(context.__endpoint('https://bigmodel.cn/api/paas/v4') === 'https://bigmodel.cn/api/paas/v4/chat/completions', 'API compat should preserve GLM v4 paths.');
+  assert(context.__endpoint('https://already/v1/chat/completions') === 'https://already/v1/chat/completions', 'API compat should leave full chat completion URLs unchanged.');
+
+  assert(context.__likelyOllama('http://127.0.0.1:11434/v1') === true, 'API compat should detect default Ollama ports.');
+  assert(context.__useOllama('https://api.example/v1') === false, 'API compat should not force Ollama mode for normal endpoints.');
+  context.state.settings.ollamaCompatMode = true;
+  assert(context.__useOllama('https://api.example/v1') === true, 'API compat should respect manual Ollama compatibility mode.');
+
+  const messages = context.__messages([
+    { role: 'system', content: 'base' },
+    { role: 'developer', content: 'dev' },
+    { role: 'user', content: 'hello' },
+    { role: 'system', content: 'late' },
+    { role: 'assistant', content: 'first' },
+    { role: 'assistant', content: 'second' },
+    { role: 'user', content: '   ' },
+  ]);
+  assert(messages.map((msg) => msg.role).join(',') === 'system,user,assistant', 'Ollama compat should collapse adjacent compatible message roles.');
+  assert(messages[0].content === 'base\n\ndev', 'Ollama compat should merge leading system/developer instructions.');
+  assert(messages[1].content.includes('hello') && messages[1].content.includes('[System / developer instruction]\nlate'), 'Ollama compat should convert late system messages to user instructions.');
+  assert(messages[2].content === 'first\n\nsecond', 'Ollama compat should merge adjacent assistant messages.');
+}
+
 async function assertFrontendGenerationHelpers() {
   const sources = await Promise.all([
     '../src/app/50-generation-cot-utils.js',
@@ -5241,6 +5287,7 @@ async function main() {
   await assertFrontendSummaryHistoryUI();
   await assertFrontendPromptSummaryEvents();
   await assertFrontendApiConnectionHelpers();
+  await assertFrontendApiCompatibilityHelpers();
   await assertFrontendGenerationHelpers();
   await assertFrontendPromptMessageHelpers();
   await assertFrontendSecondStagePromptBuilder();

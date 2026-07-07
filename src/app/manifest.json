@@ -83,6 +83,8 @@
   "30-state-default-settings.js",
   "30-state-api-conversation.js",
   "31-api-presets.js",
+  "31-api-endpoint-normalizer.js",
+  "31-api-ollama-compat.js",
   "31-api-compat.js",
   "31-api-connection-test-config.js",
   "31-api-connection-endpoints.js",
