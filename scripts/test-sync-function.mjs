@@ -1897,6 +1897,7 @@ async function assertFrontendSillyTavernPresetNormalizer() {
     '../src/app/62-sillytavern-preset-order-normalizer.js',
     '../src/app/62-sillytavern-preset-prompt-normalizer.js',
     '../src/app/62-sillytavern-preset-normalizer.js',
+    '../src/app/62-sillytavern-preset-placement.js',
     '../src/app/62-sillytavern-preset-runtime.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
@@ -1914,11 +1915,16 @@ async function assertFrontendSillyTavernPresetNormalizer() {
     isNaN,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__normalize = normalizeSillyTavernPreset;\nthis.__ensure = ensureSillyTavernPresetSettings;\nthis.__buildBuckets = buildSillyTavernPresetMessageBuckets;\nthis.__role = normalizePromptRole;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__normalize = normalizeSillyTavernPreset;\nthis.__ensure = ensureSillyTavernPresetSettings;\nthis.__buildBuckets = buildSillyTavernPresetMessageBuckets;\nthis.__role = normalizePromptRole;\nthis.__placement = getSillyTavernPresetPlacement;\nthis.__depth = parseSillyTavernDepth;\nthis.__describePlacement = describeSillyTavernPresetPlacement;\nthis.__historyMarker = isSillyTavernChatHistoryMarker;`, context);
 
   assert(context.__role('0') === 'system', 'SillyTavern numeric system role was not normalized.');
   assert(context.__role('1') === 'user', 'SillyTavern numeric user role was not normalized.');
   assert(context.__role('2') === 'assistant', 'SillyTavern numeric assistant role was not normalized.');
+  assert(context.__placement({ position: 'after chat' }) === 'after_history', 'SillyTavern placement helper should detect after-history prompts.');
+  assert(context.__placement({ injection_depth: 3 }) === 'in_chat', 'SillyTavern placement helper should infer in-chat prompts from depth.');
+  assert(context.__depth({ injection_depth: '3' }) === 3, 'SillyTavern depth helper should parse injection_depth.');
+  assert(context.__describePlacement({ position: 'in_chat', depth: 2 }) === 'in-chat d2', 'SillyTavern placement description should include in-chat depth.');
+  assert(context.__historyMarker('conversation-history') === true, 'SillyTavern history marker helper should normalize marker names.');
 
   const preset = context.__normalize({
     name: 'Imported ST Preset',
@@ -1954,10 +1960,17 @@ async function assertFrontendSillyTavernPresetNormalizer() {
 }
 
 async function assertFrontendSillyTavernPresetSettingsRows() {
-  const source = await readFile(new URL('../src/app/62-sillytavern-preset-settings-list-ui.js', import.meta.url), 'utf8');
-  const context = { Array };
+  const sources = await Promise.all([
+    '../src/app/62-sillytavern-preset-placement.js',
+    '../src/app/62-sillytavern-preset-settings-list-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+  const context = {
+    escapeHtml: (value) => String(value),
+    Array,
+    String,
+  };
 
-  vm.runInNewContext(`${source}\nthis.__rows = getSillyTavernPresetRows;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__rows = getSillyTavernPresetRows;\nthis.__rowHtml = buildSillyTavernPresetRowHtml;`, context);
   const rows = context.__rows({
     prompts: [
       { id: 'late', order: 20 },
@@ -1968,6 +1981,8 @@ async function assertFrontendSillyTavernPresetSettingsRows() {
 
   assert(rows.map((row) => row.prompt.id).join(',') === 'early,middle,late', 'SillyTavern preset settings rows should sort by prompt order.');
   assert(rows.map((row) => row.index).join(',') === '1,2,0', 'SillyTavern preset settings rows should preserve original prompt indexes.');
+  const rowHtml = context.__rowHtml({ prompt: { id: 'depth', role: 'system', content: 'Depth content', position: 'in_chat', depth: 4 }, index: 0 });
+  assert(rowHtml.includes('in-chat d4'), 'SillyTavern preset row should render placement descriptions from the placement helper.');
 }
 
 async function assertFrontendNewChatPickerMultiSelection() {

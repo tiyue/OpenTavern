@@ -259,6 +259,7 @@
   "62-sillytavern-preset-prompt-normalizer.js",
   "62-sillytavern-preset-normalizer.js",
   "62-sillytavern-preset-ui.js",
+  "62-sillytavern-preset-placement.js",
   "62-sillytavern-preset-settings-list-ui.js",
   "62-sillytavern-preset-settings-ui.js",
   "62-sillytavern-preset-runtime.js",
