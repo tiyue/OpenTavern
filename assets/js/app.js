@@ -11198,6 +11198,34 @@ function passesLibraryFilter(card) {
     }
     return true;
 }
+function getLibraryCardDisplayName(card) {
+    return (card && card.name) || 'Unnamed';
+}
+
+function getLibraryCardInitial(card) {
+    return ((card && card.name) || '?').charAt(0).toUpperCase();
+}
+
+function formatLibraryCardTags(tags) {
+    return (tags || []).slice(0, 3).join(' · ');
+}
+
+function createLibraryCardInfo(card) {
+    const info = document.createElement('div');
+    info.className = 'p-2';
+
+    const name = document.createElement('div');
+    name.className = 'text-sm font-medium text-zinc-100 truncate';
+    name.textContent = getLibraryCardDisplayName(card);
+
+    const tags = document.createElement('div');
+    tags.className = 'text-[10px] text-zinc-400 mt-0.5 truncate';
+    tags.textContent = formatLibraryCardTags(card && card.tags);
+
+    info.appendChild(name);
+    info.appendChild(tags);
+    return info;
+}
 function triggerCardImageUpload(char) {
     if (!char || !char.name) return;
     const input = document.createElement('input');
@@ -11339,7 +11367,7 @@ function isMyCharacterCardControlClick(e) {
 function createMyCharacterPreview(char) {
     const preview = document.createElement('div');
     const pSrc = char.previewImage || char.avatar;
-    const letter = (char.name || '?').charAt(0).toUpperCase();
+    const letter = getLibraryCardInitial(char);
 
     if (pSrc) {
         preview.className = 'aspect-[3/4] w-full overflow-hidden bg-zinc-900 rounded-t-2xl relative';
@@ -11365,20 +11393,7 @@ function setMyCharacterPreviewFallback(preview, letter) {
 }
 // ==================== My Library Card Info UI ====================
 function createMyCharacterInfo(char) {
-    const info = document.createElement('div');
-    info.className = 'p-2';
-
-    const name = document.createElement('div');
-    name.className = 'text-sm font-medium text-zinc-100 truncate';
-    name.textContent = char.name || 'Unnamed';
-
-    const tags = document.createElement('div');
-    tags.className = 'text-[10px] text-zinc-400 mt-0.5 truncate';
-    tags.textContent = (char.tags || []).slice(0, 3).join(' · ');
-
-    info.appendChild(name);
-    info.appendChild(tags);
-    return info;
+    return createLibraryCardInfo(char);
 }
 // ==================== My Library Card Items ====================
 function createMyLibraryCharacterCard(char) {
@@ -11452,25 +11467,12 @@ function createPublicLibraryCardPreview(card) {
 function createPublicLibraryCardFallback(card) {
     const fallback = document.createElement('div');
     fallback.className = 'w-full h-full flex items-center justify-center text-5xl font-bold text-white ot-avatar-fill';
-    fallback.textContent = (card.name || '?').charAt(0).toUpperCase();
+    fallback.textContent = getLibraryCardInitial(card);
     return fallback;
 }
 
 function createPublicLibraryCardInfo(card) {
-    const info = document.createElement('div');
-    info.className = 'p-2';
-
-    const name = document.createElement('div');
-    name.className = 'text-sm font-medium text-zinc-100 truncate';
-    name.textContent = card.name || 'Unnamed';
-
-    const tags = document.createElement('div');
-    tags.className = 'text-[10px] text-zinc-400 mt-0.5 truncate';
-    tags.textContent = (card.tags || []).slice(0, 3).join(' · ');
-
-    info.appendChild(name);
-    info.appendChild(tags);
-    return info;
+    return createLibraryCardInfo(card);
 }
 // ==================== Public Library Card Detail Modal Helpers ====================
 function buildPublicCardDetailModalHtml() {

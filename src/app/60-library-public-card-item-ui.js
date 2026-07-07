@@ -31,23 +31,10 @@ function createPublicLibraryCardPreview(card) {
 function createPublicLibraryCardFallback(card) {
     const fallback = document.createElement('div');
     fallback.className = 'w-full h-full flex items-center justify-center text-5xl font-bold text-white ot-avatar-fill';
-    fallback.textContent = (card.name || '?').charAt(0).toUpperCase();
+    fallback.textContent = getLibraryCardInitial(card);
     return fallback;
 }
 
 function createPublicLibraryCardInfo(card) {
-    const info = document.createElement('div');
-    info.className = 'p-2';
-
-    const name = document.createElement('div');
-    name.className = 'text-sm font-medium text-zinc-100 truncate';
-    name.textContent = card.name || 'Unnamed';
-
-    const tags = document.createElement('div');
-    tags.className = 'text-[10px] text-zinc-400 mt-0.5 truncate';
-    tags.textContent = (card.tags || []).slice(0, 3).join(' · ');
-
-    info.appendChild(name);
-    info.appendChild(tags);
-    return info;
+    return createLibraryCardInfo(card);
 }

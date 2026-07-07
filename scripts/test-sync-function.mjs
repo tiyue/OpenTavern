@@ -2620,6 +2620,30 @@ async function assertFrontendLibraryCardFilterHelpers() {
   assert(!context.__passes({ tags: ['男'] }), 'Library card filter should exclude female-oriented cards for male filter.');
 }
 
+async function assertFrontendLibraryCardDisplayHelpers() {
+  const source = await readFile(new URL('../src/app/60-library-card-display-helpers.js', import.meta.url), 'utf8');
+  function makeElement(tag) {
+    return {
+      tag,
+      className: '',
+      textContent: '',
+      children: [],
+      appendChild(child) { this.children.push(child); },
+    };
+  }
+  const context = {
+    document: { createElement: makeElement },
+  };
+
+  vm.runInNewContext(`${source}\nthis.__name = getLibraryCardDisplayName;\nthis.__initial = getLibraryCardInitial;\nthis.__tags = formatLibraryCardTags;\nthis.__info = createLibraryCardInfo;`, context);
+
+  assert(context.__name({ name: '' }) === 'Unnamed', 'Library card display helper should default missing names.');
+  assert(context.__initial({ name: 'arona' }) === 'A' && context.__initial({}) === '?', 'Library card display helper should derive initials.');
+  assert(context.__tags(['a', 'b', 'c', 'd']) === 'a · b · c', 'Library card display helper should show the first three tags.');
+  const info = context.__info({ name: 'Alpha', tags: ['one', 'two'] });
+  assert(info.children.length === 2 && info.children[0].textContent === 'Alpha' && info.children[1].textContent === 'one · two', 'Library card display helper should build shared card info nodes.');
+}
+
 async function assertFrontendMyCardGridFiltering() {
   const source = await readFile(new URL('../src/app/60-library-my-card-filter.js', import.meta.url), 'utf8');
   const context = {
@@ -6172,6 +6196,7 @@ async function main() {
   await assertFrontendSettingsHydrationHelpers();
   await assertFrontendPublicCardAssets();
   await assertFrontendLibraryCardFilterHelpers();
+  await assertFrontendLibraryCardDisplayHelpers();
   await assertFrontendMyCardGridFiltering();
   await assertFrontendPublicCardGridFiltering();
   await assertFrontendDomCache();

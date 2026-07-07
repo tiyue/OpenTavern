@@ -2,7 +2,7 @@
 function createMyCharacterPreview(char) {
     const preview = document.createElement('div');
     const pSrc = char.previewImage || char.avatar;
-    const letter = (char.name || '?').charAt(0).toUpperCase();
+    const letter = getLibraryCardInitial(char);
 
     if (pSrc) {
         preview.className = 'aspect-[3/4] w-full overflow-hidden bg-zinc-900 rounded-t-2xl relative';
