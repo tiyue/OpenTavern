@@ -1168,6 +1168,64 @@ async function assertFrontendPromptMessageHelpers() {
   assert(replaced[0].content === 'A for Sensei\n\nwith Arona B  C Arona', 'Prompt outlet resolution or final placeholder replacement changed.');
 }
 
+async function assertFrontendSecondStagePromptBuilder() {
+  const sources = await Promise.all([
+    '../src/app/41-second-stage-message-lookup.js',
+    '../src/app/41-second-stage-prompt-builder.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const previousMain = { id: 'main-1', role: 'assistant', content: 'Previous {{char}}' };
+  const previousSecond = { role: 'assistant', stage: 'second', parentId: 'main-1', content: 'Previous second {{user}}' };
+  const currentUser = { role: 'user', content: 'Current user {{user}}' };
+  const firstStage = { id: 'main-2', role: 'assistant', content: 'Current main {{char}}' };
+  const conv = {
+    character: { name: 'Arona' },
+    messages: [
+      { role: 'user', content: 'Old user' },
+      previousMain,
+      previousSecond,
+      currentUser,
+      firstStage,
+    ],
+  };
+  const context = {
+    state: {
+      settings: {
+        userName: 'Sensei',
+        twoStageSystemPrompt: 'Second system {{char}} {{user}}',
+        twoStageIncludeRecentContext: true,
+      },
+    },
+    DEFAULT_TWO_STAGE_PROMPT: 'Default second {{char}}',
+    getActiveConv() { return conv; },
+    normalizeConversation() {},
+    isGroupChat() { return false; },
+    getCurrentSpeakerCharacter() { return null; },
+    ensureMessageIdentity(msg) { if (!msg.id) msg.id = 'generated-id'; },
+    replacePlaceholders(text, charName, userName) {
+      return String(text || '').replace(/\{\{char\}\}/g, charName).replace(/\{\{user\}\}/g, userName);
+    },
+    Array,
+    String,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__linked = findLinkedSecondStageMessage;\nthis.__previous = findPreviousMainAssistantMessage;\nthis.__user = findLatestUserMessageBefore;\nthis.__recent = buildSecondStageRecentContextMessages;\nthis.__messages = buildMessagesForSecondStage;`, context);
+
+  assert(context.__linked(conv, previousMain) === previousSecond, 'Second-stage lookup should find the linked child message.');
+  assert(context.__previous(conv, firstStage) === previousMain, 'Second-stage lookup should find the previous main assistant message.');
+  assert(context.__user(conv, firstStage) === currentUser, 'Second-stage lookup should find the latest user message before the first-stage output.');
+
+  const recent = context.__recent(conv, firstStage, 'Arona', 'Sensei');
+  assert(recent.map((msg) => msg.content).join('|') === '[上一轮正文]\nPrevious Arona|[上一轮第二阶段输出]\nPrevious second Sensei|[当前用户消息]\nCurrent user Sensei|[本轮刚生成的正文]\nCurrent main Arona', 'Second-stage recent context should preserve previous main, previous second, user, and current main order.');
+
+  const messagesWithContext = context.__messages(firstStage);
+  assert(messagesWithContext.length === 5 && messagesWithContext[0].content === 'Second system Arona Sensei', 'Second-stage builder should include system prompt plus recent context.');
+
+  context.state.settings.twoStageIncludeRecentContext = false;
+  const messagesWithoutContext = context.__messages(firstStage);
+  assert(messagesWithoutContext.length === 2 && messagesWithoutContext[1].content === 'Current main Arona', 'Second-stage builder should fall back to current first-stage output only.');
+}
+
 async function assertFrontendPromptBuilderContexts() {
   const sources = await Promise.all([
     '../src/app/41-world-info-constants.js',
@@ -4150,6 +4208,7 @@ async function main() {
   await assertFrontendApiConnectionHelpers();
   await assertFrontendGenerationHelpers();
   await assertFrontendPromptMessageHelpers();
+  await assertFrontendSecondStagePromptBuilder();
   await assertFrontendPromptBuilderContexts();
   await assertFrontendCharacterImportHelpers();
   await assertFrontendCharacterImportEventHelpers();

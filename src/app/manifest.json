@@ -111,6 +111,7 @@
   "41-prompt-history-messages.js",
   "41-prompt-outlet-resolution.js",
   "41-prompt-message-builder.js",
+  "41-second-stage-message-lookup.js",
   "41-second-stage-prompt-builder.js",
   "42-worldbook.js",
   "42-worldbook-model.js",

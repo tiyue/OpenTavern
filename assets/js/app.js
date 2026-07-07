@@ -6111,7 +6111,6 @@ function findLatestUserMessageBefore(conv, targetMsg) {
     }
     return null;
 }
-
 function buildSecondStageRecentContextMessages(conv, firstStageMessage, charName, userName) {
     var messages = [];
     var previousMain = findPreviousMainAssistantMessage(conv, firstStageMessage);
