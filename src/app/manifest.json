@@ -47,6 +47,7 @@
   "20-storage-idb-operations.js",
   "20-storage-idb.js",
   "20-storage-service-helpers.js",
+  "20-storage-service-quota-backup.js",
   "20-storage-service-maintenance.js",
   "20-storage-service-info-readers.js",
   "20-storage-service-info-fallback.js",

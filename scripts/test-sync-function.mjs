@@ -5456,6 +5456,51 @@ async function assertFrontendStorageServiceSaveHelpers() {
   assert(context.__markLocal(localService, true) === true && localService._primaryBackend === 'localStorage' && localService._lastUsedBackend === 'localStorage', 'Storage save helper should mark localStorage as canonical fallback when needed.');
 }
 
+async function assertFrontendStorageServiceQuotaBackupHelpers() {
+  const sources = await Promise.all([
+    '../src/app/20-storage-service-quota-backup.js',
+    '../src/app/20-storage-service-maintenance.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+  const exports = [];
+  const alerts = [];
+  const context = {
+    state: {
+      settings: { model: 'quota-model', apiKey: 'secret' },
+      conversations: { c1: { messages: [{ content: 'quota chat' }] } },
+      conversationOrder: ['c1'],
+      activeConvId: 'c1',
+      worldBooks: { wb1: { entries: [] } },
+      characters: { arona: { name: 'Arona', first_mes: 'Sensei!' } },
+    },
+    getSafeSettingsForPersist() {
+      return { model: 'quota-model', apiKey: '' };
+    },
+    downloadJsonFile(data, filename) {
+      exports.push({ data, filename });
+    },
+    alert(message) {
+      alerts.push(message);
+    },
+    console: { error() {} },
+    Date,
+    JSON,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__name = buildStorageQuotaBackupName;\nthis.__snapshot = buildStorageQuotaBackupSnapshot;\nthis.__handle = handleStorageQuotaExceeded;`, context);
+
+  assert(context.__name(new Date('2026-01-02T03:04:05.006Z')) === 'opentavern-backup-quota-2026-01-02T03-04-05-006Z.json', 'Storage quota backup helper should build filesystem-safe filenames.');
+
+  const snapshot = context.__snapshot();
+  assert(snapshot.settings.apiKey === '' && snapshot.conversations.c1.messages[0].content === 'quota chat', 'Storage quota backup helper should include safe settings and chats.');
+  assert(snapshot.characters.arona.first_mes === 'Sensei!' && snapshot.worldBooks.wb1, 'Storage quota backup helper should include character cards and world books.');
+
+  const service = { _lastQuotaAlert: 0 };
+  context.__handle(service, new Error('quota'), null);
+  context.__handle(service, new Error('quota'), null);
+  assert(exports.length === 1 && exports[0].filename.startsWith('opentavern-backup-quota-'), 'Storage quota handler should export one backup and throttle repeated alerts.');
+  assert(exports[0].data.characters.arona.name === 'Arona' && alerts.length === 1, 'Storage quota handler should export character cards and alert once.');
+}
+
 async function assertFrontendStorageServicePageLifecycleHelpers() {
   const source = await readFile(new URL('../src/app/20-storage-service-page-lifecycle.js', import.meta.url), 'utf8');
   const events = [];
@@ -5617,6 +5662,7 @@ async function assertFrontendStorageServiceInfoHelpers() {
 async function assertFrontendStorageServicePipeline() {
   const sources = await Promise.all([
     '../src/app/20-storage-service-helpers.js',
+    '../src/app/20-storage-service-quota-backup.js',
     '../src/app/20-storage-service-maintenance.js',
     '../src/app/20-storage-service-info-readers.js',
     '../src/app/20-storage-service-info-fallback.js',
@@ -5971,6 +6017,7 @@ async function assertFrontendIDBStorageHelpers() {
 async function assertFrontendStorageServiceFileProtocolStatus() {
   const sources = await Promise.all([
     '../src/app/20-storage-service-helpers.js',
+    '../src/app/20-storage-service-quota-backup.js',
     '../src/app/20-storage-service-maintenance.js',
     '../src/app/20-storage-service-info-readers.js',
     '../src/app/20-storage-service-info-fallback.js',
@@ -6541,6 +6588,7 @@ async function main() {
   await assertFrontendIDBStorageHelpers();
   await assertFrontendStorageServiceLoadHelpers();
   await assertFrontendStorageServiceSaveHelpers();
+  await assertFrontendStorageServiceQuotaBackupHelpers();
   await assertFrontendStorageServicePageLifecycleHelpers();
   await assertFrontendStorageServiceInfoHelpers();
   await assertFrontendStorageServicePipeline();
