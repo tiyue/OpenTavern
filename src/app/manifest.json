@@ -328,6 +328,7 @@
   "62-sillytavern-preset-delete-ui.js",
   "62-sillytavern-preset-settings-ui.js",
   "62-sillytavern-preset-runtime.js",
+  "63-conversation-export-helpers.js",
   "63-conversation-import-records.js",
   "63-conversation-import-merge.js",
   "63-conversation-import-helpers.js",

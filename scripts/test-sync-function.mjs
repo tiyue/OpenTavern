@@ -5619,6 +5619,7 @@ async function assertFrontendAppInitHelpers() {
 
 async function assertFrontendConversationImportHelpers() {
   const sources = await Promise.all([
+    '../src/app/63-conversation-export-helpers.js',
     '../src/app/63-conversation-import-records.js',
     '../src/app/63-conversation-import-merge.js',
     '../src/app/63-conversation-import-helpers.js',
@@ -5634,8 +5635,10 @@ async function assertFrontendConversationImportHelpers() {
       activeConvId: null,
       characters: {},
       worldBooks: {},
+      _charactersMigrated: true,
     },
     makeId: () => 'new-id',
+    getSafeSettingsForPersist: () => ({ theme: 'dark' }),
     persistState: () => { persistCount += 1; },
     requestRender: (key) => { renderRequested = key; },
     updateStorageInfo() {},
@@ -5651,7 +5654,7 @@ async function assertFrontendConversationImportHelpers() {
     Array,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__records = getConversationImportRecords;\nthis.__import = importConversationRecords;\nthis.__apply = applySuccessfulConversationImport;\nthis.__message = buildConversationImportSuccessMessage;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__exportRecords = getConversationExportRecords;\nthis.__singleExport = buildSingleConversationExportData;\nthis.__singleFilename = buildSingleConversationExportFilename;\nthis.__fullExport = buildAllConversationsExportData;\nthis.__fullFilename = buildAllConversationsExportFilename;\nthis.__records = getConversationImportRecords;\nthis.__import = importConversationRecords;\nthis.__apply = applySuccessfulConversationImport;\nthis.__message = buildConversationImportSuccessMessage;`, context);
 
   const data = {
     conversations: [
@@ -5683,6 +5686,19 @@ async function assertFrontendConversationImportHelpers() {
   assert(persistCount === 2, 'Successful import should persist before and after active conversation update.');
   assert(renderRequested === 'activeConvId', 'Successful import should request active conversation render.');
   assert(context.__message(2, 1).includes('duplicates'), 'Import success message should include duplicate count.');
+
+  const singleExport = context.__singleExport(context.state.conversations.group, '2026-07-08T12:00:00.000Z');
+  assert(singleExport.version === 1 && singleExport.conversations[0].id === 'group', 'Single conversation export should preserve the selected conversation.');
+  assert(context.__singleFilename({ title: 'Chat/Name:*' }) === 'Chat_Name__.json', 'Single conversation export should sanitize filenames.');
+
+  const orderedExports = context.__exportRecords();
+  assert(orderedExports.map((conv) => conv.id).join(',') === 'group,new-id,existing', 'Conversation export records should follow conversation order.');
+
+  const fullExport = context.__fullExport(orderedExports, '2026-07-08T12:00:00.000Z');
+  assert(fullExport.version === 2 && fullExport.type === 'opentavern-full-export', 'Full conversation export should use the complete export format.');
+  assert(fullExport.settings.theme === 'dark' && fullExport.charactersMigrated === true, 'Full conversation export should include safe settings and migration state.');
+  assert(fullExport.characters.arona.name === 'Arona' && fullExport.worldBooks.wb1.id === 'wb1', 'Full conversation export should include character cards and world books.');
+  assert(context.__fullFilename('2026-07-08T12:00:00.000Z') === 'opentavern_all_2026-07-08.json', 'Full conversation export filename should use the export date.');
 }
 
 async function main() {
