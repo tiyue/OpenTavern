@@ -4268,7 +4268,7 @@ async function readLegacyIndexedDB() {
         }
     });
 }
-// ==================== Storage Backend Recovery Scanner ====================
+// ==================== Storage Recovery Candidates ====================
 function createStorageRecoveryCandidate(backend, data) {
     return {
         backend: backend,
@@ -4290,9 +4290,17 @@ function hasRecoverableStorageData(data) {
     ));
 }
 
-async function scanAllStorageBackends() {
-    const candidates = [];
-
+function sortStorageRecoveryCandidates(candidates) {
+    candidates.forEach(function(candidate) {
+        candidate.hasUserData = !!(candidate.convCount || candidate.charCount || candidate.wbCount);
+    });
+    candidates.sort(function(a, b) {
+        return ((b.hasUserData ? 1 : 0) - (a.hasUserData ? 1 : 0)) || ((b.lastSaved || 0) - (a.lastSaved || 0));
+    });
+    return candidates;
+}
+// ==================== Storage Recovery Backend Scanners ====================
+async function scanOPFSStorageRecoveryCandidate(candidates) {
     try {
         if (!storageIsFileProtocol() && typeof OPFSStorage !== 'undefined' && OPFSStorage.loadAll) {
             const data = await OPFSStorage.loadAll();
@@ -4301,7 +4309,9 @@ async function scanAllStorageBackends() {
             }
         }
     } catch (e) {}
+}
 
+async function scanIDBStorageRecoveryCandidate(candidates) {
     try {
         if (typeof IDBStorage !== 'undefined' && IDBStorage.loadAll) {
             const data = await IDBStorage.loadAll({ fresh: true, retries: 2 });
@@ -4310,7 +4320,9 @@ async function scanAllStorageBackends() {
             }
         }
     } catch (e) { console.warn('[Recovery] IndexedDB scan failed:', e && e.message); }
+}
 
+function scanLocalStorageCurrentRecoveryCandidate(candidates) {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
@@ -4320,11 +4332,13 @@ async function scanAllStorageBackends() {
             }
         }
     } catch (e) {}
+}
 
+function scanLocalStorageBackupRecoveryCandidates(candidates) {
     try {
         Object.keys(localStorage)
-            .filter(k => k.startsWith(STORAGE_BACKUP_PREFIX))
-            .forEach(k => {
+            .filter(function(k) { return k.startsWith(STORAGE_BACKUP_PREFIX); })
+            .forEach(function(k) {
                 try {
                     const data = JSON.parse(localStorage.getItem(k));
                     if (hasRecoverableStorageData(data)) {
@@ -4333,19 +4347,27 @@ async function scanAllStorageBackends() {
                 } catch (_) {}
             });
     } catch (e) {}
+}
 
+async function scanLegacyIDBStorageRecoveryCandidate(candidates) {
     try {
         const legacy = await readLegacyIndexedDB();
         if (legacy && (Object.keys(legacy.conversations || {}).length > 0 || legacy.lastSaved)) {
             candidates.push(createStorageRecoveryCandidate('IndexedDB (旧版)', legacy));
         }
     } catch (e) {}
+}
+// ==================== Storage Backend Recovery Scanner ====================
+async function scanAllStorageBackends() {
+    const candidates = [];
 
-    candidates.forEach(c => {
-        c.hasUserData = !!(c.convCount || c.charCount || c.wbCount);
-    });
-    candidates.sort((a, b) => ((b.hasUserData ? 1 : 0) - (a.hasUserData ? 1 : 0)) || ((b.lastSaved || 0) - (a.lastSaved || 0)));
-    return candidates;
+    await scanOPFSStorageRecoveryCandidate(candidates);
+    await scanIDBStorageRecoveryCandidate(candidates);
+    scanLocalStorageCurrentRecoveryCandidate(candidates);
+    scanLocalStorageBackupRecoveryCandidates(candidates);
+    await scanLegacyIDBStorageRecoveryCandidate(candidates);
+
+    return sortStorageRecoveryCandidates(candidates);
 }
 // ==================== Storage Candidate Restore ====================
 function applyStorageRecoveryData(data) {

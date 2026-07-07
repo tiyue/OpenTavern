@@ -4845,6 +4845,47 @@ async function assertFrontendStorageServicePipeline() {
   assert(Object.keys(clearedSnapshot.conversations).length === 0 && clearedSnapshot.charactersMigrated === true, 'StorageService clearAllData should leave an empty recovery snapshot.');
 }
 
+async function assertFrontendStorageRecoveryScanner() {
+  const sources = await Promise.all([
+    '../src/app/23-storage-recovery-candidates.js',
+    '../src/app/23-storage-recovery-backends.js',
+    '../src/app/23-storage-recovery-scan.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+  const recoveryStorageKey = 'opentavern-recovery-test-storage';
+  const recoveryBackupPrefix = 'opentavern-recovery-test-backup-';
+  const localStorageMock = {
+    [recoveryStorageKey]: JSON.stringify({ settings: { model: 'local' }, lastSaved: 600 }),
+    [`${recoveryBackupPrefix}one`]: JSON.stringify({ conversations: { backup: {} }, lastSaved: 300 }),
+    getItem(key) { return Object.prototype.hasOwnProperty.call(this, key) ? this[key] : null; },
+  };
+  const warnings = [];
+  const context = {
+    STORAGE_KEY: recoveryStorageKey,
+    STORAGE_BACKUP_PREFIX: recoveryBackupPrefix,
+    storageIsFileProtocol() { return false; },
+    OPFSStorage: { async loadAll() { return { lastSaved: 100 }; } },
+    IDBStorage: { async loadAll(options) {
+      assert(options.fresh === true && options.retries === 2, 'Recovery scanner should request a fresh IndexedDB snapshot.');
+      return { characters: { card: {} }, lastSaved: 200 };
+    } },
+    async readLegacyIndexedDB() { return { conversations: { legacy: {} }, lastSaved: 150 }; },
+    localStorage: localStorageMock,
+    console: { warn: (...args) => warnings.push(args.join(' ')) },
+    JSON,
+    Object,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__scan = scanAllStorageBackends;\nthis.__recoverable = hasRecoverableStorageData;`, context);
+  const candidates = await context.__scan();
+  assert(candidates.length === 5, 'Storage recovery scanner should collect OPFS, IDB, localStorage, backup, and legacy candidates.');
+  assert(candidates.slice(0, 3).every((item) => item.hasUserData), 'Storage recovery scanner should prioritize candidates with user data.');
+  assert(candidates[0].lastSaved === 300 && candidates[1].lastSaved === 200 && candidates[2].lastSaved === 150, 'Storage recovery scanner should sort user-data candidates by freshness.');
+  assert(candidates[3].backend === 'localStorage' && candidates[3].lastSaved === 600, 'Storage recovery scanner should keep settings-only local snapshots after user-data candidates.');
+  assert(candidates[4].backend === 'OPFS' && candidates[4].hasUserData === false, 'Storage recovery scanner should keep metadata-only OPFS snapshots as lower-priority candidates.');
+  assert(context.__recoverable({ settings: { model: 'only-settings' } }) === true, 'Recovery scanner should treat settings-only snapshots as recoverable.');
+  assert(warnings.length === 0, `Storage recovery scanner should not warn on successful scans: ${warnings.join('\n')}`);
+}
+
 async function assertFrontendIDBStorageHelpers() {
   const sources = await Promise.all([
     '../src/app/20-storage-idb-connection.js',
@@ -5383,6 +5424,7 @@ async function main() {
   await assertFrontendStorageServiceSaveHelpers();
   await assertFrontendStorageServiceInfoHelpers();
   await assertFrontendStorageServicePipeline();
+  await assertFrontendStorageRecoveryScanner();
   await assertFrontendStorageServiceFileProtocolStatus();
   await assertFrontendStorageStatusRenderHelpers();
   await assertFrontendStateInitialization();

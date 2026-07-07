@@ -85,6 +85,8 @@
   "22-cloud-sync-operations.js",
   "22-cloud-sync-scheduler.js",
   "23-storage-legacy-idb.js",
+  "23-storage-recovery-candidates.js",
+  "23-storage-recovery-backends.js",
   "23-storage-recovery-scan.js",
   "23-storage-recovery-restore.js",
   "23-storage-recovery.js",
