@@ -30,14 +30,20 @@ function applySavedStateSnapshot(saved) {
             state.settings[key] = saved.settings[key];
         });
     }
-    if (saved.conversations) state.conversations = saved.conversations;
-    if (saved.conversationOrder) state.conversationOrder = saved.conversationOrder;
-    if (saved.activeConvId && state.conversations[saved.activeConvId]) {
+    if (isSavedStateObjectMap(saved.conversations)) {
+        state.conversations = saved.conversations;
+    }
+    if (saved.conversationOrder || saved.conversations) {
+        state.conversationOrder = normalizeSavedStateConversationOrder(saved.conversationOrder, state.conversations);
+    }
+    if (typeof saved.activeConvId === 'string' && state.conversations[saved.activeConvId]) {
         state.activeConvId = saved.activeConvId;
     }
-    if (saved.worldBooks) state.worldBooks = saved.worldBooks;
-    if (saved.characters) state.characters = saved.characters;
-    if (saved.charactersMigrated) state._charactersMigrated = true;
+    if (isSavedStateObjectMap(saved.worldBooks)) state.worldBooks = saved.worldBooks;
+    if (isSavedStateObjectMap(saved.characters)) state.characters = saved.characters;
+    if (typeof saved.charactersMigrated !== 'undefined') {
+        state._charactersMigrated = normalizeSavedStateBoolean(saved.charactersMigrated);
+    }
 }
 
 function logInitialStateLoadResult(saved, migrationResult) {

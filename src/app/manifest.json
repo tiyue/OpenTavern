@@ -93,6 +93,7 @@
   "33-render-subscriptions.js",
   "33-state-lifecycle.js",
   "34-state-init-helpers.js",
+  "34-state-init-normalize.js",
   "34-state-init-load.js",
   "34-state-init-settings.js",
   "34-state-init-conversations.js",

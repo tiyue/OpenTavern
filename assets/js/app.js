@@ -5298,6 +5298,46 @@ appStore.subscribe(function(changedKeys) {
 // Split into render shortcuts, final message append UI, and render subscriptions.
 // ==================== State Initialization Helpers ====================
 // Split into load, settings, and conversation startup helper chunks.
+// ==================== State Initialization Normalization Helpers ====================
+function isSavedStateObjectMap(value) {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeSavedStateConversationOrder(order, conversations) {
+    var conversationIds = Object.keys(conversations || {});
+    var knownIds = Object.create(null);
+    var seenIds = Object.create(null);
+    var result = [];
+
+    conversationIds.forEach(function(id) {
+        knownIds[id] = true;
+    });
+
+    if (Array.isArray(order)) {
+        order.forEach(function(id) {
+            if (typeof id !== 'string' || !knownIds[id] || seenIds[id]) return;
+            seenIds[id] = true;
+            result.push(id);
+        });
+    }
+
+    conversationIds.forEach(function(id) {
+        if (seenIds[id]) return;
+        seenIds[id] = true;
+        result.push(id);
+    });
+
+    return result;
+}
+
+function normalizeSavedStateBoolean(value) {
+    if (value === true || value === 1) return true;
+    if (typeof value === 'string') {
+        var normalized = value.trim().toLowerCase();
+        return normalized === 'true' || normalized === 'yes' || normalized === '1';
+    }
+    return false;
+}
 // ==================== State Initialization Load Helpers ====================
 async function loadInitialStateSnapshot() {
     var saved = null;
@@ -5330,14 +5370,20 @@ function applySavedStateSnapshot(saved) {
             state.settings[key] = saved.settings[key];
         });
     }
-    if (saved.conversations) state.conversations = saved.conversations;
-    if (saved.conversationOrder) state.conversationOrder = saved.conversationOrder;
-    if (saved.activeConvId && state.conversations[saved.activeConvId]) {
+    if (isSavedStateObjectMap(saved.conversations)) {
+        state.conversations = saved.conversations;
+    }
+    if (saved.conversationOrder || saved.conversations) {
+        state.conversationOrder = normalizeSavedStateConversationOrder(saved.conversationOrder, state.conversations);
+    }
+    if (typeof saved.activeConvId === 'string' && state.conversations[saved.activeConvId]) {
         state.activeConvId = saved.activeConvId;
     }
-    if (saved.worldBooks) state.worldBooks = saved.worldBooks;
-    if (saved.characters) state.characters = saved.characters;
-    if (saved.charactersMigrated) state._charactersMigrated = true;
+    if (isSavedStateObjectMap(saved.worldBooks)) state.worldBooks = saved.worldBooks;
+    if (isSavedStateObjectMap(saved.characters)) state.characters = saved.characters;
+    if (typeof saved.charactersMigrated !== 'undefined') {
+        state._charactersMigrated = normalizeSavedStateBoolean(saved.charactersMigrated);
+    }
 }
 
 function logInitialStateLoadResult(saved, migrationResult) {

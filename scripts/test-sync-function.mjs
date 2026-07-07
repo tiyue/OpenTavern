@@ -4435,6 +4435,7 @@ async function assertFrontendStorageStatusRenderHelpers() {
 async function assertFrontendStateInitialization() {
   const sources = await Promise.all([
     '../src/app/34-state-init-helpers.js',
+    '../src/app/34-state-init-normalize.js',
     '../src/app/34-state-init-load.js',
     '../src/app/34-state-init-settings.js',
     '../src/app/34-state-init-conversations.js',
@@ -4442,6 +4443,7 @@ async function assertFrontendStateInitialization() {
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
   let persisted = false;
+  let migratedCount = 0;
   const context = {
     state: {
       settings: {},
@@ -4459,11 +4461,11 @@ async function assertFrontendStateInitialization() {
             c1: { id: 'c1', messages: [{ role: 'user', content: 'hello' }] },
             c2: { id: 'c2', messages: [{ role: 'assistant', content: 'world' }] },
           },
-          conversationOrder: ['c2', 'c1'],
+          conversationOrder: ['missing', 'c2', 'c2'],
           activeConvId: 'missing',
           characters: { arona: { name: 'Arona' } },
           worldBooks: { wb1: { id: 'wb1', entries: [] } },
-          charactersMigrated: false,
+          charactersMigrated: 'false',
           lastSaved: 10,
         };
       },
@@ -4472,7 +4474,7 @@ async function assertFrontendStateInitialization() {
     },
     loadAll() { return null; },
     defaultConversation() { return { id: 'default', messages: [] }; },
-    migrateCharactersToRegistry() {},
+    migrateCharactersToRegistry() { migratedCount += 1; },
     persistState() { persisted = true; },
     normalizeUiTheme(value) { return value; },
     cacheUiTheme() {},
@@ -4493,10 +4495,12 @@ async function assertFrontendStateInitialization() {
   assert(context.state.settings.summarizeApiKey === '', 'initState should clear summarize API key when saveApiKey is false/defaulted.');
   assert(context.state.settings.twoStageSystemPrompt === 'two stage default', 'initState did not apply two-stage prompt default.');
   assert(context.state.conversations.c1.messages[0].content === 'hello', 'initState did not restore conversations.');
+  assert(context.state.conversationOrder.join(',') === 'c2,c1', 'initState should normalize restored conversation order.');
   assert(context.state.activeConvId === 'c2', 'initState did not recover active conversation from conversationOrder.');
   assert(context.state.characters.arona.name === 'Arona', 'initState did not restore character cards.');
   assert(context.state.worldBooks.wb1.id === 'wb1', 'initState did not restore world books.');
   assert(context.state._charactersMigrated === true, 'initState did not set character migration flag.');
+  assert(migratedCount === 1, 'initState should treat string "false" migration metadata as not migrated.');
   assert(context.state._storageMigration.backend === 'idb', 'initState did not record storage backend.');
   assert(persisted === true, 'initState should persist first character migration when user data exists.');
 }
