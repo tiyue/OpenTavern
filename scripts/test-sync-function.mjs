@@ -127,6 +127,14 @@ async function assertFrontendCloudSnapshot() {
   assert(snapshot.worldBooks.wb1.entries[0].content === 'Kivotos', 'Frontend cloud snapshot did not include world books.');
   assert(snapshot.charactersMigrated === true, 'Frontend cloud snapshot did not include character migration state.');
   assert(Number.isFinite(snapshot.lastSaved), 'Frontend cloud snapshot did not include a timestamp.');
+  context.state.conversations.c1.messages[0].content = 'mutated after snapshot';
+  context.state.conversationOrder.push('later');
+  context.state.characters.arona.first_mes = 'Changed!';
+  context.state.worldBooks.wb1.entries[0].content = 'Changed world';
+  assert(snapshot.conversations.c1.messages[0].content === 'frontend hello', 'Frontend cloud snapshot should not retain live conversation references.');
+  assert(snapshot.conversationOrder.length === 1 && snapshot.conversationOrder[0] === 'c1', 'Frontend cloud snapshot should not retain the live conversation order array.');
+  assert(snapshot.characters.arona.first_mes === 'Sensei!', 'Frontend cloud snapshot should not retain live character card references.');
+  assert(snapshot.worldBooks.wb1.entries[0].content === 'Kivotos', 'Frontend cloud snapshot should not retain live world book references.');
   assert(context.__freshness({ lastSaved: 1000 }) === 'newer', 'Cloud freshness should treat a timestamped remote snapshot as newer when no local snapshot is known.');
   context.StorageService._lastSaveSnapshot = { lastSaved: 2500 };
   assert(context.__freshness({ lastSaved: 1000 }) === 'older', 'Cloud freshness should compare against the loaded local snapshot timestamp.');

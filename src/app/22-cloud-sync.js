@@ -32,14 +32,19 @@ function ensureCloudSyncSettings() {
 function buildAppDataSnapshot() {
     return {
         settings: getSafeSettingsForCloudSync(),
-        conversations: state.conversations || {},
-        conversationOrder: state.conversationOrder || [],
+        conversations: cloneCloudSyncSnapshotValue(state.conversations, {}),
+        conversationOrder: cloneCloudSyncSnapshotValue(state.conversationOrder, []),
         activeConvId: state.activeConvId || null,
-        worldBooks: state.worldBooks || {},
-        characters: state.characters || {},
+        worldBooks: cloneCloudSyncSnapshotValue(state.worldBooks, {}),
+        characters: cloneCloudSyncSnapshotValue(state.characters, {}),
         charactersMigrated: !!state._charactersMigrated,
         lastSaved: Date.now()
     };
+}
+
+function cloneCloudSyncSnapshotValue(value, fallback) {
+    if (value === undefined || value === null) return fallback;
+    return JSON.parse(JSON.stringify(value));
 }
 
 function getCloudSyncEndpoint() {
