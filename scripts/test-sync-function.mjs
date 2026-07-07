@@ -428,6 +428,19 @@ async function assertFrontendCloudSnapshotApply() {
   assert(context.state._charactersMigrated === true, 'Cloud apply should normalize character migration metadata.');
   assert(Number.isFinite(dirtyApplied.lastSaved), 'Cloud apply should normalize invalid timestamps.');
   assert(persistCalls[1].options.lastSaved === dirtyApplied.lastSaved, 'Cloud apply should persist using the normalized remote timestamp.');
+
+  const falseMigratedApplied = context.__apply({
+    settings: { model: 'legacy-false-model' },
+    conversations: { c3: { id: 'c3', messages: [] } },
+    conversationOrder: ['c3'],
+    activeConvId: 'c3',
+    characters: {},
+    worldBooks: {},
+    charactersMigrated: 'false',
+    lastSaved: 777,
+  });
+
+  assert(falseMigratedApplied.charactersMigrated === false && context.state._charactersMigrated === false, 'Cloud apply should not treat string "false" as migrated.');
 }
 
 async function assertFrontendCloudSyncCrypto() {
@@ -4838,6 +4851,25 @@ async function main() {
   assert(partialJson.data.activeConvId === 'c2', 'Invalid active conversation should fall back to the first valid ordered conversation.');
   assert(partialJson.data.charactersMigrated === true, 'Character migration metadata should normalize to a boolean.');
   assert(Number.isFinite(partialJson.data.lastSaved), 'Invalid lastSaved should normalize to a timestamp.');
+
+  const falseMigratedToken = 'test-token-false-migrated';
+  const falseMigratedPost = await onRequest({
+    request: request('POST', falseMigratedToken, {
+      data: {
+        settings: { model: 'false-migrated-model' },
+        conversations: { c1: { id: 'c1', messages: [] } },
+        conversationOrder: ['c1'],
+        activeConvId: 'c1',
+        charactersMigrated: 'false',
+      },
+    }),
+    env,
+  });
+  await assertOk(falseMigratedPost, 'false migrated POST');
+  const falseMigratedGet = await onRequest({ request: request('GET', falseMigratedToken), env });
+  await assertOk(falseMigratedGet, 'false migrated GET');
+  const falseMigratedJson = await readJson(falseMigratedGet);
+  assert(falseMigratedJson.data.charactersMigrated === false, 'String false migration metadata should normalize to false.');
 
   const badEncrypted = await onRequest({
     request: request('POST', tokenB, { encrypted: true, data: { encrypted: true, payload: 'missing-metadata' } }),

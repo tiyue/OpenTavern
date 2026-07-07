@@ -12,6 +12,15 @@ function normalizeCloudSyncTimestamp(value) {
     return Number.isFinite(timestamp) ? timestamp : Date.now();
 }
 
+function normalizeCloudSyncBoolean(value) {
+    if (value === true || value === 1) return true;
+    if (typeof value === 'string') {
+        var normalized = value.trim().toLowerCase();
+        return normalized === 'true' || normalized === 'yes' || normalized === '1';
+    }
+    return false;
+}
+
 function normalizeCloudSyncConversationOrder(data) {
     var conversationIds = Object.keys(data.conversations || {});
     var knownIds = Object.create(null);
@@ -56,7 +65,7 @@ function normalizeCloudSyncSnapshot(raw) {
     data.worldBooks = normalizeCloudSyncObjectMap(data.worldBooks);
     normalizeCloudSyncConversationOrder(data);
     normalizeCloudSyncActiveConversation(data);
-    data.charactersMigrated = !!data.charactersMigrated;
+    data.charactersMigrated = normalizeCloudSyncBoolean(data.charactersMigrated);
     data.lastSaved = normalizeCloudSyncTimestamp(data.lastSaved);
     return data;
 }

@@ -50,6 +50,15 @@ function normalizeTimestamp(value, fallback = Date.now()) {
   return Number.isFinite(timestamp) ? timestamp : fallback;
 }
 
+function normalizeBoolean(value) {
+  if (value === true || value === 1) return true;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized === 'true' || normalized === 'yes' || normalized === '1';
+  }
+  return false;
+}
+
 function normalizeConversationOrder(snapshot) {
   const conversationIds = Object.keys(snapshot.conversations);
   const knownConversationIds = new Set(conversationIds);
@@ -97,7 +106,7 @@ function extractSnapshot(body) {
   snapshot.worldBooks = normalizeObjectMap(snapshot.worldBooks);
   normalizeConversationOrder(snapshot);
   normalizeActiveConversation(snapshot);
-  snapshot.charactersMigrated = Boolean(snapshot.charactersMigrated);
+  snapshot.charactersMigrated = normalizeBoolean(snapshot.charactersMigrated);
   snapshot.lastSaved = normalizeTimestamp(snapshot.lastSaved);
   return snapshot;
 }
