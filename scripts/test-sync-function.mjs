@@ -3330,6 +3330,7 @@ async function assertFrontendMessageEditHelpers() {
 async function assertFrontendMessageActionHelpers() {
   const sources = await Promise.all([
     '../src/app/67-message-action-helpers.js',
+    '../src/app/67-message-regeneration-runtime.js',
     '../src/app/67-message-actions-ui.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
@@ -3371,7 +3372,7 @@ async function assertFrontendMessageActionHelpers() {
     Array,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__delete = deleteMessage;\nthis.__regen = regenerateMessage;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__delete = deleteMessage;\nthis.__regen = regenerateMessage;\nthis.__regenError = handlePrimaryRegenerationError;`, context);
 
   function reset(conv) {
     activeConv = conv;
@@ -3425,6 +3426,11 @@ async function assertFrontendMessageActionHelpers() {
   context.__regen(1);
   assert(activeConv.messages.length === 1 && activeConv._nextGroupSpeaker.name === 'Plana', 'Primary regenerate should remove the assistant turn and prepare the group speaker from the last user message.');
   assert(events.includes('stream') && events.includes('bubble:regen') && events.includes('input'), 'Primary regenerate should restart streaming and update input state.');
+
+  events.length = 0;
+  context.state.isGenerating = true;
+  context.__regenError(new Error('regeneration failed'));
+  assert(context.state.isGenerating === false && events.includes('notify:isGenerating') && events.includes('render-messages') && events.includes('alert:Error: regeneration failed'), 'Primary regenerate error handler should clear state, render, notify, and alert.');
 }
 
 async function assertFrontendChatTopBarUI() {

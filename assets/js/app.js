@@ -13233,11 +13233,20 @@ function removePrimaryAssistantMessageForRegeneration(conv, msg) {
     if (actualIdx >= 0) conv.messages.splice(actualIdx, 1);
     persistAndRenderMessageMutation(conv, true);
 }
-
+// ==================== Message Regeneration Runtime ====================
 function prepareGroupSpeakerForRegeneration(conv, lastMsg) {
     if (!isGroupChat(conv)) return;
     var mentioned = parseGroupMention(lastMsg.content || '', conv);
     conv._nextGroupSpeaker = mentioned || getNextGroupSpeaker(conv);
+}
+
+function handlePrimaryRegenerationError(err) {
+    var streamingEl = document.getElementById('streamingMsg');
+    if (streamingEl) streamingEl.remove();
+    state.isGenerating = false;
+    appStore.notify('isGenerating');
+    renderMessagesOnly();
+    alert('Error: ' + (err.message || err));
 }
 
 function startPrimaryMessageRegeneration(conv) {
@@ -13247,25 +13256,13 @@ function startPrimaryMessageRegeneration(conv) {
                 updateStreamingBubble(fullContent, conv, getCurrentGeneratingSpeakerName(conv), fullCot);
             },
             handlePrimaryAssistantComplete,
-            function onError(err) {
-                var streamingEl = document.getElementById('streamingMsg');
-                if (streamingEl) streamingEl.remove();
-                state.isGenerating = false;
-                appStore.notify('isGenerating');
-                renderMessagesOnly();
-                alert('Error: ' + (err.message || err));
-            }
+            handlePrimaryRegenerationError
         );
         updateInputState();
     };
 
     if (isWebLLMBackend()) {
-        ensureWebLLMEngine(getWebLLMModelId()).then(start).catch(function(e) {
-            state.isGenerating = false;
-            appStore.notify('isGenerating');
-            renderMessagesOnly();
-            alert('Error: ' + (e.message || e));
-        });
+        ensureWebLLMEngine(getWebLLMModelId()).then(start).catch(handlePrimaryRegenerationError);
     } else {
         start();
     }

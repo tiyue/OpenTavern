@@ -288,6 +288,7 @@
   "66-prompt-summary-events.js",
   "66-dialog-workflow-events.js",
   "67-message-action-helpers.js",
+  "67-message-regeneration-runtime.js",
   "67-message-actions-ui.js",
   "67-message-edit-helpers.js",
   "67-message-edit-ui.js",
