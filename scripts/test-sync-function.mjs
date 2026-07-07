@@ -1,5 +1,6 @@
 import { onRequest } from '../functions/api/sync.js';
 import { readFile } from 'node:fs/promises';
+import { webcrypto } from 'node:crypto';
 import vm from 'node:vm';
 
 function assert(condition, message) {
@@ -52,6 +53,16 @@ async function readJson(response) {
 
 async function assertOk(response, label) {
   if (!response.ok) throw new Error(`${label} failed: ${await response.text()}`);
+}
+
+async function assertRejects(promise, message) {
+  let rejected = false;
+  try {
+    await promise;
+  } catch (_) {
+    rejected = true;
+  }
+  assert(rejected, message);
 }
 
 async function assertFrontendCloudSnapshot() {
@@ -403,6 +414,84 @@ async function assertFrontendCloudSnapshotApply() {
   assert(context.state.worldBooks && !Array.isArray(context.state.worldBooks), 'Cloud apply should normalize invalid world books to an object map.');
   assert(context.state._charactersMigrated === true, 'Cloud apply should normalize character migration metadata.');
   assert(Number.isFinite(dirtyApplied.lastSaved), 'Cloud apply should normalize invalid timestamps.');
+}
+
+async function assertFrontendCloudSyncCrypto() {
+  const sources = await Promise.all([
+    '../src/app/22-cloud-sync.js',
+    '../src/app/22-cloud-sync-normalize.js',
+    '../src/app/22-cloud-sync-crypto.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const snapshot = {
+    settings: { model: 'secret-model-unique-9241' },
+    conversations: {
+      c1: {
+        id: 'c1',
+        messages: [{ role: 'user', content: 'secret-chat-message-9241' }],
+      },
+    },
+    conversationOrder: ['c1'],
+    activeConvId: 'c1',
+    characters: { arona: { id: 'arona', name: 'secret-card-name-9241' } },
+    worldBooks: { wb1: { id: 'wb1', entries: [{ id: 'e1', content: 'secret-world-entry-9241' }] } },
+    charactersMigrated: true,
+    lastSaved: 987654,
+  };
+  const context = {
+    state: {
+      settings: {
+        cloudSyncEncrypted: true,
+        cloudSyncPassphrase: 'correct passphrase',
+      },
+    },
+    defaultSettings: () => ({
+      cloudSyncEnabled: false,
+      cloudSyncAutoUpload: false,
+      cloudSyncEndpoint: '/api/sync',
+      cloudSyncToken: '',
+      cloudSyncEncrypted: false,
+      cloudSyncPassphrase: '',
+      cloudSyncLastAt: 0,
+      cloudSyncLastStatus: '',
+    }),
+    StorageService: { _lastSaveSnapshot: null },
+    window: { crypto: webcrypto },
+    crypto: webcrypto,
+    TextEncoder,
+    TextDecoder,
+    Uint8Array,
+    Date,
+    JSON,
+    Number,
+    Object,
+    Array,
+    String,
+    btoa(text) { return Buffer.from(text, 'binary').toString('base64'); },
+    atob(text) { return Buffer.from(text, 'base64').toString('binary'); },
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__encrypt = encryptCloudSyncSnapshot;\nthis.__decrypt = decryptCloudSyncSnapshot;`, context);
+
+  const encrypted = await context.__encrypt(snapshot);
+  const encryptedText = JSON.stringify(encrypted);
+  assert(encrypted.encrypted === true && encrypted.payload && encrypted.iv && encrypted.salt, 'Cloud sync encryption should return an encrypted envelope.');
+  assert(encrypted.lastSaved === snapshot.lastSaved, 'Encrypted cloud snapshot should preserve freshness metadata.');
+  assert(!encryptedText.includes('secret-model-unique-9241'), 'Encrypted cloud snapshot should not expose settings content.');
+  assert(!encryptedText.includes('secret-chat-message-9241'), 'Encrypted cloud snapshot should not expose chat content.');
+  assert(!encryptedText.includes('secret-card-name-9241'), 'Encrypted cloud snapshot should not expose character card content.');
+  assert(!encryptedText.includes('secret-world-entry-9241'), 'Encrypted cloud snapshot should not expose world book content.');
+
+  const decrypted = await context.__decrypt(encrypted);
+  assert(decrypted.settings.model === snapshot.settings.model, 'Encrypted cloud snapshot did not restore settings.');
+  assert(decrypted.conversations.c1.messages[0].content === 'secret-chat-message-9241', 'Encrypted cloud snapshot did not restore chat history.');
+  assert(decrypted.characters.arona.name === 'secret-card-name-9241', 'Encrypted cloud snapshot did not restore character cards.');
+  assert(decrypted.worldBooks.wb1.entries[0].content === 'secret-world-entry-9241', 'Encrypted cloud snapshot did not restore world books.');
+  assert(decrypted.activeConvId === 'c1' && decrypted.conversationOrder[0] === 'c1', 'Encrypted cloud snapshot did not restore conversation metadata.');
+
+  context.state.settings.cloudSyncPassphrase = 'short';
+  await assertRejects(context.__encrypt(snapshot), 'Short encryption passphrases should be rejected.');
+  await assertRejects(context.__decrypt(encrypted), 'Short decryption passphrases should be rejected before WebCrypto runs.');
 }
 
 async function assertFrontendCloudSyncOperations() {
@@ -4449,6 +4538,7 @@ async function main() {
   await assertFrontendStatePersistenceHelpers();
   await assertFrontendWebGLBackgroundHelpers();
   await assertFrontendCloudSnapshotApply();
+  await assertFrontendCloudSyncCrypto();
   await assertFrontendCloudSyncOperations();
   await assertFrontendSummaryService();
   await assertFrontendAutoSummarizationHelpers();

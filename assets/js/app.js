@@ -3843,7 +3843,7 @@ async function decryptCloudSyncSnapshot(envelope) {
     if (!envelope || envelope.encrypted !== true) return envelope;
     var s = ensureCloudSyncSettings();
     var passphrase = String(s.cloudSyncPassphrase || '');
-    if (!passphrase) throw new Error('Encryption passphrase is required to restore this cloud snapshot.');
+    if (passphrase.length < 8) throw new Error('Encryption passphrase must be at least 8 characters to restore this cloud snapshot.');
     if (envelope.algorithm !== 'AES-GCM') throw new Error('Unsupported cloud snapshot encryption algorithm.');
 
     var salt = base64ToBytes(envelope.salt);
