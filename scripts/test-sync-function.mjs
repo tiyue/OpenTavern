@@ -460,6 +460,7 @@ async function assertFrontendCloudSyncCrypto() {
   const sources = await Promise.all([
     '../src/app/22-cloud-sync.js',
     '../src/app/22-cloud-sync-normalize.js',
+    '../src/app/22-cloud-sync-crypto-envelope.js',
     '../src/app/22-cloud-sync-crypto.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
@@ -528,6 +529,15 @@ async function assertFrontendCloudSyncCrypto() {
   assert(decrypted.characters.arona.name === 'secret-card-name-9241', 'Encrypted cloud snapshot did not restore character cards.');
   assert(decrypted.worldBooks.wb1.entries[0].content === 'secret-world-entry-9241', 'Encrypted cloud snapshot did not restore world books.');
   assert(decrypted.activeConvId === 'c1' && decrypted.conversationOrder[0] === 'c1', 'Encrypted cloud snapshot did not restore conversation metadata.');
+
+  await assertRejects(context.__decrypt({
+    encrypted: true,
+    algorithm: 'AES-GCM',
+    iterations: 210000,
+    salt: encrypted.salt,
+    iv: encrypted.iv,
+    payload: [],
+  }), 'Malformed encrypted envelopes should be rejected before WebCrypto runs.');
 
   context.state.settings.cloudSyncPassphrase = 'short';
   await assertRejects(context.__encrypt(snapshot), 'Short encryption passphrases should be rejected.');
@@ -4899,6 +4909,15 @@ async function main() {
     env,
   });
   assert(badEncrypted.status === 400, 'Invalid encrypted payload should return 400.');
+
+  const badEncryptedEnvelope = await onRequest({
+    request: request('POST', tokenB, {
+      encrypted: true,
+      data: { encrypted: true, payload: [], iv: 'aXY=', salt: 'c2FsdA==', iterations: 210000 },
+    }),
+    env,
+  });
+  assert(badEncryptedEnvelope.status === 400, 'Encrypted payload metadata must be non-empty strings.');
 
   const encryptedEnvelope = {
     encrypted: true,

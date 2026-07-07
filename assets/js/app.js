@@ -3785,6 +3785,32 @@ function normalizeCloudSyncSnapshot(raw) {
     data.lastSaved = normalizeCloudSyncTimestamp(data.lastSaved);
     return data;
 }
+// ==================== Cloud Sync Encryption Envelope Helpers ====================
+function isCloudSyncNonEmptyString(value) {
+    return typeof value === 'string' && value.trim() !== '';
+}
+
+function getCloudSyncEnvelopeIterations(envelope) {
+    var iterations = Number(envelope && envelope.iterations || 210000);
+    if (!Number.isFinite(iterations) || iterations < 1) {
+        throw new Error('Invalid encrypted cloud snapshot metadata.');
+    }
+    return Math.floor(iterations);
+}
+
+function validateCloudSyncEncryptedEnvelope(envelope) {
+    if (envelope.algorithm !== 'AES-GCM') {
+        throw new Error('Unsupported cloud snapshot encryption algorithm.');
+    }
+    if (
+        !isCloudSyncNonEmptyString(envelope.payload) ||
+        !isCloudSyncNonEmptyString(envelope.iv) ||
+        !isCloudSyncNonEmptyString(envelope.salt)
+    ) {
+        throw new Error('Invalid encrypted cloud snapshot metadata.');
+    }
+    getCloudSyncEnvelopeIterations(envelope);
+}
 // ==================== Cloud Sync Encryption ====================
 function bytesToBase64(bytes) {
     var binary = '';
@@ -3853,12 +3879,12 @@ async function decryptCloudSyncSnapshot(envelope) {
     var s = ensureCloudSyncSettings();
     var passphrase = String(s.cloudSyncPassphrase || '');
     if (passphrase.length < 8) throw new Error('Encryption passphrase must be at least 8 characters to restore this cloud snapshot.');
-    if (envelope.algorithm !== 'AES-GCM') throw new Error('Unsupported cloud snapshot encryption algorithm.');
+    validateCloudSyncEncryptedEnvelope(envelope);
 
     var salt = base64ToBytes(envelope.salt);
     var iv = base64ToBytes(envelope.iv);
     var cipher = base64ToBytes(envelope.payload);
-    var key = await deriveCloudSyncKey(passphrase, salt, Number(envelope.iterations || 210000));
+    var key = await deriveCloudSyncKey(passphrase, salt, getCloudSyncEnvelopeIterations(envelope));
     var plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, cipher);
     var text = new TextDecoder().decode(new Uint8Array(plain));
     return normalizeCloudSyncSnapshot(JSON.parse(text));

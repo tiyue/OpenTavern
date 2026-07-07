@@ -59,6 +59,28 @@ function normalizeBoolean(value) {
   return false;
 }
 
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
+function normalizeEncryptedIterations(value) {
+  const iterations = Number(value || 210000);
+  if (!Number.isFinite(iterations) || iterations < 1) {
+    throw new Error('Invalid encrypted sync payload.');
+  }
+  return Math.floor(iterations);
+}
+
+function validateEncryptedSnapshot(snapshot) {
+  if (!isNonEmptyString(snapshot.payload) || !isNonEmptyString(snapshot.iv) || !isNonEmptyString(snapshot.salt)) {
+    throw new Error('Invalid encrypted sync payload.');
+  }
+  if (snapshot.algorithm && snapshot.algorithm !== 'AES-GCM') {
+    throw new Error('Unsupported encrypted sync payload algorithm.');
+  }
+  snapshot.iterations = normalizeEncryptedIterations(snapshot.iterations);
+}
+
 function normalizeConversationOrder(snapshot) {
   const conversationIds = Object.keys(snapshot.conversations);
   const knownConversationIds = new Set(conversationIds);
@@ -94,9 +116,7 @@ function extractSnapshot(body) {
   if (!isPlainObject(snapshot)) throw new Error('Invalid sync payload.');
   if (body && body.encrypted === true) snapshot.encrypted = true;
   if (snapshot.encrypted === true) {
-    if (!snapshot.payload || !snapshot.iv || !snapshot.salt) {
-      throw new Error('Invalid encrypted sync payload.');
-    }
+    validateEncryptedSnapshot(snapshot);
     snapshot.lastSaved = normalizeTimestamp(snapshot.lastSaved || body.updatedAt);
     return snapshot;
   }
