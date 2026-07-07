@@ -7,7 +7,7 @@ function ensureHistoryLoadUI(container, conv, allMessages, currentStartIdx) {
     if (!container || !conv || !allMessages) return;
 
     var hasHidden = currentStartIdx > 0;
-    var existingBtn = document.getElementById('loadEarlierBtn');
+    var existingBtn = getLoadEarlierMessagesButtonFromDocument();
 
     if (!hasHidden) {
         if (existingBtn) existingBtn.remove();
@@ -17,13 +17,10 @@ function ensureHistoryLoadUI(container, conv, allMessages, currentStartIdx) {
     // 如果按钮已存在，就不重复添加
     if (existingBtn) return;
 
-    var btnContainer = document.createElement('div');
-    btnContainer.className = 'flex justify-center py-2';
-    btnContainer.innerHTML = `
-        <button id="loadEarlierBtn" class="px-4 py-1.5 text-xs rounded-2xl glass hover:bg-white/10 text-zinc-400 hover:text-zinc-300 transition-all">
-            ↑ 加载更早的消息（还有 ${currentStartIdx} 条）
-        </button>
-    `;
+    var wrapper = document.createElement('div');
+    wrapper.innerHTML = buildIncrementalLoadEarlierMessagesButtonHtml(currentStartIdx);
+    var btnContainer = wrapper.firstElementChild;
+    if (!btnContainer) return;
     // 插入到最顶部
     if (container.firstChild) {
         container.insertBefore(btnContainer, container.firstChild);
@@ -31,12 +28,7 @@ function ensureHistoryLoadUI(container, conv, allMessages, currentStartIdx) {
         container.appendChild(btnContainer);
     }
 
-    var loadBtn = btnContainer.querySelector('#loadEarlierBtn');
-    if (loadBtn) {
-        loadBtn.addEventListener('click', function() {
-            loadMoreHistory(conv, container);
-        });
-    }
+    bindLoadEarlierMessagesButton(btnContainer.querySelector('#' + LOAD_EARLIER_MESSAGES_BUTTON_ID), conv, container);
 
     // 附加一次性的向上滚动自动加载（仅当还有隐藏消息时）
     if (!conv._historyScrollHandler) {

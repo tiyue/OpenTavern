@@ -4442,6 +4442,7 @@ async function assertFrontendChatTopBarUI() {
 async function assertFrontendChatMessageRendererHelpers() {
   const sources = await Promise.all([
     '../src/app/61-chat-message-window-state.js',
+    '../src/app/61-chat-history-load-button.js',
     '../src/app/61-chat-message-window-render.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
@@ -4469,12 +4470,15 @@ async function assertFrontendChatMessageRendererHelpers() {
     getCurrentGeneratingSpeakerName: () => 'Arona',
     escapeHtml: (value) => String(value),
     ensureHistoryLoadUI: () => {},
+    loadMoreHistory: (convArg, containerArg) => {
+      context.loaded = { conv: convArg, container: containerArg };
+    },
     Set,
     Array,
     Math,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__messages = getRenderableChatMessages;\nthis.__window = getChatMessageWindowState;\nthis.__can = canIncrementalRenderChatMessages;\nthis.__empty = renderChatMessageEmptyState;\nthis.__load = buildLoadEarlierMessagesButtonHtml;\nthis.__stream = buildStreamingMessageHtml;\nthis.__append = appendIncrementalChatMessages;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__messages = getRenderableChatMessages;\nthis.__window = getChatMessageWindowState;\nthis.__can = canIncrementalRenderChatMessages;\nthis.__empty = renderChatMessageEmptyState;\nthis.__load = buildLoadEarlierMessagesButtonHtml;\nthis.__incrementalLoad = buildIncrementalLoadEarlierMessagesButtonHtml;\nthis.__bindLoad = bindLoadEarlierMessagesButton;\nthis.__stream = buildStreamingMessageHtml;\nthis.__append = appendIncrementalChatMessages;`, context);
 
   const conv = {
     _lastRenderedVisibleCount: 1,
@@ -4500,6 +4504,11 @@ async function assertFrontendChatMessageRendererHelpers() {
   context.__empty(container);
   assert(container.innerHTML === '' && dom.emptyState.style.display === '' && dom.tokenInfo.classList.values.has('hidden'), 'Chat renderer empty state should clear messages and hide token info.');
   assert(context.__load(3).includes('3') && context.__stream({}).includes('streamingMsg'), 'Chat renderer should build load-earlier and streaming placeholders.');
+  assert(context.__incrementalLoad(4).includes('还有 4 条'), 'Chat renderer should build incremental load-earlier labels.');
+  const loadBtn = { listeners: {}, addEventListener(type, handler) { this.listeners[type] = handler; } };
+  context.__bindLoad(loadBtn, conv, container);
+  loadBtn.listeners.click();
+  assert(context.loaded.conv === conv && context.loaded.container === container, 'Chat renderer should bind load-earlier clicks to history loading.');
 }
 
 async function assertFrontendWorldBookEntryListFiltering() {

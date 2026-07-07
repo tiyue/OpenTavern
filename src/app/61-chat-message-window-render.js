@@ -26,14 +26,6 @@ function renderChatMessageWindow(container, conv, allMessages, windowState) {
     ensureHistoryLoadUI(container, conv, allMessages, windowState.startIdx);
 }
 
-function buildLoadEarlierMessagesButtonHtml(hiddenCount) {
-    return '<div class="flex justify-center py-3">' +
-        '<button id="loadEarlierBtn" class="px-4 py-1.5 text-xs rounded-2xl glass hover:bg-white/10 text-zinc-400 hover:text-zinc-300 transition-all">' +
-        '\u2191 \u52a0\u8f7d\u66f4\u65e9\u7684\u6d88\u606f (' + hiddenCount + ' \u6761\u88ab\u9690\u85cf)' +
-        '</button>' +
-        '</div>';
-}
-
 function buildStreamingMessageHtml(conv) {
     var streamingSpeaker = getCurrentGeneratingSpeakerName(conv);
     return '<div id="streamingMsg" class="msg-assistant flex justify-start">' +
@@ -45,10 +37,5 @@ function buildStreamingMessageHtml(conv) {
 }
 
 function wireLoadEarlierMessagesButton(conv, container) {
-    var loadBtn = document.getElementById('loadEarlierBtn');
-    if (loadBtn) {
-        loadBtn.addEventListener('click', function() {
-            loadMoreHistory(conv, container);
-        });
-    }
+    bindLoadEarlierMessagesButton(getLoadEarlierMessagesButtonFromDocument(), conv, container);
 }

@@ -311,6 +311,7 @@
   "61-message-cot-render.js",
   "61-message-content-render.js",
   "61-chat-message-html.js",
+  "61-chat-history-load-button.js",
   "61-chat-history-window-ui.js",
   "61-chat-message-window-state.js",
   "61-chat-message-window-render.js",
