@@ -3488,6 +3488,11 @@ async function assertFrontendConversationModelHelpers() {
 
 async function assertFrontendComfyUIHelpers() {
   const sources = await Promise.all([
+    '../src/app/51-comfyui-workflow-clone.js',
+    '../src/app/51-comfyui-prompt-text.js',
+    '../src/app/51-comfyui-workflow-apply.js',
+    '../src/app/51-comfyui-output-finder.js',
+    '../src/app/51-comfyui-workflow.js',
     '../src/app/51-comfyui-errors.js',
     '../src/app/51-comfyui-output-message.js',
     '../src/app/51-comfyui-workflow-import-ui.js',
@@ -3496,16 +3501,35 @@ async function assertFrontendComfyUIHelpers() {
   const events = [];
   const statusEl = { textContent: '', style: {} };
   const context = {
-    dom: { comfyWorkflowStatus: statusEl },
-    state: { settings: { comfyWorkflow: { one: {}, two: {} }, comfyWorkflowName: 'api.json' } },
+    dom: { comfyWorkflowStatus: statusEl, messageInput: { value: ' new image ' } },
+    state: { settings: {
+      comfyWorkflow: {
+        one: { inputs: { text: '' } },
+        two: { inputs: { text: '' } },
+        three: { inputs: { seed: 0 } },
+      },
+      comfyWorkflowName: 'api.json',
+      comfyPromptTemplate: '{{user}}/{{char}}/{{input}}/{{last_assistant}}/{{scene}}',
+      comfyPositiveNodeId: 'one',
+      comfyNegativeNodeId: 'two',
+      comfySeedNodeId: 'three',
+      comfyNegativePrompt: 'avoid blur',
+      userName: 'Sensei',
+    } },
     t: (key) => ({
       comfy_error_fetch_hint: 'fetch hint',
+      comfy_error_no_workflow: 'no workflow data',
+      comfy_error_positive_node: 'missing positive node',
       settings_comfy_no_workflow: 'no workflow',
     }[key] || key),
     ensureComfySettings() { events.push('ensure'); },
+    isGroupChat(conv) { return !!(conv && conv.group); },
+    getGroupMembers(conv) { return conv.group.members; },
     persistState() { events.push('persist'); },
     renderMessagesOnly() { events.push('messages'); },
     renderConversationListOnly() { events.push('conversations'); },
+    Math: { floor: Math.floor, random: () => 0.5 },
+    JSON,
     Date: { now: () => 12345 },
     Object,
     String,
@@ -3513,9 +3537,22 @@ async function assertFrontendComfyUIHelpers() {
     encodeURIComponent,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__error = formatComfyError;\nthis.__url = buildComfyImageViewUrl;\nthis.__msg = createComfyImageMessage;\nthis.__append = appendComfyImageMessage;\nthis.__status = updateComfyWorkflowStatus;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__clone = cloneComfyWorkflow;\nthis.__setInput = setComfyNodeInput;\nthis.__promptText = buildComfyPromptText;\nthis.__applyWorkflow = applyComfyPromptToWorkflow;\nthis.__findOutput = findComfyOutputImage;\nthis.__error = formatComfyError;\nthis.__url = buildComfyImageViewUrl;\nthis.__msg = createComfyImageMessage;\nthis.__append = appendComfyImageMessage;\nthis.__status = updateComfyWorkflowStatus;`, context);
 
   assert(context.__error(new Error('Failed to fetch')).startsWith('fetch hint'), 'ComfyUI network errors should include the fetch hint.');
+  const cloned = context.__clone();
+  assert(cloned !== context.state.settings.comfyWorkflow && cloned.one.inputs.text === '', 'ComfyUI workflow clone should deep copy the imported workflow.');
+  assert(context.__setInput(cloned, 'one', 'text', 'positive') === true && cloned.one.inputs.text === 'positive', 'ComfyUI node input helper should set existing inputs.');
+  const promptText = context.__promptText({
+    group: { members: [{ character: { name: 'Arona' } }, { character: { name: 'Plana' } }] },
+    messages: [{ role: 'assistant', content: 'last scene' }],
+    title: 'fallback title',
+  });
+  assert(promptText === 'Sensei/Arona, Plana/new image/last scene/new image', 'ComfyUI prompt text should expand template placeholders from chat context.');
+  context.__applyWorkflow(cloned, promptText);
+  assert(cloned.one.inputs.text === promptText && cloned.two.inputs.text === 'avoid blur' && cloned.three.inputs.seed > 0, 'ComfyUI workflow application should fill prompt, negative prompt, and seed nodes.');
+  const image = context.__findOutput({ pid: { outputs: { out: { images: [{ filename: 'image.png' }] } } } }, 'pid');
+  assert(image.filename === 'image.png', 'ComfyUI output finder should return the first generated image.');
   const viewUrl = context.__url('http://127.0.0.1:8188', { filename: 'a b.png', subfolder: 'out/f', type: 'output' });
   assert(viewUrl.includes('filename=a%20b.png') && viewUrl.includes('subfolder=out%2Ff'), 'ComfyUI view URL should encode image parameters.');
 
@@ -3528,7 +3565,7 @@ async function assertFrontendComfyUIHelpers() {
   assert(events.includes('persist') && events.includes('messages') && events.includes('conversations'), 'ComfyUI append should persist and refresh chat UI.');
 
   context.__status();
-  assert(statusEl.textContent === 'api.json · 2 nodes' && statusEl.style.color === '#86efac', 'ComfyUI workflow status should show imported workflow details.');
+  assert(statusEl.textContent.includes('api.json') && statusEl.textContent.includes('3 nodes') && statusEl.style.color === '#86efac', 'ComfyUI workflow status should show imported workflow details.');
   context.state.settings.comfyWorkflow = null;
   context.__status();
   assert(statusEl.textContent === 'no workflow' && statusEl.style.color === '', 'ComfyUI workflow status should show the empty state.');

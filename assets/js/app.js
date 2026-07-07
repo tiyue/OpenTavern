@@ -8572,7 +8572,7 @@ function normalizeComfyServer(url) {
     url = String(url || '').trim() || 'http://127.0.0.1:8188';
     return url.replace(/\/+$/, '');
 }
-// ==================== ComfyUI Workflow Helpers ====================
+// ==================== ComfyUI Workflow Clone ====================
 function cloneComfyWorkflow() {
     ensureComfySettings();
     if (!state.settings.comfyWorkflow || typeof state.settings.comfyWorkflow !== 'object') {
@@ -8588,7 +8588,7 @@ function setComfyNodeInput(workflow, nodeId, inputName, value) {
     node.inputs[inputName] = value;
     return true;
 }
-
+// ==================== ComfyUI Prompt Text ====================
 function buildComfyPromptText(conv) {
     ensureComfySettings();
     var latestAssistant = '';
@@ -8620,7 +8620,7 @@ function buildComfyPromptText(conv) {
         .replace(/\{\{user\}\}/gi, state.settings.userName || 'User');
     return text.trim() || scene || character || 'roleplay scene';
 }
-
+// ==================== ComfyUI Workflow Apply ====================
 function applyComfyPromptToWorkflow(workflow, promptText) {
     ensureComfySettings();
     var posId = String(state.settings.comfyPositiveNodeId || '').trim();
@@ -8638,7 +8638,7 @@ function applyComfyPromptToWorkflow(workflow, promptText) {
         }
     }
 }
-
+// ==================== ComfyUI Output Finder ====================
 function findComfyOutputImage(history, promptId) {
     var item = history && (history[promptId] || history);
     var outputs = item && item.outputs ? item.outputs : {};
@@ -8649,6 +8649,12 @@ function findComfyOutputImage(history, promptId) {
     }
     return null;
 }
+// ==================== ComfyUI Workflow Facade ====================
+// Workflow cloning, prompt text, prompt application, and output lookup live in:
+// - 51-comfyui-workflow-clone.js
+// - 51-comfyui-prompt-text.js
+// - 51-comfyui-workflow-apply.js
+// - 51-comfyui-output-finder.js
 // ==================== ComfyUI Client Helpers ====================
 function makeComfyClientId() {
     return 'opentavern-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
