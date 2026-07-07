@@ -14294,7 +14294,7 @@ function sendMessage() {
         start();
     }
 }
-// ==================== Chat Event Bindings ====================
+// ==================== Chat Composer Event Bindings ====================
 function bindChatComposerEvents() {
     dom.sendBtn.addEventListener('click', sendMessage);
     if (dom.comfyGenerateBtn) dom.comfyGenerateBtn.addEventListener('click', generateComfyImageForCurrentChat);
@@ -14352,7 +14352,7 @@ function bindChatComposerEvents() {
 
     dom.archiveBtn.addEventListener('click', archiveCurrentConversation);
 }
-
+// ==================== Message Action Event Bindings ====================
 function bindMessageActionEvents() {
     dom.messagesContainer.addEventListener('click', function(e) {
         var btn = e.target.closest('.msg-action-btn');
@@ -14377,6 +14377,10 @@ function bindMessageActionEvents() {
         }
     });
 }
+// ==================== Chat Event Bindings Facade ====================
+// Chat composer and message action bindings live in:
+// - 71-event-chat-composer-bindings.js
+// - 71-event-message-action-bindings.js
 // ==================== Library Event Bindings ====================
 function bindLibraryEvents() {
     var tabMyEl = document.getElementById('tabMy');
