@@ -5338,16 +5338,24 @@ async function assertFrontendStorageServiceSaveHelpers() {
     removeItem(key) { removedKeys.push(key); delete this[key]; },
   };
   let mirroredSnapshot = null;
+  let idbSavedData = null;
+  let idbSavedOptions = null;
   const context = {
     STORAGE_BACKUP_PREFIX: 'backup-',
     localStorage: localStorageMock,
+    IDBStorage: {
+      async saveAll(data, options) {
+        idbSavedData = data;
+        idbSavedOptions = options;
+      },
+    },
     OPFSStorage: {
       saveAll(data) {
         mirroredSnapshot = data;
         return Promise.resolve();
       },
     },
-    console: { warn() {} },
+    console: { warn() {}, error() {} },
     Date: { now: () => 999 },
     JSON,
     Object,
@@ -5356,7 +5364,7 @@ async function assertFrontendStorageServiceSaveHelpers() {
     setTimeout() {},
   };
 
-  vm.runInNewContext(`${source}\nthis.__empty = isDangerouslyEmptyStorageSnapshot;\nthis.__history = saveStorageServiceLocalHistorySnapshot;\nthis.__mirror = mirrorStorageServiceSnapshotToOPFS;`, context);
+  vm.runInNewContext(`${source}\nthis.__empty = isDangerouslyEmptyStorageSnapshot;\nthis.__history = saveStorageServiceLocalHistorySnapshot;\nthis.__mirror = mirrorStorageServiceSnapshotToOPFS;\nthis.__tryIdb = trySaveStorageServiceIDBCanonical;\nthis.__markLocal = markStorageServiceLocalStorageCanonical;`, context);
 
   assert(context.__empty({ conversations: {}, characters: {}, worldBooks: {} }) === true, 'Storage save helper should treat an empty snapshot as dangerous.');
   assert(context.__empty({ conversations: { c1: { messages: [{ content: 'hi' }] } }, characters: {}, worldBooks: {} }) === false, 'Storage save helper should allow snapshots with chat messages.');
@@ -5380,6 +5388,18 @@ async function assertFrontendStorageServiceSaveHelpers() {
   context.__mirror(service, mirrorInput);
   await Promise.resolve();
   assert(mirroredSnapshot.conversations.c1.id === 'c1' && mirroredSnapshot !== mirrorInput, 'Storage save helper should clone snapshots before OPFS mirroring.');
+
+  const idbService = {
+    _idbAvailable: true,
+    _idbFailed: true,
+  };
+  const idbResult = await context.__tryIdb(idbService, mirrorInput);
+  assert(idbResult.saved === true && idbResult.error === null, 'Storage save helper should report successful IDB canonical saves.');
+  assert(idbSavedData === mirrorInput && idbSavedOptions.fresh === true, 'Storage save helper should preserve IDB retry freshness.');
+  assert(idbService._idbFailed === false && idbService._idbFailureReason === null && idbService._primaryBackend === 'idb' && idbService._lastUsedBackend === 'idb', 'Storage save helper should refresh IDB backend state after successful saves.');
+
+  const localService = {};
+  assert(context.__markLocal(localService, true) === true && localService._primaryBackend === 'localStorage' && localService._lastUsedBackend === 'localStorage', 'Storage save helper should mark localStorage as canonical fallback when needed.');
 }
 
 async function assertFrontendStorageServiceLoadHelpers() {

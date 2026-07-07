@@ -3050,9 +3050,46 @@ function mirrorStorageServiceSnapshotToOPFS(service, data) {
             service._opfsFailed = true;
             service._opfsFailureReason = e && e.message ? e.message : String(e);
             console.warn('[Storage] OPFS mirror write failed; canonical data remains safe:', e && e.message);
-            setTimeout(() => { try { if (typeof updateStorageInfo === 'function') updateStorageInfo(); } catch(_) {} }, 60);
+            scheduleStorageServiceInfoRefresh();
         });
     }
+}
+
+function scheduleStorageServiceInfoRefresh() {
+    setTimeout(() => { try { if (typeof updateStorageInfo === 'function') updateStorageInfo(); } catch(_) {} }, 60);
+}
+
+async function trySaveStorageServiceIDBCanonical(service, data) {
+    if (!service._idbAvailable) return { saved: false, error: null };
+    try {
+        await IDBStorage.saveAll(data, { fresh: service._idbFailed });
+        service._idbFailed = false;
+        service._idbFailureReason = null;
+        service._idbAvailable = true;
+        service._primaryBackend = 'idb';
+        service._lastUsedBackend = 'idb';
+        return { saved: true, error: null };
+    } catch (e) {
+        service._idbFailed = true;
+        service._idbFailureReason = e && e.message ? e.message : String(e);
+        service._primaryBackend = 'idb';
+        console.warn('[Storage] IndexedDB save failed after retry; localStorage emergency snapshot will still be written:', e && e.message);
+        return { saved: false, error: e };
+    }
+}
+
+function markStorageServiceLocalStorageCanonical(service, saved) {
+    if (!saved) return false;
+    service._primaryBackend = 'localStorage';
+    service._lastUsedBackend = 'localStorage';
+    return true;
+}
+
+function throwStorageServiceCanonicalSaveFailure(service, lastError, data) {
+    if (lastError && service._isQuotaError(lastError)) service._handleQuotaExceeded(lastError, data);
+    const err = lastError || new Error('All canonical storage backends failed');
+    console.error('[Storage] All canonical save backends failed:', err);
+    throw err;
 }
 // ==================== StorageService Save Pipeline ====================
 async function saveStorageServiceData(service, data) {
@@ -3069,43 +3106,17 @@ async function saveStorageServiceData(service, data) {
     }
 
     service._lastSaveSnapshot = data;
-    let savedCanonical = false;
-    let lastError = null;
-
-    if (service._idbAvailable) {
-        try {
-            await IDBStorage.saveAll(data, { fresh: service._idbFailed });
-            service._idbFailed = false;
-            service._idbFailureReason = null;
-            service._idbAvailable = true;
-            service._primaryBackend = 'idb';
-            service._lastUsedBackend = 'idb';
-            savedCanonical = true;
-        } catch (e) {
-            lastError = e;
-            service._idbFailed = true;
-            service._idbFailureReason = e && e.message ? e.message : String(e);
-            service._primaryBackend = 'idb';
-            console.warn('[Storage] IndexedDB save failed after retry; localStorage emergency snapshot will still be written:', e && e.message);
-        }
-    }
+    const idbResult = await trySaveStorageServiceIDBCanonical(service, data);
+    let savedCanonical = idbResult.saved;
 
     const lsOk = service._tryWriteLocalSnapshot(data);
-    if (!savedCanonical && lsOk) {
-        service._primaryBackend = 'localStorage';
-        service._lastUsedBackend = 'localStorage';
-        savedCanonical = true;
-    }
+    if (!savedCanonical) savedCanonical = markStorageServiceLocalStorageCanonical(service, lsOk);
 
     mirrorStorageServiceSnapshotToOPFS(service, data);
-    setTimeout(() => { try { if (typeof updateStorageInfo === 'function') updateStorageInfo(); } catch(_) {} }, 60);
+    scheduleStorageServiceInfoRefresh();
 
     if (savedCanonical) return;
-
-    if (lastError && service._isQuotaError(lastError)) service._handleQuotaExceeded(lastError, data);
-    const err = lastError || new Error('All canonical storage backends failed');
-    console.error('[Storage] All canonical save backends failed:', err);
-    throw err;
+    throwStorageServiceCanonicalSaveFailure(service, idbResult.error, data);
 }
 // ==================== StorageService OPFS Initialization ====================
 function resetStorageServiceOPFSState(service) {
