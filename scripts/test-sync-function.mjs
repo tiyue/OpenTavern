@@ -4334,6 +4334,61 @@ async function assertFrontendMessageActionHelpers() {
   assert(context.state.isGenerating === false && events.includes('notify:isGenerating') && events.includes('render-messages') && events.includes('alert:Error: regeneration failed'), 'Primary regenerate error handler should clear state, render, notify, and alert.');
 }
 
+async function assertFrontendSendMessageHelpers() {
+  const source = await readFile(new URL('../src/app/70-send-message-helpers.js', import.meta.url), 'utf8');
+  const events = [];
+  const context = {
+    pendingGroupMention: null,
+    dom: { messageInput: { value: 'draft', style: { height: '42px' } } },
+    Date: { now: () => 777 },
+    t: (key) => (key === 'title_new_chat_match' ? 'New Chat' : key),
+    clearPendingGroupMention() {
+      events.push('clear');
+      context.pendingGroupMention = null;
+    },
+    parseGroupMention(text) {
+      events.push('parse:' + text);
+      return text.indexOf('@Plana') !== -1 ? { name: 'Plana' } : null;
+    },
+    getNextGroupSpeaker() {
+      events.push('next');
+      return { name: 'Next' };
+    },
+    isGroupChat(conv) {
+      return !!(conv && conv.group);
+    },
+    String,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__append = appendUserMessageToConversation;\nthis.__speaker = prepareGroupSpeakerForUserMessage;\nthis.__reset = resetMessageComposerInput;`, context);
+
+  const conv = { title: 'New Chat', messages: [], _wiBudgetWarning: true };
+  const longText = 'x'.repeat(55);
+  context.__append(conv, longText);
+  assert(conv.messages[0].content === longText && conv.updated === 777 && conv._wiBudgetWarning === false, 'Send message helper should append the user message and clear transient warnings.');
+  assert(conv.title === longText.slice(0, 50) + '...', 'Send message helper should retitle new conversations from the first user message.');
+
+  const groupConv = { group: { members: [] } };
+  context.pendingGroupMention = { name: 'Clicked' };
+  context.__speaker(groupConv, 'hello');
+  assert(groupConv._nextGroupSpeaker.name === 'Clicked' && events.includes('clear'), 'Send message group helper should prefer clicked mention selections.');
+
+  events.length = 0;
+  context.__speaker(groupConv, '@Plana hello');
+  assert(groupConv._nextGroupSpeaker.name === 'Plana' && events.includes('parse:@Plana hello'), 'Send message group helper should fall back to typed mentions.');
+
+  events.length = 0;
+  context.__speaker(groupConv, 'hello');
+  assert(groupConv._nextGroupSpeaker.name === 'Next' && events.includes('next'), 'Send message group helper should use natural speaker order without mentions.');
+
+  const singleConv = {};
+  context.__speaker(singleConv, 'hello');
+  assert(!singleConv._nextGroupSpeaker, 'Send message group helper should leave single-character chats unchanged.');
+
+  context.__reset();
+  assert(context.dom.messageInput.value === '' && context.dom.messageInput.style.height === 'auto' && events.includes('clear'), 'Send message reset helper should clear the composer and pending mention.');
+}
+
 async function assertFrontendChatTopBarUI() {
   const source = await readFile(new URL('../src/app/61-chat-topbar-ui.js', import.meta.url), 'utf8');
   let activeConv = null;
@@ -5801,6 +5856,7 @@ async function main() {
   await assertFrontendMessageContentHelpers();
   await assertFrontendMessageEditHelpers();
   await assertFrontendMessageActionHelpers();
+  await assertFrontendSendMessageHelpers();
   await assertFrontendChatTopBarUI();
   await assertFrontendChatMessageRendererHelpers();
   await assertFrontendWorldBookEntryActionHelpers();

@@ -379,6 +379,7 @@
   "68-settings-save-form.js",
   "68-settings-save-effects.js",
   "68-settings-save.js",
+  "70-send-message-helpers.js",
   "70-events-init.js",
   "71-event-chat-composer-bindings.js",
   "71-event-message-action-bindings.js",

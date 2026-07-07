@@ -6,38 +6,9 @@ function sendMessage() {
     var conv = getActiveConv();
     if (!conv) return;
 
-    conv.messages.push({ role: 'user', content: text });
-    conv.updated = Date.now();
-    conv._wiBudgetWarning = false; // clear previous budget warning on new turn
-    if (conv.title === t('title_new_chat_match')) {
-        conv.title = text.slice(0, 50) + (text.length > 50 ? '...' : '');
-    }
-
-    // ===== 群组聊天 @ 指定功能（新气泡 UI，优先使用点击指定的角色，只允许一个） =====
-    if (isGroupChat(conv)) {
-        let mentioned = null;
-
-        if (pendingGroupMention) {
-            // 优先使用左侧气泡指定的角色（点击选择的结果）
-            mentioned = pendingGroupMention;
-            clearPendingGroupMention(); // 用过即清除
-        } else {
-            // 兜底：支持用户手动在输入框里输入 @名字 的旧方式
-            mentioned = parseGroupMention(text, conv);
-        }
-
-        if (mentioned) {
-            // 强制本轮由该角色回复
-            conv._nextGroupSpeaker = mentioned;
-        } else {
-            // 没有指定时，按 list_order 自然推进
-            conv._nextGroupSpeaker = getNextGroupSpeaker(conv);
-        }
-    }
-
-    dom.messageInput.value = '';
-    dom.messageInput.style.height = 'auto';
-    clearPendingGroupMention(); // 保险清除（防止异常情况残留）
+    appendUserMessageToConversation(conv, text);
+    prepareGroupSpeakerForUserMessage(conv, text);
+    resetMessageComposerInput();
     persistState();
     requestFullRender();
 
