@@ -8,27 +8,25 @@ function createMyCharacterCardControls(char) {
 }
 
 function createMyCharacterImageButton(char) {
-    const imgBtn = document.createElement('button');
-    imgBtn.className = 'char-img-btn text-white/70 hover:text-amber-300 active:text-amber-400 text-sm leading-none p-0.5 transition-all opacity-0 md:opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 active:opacity-100 pointer-events-none group-hover:pointer-events-auto active:pointer-events-auto';
-    imgBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
-    imgBtn.title = '导入图片';
-    imgBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        triggerCardImageUpload(char);
+    return createMyCharacterControlButton({
+        className: 'char-img-btn text-white/70 hover:text-amber-300 active:text-amber-400 text-sm leading-none p-0.5 transition-all opacity-0 md:opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 active:opacity-100 pointer-events-none group-hover:pointer-events-auto active:pointer-events-auto',
+        html: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+        title: '导入图片',
+        onClick: function() {
+            triggerCardImageUpload(char);
+        }
     });
-    return imgBtn;
 }
 
 function createMyCharacterDeleteButton(char) {
-    const delBtn = document.createElement('button');
-    delBtn.className = 'char-delete-btn text-white/80 hover:text-red-400 active:text-red-500 text-xl font-bold leading-none p-1 transition-all opacity-0 md:opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto';
-    delBtn.innerHTML = '×';
-    delBtn.title = '移除角色卡';
-    delBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        await confirmAndDeleteMyCharacterCard(char);
+    return createMyCharacterControlButton({
+        className: 'char-delete-btn text-white/80 hover:text-red-400 active:text-red-500 text-xl font-bold leading-none p-1 transition-all opacity-0 md:opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto',
+        html: '×',
+        title: '移除角色卡',
+        onClick: async function() {
+            await confirmAndDeleteMyCharacterCard(char);
+        }
     });
-    return delBtn;
 }
 
 async function confirmAndDeleteMyCharacterCard(char) {

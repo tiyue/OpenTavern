@@ -2689,14 +2689,37 @@ async function assertFrontendMyCardControlHelpers() {
     },
     deleteCharacterFromLibrary: (key) => events.push(`delete:${key}`),
     renderMyCards: () => events.push('render'),
-    document: { createElement: () => ({ addEventListener() {} }) },
+    document: {
+      createElement(tagName) {
+        return {
+          tagName,
+          handlers: {},
+          addEventListener(type, handler) {
+            this.handlers[type] = handler;
+          },
+        };
+      },
+    },
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__key = getMyCharacterCardKey;\nthis.__config = getMyCharacterDeleteConfirmConfig;\nthis.__confirm = confirmAndDeleteMyCharacterCard;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__key = getMyCharacterCardKey;\nthis.__config = getMyCharacterDeleteConfirmConfig;\nthis.__button = createMyCharacterControlButton;\nthis.__confirm = confirmAndDeleteMyCharacterCard;`, context);
 
   assert(context.__key({ name: ' Arona ' }) === 'arona', 'My card controls should normalize character keys.');
   const config = context.__config({ name: 'Arona' });
   assert(config.message.includes('Arona') && config.options.danger === true, 'My card controls should build a dangerous delete confirmation.');
+
+  let stopped = false;
+  const button = context.__button({
+    className: 'test-control',
+    html: '<span>icon</span>',
+    title: 'test title',
+    onClick() {
+      events.push('button-click');
+    },
+  });
+  button.handlers.click({ stopPropagation() { stopped = true; } });
+  assert(button.className === 'test-control' && button.innerHTML.includes('icon') && button.title === 'test title', 'My card control helper should create configured buttons.');
+  assert(stopped === true && events.includes('button-click'), 'My card control helper should stop propagation before running button actions.');
 
   await context.__confirm({ name: 'Arona' });
   assert(!events.includes('delete:arona'), 'My card controls should not delete when confirmation is cancelled.');

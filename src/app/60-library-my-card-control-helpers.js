@@ -2,6 +2,22 @@ function getMyCharacterCardKey(char) {
     return (char && char.name ? char.name : '').trim().toLowerCase();
 }
 
+function createMyCharacterControlButton(config) {
+    const button = document.createElement('button');
+    button.className = config.className;
+    button.innerHTML = config.html;
+    button.title = config.title;
+    bindMyCharacterControlButtonClick(button, config.onClick);
+    return button;
+}
+
+function bindMyCharacterControlButtonClick(button, onClick) {
+    button.addEventListener('click', function(e) {
+        e.stopPropagation();
+        return onClick(e);
+    });
+}
+
 function getMyCharacterDeleteConfirmConfig(char) {
     const displayName = (char && char.name) || '该角色卡';
     return {
