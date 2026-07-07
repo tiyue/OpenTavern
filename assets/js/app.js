@@ -2205,7 +2205,7 @@ function cacheUiTheme(theme) {
 // 加载时 OPFS 优先，失败或无数据则用 LS。
 // 保存时优先 OPFS，成功后顺便写 LS；OPFS 跳过时直接写 LS。
 // 所有记录带 lastSaved。
-// ==================== OPFS Environment Helpers ====================
+// ==================== OPFS Location Helpers ====================
 function getOPFSLocationProtocol() {
     try {
         if (typeof location !== 'undefined' && location && location.protocol) return location.protocol;
@@ -2217,7 +2217,7 @@ function getOPFSLocationProtocol() {
 function opfsStorageIsFileProtocol() {
     return getOPFSLocationProtocol() === 'file:';
 }
-
+// ==================== OPFS Unsupported Environment Helpers ====================
 function isKnownOPFSUnsupportedError(e) {
     return !!(e && (
         e.name === 'SecurityError' ||
@@ -2232,7 +2232,7 @@ function warnOPFSUnsupportedOnce(storage) {
         storage._warnedUnsupported = true;
     }
 }
-
+// ==================== OPFS Root Access ====================
 async function getOPFSStorageRoot(storage) {
     if (storage._root) return storage._root;
 
@@ -2249,7 +2249,7 @@ async function getOPFSStorageRoot(storage) {
     storage._root = await navigator.storage.getDirectory();
     return storage._root;
 }
-
+// ==================== OPFS Writable Probe ====================
 async function probeOPFSStorageWritable(storage) {
     if (storage._probeResult) return storage._probeResult;
     if (storage._probePromise) return storage._probePromise;
@@ -2284,6 +2284,12 @@ async function probeOPFSStorageWritable(storage) {
 
     return storage._probePromise;
 }
+// ==================== OPFS Environment Facade ====================
+// OPFS environment helpers live in:
+// - 20-storage-opfs-location.js
+// - 20-storage-opfs-unsupported.js
+// - 20-storage-opfs-root.js
+// - 20-storage-opfs-probe.js
 // ==================== OPFS Storage Read/Write ====================
 async function loadAllOPFSStorage(storage) {
     if (storage._isFileProtocol()) return null;

@@ -4520,6 +4520,10 @@ async function assertFrontendWorldBookGlobalListUIHelpers() {
 
 async function assertFrontendFileProtocolOPFSSilence() {
   const opfsSources = await Promise.all([
+    '../src/app/20-storage-opfs-location.js',
+    '../src/app/20-storage-opfs-unsupported.js',
+    '../src/app/20-storage-opfs-root.js',
+    '../src/app/20-storage-opfs-probe.js',
     '../src/app/20-storage-opfs-environment.js',
     '../src/app/20-storage-opfs-read-write.js',
     '../src/app/20-storage-opfs-info.js',
