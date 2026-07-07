@@ -2591,6 +2591,35 @@ async function assertFrontendPublicCardAssets() {
   }
 }
 
+async function assertFrontendLibraryCardFilterHelpers() {
+  const source = await readFile(new URL('../src/app/60-library-card-filter.js', import.meta.url), 'utf8');
+  const context = {
+    librarySearchQuery: '',
+    libraryFilter: 'all',
+    Array,
+    String,
+    RegExp,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__orientation = getCardOrientation;\nthis.__passes = passesLibraryFilter;`, context);
+
+  assert(context.__orientation(['女仆']) === 'male', 'Library card filter should infer target orientation from feminine tags.');
+  assert(context.__orientation(['男友']) === 'female', 'Library card filter should infer target orientation from masculine tags.');
+  assert(context.__orientation(['male', 'female']) === 'both', 'Library card filter should treat mixed tags as both.');
+
+  context.librarySearchQuery = 'sensei';
+  assert(context.__passes({ name: 'Alpha', author: 'Sensei', tags: [], description: '' }), 'Library card filter should match authors.');
+  context.librarySearchQuery = 'kind';
+  assert(context.__passes({ name: 'Alpha', tags: [], personality: 'Kind guide' }), 'Library card filter should match descriptions or personalities.');
+  context.librarySearchQuery = 'missing';
+  assert(!context.__passes({ name: 'Alpha', tags: ['hero'], description: 'guide' }), 'Library card filter should reject non-matching searches.');
+
+  context.librarySearchQuery = '';
+  context.libraryFilter = 'male';
+  assert(context.__passes({ tags: ['女'] }), 'Library card filter should include male-oriented cards for male filter.');
+  assert(!context.__passes({ tags: ['男'] }), 'Library card filter should exclude female-oriented cards for male filter.');
+}
+
 async function assertFrontendPublicCardGridFiltering() {
   const source = await readFile(new URL('../src/app/60-library-public-card-grid-ui.js', import.meta.url), 'utf8');
   const cards = [
@@ -6118,6 +6147,7 @@ async function main() {
   await assertFrontendSettingsSaveHelpers();
   await assertFrontendSettingsHydrationHelpers();
   await assertFrontendPublicCardAssets();
+  await assertFrontendLibraryCardFilterHelpers();
   await assertFrontendPublicCardGridFiltering();
   await assertFrontendDomCache();
   await assertFrontendPublicCardListUI();

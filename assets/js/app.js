@@ -11198,7 +11198,6 @@ function passesLibraryFilter(card) {
     }
     return true;
 }
-
 function triggerCardImageUpload(char) {
     if (!char || !char.name) return;
     const input = document.createElement('input');
