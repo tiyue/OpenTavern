@@ -19,19 +19,31 @@ function applyCloudSyncSnapshot(snapshot) {
 }
 
 function getCloudSyncLocalSettingsForRestore() {
-    return {
-        apiKey: state.settings && state.settings.apiKey,
-        summarizeApiKey: state.settings && state.settings.summarizeApiKey,
-        saveApiKey: state.settings && state.settings.saveApiKey,
-        cloudSyncEnabled: state.settings && state.settings.cloudSyncEnabled,
-        cloudSyncAutoUpload: state.settings && state.settings.cloudSyncAutoUpload,
-        cloudSyncEndpoint: state.settings && state.settings.cloudSyncEndpoint,
-        cloudSyncToken: state.settings && state.settings.cloudSyncToken,
-        cloudSyncEncrypted: state.settings && state.settings.cloudSyncEncrypted,
-        cloudSyncPassphrase: state.settings && state.settings.cloudSyncPassphrase,
+    var local = {
         cloudSyncLastAt: Date.now(),
         cloudSyncLastStatus: 'Cloud download applied.'
     };
+    [
+        'apiKey',
+        'summarizeApiKey',
+        'saveApiKey',
+        'cloudSyncEnabled',
+        'cloudSyncAutoUpload',
+        'cloudSyncEndpoint',
+        'cloudSyncToken',
+        'cloudSyncEncrypted',
+        'cloudSyncPassphrase'
+    ].forEach(function(key) {
+        copyCloudSyncLocalSetting(local, key);
+    });
+    return local;
+}
+
+function copyCloudSyncLocalSetting(target, key) {
+    if (!state.settings) return;
+    var value = state.settings[key];
+    if (value === undefined || value === null) return;
+    target[key] = value;
 }
 
 function normalizeCloudSyncRestoredConversations() {

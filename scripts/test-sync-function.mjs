@@ -465,6 +465,22 @@ async function assertFrontendCloudSnapshotApply() {
   });
 
   assert(falseMigratedApplied.charactersMigrated === false && context.state._charactersMigrated === false, 'Cloud apply should not treat string "false" as migrated.');
+
+  context.state.settings = {};
+  const sparseLocalApplied = context.__apply({
+    settings: { model: 'remote-after-sparse-local' },
+    conversations: { c4: { id: 'c4', messages: [] } },
+    conversationOrder: ['c4'],
+    activeConvId: 'c4',
+    characters: {},
+    worldBooks: {},
+    charactersMigrated: true,
+    lastSaved: 888,
+  });
+
+  assert(sparseLocalApplied.settings.model === 'remote-after-sparse-local', 'Cloud apply should return the remote settings for sparse local settings.');
+  assert(context.state.settings.model === 'remote-after-sparse-local', 'Sparse local settings should not overwrite remote settings with undefined values.');
+  assert(context.state.settings.cloudSyncEndpoint === '/api/sync', 'Sparse local settings should preserve default cloud sync endpoint instead of undefined.');
   assertThrows(() => context.__apply([]), 'Cloud apply should reject array snapshots instead of treating them as object maps.');
 }
 
