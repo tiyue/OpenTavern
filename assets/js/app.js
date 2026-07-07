@@ -4368,6 +4368,7 @@ function getSafeSettingsForCloudSync() {
     s.summarizeApiKey = '';
     s.cloudSyncToken = '';
     s.cloudSyncPassphrase = '';
+    s.cloudSyncLastAt = 0;
     s.cloudSyncLastStatus = '';
     return s;
 }

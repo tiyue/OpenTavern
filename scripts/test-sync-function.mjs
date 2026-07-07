@@ -88,6 +88,7 @@ async function assertFrontendCloudSnapshot() {
         summarizeApiKey: 'secret-summary-key',
         cloudSyncToken: 'secret-cloud-token',
         cloudSyncPassphrase: 'secret-passphrase',
+        cloudSyncLastAt: 123456,
         cloudSyncLastStatus: 'last status',
       },
       conversations: {
@@ -117,6 +118,7 @@ async function assertFrontendCloudSnapshot() {
   assert(snapshot.settings.summarizeApiKey === '', 'Frontend cloud snapshot must strip the summary API key.');
   assert(snapshot.settings.cloudSyncToken === '', 'Frontend cloud snapshot must strip the cloud sync token.');
   assert(snapshot.settings.cloudSyncPassphrase === '', 'Frontend cloud snapshot must strip the cloud sync passphrase.');
+  assert(snapshot.settings.cloudSyncLastAt === 0, 'Frontend cloud snapshot must strip transient cloud sync timestamps.');
   assert(snapshot.settings.cloudSyncLastStatus === '', 'Frontend cloud snapshot must strip transient cloud status.');
   assert(snapshot.conversations.c1.messages[0].content === 'frontend hello', 'Frontend cloud snapshot did not include chat history.');
   assert(snapshot.conversationOrder[0] === 'c1', 'Frontend cloud snapshot did not include conversation order.');
