@@ -2988,6 +2988,83 @@ async function assertFrontendPublicCardListUI() {
   assert(context.currentLibraryCard === null, 'Public card list view should reset the selected card.');
 }
 
+async function assertFrontendPublicCardImportFlow() {
+  const sources = await Promise.all([
+    '../src/app/60-public-card-import-helpers.js',
+    '../src/app/60-public-card-import-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const events = [];
+  const modal = { classList: { add(name) { events.push(`modal:${name}`); } } };
+  const pickerModal = { classList: { contains(name) { return name === 'hidden' ? false : false; } } };
+  const body = {
+    children: [],
+    appendChild(child) {
+      this.children.push(child);
+      events.push(`toast:${child.textContent}`);
+    },
+  };
+  const context = {
+    dom: { cardLibraryModal: modal },
+    state: { characters: {} },
+    currentView: 'library',
+    async fetch(url) {
+      events.push(`fetch:${url}`);
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return { data: { name: 'Alpha' } };
+        },
+      };
+    },
+    resolvePublicCardJsonUrl(card) { return `json:${card.id}`; },
+    resolvePublicCardImageUrl(card) { return `image:${card.previewImage}`; },
+    importCharacterCard() { return { name: 'Alpha' }; },
+    importCharacterBookFromCard(json, name) {
+      events.push(`book:${name}`);
+      return { name: `${name} Book` };
+    },
+    persistState() { events.push('persist'); },
+    requestFullRender() { events.push('render-full'); },
+    renderLibraryGrids() { events.push('render-library'); },
+    showNewChatCharacterPicker() { events.push('picker-refresh'); },
+    t(key) { return key === 'card_library_import_success' ? 'Imported' : ''; },
+    document: {
+      body,
+      createElement(tag) {
+        return {
+          tag,
+          className: '',
+          textContent: '',
+          style: {},
+          remove() { events.push('toast-remove'); },
+        };
+      },
+      getElementById(id) {
+        if (id === 'newChatPickerList') return {};
+        if (id === 'newChatPickerModal') return pickerModal;
+        return null;
+      },
+    },
+    setTimeout(callback) { callback(); },
+    console: { warn() {}, error() {} },
+    alert(message) { events.push(`alert:${message}`); },
+    JSON,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__import = importPublicCard;`, context);
+
+  await context.__import({ id: 'alpha', previewImage: 'alpha.png', author: 'Tester' });
+
+  const imported = context.state.characters.alpha;
+  assert(imported && imported.previewImage === 'image:alpha.png' && imported.author === 'Tester', 'Public card import should preserve public metadata on the imported character.');
+  assert(events.includes('fetch:json:alpha') && events.includes('book:Alpha'), 'Public card import should fetch card data and import embedded world books.');
+  assert(events.includes('persist') && events.includes('render-full') && events.includes('modal:hidden'), 'Public card import should persist, rerender, and close the library modal.');
+  assert(events.includes('toast:Imported') && events.includes('render-library') && events.includes('picker-refresh'), 'Public card import should show success feedback and refresh visible card pickers.');
+  assert(!events.some((event) => event.startsWith('alert:')), 'Public card import should not alert on a successful import.');
+}
+
 async function assertFrontendLibraryPublicCardDetailModal() {
   const sources = await Promise.all([
     '../src/app/60-library-public-card-detail-content-helpers.js',
@@ -6733,6 +6810,7 @@ async function main() {
   await assertFrontendPublicCardGridFiltering();
   await assertFrontendDomCache();
   await assertFrontendPublicCardListUI();
+  await assertFrontendPublicCardImportFlow();
   await assertFrontendLibraryPublicCardDetailModal();
   await assertFrontendI18nRuntime();
   await assertFrontendSillyTavernPresetNormalizer();

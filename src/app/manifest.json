@@ -292,6 +292,7 @@
   "60-public-card-list-item-ui.js",
   "60-public-card-list-ui.js",
   "60-public-card-detail-ui.js",
+  "60-public-card-import-helpers.js",
   "60-public-card-import-ui.js",
   "60-public-card-library-ui.js",
   "60-library-sidebar-ui.js",

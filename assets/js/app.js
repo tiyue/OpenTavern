@@ -10984,6 +10984,36 @@ function showCardLibraryDetail(card) {
 
     showCardLibraryDetailView();
 }
+// ==================== Public Card Import Helpers ====================
+function applyPublicCardImportMetadata(character, cardMeta) {
+    if (cardMeta && cardMeta.previewImage) {
+        character.previewImage = resolvePublicCardImageUrl(cardMeta);
+    }
+    if (cardMeta && cardMeta.author && !character.author) {
+        character.author = cardMeta.author;
+    }
+}
+
+function storeImportedPublicCardCharacter(character) {
+    const key = character.name.trim().toLowerCase();
+    if (!state.characters) state.characters = {};
+    state.characters[key] = JSON.parse(JSON.stringify(character));
+}
+
+function refreshOpenNewChatPickerAfterPublicCardImport() {
+    const picker = document.getElementById('newChatPickerList');
+    const pickerModal = document.getElementById('newChatPickerModal');
+    if (picker && pickerModal && !pickerModal.classList.contains('hidden')) {
+        showNewChatCharacterPicker();
+    }
+}
+
+function refreshPublicCardImportViews() {
+    if (currentView === 'library' && typeof renderLibraryGrids === 'function') {
+        renderLibraryGrids();
+    }
+    refreshOpenNewChatPickerAfterPublicCardImport();
+}
 // ==================== Public Card Import Flow ====================
 async function importPublicCard(cardMeta) {
     const modal = dom.cardLibraryModal;
@@ -11008,17 +11038,10 @@ async function importPublicCard(cardMeta) {
         }
 
         // 3. 从公共库元数据附加预览图（关键修复：让从公共库导入的角色卡在“我的卡片”里能显示图片）
-        if (cardMeta && cardMeta.previewImage) {
-            character.previewImage = resolvePublicCardImageUrl(cardMeta);
-        }
-        if (cardMeta && cardMeta.author && !character.author) {
-            character.author = cardMeta.author;
-        }
+        applyPublicCardImportMetadata(character, cardMeta);
 
         // 4. 注册到全局角色库
-        const key = character.name.trim().toLowerCase();
-        if (!state.characters) state.characters = {};
-        state.characters[key] = JSON.parse(JSON.stringify(character));
+        storeImportedPublicCardCharacter(character);
 
         // 4. 持久化 + 刷新界面
         persistState();
@@ -11040,16 +11063,7 @@ async function importPublicCard(cardMeta) {
             setTimeout(() => toast.remove(), 300);
         }, 2200);
 
-        if (currentView === 'library' && typeof renderLibraryGrids === 'function') {
-            renderLibraryGrids();
-        }
-
-        // 如果新对话选择器当前打开，刷新它
-        const picker = document.getElementById('newChatPickerList');
-        if (picker && !document.getElementById('newChatPickerModal').classList.contains('hidden')) {
-            // 简单粗暴刷新
-            showNewChatCharacterPicker();
-        }
+        refreshPublicCardImportViews();
 
     } catch (err) {
         console.error('[Card Library] Import failed:', err);
