@@ -11394,6 +11394,20 @@ function createMyLibraryCharacterCard(char) {
 
     return cardEl;
 }
+function buildMyLibraryCharacterFilterCard(character) {
+    return {
+        name: character.name,
+        tags: character.tags,
+        description: character.description || character.personality,
+        author: character.author || character.creator || character.creator_notes || ''
+    };
+}
+
+function getFilteredMyLibraryCharacters() {
+    return Object.values(state.characters || {}).filter(function(character) {
+        return passesLibraryFilter(buildMyLibraryCharacterFilterCard(character));
+    });
+}
 function renderMyCards() {
     const grid = document.getElementById('myCardsGrid');
     if (!grid) return;
@@ -11404,15 +11418,6 @@ function renderMyCards() {
     getFilteredMyLibraryCharacters().forEach(char => {
         grid.appendChild(createMyLibraryCharacterCard(char));
     });
-}
-
-function getFilteredMyLibraryCharacters() {
-    return Object.values(state.characters || {}).filter(c => passesLibraryFilter({
-        name: c.name,
-        tags: c.tags,
-        description: c.description || c.personality,
-        author: c.author || c.creator || c.creator_notes || ''
-    }));
 }
 // ==================== Public Library Card Items ====================
 function createPublicLibraryCard(card) {

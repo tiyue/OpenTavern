@@ -2620,6 +2620,27 @@ async function assertFrontendLibraryCardFilterHelpers() {
   assert(!context.__passes({ tags: ['男'] }), 'Library card filter should exclude female-oriented cards for male filter.');
 }
 
+async function assertFrontendMyCardGridFiltering() {
+  const source = await readFile(new URL('../src/app/60-library-my-card-filter.js', import.meta.url), 'utf8');
+  const context = {
+    state: {
+      characters: {
+        keep: { name: 'Keep', tags: ['ai'], description: '', personality: 'kind', creator_notes: 'note' },
+        skip: { name: 'Skip', tags: ['other'], description: 'other', creator: 'creator' },
+      },
+    },
+    passesLibraryFilter: (card) => card.name === 'Keep' && card.description === 'kind' && card.author === 'note',
+    Object,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__card = buildMyLibraryCharacterFilterCard;\nthis.__filtered = getFilteredMyLibraryCharacters;`, context);
+
+  const filterCard = context.__card(context.state.characters.keep);
+  assert(filterCard.description === 'kind' && filterCard.author === 'note', 'My card grid filter helper should map personality and creator notes into filter fields.');
+  const filtered = context.__filtered();
+  assert(filtered.length === 1 && filtered[0].name === 'Keep', 'My card grid filtering should use the shared library filter.');
+}
+
 async function assertFrontendPublicCardGridFiltering() {
   const source = await readFile(new URL('../src/app/60-library-public-card-grid-ui.js', import.meta.url), 'utf8');
   const cards = [
@@ -6148,6 +6169,7 @@ async function main() {
   await assertFrontendSettingsHydrationHelpers();
   await assertFrontendPublicCardAssets();
   await assertFrontendLibraryCardFilterHelpers();
+  await assertFrontendMyCardGridFiltering();
   await assertFrontendPublicCardGridFiltering();
   await assertFrontendDomCache();
   await assertFrontendPublicCardListUI();
