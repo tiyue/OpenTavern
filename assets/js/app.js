@@ -13992,12 +13992,7 @@ function hydrateSummarySettings() {
         hydrateValueAndLabelControl(dom.summaryThreshold, dom.summaryThresholdVal, state.settings.summaryThreshold || 12);
         updateSummaryThresholdWarning();
     }
-    if (dom.summaryMaxWords) {
-        dom.summaryMaxWords.value = (state.settings.summaryMaxWords != null ? state.settings.summaryMaxWords : 0);
-        dom.summaryMaxWords.addEventListener('input', function() {
-            state.settings.summaryMaxWords = parseInt(this.value) || 0;
-        });
-    }
+    hydrateValueControl(dom.summaryMaxWords, state.settings.summaryMaxWords != null ? state.settings.summaryMaxWords : 0);
     hydrateValueControl(dom.summaryPrompt, state.settings.summaryPrompt || '');
 }
 
@@ -14819,6 +14814,13 @@ function bindSettingsSlider(slider, valEl, format) {
     });
 }
 
+function bindSummaryMaxWordsInput() {
+    if (!dom.summaryMaxWords) return;
+    dom.summaryMaxWords.addEventListener('input', function() {
+        state.settings.summaryMaxWords = parseInt(this.value, 10) || 0;
+    });
+}
+
 function bindSettingsSlidersAndSummaryEvents() {
     bindSettingsSlider(dom.contextLength, dom.contextLenVal);
     bindSettingsSlider(dom.maxTokens, dom.maxTokensVal);
@@ -14845,6 +14847,7 @@ function bindSettingsSlidersAndSummaryEvents() {
             state.settings.summaryEnabled = this.checked;
         });
     }
+    bindSummaryMaxWordsInput();
 
     bindSettingsSlider(dom.summaryThreshold, dom.summaryThresholdVal);
     updateSummaryThresholdWarning();
