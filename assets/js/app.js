@@ -3850,7 +3850,7 @@ function validateCloudSyncEncryptedEnvelope(envelope) {
     }
     getCloudSyncEnvelopeIterations(envelope);
 }
-// ==================== Cloud Sync Encryption ====================
+// ==================== Cloud Sync Base64 Helpers ====================
 function bytesToBase64(bytes) {
     var binary = '';
     var chunk = 0x8000;
@@ -3866,7 +3866,7 @@ function base64ToBytes(text) {
     for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     return bytes;
 }
-
+// ==================== Cloud Sync Key Derivation ====================
 async function deriveCloudSyncKey(passphrase, salt, iterations) {
     if (!window.crypto || !crypto.subtle) throw new Error('WebCrypto is required for encrypted cloud sync.');
     var enc = new TextEncoder();
@@ -3885,7 +3885,7 @@ async function deriveCloudSyncKey(passphrase, salt, iterations) {
         ['encrypt', 'decrypt']
     );
 }
-
+// ==================== Cloud Sync Encrypt Snapshot ====================
 async function encryptCloudSyncSnapshot(snapshot) {
     var s = ensureCloudSyncSettings();
     if (!s.cloudSyncEncrypted) return snapshot;
@@ -3912,7 +3912,7 @@ async function encryptCloudSyncSnapshot(snapshot) {
         createdAt: Date.now()
     };
 }
-
+// ==================== Cloud Sync Decrypt Snapshot ====================
 async function decryptCloudSyncSnapshot(envelope) {
     if (!envelope || envelope.encrypted !== true) return envelope;
     var s = ensureCloudSyncSettings();
@@ -3928,6 +3928,12 @@ async function decryptCloudSyncSnapshot(envelope) {
     var text = new TextDecoder().decode(new Uint8Array(plain));
     return normalizeCloudSyncSnapshot(JSON.parse(text));
 }
+// ==================== Cloud Sync Crypto Facade ====================
+// Base64, key derivation, encryption, and decryption helpers live in:
+// - 22-cloud-sync-base64.js
+// - 22-cloud-sync-key-derivation.js
+// - 22-cloud-sync-encrypt.js
+// - 22-cloud-sync-decrypt.js
 // ==================== Cloud Sync Transport & Status ====================
 async function requestCloudSync(method, payload) {
     var s = ensureCloudSyncSettings();

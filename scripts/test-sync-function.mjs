@@ -586,6 +586,10 @@ async function assertFrontendCloudSyncCrypto() {
     '../src/app/22-cloud-sync.js',
     '../src/app/22-cloud-sync-normalize.js',
     '../src/app/22-cloud-sync-crypto-envelope.js',
+    '../src/app/22-cloud-sync-base64.js',
+    '../src/app/22-cloud-sync-key-derivation.js',
+    '../src/app/22-cloud-sync-encrypt.js',
+    '../src/app/22-cloud-sync-decrypt.js',
     '../src/app/22-cloud-sync-crypto.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
