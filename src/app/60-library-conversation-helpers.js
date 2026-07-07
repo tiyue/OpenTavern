@@ -33,3 +33,29 @@ function resetConversationRuntimeState(conv) {
     conv._historyScrollHandler = null;
     conv._wiCache = null;
 }
+
+function removeConversationFromLibraryState(id) {
+    delete state.conversations[id];
+    state.conversationOrder = (state.conversationOrder || []).filter(function(x) { return x !== id; });
+}
+
+function createDefaultLibraryConversation() {
+    var conv = defaultConversation();
+    state.conversations[conv.id] = conv;
+    state.conversationOrder.push(conv.id);
+    return conv;
+}
+
+function ensureLibraryActiveConversationAfterDelete(deletedId) {
+    if (state.activeConvId !== deletedId) return;
+    if (state.conversationOrder.length > 0) {
+        state.activeConvId = state.conversationOrder[0];
+        return;
+    }
+    state.activeConvId = createDefaultLibraryConversation().id;
+}
+
+function deleteConversationFromLibraryState(id) {
+    removeConversationFromLibraryState(id);
+    ensureLibraryActiveConversationAfterDelete(id);
+}

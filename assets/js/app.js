@@ -11146,6 +11146,32 @@ function resetConversationRuntimeState(conv) {
     conv._historyScrollHandler = null;
     conv._wiCache = null;
 }
+
+function removeConversationFromLibraryState(id) {
+    delete state.conversations[id];
+    state.conversationOrder = (state.conversationOrder || []).filter(function(x) { return x !== id; });
+}
+
+function createDefaultLibraryConversation() {
+    var conv = defaultConversation();
+    state.conversations[conv.id] = conv;
+    state.conversationOrder.push(conv.id);
+    return conv;
+}
+
+function ensureLibraryActiveConversationAfterDelete(deletedId) {
+    if (state.activeConvId !== deletedId) return;
+    if (state.conversationOrder.length > 0) {
+        state.activeConvId = state.conversationOrder[0];
+        return;
+    }
+    state.activeConvId = createDefaultLibraryConversation().id;
+}
+
+function deleteConversationFromLibraryState(id) {
+    removeConversationFromLibraryState(id);
+    ensureLibraryActiveConversationAfterDelete(id);
+}
 // ==================== Library Conversation Actions ====================
 function loadOrCreateChatForCharacter(char) {
     if (!char || !char.name) return;
@@ -11199,18 +11225,7 @@ async function loadConversation(id) {
 
 async function deleteConversation(id) {
     if (!await showGlassConfirm(t('delete_confirm'), { title: '\u5220\u9664\u5bf9\u8bdd', danger: true, okText: '\u5220\u9664' })) return;
-    delete state.conversations[id];
-    state.conversationOrder = state.conversationOrder.filter(function(x) { return x !== id; });
-    if (state.activeConvId === id) {
-        if (state.conversationOrder.length > 0) {
-            state.activeConvId = state.conversationOrder[0];
-        } else {
-            var conv = defaultConversation();
-            state.conversations[conv.id] = conv;
-            state.conversationOrder.push(conv.id);
-            state.activeConvId = conv.id;
-        }
-    }
+    deleteConversationFromLibraryState(id);
     persistState();
     requestRender(['conversations', 'conversationOrder', 'activeConvId']);
 }

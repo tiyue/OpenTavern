@@ -4039,13 +4039,18 @@ async function assertFrontendLibraryConversationHelpers() {
         recent: { id: 'recent', character: { name: 'Arona' }, created: 200 },
         other: { id: 'other', character: { name: 'Mika' }, updated: 300 },
       },
+      conversationOrder: ['old', 'recent', 'other'],
+      activeConvId: 'recent',
     },
     isGroupChat(conv) { return !!(conv && conv.group); },
+    defaultConversation() {
+      return { id: 'default', messages: [] };
+    },
     Array,
     Object,
   };
 
-  vm.runInNewContext(`${source}\nthis.__recent = findMostRecentConversationForCharacter;\nthis.__name = getConversationDisplayCharacterName;\nthis.__reset = resetConversationRuntimeState;`, context);
+  vm.runInNewContext(`${source}\nthis.__recent = findMostRecentConversationForCharacter;\nthis.__name = getConversationDisplayCharacterName;\nthis.__reset = resetConversationRuntimeState;\nthis.__deleteState = deleteConversationFromLibraryState;`, context);
 
   assert(context.__recent('Arona').id === 'recent', 'Library conversation helper should pick the newest matching character conversation.');
   assert(context.__recent('Missing') === null, 'Library conversation helper should return null when no matching conversation exists.');
@@ -4061,6 +4066,15 @@ async function assertFrontendLibraryConversationHelpers() {
   };
   context.__reset(conv);
   assert(conv._showAllMessages === false && conv._lastRenderedVisibleCount === 0 && conv._historyWindow === 150 && conv._historyScrollHandler === null && conv._wiCache === null, 'Library conversation helper should reset transient render state.');
+
+  context.__deleteState('old');
+  assert(!context.state.conversations.old && context.state.conversationOrder.join(',') === 'recent,other' && context.state.activeConvId === 'recent', 'Library conversation helper should remove inactive conversations without changing the active conversation.');
+
+  context.__deleteState('recent');
+  assert(!context.state.conversations.recent && context.state.activeConvId === 'other', 'Library conversation helper should select the next conversation after deleting the active conversation.');
+
+  context.__deleteState('other');
+  assert(context.state.activeConvId === 'default' && context.state.conversations.default && context.state.conversationOrder.join(',') === 'default', 'Library conversation helper should create a default conversation when the last active conversation is deleted.');
 }
 
 async function assertFrontendLibraryViewHelpers() {
