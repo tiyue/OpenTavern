@@ -1,13 +1,13 @@
 // ==================== StorageService Backend Clear Helpers ====================
 async function clearStorageServiceOPFS(service, emptyData, cleared) {
     try {
-        if (typeof OPFSStorage !== 'undefined' && typeof OPFSStorage.saveAll === 'function' && service._opfsMirrorAvailable && !service._isSafari()) {
-            await OPFSStorage.saveAll(emptyData).catch(() => {});
-        }
-        if (typeof OPFSStorage !== 'undefined' && typeof OPFSStorage.clear === 'function') {
-            try { await OPFSStorage.clear(); } catch (_) {}
-        }
-        cleared.opfs = true;
+        if (canResetStorageServiceOPFSBeforeClear(service)) await runStorageServiceBackendClear(function() {
+            return OPFSStorage.saveAll(emptyData);
+        });
+        if (typeof OPFSStorage !== 'undefined' && hasStorageServiceBackendMethod(OPFSStorage, 'clear')) await runStorageServiceBackendClear(function() {
+            return OPFSStorage.clear();
+        });
+        markStorageServiceBackendCleared(cleared, 'opfs');
     } catch (e) {
         console.warn('[Storage] OPFS clear/reset error:', e);
     }
@@ -15,9 +15,9 @@ async function clearStorageServiceOPFS(service, emptyData, cleared) {
 
 async function clearStorageServiceIDB(cleared) {
     try {
-        if (typeof IDBStorage !== 'undefined' && typeof IDBStorage.clear === 'function') {
+        if (typeof IDBStorage !== 'undefined' && hasStorageServiceBackendMethod(IDBStorage, 'clear')) {
             await IDBStorage.clear();
-            cleared.idb = true;
+            markStorageServiceBackendCleared(cleared, 'idb');
         }
     } catch (e) {
         console.warn('[Storage] IDB clear/reset error:', e);
@@ -39,7 +39,7 @@ async function clearStorageServiceLegacyIDB(cleared) {
                 const req = indexedDB.deleteDatabase('OpenTavernDB');
                 req.onsuccess = req.onerror = req.onblocked = () => resolve();
             });
-            cleared.legacyIdb = true;
+            markStorageServiceBackendCleared(cleared, 'legacyIdb');
         }
     } catch (e) {
         console.warn('[Storage] legacy IDB clear error:', e);
@@ -50,7 +50,7 @@ async function clearStorageServiceWebLLMCache(cleared) {
     try {
         if (typeof clearWebLLMCache === 'function') {
             await clearWebLLMCache({ silent: true });
-            cleared.webllm = true;
+            markStorageServiceBackendCleared(cleared, 'webllm');
         }
     } catch (e) {}
 }

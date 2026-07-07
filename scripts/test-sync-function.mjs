@@ -5662,6 +5662,47 @@ async function assertFrontendStorageServicePageLifecycleHelpers() {
   assert(events.filter((event) => event.startsWith('local:')).length === 1, 'Storage page lifecycle helper should not write local snapshots when no snapshot is available.');
 }
 
+async function assertFrontendStorageServiceClearBackendHelpers() {
+  const sources = await Promise.all([
+    '../src/app/20-storage-service-clear-backend-helpers.js',
+    '../src/app/20-storage-service-clear-backends.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+  const events = [];
+  const indexedDBMock = {
+    deleteDatabase(name) {
+      events.push(`legacy:${name}`);
+      const request = {};
+      setTimeout(() => request.onsuccess && request.onsuccess(), 0);
+      return request;
+    },
+  };
+  const context = {
+    OPFSStorage: {
+      async saveAll(data) { events.push(`opfs-save:${data.lastSaved}`); },
+      async clear() { events.push('opfs-clear'); },
+    },
+    IDBStorage: {
+      async clear() { events.push('idb-clear'); },
+    },
+    indexedDB: indexedDBMock,
+    window: { indexedDB: indexedDBMock },
+    clearWebLLMCache(options) { events.push(`webllm:${!!(options && options.silent)}`); },
+    console: { warn() {} },
+    Promise,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__opfs = clearStorageServiceOPFS;\nthis.__idb = clearStorageServiceIDB;\nthis.__legacy = clearStorageServiceLegacyIDB;\nthis.__webllm = clearStorageServiceWebLLMCache;`, context);
+
+  const cleared = {};
+  await context.__opfs({ _opfsMirrorAvailable: true, _isSafari: () => false }, { lastSaved: 12 }, cleared);
+  await context.__idb(cleared);
+  await context.__legacy(cleared);
+  await context.__webllm(cleared);
+
+  assert(events.join('|') === 'opfs-save:12|opfs-clear|idb-clear|legacy:OpenTavernDB|webllm:true', 'Storage clear backend helpers should clear all available backends in order.');
+  assert(cleared.opfs === true && cleared.idb === true && cleared.legacyIdb === true && cleared.webllm === true, 'Storage clear backend helpers should mark cleared backends.');
+}
+
 async function assertFrontendStorageServiceLoadHelpers() {
   const sources = await Promise.all([
     '../src/app/20-storage-service-backend-sync.js',
@@ -5774,6 +5815,7 @@ async function assertFrontendStorageServicePipeline() {
     '../src/app/20-storage-service-info-fallback.js',
     '../src/app/20-storage-service-info.js',
     '../src/app/20-storage-service-clear-local.js',
+    '../src/app/20-storage-service-clear-backend-helpers.js',
     '../src/app/20-storage-service-clear-backends.js',
     '../src/app/20-storage-service-clear.js',
     '../src/app/20-storage-service-backend-sync.js',
@@ -6129,6 +6171,7 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
     '../src/app/20-storage-service-info-fallback.js',
     '../src/app/20-storage-service-info.js',
     '../src/app/20-storage-service-clear-local.js',
+    '../src/app/20-storage-service-clear-backend-helpers.js',
     '../src/app/20-storage-service-clear-backends.js',
     '../src/app/20-storage-service-clear.js',
     '../src/app/20-storage-service-backend-sync.js',
@@ -6697,6 +6740,7 @@ async function main() {
   await assertFrontendStorageServiceSaveHelpers();
   await assertFrontendStorageServiceQuotaBackupHelpers();
   await assertFrontendStorageServicePageLifecycleHelpers();
+  await assertFrontendStorageServiceClearBackendHelpers();
   await assertFrontendStorageServiceInfoHelpers();
   await assertFrontendStorageServicePipeline();
   await assertFrontendStorageRecoveryScanner();

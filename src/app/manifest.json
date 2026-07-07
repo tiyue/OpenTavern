@@ -54,6 +54,7 @@
   "20-storage-service-info-fallback.js",
   "20-storage-service-info.js",
   "20-storage-service-clear-local.js",
+  "20-storage-service-clear-backend-helpers.js",
   "20-storage-service-clear-backends.js",
   "20-storage-service-clear.js",
   "20-storage-service-backend-sync.js",
