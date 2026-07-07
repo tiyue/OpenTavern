@@ -14144,6 +14144,7 @@ function bindSettingsStorageControls() {
     bindSettingsStorageClearControls(backend);
     bindSettingsStorageRecoveryControls();
 }
+// ==================== Settings Save Main Form ====================
 function readMainSettingsFromForm() {
     state.settings.apiEndpoint = dom.apiEndpoint.value.trim();
     state.settings.apiKey = dom.apiKey.value.trim();
@@ -14167,7 +14168,7 @@ function readMainSettingsFromForm() {
     if (dom.showCotEnabled) state.settings.showCotEnabled = !!dom.showCotEnabled.checked;
     if (dom.userDescription) state.settings.userDescription = dom.userDescription.value.trim();
 }
-
+// ==================== Settings Save Summary Form ====================
 function readSummarySettingsFromForm() {
     ensureSillyTavernPresetSettings();
     state.settings.summaryEnabled = dom.summaryEnabled.checked;
@@ -14180,21 +14181,21 @@ function readWorldInfoBudgetSettingsFromForm() {
     state.settings.worldInfoBudgetEnabled = dom.worldInfoBudgetEnabled.checked;
     state.settings.worldInfoBudget = parseInt(dom.worldInfoBudget.value) || 2048;
 }
-
+// ==================== Settings Save UI Form ====================
 function readUiBehaviorSettingsFromForm() {
     state.settings.uiTheme = dom.uiTheme ? (dom.uiTheme.value || 'new-light') : 'new-light';
     state.settings.uiTheme = typeof normalizeUiTheme === 'function' ? normalizeUiTheme(state.settings.uiTheme) : state.settings.uiTheme;
     if (typeof cacheUiTheme === 'function') cacheUiTheme(state.settings.uiTheme);
     state.settings.lowPowerMode = dom.lowPowerMode ? !!dom.lowPowerMode.checked : false;
 }
-
+// ==================== Settings Save Summarization API Form ====================
 function readSummarizationApiSettingsFromForm() {
     state.settings.summarizeUseMainAPI = dom.summarizeUseMainAPI.checked;
     state.settings.summarizeApiEndpoint = dom.summarizeApiEndpoint.value.trim();
     state.settings.summarizeApiKey = dom.summarizeApiKey.value.trim();
     state.settings.summarizeModel = dom.summarizeModel.value.trim() || 'deepseek-v4-flash';
 }
-
+// ==================== Settings Save ComfyUI Form ====================
 function readComfySettingsFromForm() {
     ensureComfySettings();
     if (dom.comfyEnabled) state.settings.comfyEnabled = !!dom.comfyEnabled.checked;
@@ -14205,14 +14206,15 @@ function readComfySettingsFromForm() {
     if (dom.comfyNegativePrompt) state.settings.comfyNegativePrompt = dom.comfyNegativePrompt.value.trim();
     if (dom.comfyPromptTemplate) state.settings.comfyPromptTemplate = dom.comfyPromptTemplate.value.trim() || defaultSettings().comfyPromptTemplate;
 }
-
+// ==================== Settings Save WebLLM Form ====================
 function readWebLLMSettingsFromForm() {
     var backendSel = document.getElementById('inferenceBackend');
     var webllmSel = document.getElementById('webllmModel');
     if (backendSel) state.settings.inferenceBackend = backendSel.value || 'remote-api';
     if (webllmSel) state.settings.webllmModel = webllmSel.value || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
 }
-
+// ==================== Settings Save Form Facade ====================
+// Form readers are split by settings group across 68-settings-save-*-form.js.
 function readSettingsFormIntoState() {
     readMainSettingsFromForm();
     readSummarySettingsFromForm();

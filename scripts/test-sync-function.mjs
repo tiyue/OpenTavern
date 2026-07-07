@@ -2180,6 +2180,12 @@ async function assertFrontendWorldBookFormatHelpers() {
 async function assertFrontendSettingsSaveHelpers() {
   const sources = await Promise.all([
     '../src/app/68-settings-cloud-sync-form.js',
+    '../src/app/68-settings-save-main-form.js',
+    '../src/app/68-settings-save-summary-form.js',
+    '../src/app/68-settings-save-ui-form.js',
+    '../src/app/68-settings-save-summary-api-form.js',
+    '../src/app/68-settings-save-comfy-form.js',
+    '../src/app/68-settings-save-webllm-form.js',
     '../src/app/68-settings-save-form.js',
     '../src/app/68-settings-save-effects.js',
     '../src/app/68-settings-save.js',
