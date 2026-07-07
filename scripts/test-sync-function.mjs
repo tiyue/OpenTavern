@@ -2730,26 +2730,62 @@ async function assertFrontendMyCardControlHelpers() {
 }
 
 async function assertFrontendMyCardImageUploadHelpers() {
-  const source = await readFile(new URL('../src/app/60-library-card-image-upload-helpers.js', import.meta.url), 'utf8');
+  const sources = await Promise.all([
+    '../src/app/60-library-card-image-upload-input-helpers.js',
+    '../src/app/60-library-card-image-upload-helpers.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const events = [];
   const avatars = {
     charAvatar: { innerHTML: '', className: '' },
     charCardAvatar: { innerHTML: '', className: '' },
   };
+  const bodyChildren = [];
+  class FileReaderMock {
+    readAsDataURL(file) {
+      events.push(`read:${file.name}`);
+      this.onload({ target: { result: 'data:image/png;base64,reader' } });
+    }
+  }
   const context = {
     state: { characters: { arona: { name: 'Arona' } } },
     currentCharacterName: ' Arona ',
     persistState(flag) { events.push(`persist:${flag}`); },
     renderMyCards() { events.push('render'); },
     document: {
+      body: {
+        appendChild(input) {
+          input.parentNode = this;
+          bodyChildren.push(input);
+        },
+        removeChild(input) {
+          const index = bodyChildren.indexOf(input);
+          if (index >= 0) bodyChildren.splice(index, 1);
+          input.parentNode = null;
+        },
+      },
+      createElement(tag) {
+        return { tagName: tag.toUpperCase(), style: {}, files: [] };
+      },
       getElementById(id) {
         return avatars[id] || null;
       },
     },
+    FileReader: FileReaderMock,
     String,
   };
 
-  vm.runInNewContext(`${source}\nthis.__key = getCardImageUploadKey;\nthis.__active = isActiveCharacterCardKey;\nthis.__html = buildCardImageUploadAvatarHtml;\nthis.__save = saveMyCharacterPreviewImage;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__createInput = createCardImageUploadInput;\nthis.__removeInput = removeCardImageUploadInput;\nthis.__getFile = getCardImageUploadFile;\nthis.__readFile = readCardImageUploadFile;\nthis.__key = getCardImageUploadKey;\nthis.__active = isActiveCharacterCardKey;\nthis.__html = buildCardImageUploadAvatarHtml;\nthis.__save = saveMyCharacterPreviewImage;`, context);
+
+  const input = context.__createInput();
+  const file = { name: 'avatar.png' };
+  input.files = [file];
+  assert(input.type === 'file' && input.accept === 'image/*' && input.style.display === 'none' && bodyChildren.includes(input), 'My card image upload input helpers should create hidden image file inputs.');
+  assert(context.__getFile(input) === file, 'My card image upload input helpers should return the selected file.');
+  context.__readFile(file, (dataUrl) => events.push(`loaded:${dataUrl}`), () => events.push('read-error'));
+  assert(events.includes('read:avatar.png') && events.includes('loaded:data:image/png;base64,reader'), 'My card image upload input helpers should read selected files as data URLs.');
+  context.__removeInput(input);
+  assert(bodyChildren.length === 0 && input.parentNode === null, 'My card image upload input helpers should remove temporary inputs.');
+  events.length = 0;
 
   assert(context.__key({ name: ' Arona ' }) === 'arona', 'My card image upload should normalize character keys.');
   assert(context.__active('arona') === true, 'My card image upload should detect the active character key.');

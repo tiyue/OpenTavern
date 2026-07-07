@@ -11380,7 +11380,7 @@ function createLibraryCardInfo(card) {
     info.appendChild(tags);
     return info;
 }
-// ==================== Library Card Image Upload Helpers ====================
+// ==================== Library Card Image Upload Input Helpers ====================
 function createCardImageUploadInput() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -11406,7 +11406,7 @@ function readCardImageUploadFile(file, onLoad, onError) {
     reader.onerror = onError;
     reader.readAsDataURL(file);
 }
-
+// ==================== Library Card Image Upload Helpers ====================
 function getCardImageUploadKey(char) {
     return (char && char.name ? char.name : '').trim().toLowerCase();
 }
