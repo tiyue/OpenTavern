@@ -3000,12 +3000,13 @@ async function assertFrontendLibraryPublicCardDetailModal() {
     String,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__template = buildPublicCardDetailModalHtml;\nthis.__author = formatPublicCardDetailAuthor;\nthis.__tags = renderPublicCardDetailTags;\nthis.__show = showPublicCardDetail;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__template = buildPublicCardDetailModalHtml;\nthis.__author = formatPublicCardDetailAuthor;\nthis.__tags = renderPublicCardDetailTags;\nthis.__elements = getPublicCardDetailModalElements;\nthis.__import = importPublicCardDetailAndOpenChat;\nthis.__show = showPublicCardDetail;`, context);
 
   assert(context.__template().includes('publicDetailImport'), 'Public card detail helper should include the import button in the modal template.');
   assert(context.__author('Tester') === '作者: Tester' && context.__author('') === '作者: —', 'Public card detail helper should format author text.');
   context.__tags(elements.publicDetailTags, ['AI', 'Guide']);
   assert(elements.publicDetailTags.children.length === 2 && elements.publicDetailTags.children[0].textContent === 'AI', 'Public card detail helper should render tag pills.');
+  assert(context.__elements().importButton === elements.publicDetailImport, 'Public card detail helper should collect modal action elements.');
 
   context.__show({ name: 'Alpha', author: 'Tester', tags: ['AI'], description: 'Desc' });
   const modal = elements.publicCardDetailModal;
@@ -3014,6 +3015,11 @@ async function assertFrontendLibraryPublicCardDetailModal() {
   assert(modal.classList.values.has('hidden'), 'Public card detail modal close button should hide the modal.');
   await elements.publicDetailImport.onclick();
   assert(events.includes('import:Alpha') && events.includes('load:Alpha'), 'Public card detail modal import should import and open the character chat.');
+
+  events.length = 0;
+  modal.classList.remove('hidden');
+  await context.__import(modal, { name: 'Missing' });
+  assert(events.join('|') === 'import:Missing' && modal.classList.values.has('hidden'), 'Public card detail modal import should not open chat when the imported card is unavailable.');
 }
 
 async function assertFrontendI18nRuntime() {

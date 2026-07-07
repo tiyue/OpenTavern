@@ -40,3 +40,35 @@ function renderPublicCardDetailTags(tagsDiv, tags) {
 function getImportedPublicCardCharacter(card) {
     return state.characters[(card.name || '').toLowerCase().trim()];
 }
+
+function getPublicCardDetailModalElements() {
+    return {
+        name: document.getElementById('publicDetailName'),
+        author: document.getElementById('publicDetailAuthor'),
+        tags: document.getElementById('publicDetailTags'),
+        desc: document.getElementById('publicDetailDesc'),
+        close: document.getElementById('publicDetailClose'),
+        backdrop: document.getElementById('publicDetailBackdrop'),
+        importButton: document.getElementById('publicDetailImport')
+    };
+}
+
+function renderPublicCardDetailModalContent(elements, card) {
+    elements.name.textContent = card.name || '';
+    elements.author.textContent = formatPublicCardDetailAuthor(card.author);
+    renderPublicCardDetailTags(elements.tags, card.tags);
+    elements.desc.textContent = card.description || '';
+}
+
+function hidePublicCardDetailModal(detailModal) {
+    detailModal.classList.add('hidden');
+}
+
+async function importPublicCardDetailAndOpenChat(detailModal, card) {
+    hidePublicCardDetailModal(detailModal);
+    await importPublicCard(card);
+    const importedChar = getImportedPublicCardCharacter(card);
+    if (importedChar) {
+        loadOrCreateChatForCharacter(importedChar);
+    }
+}

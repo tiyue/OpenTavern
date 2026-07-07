@@ -11711,6 +11711,38 @@ function renderPublicCardDetailTags(tagsDiv, tags) {
 function getImportedPublicCardCharacter(card) {
     return state.characters[(card.name || '').toLowerCase().trim()];
 }
+
+function getPublicCardDetailModalElements() {
+    return {
+        name: document.getElementById('publicDetailName'),
+        author: document.getElementById('publicDetailAuthor'),
+        tags: document.getElementById('publicDetailTags'),
+        desc: document.getElementById('publicDetailDesc'),
+        close: document.getElementById('publicDetailClose'),
+        backdrop: document.getElementById('publicDetailBackdrop'),
+        importButton: document.getElementById('publicDetailImport')
+    };
+}
+
+function renderPublicCardDetailModalContent(elements, card) {
+    elements.name.textContent = card.name || '';
+    elements.author.textContent = formatPublicCardDetailAuthor(card.author);
+    renderPublicCardDetailTags(elements.tags, card.tags);
+    elements.desc.textContent = card.description || '';
+}
+
+function hidePublicCardDetailModal(detailModal) {
+    detailModal.classList.add('hidden');
+}
+
+async function importPublicCardDetailAndOpenChat(detailModal, card) {
+    hidePublicCardDetailModal(detailModal);
+    await importPublicCard(card);
+    const importedChar = getImportedPublicCardCharacter(card);
+    if (importedChar) {
+        loadOrCreateChatForCharacter(importedChar);
+    }
+}
 // ==================== Public Library Card Detail Modal ====================
 function showPublicCardDetail(card) {
     const detailModal = ensurePublicCardDetailModal();
@@ -11731,27 +11763,17 @@ function ensurePublicCardDetailModal() {
 }
 
 function fillPublicCardDetailModal(detailModal, card) {
-    document.getElementById('publicDetailName').textContent = card.name || '';
-    document.getElementById('publicDetailAuthor').textContent = formatPublicCardDetailAuthor(card.author);
-
-    const tagsDiv = document.getElementById('publicDetailTags');
-    renderPublicCardDetailTags(tagsDiv, card.tags);
-
-    document.getElementById('publicDetailDesc').textContent = card.description || '';
-    bindPublicCardDetailModalActions(detailModal, card);
+    const elements = getPublicCardDetailModalElements();
+    renderPublicCardDetailModalContent(elements, card);
+    bindPublicCardDetailModalActions(detailModal, card, elements);
 }
 
-function bindPublicCardDetailModalActions(detailModal, card) {
-    const close = () => detailModal.classList.add('hidden');
-    document.getElementById('publicDetailClose').onclick = close;
-    document.getElementById('publicDetailBackdrop').onclick = close;
-    document.getElementById('publicDetailImport').onclick = async () => {
-        close();
-        await importPublicCard(card);
-        const importedChar = getImportedPublicCardCharacter(card);
-        if (importedChar) {
-            loadOrCreateChatForCharacter(importedChar);
-        }
+function bindPublicCardDetailModalActions(detailModal, card, elements) {
+    const close = () => hidePublicCardDetailModal(detailModal);
+    elements.close.onclick = close;
+    elements.backdrop.onclick = close;
+    elements.importButton.onclick = async () => {
+        await importPublicCardDetailAndOpenChat(detailModal, card);
     };
 }
 function getFilteredPublicLibraryCards() {
