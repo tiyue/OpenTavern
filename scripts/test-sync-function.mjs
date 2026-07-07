@@ -2642,7 +2642,10 @@ async function assertFrontendMyCardGridFiltering() {
 }
 
 async function assertFrontendPublicCardGridFiltering() {
-  const source = await readFile(new URL('../src/app/60-library-public-card-grid-ui.js', import.meta.url), 'utf8');
+  const sources = await Promise.all([
+    '../src/app/60-library-public-card-filter.js',
+    '../src/app/60-library-public-card-grid-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const cards = [
     { name: 'Alpha', tags: ['keep'] },
     { name: 'Beta', tags: ['skip'] },
@@ -2652,7 +2655,7 @@ async function assertFrontendPublicCardGridFiltering() {
     passesLibraryFilter: (card) => card.tags.includes('keep'),
   };
 
-  vm.runInNewContext(`${source}\nthis.__filtered = getFilteredPublicLibraryCards;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__filtered = getFilteredPublicLibraryCards;`, context);
   const filtered = context.__filtered();
   assert(filtered.length === 1 && filtered[0].name === 'Alpha', 'Public card grid filtering did not use the library filter.');
 }

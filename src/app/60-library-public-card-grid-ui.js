@@ -8,10 +8,6 @@ function renderPublicCards() {
     });
 }
 
-function getFilteredPublicLibraryCards() {
-    return getPublicCards().filter(card => passesLibraryFilter(card));
-}
-
 function renderLibraryGrids() {
     renderMyCards();
     renderPublicCards();

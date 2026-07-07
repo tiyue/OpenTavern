@@ -11557,6 +11557,11 @@ function bindPublicCardDetailModalActions(detailModal, card) {
         }
     };
 }
+function getFilteredPublicLibraryCards() {
+    return getPublicCards().filter(function(card) {
+        return passesLibraryFilter(card);
+    });
+}
 function renderPublicCards() {
     const grid = document.getElementById('publicCardsGrid');
     if (!grid) return;
@@ -11565,10 +11570,6 @@ function renderPublicCards() {
     getFilteredPublicLibraryCards().forEach(card => {
         grid.appendChild(createPublicLibraryCard(card));
     });
-}
-
-function getFilteredPublicLibraryCards() {
-    return getPublicCards().filter(card => passesLibraryFilter(card));
 }
 
 function renderLibraryGrids() {
