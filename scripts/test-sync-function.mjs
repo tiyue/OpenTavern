@@ -434,7 +434,12 @@ async function assertFrontendWebGLBackgroundHelpers() {
 async function assertFrontendCloudSnapshotApply() {
   const cloudSource = await readFile(new URL('../src/app/22-cloud-sync.js', import.meta.url), 'utf8');
   const normalizeSource = await readFile(new URL('../src/app/22-cloud-sync-normalize.js', import.meta.url), 'utf8');
-  const applySource = await readFile(new URL('../src/app/22-cloud-sync-apply.js', import.meta.url), 'utf8');
+  const applySources = await Promise.all([
+    '../src/app/22-cloud-sync-apply-settings.js',
+    '../src/app/22-cloud-sync-apply-conversations.js',
+    '../src/app/22-cloud-sync-apply-effects.js',
+    '../src/app/22-cloud-sync-apply.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   let persisted = false;
   const persistCalls = [];
   let notified = null;
@@ -486,7 +491,7 @@ async function assertFrontendCloudSnapshotApply() {
     String,
   };
 
-  vm.runInNewContext(`${cloudSource}\n${normalizeSource}\n${applySource}\nthis.__apply = applyCloudSyncSnapshot;`, context);
+  vm.runInNewContext(`${cloudSource}\n${normalizeSource}\n${applySources.join('\n')}\nthis.__apply = applyCloudSyncSnapshot;`, context);
   const applied = context.__apply({
     settings: {
       model: 'remote-model',

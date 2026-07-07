@@ -3970,26 +3970,7 @@ function setCloudSyncStatus(message, isError) {
         el.className = 'text-[10px] leading-relaxed ' + (isError ? 'text-red-400' : 'text-zinc-500');
     }
 }
-// ==================== Cloud Sync Apply Snapshot ====================
-function applyCloudSyncSnapshot(snapshot) {
-    var data = normalizeCloudSyncSnapshot(snapshot);
-    var currentCloud = getCloudSyncLocalSettingsForRestore();
-
-    state.settings = Object.assign(defaultSettings(), data.settings || {}, currentCloud);
-    state.conversations = data.conversations || {};
-    state.conversationOrder = data.conversationOrder || Object.keys(state.conversations || {});
-    state.activeConvId = data.activeConvId || null;
-    state.worldBooks = data.worldBooks || {};
-    state.characters = data.characters || {};
-    state._charactersMigrated = !!data.charactersMigrated;
-
-    normalizeCloudSyncRestoredConversations();
-    ensureCloudSyncRestoredActiveConversation();
-    persistCloudSyncAppliedSnapshot(data);
-    notifyCloudSyncSnapshotApplied();
-    return data;
-}
-
+// ==================== Cloud Sync Apply Local Settings ====================
 function getCloudSyncLocalSettingsForRestore() {
     var local = {
         cloudSyncLastAt: Date.now(),
@@ -4017,7 +3998,7 @@ function copyCloudSyncLocalSetting(target, key) {
     if (value === undefined || value === null) return;
     target[key] = value;
 }
-
+// ==================== Cloud Sync Apply Conversations ====================
 function normalizeCloudSyncRestoredConversations() {
     Object.values(state.conversations || {}).forEach(function(conv) {
         try { normalizeConversation(conv); } catch (_) {}
@@ -4041,7 +4022,7 @@ function ensureCloudSyncRestoredActiveConversation() {
     state.conversationOrder = [conv.id];
     state.activeConvId = conv.id;
 }
-
+// ==================== Cloud Sync Apply Effects ====================
 function persistCloudSyncAppliedSnapshot(data) {
     _cloudSyncSavingStatus = true;
     try { persistState(true, { lastSaved: data && data.lastSaved }); } finally { _cloudSyncSavingStatus = false; }
@@ -4052,6 +4033,25 @@ function notifyCloudSyncSnapshotApplied() {
     if (typeof requestFullRender === 'function') requestFullRender();
     if (typeof updateInputState === 'function') updateInputState();
     if (typeof updateStorageInfo === 'function') updateStorageInfo();
+}
+// ==================== Cloud Sync Apply Snapshot ====================
+function applyCloudSyncSnapshot(snapshot) {
+    var data = normalizeCloudSyncSnapshot(snapshot);
+    var currentCloud = getCloudSyncLocalSettingsForRestore();
+
+    state.settings = Object.assign(defaultSettings(), data.settings || {}, currentCloud);
+    state.conversations = data.conversations || {};
+    state.conversationOrder = data.conversationOrder || Object.keys(state.conversations || {});
+    state.activeConvId = data.activeConvId || null;
+    state.worldBooks = data.worldBooks || {};
+    state.characters = data.characters || {};
+    state._charactersMigrated = !!data.charactersMigrated;
+
+    normalizeCloudSyncRestoredConversations();
+    ensureCloudSyncRestoredActiveConversation();
+    persistCloudSyncAppliedSnapshot(data);
+    notifyCloudSyncSnapshotApplied();
+    return data;
 }
 // ==================== Cloud Sync Operation Helpers ====================
 function setCloudSyncPendingStatus(statusEl, message) {
