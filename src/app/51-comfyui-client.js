@@ -5,7 +5,7 @@ function makeComfyClientId() {
 
 function waitForComfyPrompt(server, clientId, promptId, timeoutMs) {
     return new Promise(function(resolve, reject) {
-        var wsUrl = server.replace(/^http/i, 'ws') + '/ws?clientId=' + encodeURIComponent(clientId);
+        var wsUrl = buildComfyPromptWebSocketUrl(server, clientId);
         var ws;
         var done = false;
         var pollTimer = null;
@@ -24,10 +24,10 @@ function waitForComfyPrompt(server, clientId, promptId, timeoutMs) {
         async function pollHistory() {
             if (done) return;
             try {
-                var res = await fetch(server + '/history/' + encodeURIComponent(promptId));
+                var res = await fetch(buildComfyPromptHistoryUrl(server, promptId));
                 if (!res.ok) return;
                 var json = await res.json();
-                if (json && (json[promptId] || json.outputs)) {
+                if (isComfyPromptHistoryComplete(json, promptId)) {
                     cleanup();
                     resolve();
                 }
@@ -53,7 +53,7 @@ function waitForComfyPrompt(server, clientId, promptId, timeoutMs) {
             if (done || typeof ev.data !== 'string') return;
             try {
                 var msg = JSON.parse(ev.data);
-                if (msg.type === 'executing' && msg.data && msg.data.prompt_id === promptId && msg.data.node === null) {
+                if (isComfyPromptFinishedMessage(msg, promptId)) {
                     cleanup();
                     resolve();
                 }

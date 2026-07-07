@@ -3630,6 +3630,7 @@ async function assertFrontendComfyUIHelpers() {
     '../src/app/51-comfyui-workflow-apply.js',
     '../src/app/51-comfyui-output-finder.js',
     '../src/app/51-comfyui-workflow.js',
+    '../src/app/51-comfyui-client-helpers.js',
     '../src/app/51-comfyui-errors.js',
     '../src/app/51-comfyui-output-message.js',
     '../src/app/51-comfyui-workflow-import-ui.js',
@@ -3674,7 +3675,7 @@ async function assertFrontendComfyUIHelpers() {
     encodeURIComponent,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__clone = cloneComfyWorkflow;\nthis.__setInput = setComfyNodeInput;\nthis.__promptText = buildComfyPromptText;\nthis.__applyWorkflow = applyComfyPromptToWorkflow;\nthis.__findOutput = findComfyOutputImage;\nthis.__error = formatComfyError;\nthis.__url = buildComfyImageViewUrl;\nthis.__msg = createComfyImageMessage;\nthis.__append = appendComfyImageMessage;\nthis.__status = updateComfyWorkflowStatus;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__clone = cloneComfyWorkflow;\nthis.__setInput = setComfyNodeInput;\nthis.__promptText = buildComfyPromptText;\nthis.__applyWorkflow = applyComfyPromptToWorkflow;\nthis.__findOutput = findComfyOutputImage;\nthis.__wsUrl = buildComfyPromptWebSocketUrl;\nthis.__historyUrl = buildComfyPromptHistoryUrl;\nthis.__historyComplete = isComfyPromptHistoryComplete;\nthis.__finishedMessage = isComfyPromptFinishedMessage;\nthis.__error = formatComfyError;\nthis.__url = buildComfyImageViewUrl;\nthis.__msg = createComfyImageMessage;\nthis.__append = appendComfyImageMessage;\nthis.__status = updateComfyWorkflowStatus;`, context);
 
   assert(context.__error(new Error('Failed to fetch')).startsWith('fetch hint'), 'ComfyUI network errors should include the fetch hint.');
   const cloned = context.__clone();
@@ -3692,6 +3693,10 @@ async function assertFrontendComfyUIHelpers() {
   assert(image.filename === 'image.png', 'ComfyUI output finder should return the first generated image.');
   const viewUrl = context.__url('http://127.0.0.1:8188', { filename: 'a b.png', subfolder: 'out/f', type: 'output' });
   assert(viewUrl.includes('filename=a%20b.png') && viewUrl.includes('subfolder=out%2Ff'), 'ComfyUI view URL should encode image parameters.');
+  assert(context.__wsUrl('http://server', 'client 1') === 'ws://server/ws?clientId=client%201', 'ComfyUI prompt WebSocket URL should be encoded.');
+  assert(context.__historyUrl('http://server', 'prompt/1') === 'http://server/history/prompt%2F1', 'ComfyUI prompt history URL should be encoded.');
+  assert(context.__historyComplete({ pid: {} }, 'pid') && context.__historyComplete({ outputs: {} }, 'pid'), 'ComfyUI history helper should detect finished prompts.');
+  assert(context.__finishedMessage({ type: 'executing', data: { prompt_id: 'pid', node: null } }, 'pid'), 'ComfyUI WebSocket helper should detect finished prompt messages.');
 
   const msg = context.__msg('data:image/png;base64,abc', 'prompt', 'pid', { filename: 'x.png' });
   assert(msg.attachments[0].mime === 'image/png' && msg.attachments[0].comfyPromptId === 'pid', 'ComfyUI image message should preserve attachment metadata.');

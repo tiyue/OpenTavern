@@ -8695,6 +8695,28 @@ function findComfyOutputImage(history, promptId) {
 // - 51-comfyui-prompt-text.js
 // - 51-comfyui-workflow-apply.js
 // - 51-comfyui-output-finder.js
+// ==================== ComfyUI Client Pure Helpers ====================
+function buildComfyPromptWebSocketUrl(server, clientId) {
+    return server.replace(/^http/i, 'ws') + '/ws?clientId=' + encodeURIComponent(clientId);
+}
+
+function buildComfyPromptHistoryUrl(server, promptId) {
+    return server + '/history/' + encodeURIComponent(promptId);
+}
+
+function isComfyPromptHistoryComplete(history, promptId) {
+    return !!(history && (history[promptId] || history.outputs));
+}
+
+function isComfyPromptFinishedMessage(message, promptId) {
+    return !!(
+        message &&
+        message.type === 'executing' &&
+        message.data &&
+        message.data.prompt_id === promptId &&
+        message.data.node === null
+    );
+}
 // ==================== ComfyUI Client Helpers ====================
 function makeComfyClientId() {
     return 'opentavern-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
@@ -8702,7 +8724,7 @@ function makeComfyClientId() {
 
 function waitForComfyPrompt(server, clientId, promptId, timeoutMs) {
     return new Promise(function(resolve, reject) {
-        var wsUrl = server.replace(/^http/i, 'ws') + '/ws?clientId=' + encodeURIComponent(clientId);
+        var wsUrl = buildComfyPromptWebSocketUrl(server, clientId);
         var ws;
         var done = false;
         var pollTimer = null;
@@ -8721,10 +8743,10 @@ function waitForComfyPrompt(server, clientId, promptId, timeoutMs) {
         async function pollHistory() {
             if (done) return;
             try {
-                var res = await fetch(server + '/history/' + encodeURIComponent(promptId));
+                var res = await fetch(buildComfyPromptHistoryUrl(server, promptId));
                 if (!res.ok) return;
                 var json = await res.json();
-                if (json && (json[promptId] || json.outputs)) {
+                if (isComfyPromptHistoryComplete(json, promptId)) {
                     cleanup();
                     resolve();
                 }
@@ -8750,7 +8772,7 @@ function waitForComfyPrompt(server, clientId, promptId, timeoutMs) {
             if (done || typeof ev.data !== 'string') return;
             try {
                 var msg = JSON.parse(ev.data);
-                if (msg.type === 'executing' && msg.data && msg.data.prompt_id === promptId && msg.data.node === null) {
+                if (isComfyPromptFinishedMessage(msg, promptId)) {
                     cleanup();
                     resolve();
                 }

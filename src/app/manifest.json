@@ -222,6 +222,7 @@
   "51-comfyui-workflow-apply.js",
   "51-comfyui-output-finder.js",
   "51-comfyui-workflow.js",
+  "51-comfyui-client-helpers.js",
   "51-comfyui-client.js",
   "51-comfyui-state.js",
   "51-comfyui-errors.js",
