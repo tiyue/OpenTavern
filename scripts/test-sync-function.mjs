@@ -2211,6 +2211,32 @@ async function assertFrontendWorldInfoNormalizerHelpers() {
   assert(Array.isArray(entry.triggers) && entry.characterFilter.isExclude === false, 'World info normalizer should ensure required shape.');
 }
 
+async function assertFrontendWorldBookDefaults() {
+  const sources = await Promise.all([
+    '../src/app/41-world-info-constants.js',
+    '../src/app/42-worldbook-entry-defaults.js',
+    '../src/app/42-worldbook.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const context = {
+    Date: { now: () => 4242 },
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__entry = createDefaultWIEntry;\nthis.__extensions = createDefaultWIEntryExtensions;`, context);
+
+  const entry = context.__entry(7);
+  assert(entry.uid === 7 && entry.comment === 'New Entry 7', 'World book default entry should use the provided uid.');
+  assert(entry.position === 1 && entry.role === 0 && entry.depth === 4, 'World book default entry should preserve core placement defaults.');
+  assert(entry.extensions.position === entry.position && entry.extensions.role === entry.role, 'World book default extensions should mirror core placement defaults.');
+  assert(entry.extensions.group_weight === entry.groupWeight && entry.extensions.ignore_budget === entry.ignoreBudget, 'World book default extensions should mirror advanced defaults.');
+
+  const generated = context.__entry();
+  assert(generated.uid === 4242, 'World book default entry should fall back to Date.now for uid.');
+  const extensionsA = context.__extensions();
+  const extensionsB = context.__extensions();
+  assert(extensionsA.triggers !== extensionsB.triggers, 'World book default extensions should return fresh array values.');
+}
+
 async function assertFrontendWorldBookFormatHelpers() {
   const sources = await Promise.all([
     '../src/app/42-worldbook-import-format.js',
@@ -5743,6 +5769,7 @@ async function main() {
   await assertFrontendCharacterImportHelpers();
   await assertFrontendCharacterImportEventHelpers();
   await assertFrontendWorldInfoNormalizerHelpers();
+  await assertFrontendWorldBookDefaults();
   await assertFrontendWorldBookFormatHelpers();
   await assertFrontendSettingsSaveHelpers();
   await assertFrontendSettingsHydrationHelpers();

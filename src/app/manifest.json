@@ -153,6 +153,7 @@
   "41-prompt-message-builder.js",
   "41-second-stage-message-lookup.js",
   "41-second-stage-prompt-builder.js",
+  "42-worldbook-entry-defaults.js",
   "42-worldbook.js",
   "42-worldbook-model.js",
   "42-worldbook-import-format.js",
