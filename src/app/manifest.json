@@ -147,6 +147,7 @@
   "43-worldbook-entry-editor-state.js",
   "43-worldbook-entry-editor-header-ui.js",
   "43-worldbook-entry-editor-ui.js",
+  "43-worldbook-entry-action-helpers.js",
   "43-worldbook-entry-actions.js",
   "43-worldbook-entry-list-filter.js",
   "43-worldbook-entry-list-header-ui.js",

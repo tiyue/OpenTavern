@@ -4052,6 +4052,58 @@ async function assertFrontendWorldBookEntryListFiltering() {
   assert(filtered.map((entry) => entry.uid).join(',') === 'high,secondary,low', 'World book entries were not filtered and sorted by order.');
 }
 
+async function assertFrontendWorldBookEntryActionHelpers() {
+  const source = await readFile(new URL('../src/app/43-worldbook-entry-action-helpers.js', import.meta.url), 'utf8');
+  const events = [];
+  const context = {
+    dom: { wiSearch: { value: '  lore  ' } },
+    wiState: {
+      currentWorldBookId: 'wb1',
+      viewMode: 'entries',
+      selectedUid: 'e1',
+      dirty: false,
+    },
+    state: {
+      conversations: {
+        c1: { worldBookIds: ['wb1', 'wb2'] },
+        c2: { worldBookIds: ['wb1'] },
+        c3: {},
+      },
+    },
+    updateWIDirtyIndicator() { events.push('dirty'); },
+    renderWIEntryList(filter) { events.push(`entries:${filter}`); },
+    persistState(force) { events.push(`persist:${force}`); },
+    updateStorageInfo() { events.push('storage'); },
+    renderWorldInfoBadge() { events.push('badge'); },
+    renderWorldBookList(filter) { events.push(`books:${filter}`); },
+    updateWorldBookModalHeader() { events.push('header'); },
+    JSON,
+    Object,
+    Array,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__filter = getWIEntryActionFilter;\nthis.__mark = markWIEntryActionDirtyAndRender;\nthis.__copy = createDuplicateWIEntry;\nthis.__unlink = unlinkWorldBookFromConversations;\nthis.__reset = resetWorldBookSelectionAfterDelete;\nthis.__refresh = refreshWorldBookDeleteViews;`, context);
+
+  assert(context.__filter() === 'lore', 'World book entry action helper should trim the search filter.');
+  context.__mark();
+  assert(context.wiState.dirty === true && events.includes('dirty') && events.includes('entries:lore'), 'World book entry action helper should mark dirty and render with the current filter.');
+
+  const sourceEntry = { uid: 'old', comment: '', key: ['Kivotos'], nested: { value: 1 } };
+  const copy = context.__copy(sourceEntry, 123);
+  sourceEntry.nested.value = 2;
+  assert(copy.uid === 123 && copy.comment === 'Entry (copy)' && copy.nested.value === 1, 'World book entry action helper should deep-copy duplicated entries.');
+
+  context.__unlink('wb1');
+  assert(context.state.conversations.c1.worldBookIds.join(',') === 'wb2' && context.state.conversations.c2.worldBookIds.length === 0, 'World book delete helper should unlink deleted books from conversations.');
+
+  context.__reset('wb1');
+  assert(context.wiState.currentWorldBookId === null && context.wiState.viewMode === 'books' && context.wiState.selectedUid === null, 'World book delete helper should reset selection for the deleted active book.');
+
+  events.length = 0;
+  context.__refresh();
+  assert(events.join('|') === 'dirty|persist:true|storage|badge|books:lore|header', 'World book delete helper should refresh persistence, badge, list, and header views.');
+}
+
 async function assertFrontendWorldBookEntryListUIHelpers() {
   const source = await readFile(new URL('../src/app/43-worldbook-entry-list-row-ui.js', import.meta.url), 'utf8');
 
@@ -5067,6 +5119,7 @@ async function main() {
   await assertFrontendMessageActionHelpers();
   await assertFrontendChatTopBarUI();
   await assertFrontendChatMessageRendererHelpers();
+  await assertFrontendWorldBookEntryActionHelpers();
   await assertFrontendWorldBookEntryListFiltering();
   await assertFrontendWorldBookEntryListUIHelpers();
   await assertFrontendWorldBookEntryLiveHelpers();
