@@ -4347,11 +4347,18 @@ async function assertFrontendWorldBookEntryActionHelpers() {
 }
 
 async function assertFrontendWorldBookEntryListUIHelpers() {
-  const source = await readFile(new URL('../src/app/43-worldbook-entry-list-row-ui.js', import.meta.url), 'utf8');
+  const sources = await Promise.all([
+    '../src/app/43-worldbook-entry-list-navigation-ui.js',
+    '../src/app/43-worldbook-entry-list-association-ui.js',
+    '../src/app/43-worldbook-entry-list-delete-ui.js',
+    '../src/app/43-worldbook-entry-list-header-ui.js',
+    '../src/app/43-worldbook-entry-list-row-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
   function fakeElement() {
     const toggle = { listeners: {}, addEventListener(type, handler) { this.listeners[type] = handler; } };
     const del = { listeners: {}, addEventListener(type, handler) { this.listeners[type] = handler; } };
+    const button = { listeners: {}, addEventListener(type, handler) { this.listeners[type] = handler; } };
     return {
       className: '',
       innerHTML: '',
@@ -4363,26 +4370,51 @@ async function assertFrontendWorldBookEntryListUIHelpers() {
       querySelector(selector) {
         if (selector === '.wi-list-toggle') return toggle;
         if (selector === '.wi-list-del') return del;
+        if (selector === 'button') return button;
         return null;
       },
+      _button: button,
     };
   }
 
   const emptyContainer = fakeElement();
+  const events = [];
+  const activeConv = { worldBookIds: ['wb1'] };
   const context = {
     dom: { wiEntryStats: { textContent: '' } },
-    wiState: { selectedUid: 'e1' },
+    wiState: { selectedUid: 'e1', currentWorldBookId: 'wb1', viewMode: 'entries', dirty: false },
     document: { createElement: fakeElement },
     t: (key) => key,
     escapeHtml: (value) => String(value),
+    getCurrentWorldBookFilter() { return 'filter'; },
+    renderWIEntryList(filter) { events.push(`entries:${filter}`); },
+    updateWorldBookModalHeader() { events.push('header'); },
+    getActiveConv() { return activeConv; },
+    updateWIDirtyIndicator() { events.push('dirty'); },
+    persistState(force) { events.push(`persist:${force}`); },
+    renderWorldInfoBadge() { events.push('badge'); },
+    renderWorldBookList(filter) { events.push(`books:${filter}`); },
+    deleteWorldBook(id) { events.push(`delete:${id}`); },
     String,
   };
 
-  vm.runInNewContext(`${source}\nthis.__empty = renderWorldBookEntryListEmpty;\nthis.__row = createWorldBookEntryListRow;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__header = appendWorldBookEntryListHeader;\nthis.__empty = renderWorldBookEntryListEmpty;\nthis.__row = createWorldBookEntryListRow;`, context);
+
+  const headerContainer = fakeElement();
+  context.__header(headerContainer);
+  assert(headerContainer.children.length === 3, 'World book entry list header should append navigation, association, and delete rows.');
+  headerContainer.children[0].listeners.click();
+  assert(context.wiState.viewMode === 'books' && context.wiState.currentWorldBookId === null && events.includes('header'), 'World book header back row should return to the book list.');
+  context.wiState.currentWorldBookId = 'wb1';
+  headerContainer.children[1]._button.listeners.click();
+  assert(activeConv.worldBookIds.length === 0 && events.includes('dirty') && events.includes('books:filter'), 'World book association row should unlink the active book and refresh views.');
+  headerContainer.children[2]._button.listeners.click();
+  assert(events.includes('delete:wb1'), 'World book delete row should delete the active book.');
 
   context.__empty(emptyContainer);
   assert(emptyContainer.children.length === 1 && context.dom.wiEntryStats.textContent === '0 world_book_entry', 'World book entry empty state should update list stats.');
 
+  context.wiState.selectedUid = 'e1';
   const row = context.__row({ uid: 'e1', comment: 'Memo', key: ['Kivotos'], order: 7 }, { entries: { e1: {} } });
   assert(row.className.includes('bg-amber-500/10'), 'World book entry list row should mark the selected entry active.');
   assert(row.innerHTML.includes('&times;</button>'), 'World book entry delete button should render a valid close control.');

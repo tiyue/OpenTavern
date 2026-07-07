@@ -7423,7 +7423,7 @@ function getFilteredWorldInfoEntries(wi, filter) {
     entries.sort(function(a, b) { return (b.order || 0) - (a.order || 0); });
     return entries;
 }
-// ==================== World Book Entry List Header UI ====================
+// ==================== World Book Entry List Navigation UI ====================
 function appendBackToWorldBookListRow(container) {
     var backRow = document.createElement('div');
     backRow.className = 'text-xs text-amber-400 px-2 py-1 mb-2 cursor-pointer hover:underline flex items-center gap-1';
@@ -7437,7 +7437,7 @@ function appendBackToWorldBookListRow(container) {
     });
     container.appendChild(backRow);
 }
-
+// ==================== World Book Entry List Association UI ====================
 function refreshWorldBookEntryAssociationViews() {
     wiState.dirty = true;
     updateWIDirtyIndicator();
@@ -7479,7 +7479,7 @@ function appendWorldBookAssociationRow(container) {
 
     container.appendChild(assocRow);
 }
-
+// ==================== World Book Entry List Delete UI ====================
 function appendDeleteWorldBookRow(container) {
     var delBookRow = document.createElement('div');
     delBookRow.className = 'px-2 py-1 text-xs';
@@ -7493,7 +7493,7 @@ function appendDeleteWorldBookRow(container) {
     });
     container.appendChild(delBookRow);
 }
-
+// ==================== World Book Entry List Header UI ====================
 function appendWorldBookEntryListHeader(container) {
     if (!wiState.currentWorldBookId) return;
     appendBackToWorldBookListRow(container);
