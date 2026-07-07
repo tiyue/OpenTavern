@@ -5372,6 +5372,7 @@ async function assertFrontendFileProtocolOPFSSilence() {
     '../src/app/20-storage-opfs-root.js',
     '../src/app/20-storage-opfs-probe.js',
     '../src/app/20-storage-opfs-environment.js',
+    '../src/app/20-storage-opfs-read-write-helpers.js',
     '../src/app/20-storage-opfs-read-write.js',
     '../src/app/20-storage-opfs-info.js',
     '../src/app/20-storage-opfs-clear.js',
@@ -5414,6 +5415,76 @@ async function assertFrontendFileProtocolOPFSSilence() {
   assert(info.opfsSkipped === true && info.opfsSkippedReason === 'file-protocol', 'OPFS info should expose file protocol skip state.');
   assert(warnings.length === 0, `OPFS file:// path should not warn: ${warnings.join('\n')}`);
   assert(errors.length === 0, `OPFS file:// path should not error: ${errors.join('\n')}`);
+}
+
+async function assertFrontendOPFSReadWriteHelpers() {
+  const sources = await Promise.all([
+    '../src/app/20-storage-opfs-unsupported.js',
+    '../src/app/20-storage-opfs-read-write-helpers.js',
+    '../src/app/20-storage-opfs-read-write.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+  const writes = [];
+  const context = {
+    console: { error() {}, warn() {} },
+    Date: { now: () => 777 },
+    JSON,
+    Promise,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__load = loadAllOPFSStorage;\nthis.__save = saveAllOPFSStorage;\nthis.__write = doSaveAllOPFSStorage;`, context);
+
+  const storage = {
+    _fileName: 'opentavern-data.json',
+    _writeLock: null,
+    _isFileProtocol() { return false; },
+    async _getRoot() {
+      return {
+        async getFileHandle(name, options) {
+          if (options && options.create) {
+            return {
+              async createWritable() {
+                return {
+                  async write(value) { writes.push(value); },
+                  async close() { writes.push('closed'); },
+                };
+              },
+            };
+          }
+          return {
+            async getFile() {
+              return { async text() { return JSON.stringify({ conversations: { c1: {} } }); } };
+            },
+          };
+        },
+      };
+    },
+    async _doSaveAll(data) {
+      writes.push(`save:${data.id}`);
+    },
+  };
+
+  const loaded = await context.__load(storage);
+  assert(loaded.conversations.c1 && loaded.lastSaved === 777, 'OPFS read helper should parse stored data and backfill lastSaved.');
+
+  await context.__write(storage, { id: 'direct' });
+  assert(writes.includes(JSON.stringify({ id: 'direct' })) && writes.includes('closed'), 'OPFS write helper should serialize data and close the writable stream.');
+
+  writes.length = 0;
+  let releaseFirst = null;
+  storage._doSaveAll = async function(data) {
+    writes.push(`save:${data.id}`);
+    if (data.id === 1) {
+      await new Promise((resolve) => { releaseFirst = resolve; });
+    }
+  };
+  const first = context.__save(storage, { id: 1 });
+  const second = context.__save(storage, { id: 2 });
+  await Promise.resolve();
+  assert(writes.join(',') === 'save:1', 'OPFS save helper should wait for the current write before starting the next one.');
+  releaseFirst();
+  await first;
+  await second;
+  assert(writes.join(',') === 'save:1,save:2', 'OPFS save helper should serialize queued writes.');
 }
 
 async function assertFrontendStorageServiceSaveHelpers() {
@@ -6620,6 +6691,7 @@ async function main() {
   await assertFrontendWorldBookImportExportUIHelpers();
   await assertFrontendWorldBookGlobalListUIHelpers();
   await assertFrontendFileProtocolOPFSSilence();
+  await assertFrontendOPFSReadWriteHelpers();
   await assertFrontendIDBStorageHelpers();
   await assertFrontendStorageServiceLoadHelpers();
   await assertFrontendStorageServiceSaveHelpers();

@@ -36,6 +36,7 @@
   "20-storage-opfs-root.js",
   "20-storage-opfs-probe.js",
   "20-storage-opfs-environment.js",
+  "20-storage-opfs-read-write-helpers.js",
   "20-storage-opfs-read-write.js",
   "20-storage-opfs-info.js",
   "20-storage-opfs-clear.js",
