@@ -6510,7 +6510,7 @@ function normalizeImportedWorldInfo(raw) {
     if (raw.name) wi.name = raw.name;
     return wi;
 }
-// ==================== World Book Export Format ====================
+// ==================== World Book SillyTavern Export Format ====================
 function entriesToSTFormat(worldInfo) {
     var out = { entries: {} };
     if (worldInfo && worldInfo.name) out.name = worldInfo.name;
@@ -6542,7 +6542,7 @@ function entriesToSTFormat(worldInfo) {
     }
     return out;
 }
-
+// ==================== Character Book Export ====================
 function getCharacterBookForExport(conv) {
     if (!conv) return null;
 
@@ -6593,6 +6593,10 @@ function getCharacterBookForExport(conv) {
 
     return characterBook;
 }
+// ==================== World Book Export Format Facade ====================
+// SillyTavern entry mapping and character_book export live in:
+// - 42-worldbook-st-export-format.js
+// - 42-worldbook-character-book-export.js
 // World book import/export format helpers are split across:
 // - 42-worldbook-import-format.js
 // - 42-worldbook-export-format.js

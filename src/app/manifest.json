@@ -141,6 +141,8 @@
   "42-worldbook.js",
   "42-worldbook-model.js",
   "42-worldbook-import-format.js",
+  "42-worldbook-st-export-format.js",
+  "42-worldbook-character-book-export.js",
   "42-worldbook-export-format.js",
   "42-worldbook-format.js",
   "42-worldbook-registry.js",

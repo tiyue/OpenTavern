@@ -2080,6 +2080,8 @@ async function assertFrontendWorldInfoNormalizerHelpers() {
 async function assertFrontendWorldBookFormatHelpers() {
   const sources = await Promise.all([
     '../src/app/42-worldbook-import-format.js',
+    '../src/app/42-worldbook-st-export-format.js',
+    '../src/app/42-worldbook-character-book-export.js',
     '../src/app/42-worldbook-export-format.js',
     '../src/app/42-worldbook-format.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
