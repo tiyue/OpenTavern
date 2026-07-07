@@ -13,9 +13,14 @@ function formatCloudSyncTimestamp(timestamp) {
 async function persistCloudSyncOperationState() {
     _cloudSyncSavingStatus = true;
     try {
-        await persistState(true);
+        await persistState(true, { preserveLastSaved: true });
     } finally {
         _cloudSyncSavingStatus = false;
     }
 }
 
+function persistCloudSyncStatusSilently() {
+    persistCloudSyncOperationState().catch(function(err) {
+        console.warn('[CloudSync] failed to persist sync status:', err && err.message);
+    });
+}

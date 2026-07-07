@@ -19,7 +19,7 @@ function hydrateCloudSyncSettingsControls() {
             readCloudSyncSettingsFromForm();
             syncCloudSyncSnapshot(dom.cloudSyncStatus).catch(function(err) {
                 setCloudSyncStatus('Cloud sync failed: ' + ((err && err.message) || err), true);
-                persistState(true);
+                persistCloudSyncStatusSilently();
             });
         };
     }
@@ -28,7 +28,7 @@ function hydrateCloudSyncSettingsControls() {
             readCloudSyncSettingsFromForm();
             uploadCloudSyncSnapshot(dom.cloudSyncStatus, { force: true }).catch(function(err) {
                 setCloudSyncStatus('Cloud upload failed: ' + ((err && err.message) || err), true);
-                persistState(true);
+                persistCloudSyncStatusSilently();
             });
         };
     }
@@ -37,7 +37,7 @@ function hydrateCloudSyncSettingsControls() {
             readCloudSyncSettingsFromForm();
             downloadCloudSyncSnapshot(dom.cloudSyncStatus).catch(function(err) {
                 setCloudSyncStatus('Cloud download failed: ' + ((err && err.message) || err), true);
-                persistState(true);
+                persistCloudSyncStatusSilently();
             });
         };
     }

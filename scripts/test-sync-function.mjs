@@ -163,6 +163,7 @@ async function assertFrontendStatePersistenceHelpers() {
   const events = [];
   const timeouts = [];
   const cleared = [];
+  let now = 123456;
   const context = {
     state: {
       settings: { model: 'raw-model' },
@@ -187,7 +188,7 @@ async function assertFrontendStatePersistenceHelpers() {
       return id;
     },
     clearTimeout(id) { cleared.push(id); },
-    Date: { now: () => 123456 },
+    Date: { now: () => now },
     console: { error(message) { events.push(`error:${message}`); } },
     JSON,
     Promise,
@@ -205,13 +206,17 @@ async function assertFrontendStatePersistenceHelpers() {
   assert(context.StorageService._lastSaveSnapshot.activeConvId === 'c1', 'Persist should cache the latest snapshot before async storage completes.');
   assert(events.includes('storage-info') && events.includes('cloud-upload'), 'Immediate persist should refresh storage status and schedule cloud upload.');
 
+  now = 999999;
+  await context.__persist(true, { preserveLastSaved: true });
+  assert(saved.length === 2 && saved[1].lastSaved === 123456, 'Status-only persists should preserve the previous snapshot freshness timestamp.');
+
   await context.__persist(false);
   await context.__persist(false);
   assert(timeouts.length === 2 && timeouts[0].delay === 450 && timeouts[1].delay === 450, 'Debounced persist should schedule saves with the storage debounce delay.');
   assert(cleared.includes('timeout-0'), 'Debounced persist should clear the previous pending save.');
   timeouts[1].handler();
   await Promise.resolve();
-  assert(saved.length === 2, 'Debounced persist handler should eventually save the snapshot.');
+  assert(saved.length === 3, 'Debounced persist handler should eventually save the snapshot.');
 }
 
 async function assertFrontendWebGLBackgroundHelpers() {
@@ -600,7 +605,10 @@ async function assertFrontendCloudSyncOperations() {
       events.push(`status:${isError ? 'error' : 'ok'}:${message}`);
       context.state.settings.cloudSyncLastStatus = message;
     },
-    async persistState(force) { events.push(`persist:${force}:${context._cloudSyncSavingStatus}`); },
+    async persistState(force, options) {
+      events.push(`persist:${force}:${context._cloudSyncSavingStatus}`);
+      if (options && options.preserveLastSaved) events.push('preserve-last-saved');
+    },
     Date,
     Promise,
     console: { warn(message) { events.push(`warn:${message}`); } },
@@ -614,7 +622,7 @@ async function assertFrontendCloudSyncOperations() {
   assert(documentStatus.textContent === 'Fallback working...', 'Cloud sync pending helper should fall back to the document status element.');
 
   await context.__persistOp();
-  assert(events.includes('persist:true:true') && context._cloudSyncSavingStatus === false, 'Cloud sync operation persist should pause auto-upload and restore the flag.');
+  assert(events.includes('persist:true:true') && events.includes('preserve-last-saved') && context._cloudSyncSavingStatus === false, 'Cloud sync operation persist should pause auto-upload and preserve snapshot freshness.');
 
   events.length = 0;
   capturedRequest = null;
@@ -647,6 +655,64 @@ async function assertFrontendCloudSyncOperations() {
   };
   const downloaded = await context.__download(explicitStatus);
   assert(downloaded.lastSaved === 6000 && appliedSnapshot === downloaded, 'Cloud download should decrypt and apply the remote snapshot.');
+}
+
+async function assertFrontendCloudSyncScheduler() {
+  const sources = await Promise.all([
+    '../src/app/22-cloud-sync-operation-helpers.js',
+    '../src/app/22-cloud-sync-scheduler.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const events = [];
+  const timers = [];
+  const context = {
+    _cloudSyncSavingStatus: false,
+    state: {
+      settings: {
+        cloudSyncEnabled: true,
+        cloudSyncAutoUpload: true,
+        cloudSyncEndpoint: '/api/sync',
+        cloudSyncToken: 'valid-token',
+      },
+    },
+    ensureCloudSyncSettings() { events.push('ensure'); return context.state.settings; },
+    uploadCloudSyncSnapshot() {
+      events.push('upload');
+      return Promise.reject(new Error('network down'));
+    },
+    setCloudSyncStatus(message, isError) {
+      events.push(`status:${isError ? 'error' : 'ok'}:${message}`);
+      context.state.settings.cloudSyncLastStatus = message;
+    },
+    async persistState(force, options) {
+      events.push(`persist:${force}:${context._cloudSyncSavingStatus}:${!!(options && options.preserveLastSaved)}`);
+    },
+    setTimeout(handler, delay) {
+      timers.push({ handler, delay });
+      return `timer-${timers.length}`;
+    },
+    clearTimeout(id) { events.push(`clear:${id}`); },
+    Promise,
+    Error,
+    console: { warn(message) { events.push(`warn:${message}`); } },
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__schedule = scheduleCloudSyncUpload;\nthis.__saving = function() { return _cloudSyncSavingStatus; };`, context);
+
+  context._cloudSyncSavingStatus = true;
+  context.__schedule();
+  assert(timers.length === 0, 'Cloud sync scheduler should not run while a cloud status persist is active.');
+
+  context._cloudSyncSavingStatus = false;
+  context.__schedule();
+  assert(timers.length === 1 && timers[0].delay === 2500, 'Cloud sync scheduler should debounce auto uploads.');
+  timers[0].handler();
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+
+  assert(events.includes('upload'), 'Cloud sync scheduler should attempt the auto upload.');
+  assert(events.some((event) => event.includes('Cloud auto upload failed: network down')), 'Cloud sync scheduler should report auto upload failures.');
+  assert(events.includes('persist:true:true:true'), 'Cloud sync scheduler should persist failure status while preserving snapshot freshness.');
+  assert(context.__saving() === false, 'Cloud sync scheduler should restore the saving guard after failure status persistence.');
 }
 
 async function assertFrontendSummaryService() {
@@ -4600,6 +4666,7 @@ async function main() {
   await assertFrontendCloudSyncCrypto();
   await assertFrontendCloudSyncTransport();
   await assertFrontendCloudSyncOperations();
+  await assertFrontendCloudSyncScheduler();
   await assertFrontendSummaryService();
   await assertFrontendAutoSummarizationHelpers();
   await assertFrontendSummaryManagerHelpers();

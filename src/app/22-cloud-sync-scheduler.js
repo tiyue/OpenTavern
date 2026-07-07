@@ -11,6 +11,7 @@ function scheduleCloudSyncUpload() {
         uploadCloudSyncSnapshot(null, { force: false }).catch(function(err) {
             console.warn('[CloudSync] auto upload failed:', err && err.message);
             setCloudSyncStatus('Cloud auto upload failed: ' + ((err && err.message) || err), true);
+            persistCloudSyncStatusSilently();
         });
     }, 2500);
 }
