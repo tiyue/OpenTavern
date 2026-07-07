@@ -40,6 +40,7 @@
   "20-storage-service-clear-backends.js",
   "20-storage-service-clear.js",
   "20-storage-service-load.js",
+  "20-storage-service-save-helpers.js",
   "20-storage-service-save.js",
   "20-storage-service-opfs-init.js",
   "20-storage-service-init.js",

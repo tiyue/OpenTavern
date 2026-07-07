@@ -4241,6 +4241,58 @@ async function assertFrontendFileProtocolOPFSSilence() {
   assert(errors.length === 0, `OPFS file:// path should not error: ${errors.join('\n')}`);
 }
 
+async function assertFrontendStorageServiceSaveHelpers() {
+  const source = await readFile(new URL('../src/app/20-storage-service-save-helpers.js', import.meta.url), 'utf8');
+  const removedKeys = [];
+  const localStorageMock = {
+    setItem(key, value) { this[key] = String(value); },
+    removeItem(key) { removedKeys.push(key); delete this[key]; },
+  };
+  let mirroredSnapshot = null;
+  const context = {
+    STORAGE_BACKUP_PREFIX: 'backup-',
+    localStorage: localStorageMock,
+    OPFSStorage: {
+      saveAll(data) {
+        mirroredSnapshot = data;
+        return Promise.resolve();
+      },
+    },
+    console: { warn() {} },
+    Date: { now: () => 999 },
+    JSON,
+    Object,
+    Array,
+    Promise,
+    setTimeout() {},
+  };
+
+  vm.runInNewContext(`${source}\nthis.__empty = isDangerouslyEmptyStorageSnapshot;\nthis.__history = saveStorageServiceLocalHistorySnapshot;\nthis.__mirror = mirrorStorageServiceSnapshotToOPFS;`, context);
+
+  assert(context.__empty({ conversations: {}, characters: {}, worldBooks: {} }) === true, 'Storage save helper should treat an empty snapshot as dangerous.');
+  assert(context.__empty({ conversations: { c1: { messages: [{ content: 'hi' }] } }, characters: {}, worldBooks: {} }) === false, 'Storage save helper should allow snapshots with chat messages.');
+  assert(context.__empty({ conversations: {}, characters: { arona: {} }, worldBooks: {} }) === false, 'Storage save helper should allow snapshots with character cards.');
+  assert(context.__empty({ conversations: {}, characters: {}, worldBooks: { wb: {} } }) === false, 'Storage save helper should allow snapshots with world books.');
+
+  const service = {
+    _isValidSnapshot(data) { return !!data && !!data.conversations; },
+    _snapshotTime(data) { return data.lastSaved; },
+    _opfsMirrorAvailable: true,
+    _isSafari() { return false; },
+    _cloneForPersist(data) { return JSON.parse(JSON.stringify(data)); },
+  };
+  for (let i = 0; i < 7; i += 1) {
+    context.__history(service, { conversations: { [`c${i}`]: { id: `c${i}` } }, lastSaved: i + 1 });
+  }
+  const backupKeys = Object.keys(localStorageMock).filter((key) => key.startsWith(context.STORAGE_BACKUP_PREFIX));
+  assert(backupKeys.length === 5 && removedKeys.includes('backup-1') && removedKeys.includes('backup-2'), 'Storage save helper should keep only the newest five local history snapshots.');
+
+  const mirrorInput = { conversations: { c1: { id: 'c1' } } };
+  context.__mirror(service, mirrorInput);
+  await Promise.resolve();
+  assert(mirroredSnapshot.conversations.c1.id === 'c1' && mirroredSnapshot !== mirrorInput, 'Storage save helper should clone snapshots before OPFS mirroring.');
+}
+
 async function assertFrontendStorageServicePipeline() {
   const sources = await Promise.all([
     '../src/app/20-storage-service-helpers.js',
@@ -4249,6 +4301,7 @@ async function assertFrontendStorageServicePipeline() {
     '../src/app/20-storage-service-clear-backends.js',
     '../src/app/20-storage-service-clear.js',
     '../src/app/20-storage-service-load.js',
+    '../src/app/20-storage-service-save-helpers.js',
     '../src/app/20-storage-service-save.js',
     '../src/app/20-storage-service-opfs-init.js',
     '../src/app/20-storage-service-init.js',
@@ -4394,6 +4447,7 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
     '../src/app/20-storage-service-clear-backends.js',
     '../src/app/20-storage-service-clear.js',
     '../src/app/20-storage-service-load.js',
+    '../src/app/20-storage-service-save-helpers.js',
     '../src/app/20-storage-service-save.js',
     '../src/app/20-storage-service-opfs-init.js',
     '../src/app/20-storage-service-init.js',
@@ -4877,6 +4931,7 @@ async function main() {
   await assertFrontendWorldBookGlobalListUIHelpers();
   await assertFrontendFileProtocolOPFSSilence();
   await assertFrontendIDBStorageHelpers();
+  await assertFrontendStorageServiceSaveHelpers();
   await assertFrontendStorageServicePipeline();
   await assertFrontendStorageServiceFileProtocolStatus();
   await assertFrontendStorageStatusRenderHelpers();

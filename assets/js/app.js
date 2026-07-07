@@ -2971,7 +2971,7 @@ async function loadStorageServiceData(service, options) {
     if (shouldSync) await service._syncSnapshotToAvailableBackends(picked.data, picked.backend);
     return picked.data;
 }
-// ==================== StorageService Save Pipeline ====================
+// ==================== StorageService Save Helpers ====================
 function isDangerouslyEmptyStorageSnapshot(data) {
     const convs = Object.values((data && data.conversations) || {});
     const hasChars = Object.keys((data && data.characters) || {}).length > 0;
@@ -3008,7 +3008,7 @@ function mirrorStorageServiceSnapshotToOPFS(service, data) {
         });
     }
 }
-
+// ==================== StorageService Save Pipeline ====================
 async function saveStorageServiceData(service, data) {
     data = service._cloneForPersist(data);
 
