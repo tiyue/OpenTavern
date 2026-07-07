@@ -12343,6 +12343,7 @@ function bindSillyTavernPresetToggleEvents(preset) {
         });
     });
 }
+// ==================== SillyTavern Preset Import UI ====================
 function importSillyTavernPresetFile(file) {
     if (!file) return;
     var reader = new FileReader();
@@ -12364,7 +12365,7 @@ function importSillyTavernPresetFile(file) {
     };
     reader.readAsText(file);
 }
-
+// ==================== SillyTavern Preset Export UI ====================
 function exportSillyTavernPreset() {
     var preset = ensureSillyTavernPresetSettings();
     var prompts = preset.prompts.slice().sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
@@ -12409,7 +12410,7 @@ function exportSillyTavernPreset() {
     };
     downloadJsonFile(data, 'sillytavern_preset_prompts_' + new Date().toISOString().slice(0, 10) + '.json');
 }
-
+// ==================== SillyTavern Preset Delete UI ====================
 function deleteSillyTavernPreset() {
     var preset = ensureSillyTavernPresetSettings();
     if (!preset.prompts.length) {
@@ -12424,6 +12425,11 @@ function deleteSillyTavernPreset() {
     appStore.notify('settings');
     alert(t('settings_st_preset_delete_success'));
 }
+// ==================== SillyTavern Preset Settings Facade ====================
+// Import, export, and delete actions live in:
+// - 62-sillytavern-preset-import-ui.js
+// - 62-sillytavern-preset-export-ui.js
+// - 62-sillytavern-preset-delete-ui.js
 function buildSillyTavernPresetMessageBuckets(charName, userName) {
     var preset = ensureSillyTavernPresetSettings();
     var enabledPrompts = preset.prompts
