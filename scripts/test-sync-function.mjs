@@ -740,6 +740,17 @@ async function assertFrontendCloudSyncOperations() {
   appliedSnapshot = null;
   context.remoteSnapshot = {
     freshness: 'newer',
+    lastSaved: 7000,
+    data: { lastSaved: 7000, settings: { model: 'newer' }, conversations: {}, characters: {}, worldBooks: {} },
+  };
+  const syncDownloaded = await context.__sync(explicitStatus);
+  assert(syncDownloaded.lastSaved === 7000 && appliedSnapshot === syncDownloaded, 'Cloud sync should apply the newer remote snapshot.');
+  assert(events.filter((event) => event === 'read').length === 1, 'Cloud sync should reuse the preflight remote snapshot instead of reading twice.');
+
+  events.length = 0;
+  appliedSnapshot = null;
+  context.remoteSnapshot = {
+    freshness: 'newer',
     encrypted: false,
     data: { lastSaved: 6000, settings: {}, conversations: {}, characters: {}, worldBooks: {} },
   };

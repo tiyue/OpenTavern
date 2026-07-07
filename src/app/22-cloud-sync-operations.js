@@ -37,10 +37,10 @@ async function uploadCloudSyncSnapshot(statusEl, options) {
     return result;
 }
 
-async function downloadCloudSyncSnapshot(statusEl) {
+async function downloadCloudSyncSnapshot(statusEl, rawData) {
     ensureCloudSyncSettings();
     setCloudSyncPendingStatus(statusEl, 'Downloading...');
-    var rawData = await readCloudSyncRemoteSnapshot();
+    rawData = rawData || await readCloudSyncRemoteSnapshot();
     if (!rawData) {
         var emptyMsg = 'No cloud snapshot found for this token.';
         setCloudSyncStatus(emptyMsg, true);
@@ -68,7 +68,7 @@ async function syncCloudSyncSnapshot(statusEl) {
 
     var freshness = getCloudSyncFreshness(remote);
     if (freshness === 'newer') {
-        return downloadCloudSyncSnapshot(statusEl);
+        return downloadCloudSyncSnapshot(statusEl, remote);
     }
     if (freshness === 'older') {
         setCloudSyncStatus('Local snapshot is newer. Uploading to cloud...', false);
