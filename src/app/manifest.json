@@ -57,6 +57,7 @@
   "20-storage-service-load-candidates.js",
   "20-storage-service-load.js",
   "20-storage-service-save-helpers.js",
+  "20-storage-service-save-canonical.js",
   "20-storage-service-save.js",
   "20-storage-service-opfs-init-helpers.js",
   "20-storage-service-opfs-init.js",

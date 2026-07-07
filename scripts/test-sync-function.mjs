@@ -5382,7 +5382,10 @@ async function assertFrontendFileProtocolOPFSSilence() {
 }
 
 async function assertFrontendStorageServiceSaveHelpers() {
-  const source = await readFile(new URL('../src/app/20-storage-service-save-helpers.js', import.meta.url), 'utf8');
+  const sources = await Promise.all([
+    '../src/app/20-storage-service-save-helpers.js',
+    '../src/app/20-storage-service-save-canonical.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const removedKeys = [];
   const localStorageMock = {
     setItem(key, value) { this[key] = String(value); },
@@ -5415,7 +5418,7 @@ async function assertFrontendStorageServiceSaveHelpers() {
     setTimeout() {},
   };
 
-  vm.runInNewContext(`${source}\nthis.__empty = isDangerouslyEmptyStorageSnapshot;\nthis.__history = saveStorageServiceLocalHistorySnapshot;\nthis.__mirror = mirrorStorageServiceSnapshotToOPFS;\nthis.__tryIdb = trySaveStorageServiceIDBCanonical;\nthis.__markLocal = markStorageServiceLocalStorageCanonical;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__empty = isDangerouslyEmptyStorageSnapshot;\nthis.__history = saveStorageServiceLocalHistorySnapshot;\nthis.__mirror = mirrorStorageServiceSnapshotToOPFS;\nthis.__tryIdb = trySaveStorageServiceIDBCanonical;\nthis.__markLocal = markStorageServiceLocalStorageCanonical;`, context);
 
   assert(context.__empty({ conversations: {}, characters: {}, worldBooks: {} }) === true, 'Storage save helper should treat an empty snapshot as dangerous.');
   assert(context.__empty({ conversations: { c1: { messages: [{ content: 'hi' }] } }, characters: {}, worldBooks: {} }) === false, 'Storage save helper should allow snapshots with chat messages.');
@@ -5569,6 +5572,7 @@ async function assertFrontendStorageServicePipeline() {
     '../src/app/20-storage-service-load-candidates.js',
     '../src/app/20-storage-service-load.js',
     '../src/app/20-storage-service-save-helpers.js',
+    '../src/app/20-storage-service-save-canonical.js',
     '../src/app/20-storage-service-save.js',
     '../src/app/20-storage-service-opfs-init-helpers.js',
     '../src/app/20-storage-service-opfs-init.js',
@@ -5875,6 +5879,7 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
     '../src/app/20-storage-service-load-candidates.js',
     '../src/app/20-storage-service-load.js',
     '../src/app/20-storage-service-save-helpers.js',
+    '../src/app/20-storage-service-save-canonical.js',
     '../src/app/20-storage-service-save.js',
     '../src/app/20-storage-service-opfs-init-helpers.js',
     '../src/app/20-storage-service-opfs-init.js',

@@ -3070,7 +3070,7 @@ function mirrorStorageServiceSnapshotToOPFS(service, data) {
 function scheduleStorageServiceInfoRefresh() {
     setTimeout(() => { try { if (typeof updateStorageInfo === 'function') updateStorageInfo(); } catch(_) {} }, 60);
 }
-
+// ==================== StorageService Canonical Save Helpers ====================
 async function trySaveStorageServiceIDBCanonical(service, data) {
     if (!service._idbAvailable) return { saved: false, error: null };
     try {
