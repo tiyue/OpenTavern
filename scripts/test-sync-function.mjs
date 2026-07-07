@@ -1445,6 +1445,8 @@ async function assertFrontendApiConnectionHelpers() {
     '../src/app/31-api-connection-endpoints.js',
     '../src/app/31-api-connection-result-ui.js',
     '../src/app/31-api-connection-response-helpers.js',
+    '../src/app/31-api-connection-models-probe.js',
+    '../src/app/31-api-connection-chat-probe.js',
     '../src/app/31-api-connection-test-helpers.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const translations = {
@@ -1458,6 +1460,12 @@ async function assertFrontendApiConnectionHelpers() {
     api_test_suggest_title: 'Suggestions',
     api_test_timeout_msg: 'Timeout after {s}s',
     api_test_typeerror_prefix: 'Network error: ',
+    api_test_fallback_success: 'Chat probe OK: ',
+    api_test_fallback_success_choice: 'choice',
+    api_test_fallback_success_ok: 'response',
+    api_test_fallback_failed_prefix: 'Chat probe failed: ',
+    api_test_timeout_short: 'timeout',
+    api_test_typeerror_cors_note: 'CORS',
     api_test_suggest_localhost: 'Check local server',
     api_test_suggest_cors: 'Check CORS',
     api_test_suggest_endpoint_path: 'Check endpoint path',
@@ -1477,7 +1485,7 @@ async function assertFrontendApiConnectionHelpers() {
     clearTimeout,
   };
 
-  vm.runInNewContext(`${helperSources.join('\n')}\nthis.__derive = deriveApiModelsEndpoint;\nthis.__collect = collectApiTestModelNames;\nthis.__readHttp = readApiTestHttpError;\nthis.__success = buildApiTestSuccessHtml;\nthis.__suggestions = buildApiTestSuggestions;`, context);
+  vm.runInNewContext(`${helperSources.join('\n')}\nthis.__derive = deriveApiModelsEndpoint;\nthis.__collect = collectApiTestModelNames;\nthis.__readHttp = readApiTestHttpError;\nthis.__success = buildApiTestSuccessHtml;\nthis.__suggestions = buildApiTestSuggestions;\nthis.__modelsProbe = runApiModelsEndpointTest;\nthis.__chatProbe = runApiChatCompletionFallbackTest;`, context);
 
   assert(context.__derive('https://api.example.com/v1/chat/completions') === 'https://api.example.com/v1/models', 'Models URL was not derived from chat completions endpoint.');
   assert(context.__derive('https://api.deepseek.com') === 'https://api.deepseek.com/v1/models', 'Models URL should add /v1 when the endpoint has no version.');
@@ -1499,6 +1507,21 @@ async function assertFrontendApiConnectionHelpers() {
     },
   });
   assert(errorText === 'HTTP 401 - bad key', 'HTTP error message parser did not preserve API error detail.');
+
+  const tested = [];
+  context.fetch = async function(url, options) {
+    if (url.endsWith('/models')) {
+      assert(options.headers.Authorization === 'Bearer probe-key', 'Models probe should send bearer auth when an API key is provided.');
+      return { ok: true, async json() { return { data: [{ id: 'probe-model' }] }; } };
+    }
+    assert(options.method === 'POST' && JSON.parse(options.body).stream === false, 'Chat probe should send a non-streaming chat completion request.');
+    return { ok: true, async json() { return { choices: [{ message: { content: 'ok' } }] }; } };
+  };
+  const modelsProbe = await context.__modelsProbe('https://api.example/v1/models', 'probe-key', tested);
+  assert(modelsProbe.ok === true && modelsProbe.html.includes('probe-model'), 'Models probe should return success HTML for model list responses.');
+  const chatProbe = await context.__chatProbe('https://api.example/v1/chat/completions', 'probe-key', 'probe-model', tested);
+  assert(chatProbe.includes('Chat probe OK: choice'), 'Chat probe should report successful chat completion fallback responses.');
+  assert(tested.join('|') === 'GET https://api.example/v1/models|POST https://api.example/v1/chat/completions (stream:false)', 'API probes should record tested endpoints in order.');
 }
 
 async function assertFrontendApiCompatibilityHelpers() {

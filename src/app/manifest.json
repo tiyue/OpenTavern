@@ -96,6 +96,8 @@
   "31-api-connection-endpoints.js",
   "31-api-connection-result-ui.js",
   "31-api-connection-response-helpers.js",
+  "31-api-connection-models-probe.js",
+  "31-api-connection-chat-probe.js",
   "31-api-connection-test-helpers.js",
   "31-api-connection-test.js",
   "32-conversation-model.js",

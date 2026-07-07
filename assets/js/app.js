@@ -4837,6 +4837,58 @@ function buildApiTestSuggestions(rawEndpoint) {
     suggestions.push(t('api_test_suggest_gateway'));
     return suggestions;
 }
+// ==================== API Connection Models Probe ====================
+async function runApiModelsEndpointTest(modelsUrl, apiKey, tested) {
+    tested.push('GET ' + modelsUrl);
+    var headers = {};
+    if (apiKey) headers.Authorization = 'Bearer ' + apiKey;
+    var resp = await fetchApiTestWithTimeout(modelsUrl, { method: 'GET', headers: headers });
+
+    if (resp.ok) {
+        var data = await resp.json().catch(function() { return {}; });
+        return {
+            ok: true,
+            html: buildApiTestSuccessHtml(collectApiTestModelNames(data))
+        };
+    }
+
+    return {
+        ok: false,
+        error: await readApiTestHttpError(resp)
+    };
+}
+// ==================== API Connection Chat Probe ====================
+async function runApiChatCompletionFallbackTest(chatUrl, apiKey, model, tested) {
+    try {
+        tested.push('POST ' + chatUrl + ' (stream:false)');
+        var chatHeaders = { 'Content-Type': 'application/json' };
+        if (apiKey) chatHeaders.Authorization = 'Bearer ' + apiKey;
+
+        var chatResp = await fetchApiTestWithTimeout(chatUrl, {
+            method: 'POST',
+            headers: chatHeaders,
+            body: JSON.stringify({
+                model: model,
+                messages: [{ role: 'user', content: 'hi' }],
+                max_tokens: 1,
+                temperature: 0,
+                stream: false
+            })
+        });
+
+        if (chatResp.ok) {
+            var chatData = await chatResp.json().catch(function() { return {}; });
+            var hasChoice = chatData && chatData.choices && chatData.choices[0];
+            return t('api_test_fallback_success') + (hasChoice ? t('api_test_fallback_success_choice') : t('api_test_fallback_success_ok'));
+        }
+
+        return t('api_test_fallback_failed_prefix') + await readApiTestHttpError(chatResp);
+    } catch (e) {
+        if (e.name === 'AbortError') return t('api_test_fallback_failed_prefix') + t('api_test_timeout_short');
+        if (e instanceof TypeError) return t('api_test_fallback_failed_prefix') + t('api_test_typeerror_cors_note');
+        return t('api_test_fallback_failed_prefix') + (e.message || String(e));
+    }
+}
 // API connection test helpers are split across:
 // - 31-api-connection-test-config.js
 // - 31-api-connection-endpoints.js
@@ -4871,51 +4923,17 @@ window.testMainApiConnection = function() {
         var modelsErrInfo = '';
 
         try {
-            tested.push('GET ' + modelsUrl);
-            var headers = {};
-            if (apiKey) headers.Authorization = 'Bearer ' + apiKey;
-            var resp = await fetchApiTestWithTimeout(modelsUrl, { method: 'GET', headers: headers });
-
-            if (resp.ok) {
-                var data = await resp.json().catch(function() { return {}; });
-                resultEl.innerHTML = buildApiTestSuccessHtml(collectApiTestModelNames(data));
+            var modelsResult = await runApiModelsEndpointTest(modelsUrl, apiKey, tested);
+            if (modelsResult.ok) {
+                resultEl.innerHTML = modelsResult.html;
                 return;
             }
-            modelsErrInfo = await readApiTestHttpError(resp);
+            modelsErrInfo = modelsResult.error;
         } catch (e) {
             modelsErrInfo = describeApiTestFetchError(e);
         }
 
-        var chatResult = '';
-        try {
-            tested.push('POST ' + chatUrl + ' (stream:false)');
-            var chatHeaders = { 'Content-Type': 'application/json' };
-            if (apiKey) chatHeaders.Authorization = 'Bearer ' + apiKey;
-
-            var chatResp = await fetchApiTestWithTimeout(chatUrl, {
-                method: 'POST',
-                headers: chatHeaders,
-                body: JSON.stringify({
-                    model: model,
-                    messages: [{ role: 'user', content: 'hi' }],
-                    max_tokens: 1,
-                    temperature: 0,
-                    stream: false
-                })
-            });
-
-            if (chatResp.ok) {
-                var chatData = await chatResp.json().catch(function() { return {}; });
-                var hasChoice = chatData && chatData.choices && chatData.choices[0];
-                chatResult = t('api_test_fallback_success') + (hasChoice ? t('api_test_fallback_success_choice') : t('api_test_fallback_success_ok'));
-            } else {
-                chatResult = t('api_test_fallback_failed_prefix') + await readApiTestHttpError(chatResp);
-            }
-        } catch (e2) {
-            if (e2.name === 'AbortError') chatResult = t('api_test_fallback_failed_prefix') + t('api_test_timeout_short');
-            else if (e2 instanceof TypeError) chatResult = t('api_test_fallback_failed_prefix') + t('api_test_typeerror_cors_note');
-            else chatResult = t('api_test_fallback_failed_prefix') + (e2.message || String(e2));
-        }
+        var chatResult = await runApiChatCompletionFallbackTest(chatUrl, apiKey, model, tested);
 
         var detail = t('api_test_models_failed_prefix') + (modelsErrInfo || t('api_test_unknown_error'));
         if (chatResult) detail += '\n' + chatResult;
