@@ -161,9 +161,16 @@ export async function onRequest(context) {
       return json({ success: true, data: null, updatedAt: null });
     }
 
+    let data;
+    try {
+      data = JSON.parse(row.data);
+    } catch (_) {
+      return json({ success: false, error: 'Stored sync snapshot is corrupted.' }, { status: 500 });
+    }
+
     return json({
       success: true,
-      data: JSON.parse(row.data),
+      data,
       updatedAt: row.updated_at,
     });
   }

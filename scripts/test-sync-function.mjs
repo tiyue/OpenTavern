@@ -4783,7 +4783,7 @@ async function main() {
   await assertFrontendAppInitHelpers();
   await assertFrontendConversationImportHelpers();
 
-  const { db } = createMockD1();
+  const { db, store } = createMockD1();
   const env = { SYNC_DB: db };
   const tokenA = 'test-token-alpha';
   const tokenB = 'test-token-bravo';
@@ -4893,6 +4893,18 @@ async function main() {
   assert(partialJson.data.activeConvId === 'c2', 'Invalid active conversation should fall back to the first valid ordered conversation.');
   assert(partialJson.data.charactersMigrated === true, 'Character migration metadata should normalize to a boolean.');
   assert(Number.isFinite(partialJson.data.lastSaved), 'Invalid lastSaved should normalize to a timestamp.');
+
+  const corruptToken = 'test-token-corrupt';
+  const corruptPost = await onRequest({
+    request: request('POST', corruptToken, { data: { settings: { model: 'corrupt-model' } } }),
+    env,
+  });
+  await assertOk(corruptPost, 'corrupt seed POST');
+  const corruptRow = Array.from(store.values()).find((row) => row.data.includes('corrupt-model'));
+  corruptRow.data = '{not-json';
+  const corruptGet = await onRequest({ request: request('GET', corruptToken), env });
+  const corruptJson = await readJson(corruptGet);
+  assert(corruptGet.status === 500 && corruptJson.success === false, 'Corrupt stored sync snapshots should return a structured error.');
 
   const falseMigratedToken = 'test-token-false-migrated';
   const falseMigratedPost = await onRequest({
