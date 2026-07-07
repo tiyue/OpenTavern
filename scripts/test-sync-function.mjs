@@ -5459,6 +5459,7 @@ async function assertFrontendStorageServiceSaveHelpers() {
 async function assertFrontendStorageServiceLoadHelpers() {
   const sources = await Promise.all([
     '../src/app/20-storage-service-backend-sync.js',
+    '../src/app/20-storage-service-load-readers.js',
     '../src/app/20-storage-service-load-candidates.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
@@ -5569,6 +5570,7 @@ async function assertFrontendStorageServicePipeline() {
     '../src/app/20-storage-service-clear-backends.js',
     '../src/app/20-storage-service-clear.js',
     '../src/app/20-storage-service-backend-sync.js',
+    '../src/app/20-storage-service-load-readers.js',
     '../src/app/20-storage-service-load-candidates.js',
     '../src/app/20-storage-service-load.js',
     '../src/app/20-storage-service-save-helpers.js',
@@ -5921,6 +5923,7 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
     '../src/app/20-storage-service-clear-backends.js',
     '../src/app/20-storage-service-clear.js',
     '../src/app/20-storage-service-backend-sync.js',
+    '../src/app/20-storage-service-load-readers.js',
     '../src/app/20-storage-service-load-candidates.js',
     '../src/app/20-storage-service-load.js',
     '../src/app/20-storage-service-save-helpers.js',
