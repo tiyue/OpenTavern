@@ -1,28 +1,24 @@
 // ==================== Settings Basic Hydration ====================
 function hydratePrimaryApiSettings() {
-    dom.apiEndpoint.value = state.settings.apiEndpoint;
-    dom.apiKey.value = state.settings.apiKey;
-    if (dom.saveApiKey) dom.saveApiKey.checked = !!state.settings.saveApiKey;
-    if (dom.ollamaCompatMode) dom.ollamaCompatMode.checked = !!state.settings.ollamaCompatMode;
-    dom.modelName.value = state.settings.model;
+    hydrateValueControl(dom.apiEndpoint, state.settings.apiEndpoint);
+    hydrateValueControl(dom.apiKey, state.settings.apiKey);
+    hydrateCheckboxControl(dom.saveApiKey, state.settings.saveApiKey);
+    hydrateCheckboxControl(dom.ollamaCompatMode, state.settings.ollamaCompatMode);
+    hydrateValueControl(dom.modelName, state.settings.model);
 }
 
 function hydrateGenerationSettings() {
-    dom.contextLength.value = state.settings.contextLength;
-    dom.contextLenVal.textContent = state.settings.contextLength;
-    dom.maxTokens.value = state.settings.maxTokens;
-    dom.maxTokensVal.textContent = state.settings.maxTokens;
-    dom.temperature.value = state.settings.temperature;
-    dom.tempVal.textContent = state.settings.temperature;
-    dom.topP.value = state.settings.topP;
-    dom.topPVal.textContent = state.settings.topP;
+    hydrateValueAndLabelControl(dom.contextLength, dom.contextLenVal, state.settings.contextLength);
+    hydrateValueAndLabelControl(dom.maxTokens, dom.maxTokensVal, state.settings.maxTokens);
+    hydrateValueAndLabelControl(dom.temperature, dom.tempVal, state.settings.temperature);
+    hydrateValueAndLabelControl(dom.topP, dom.topPVal, state.settings.topP);
 }
 
 function hydratePromptSettings() {
-    dom.userName.value = state.settings.userName;
-    dom.systemPrompt.value = state.settings.systemPrompt;
-    if (dom.postHistoryInstructions) dom.postHistoryInstructions.value = state.settings.postHistoryInstructions || '';
-    if (dom.userDescription) dom.userDescription.value = state.settings.userDescription || '';
+    hydrateValueControl(dom.userName, state.settings.userName);
+    hydrateValueControl(dom.systemPrompt, state.settings.systemPrompt);
+    hydrateValueControl(dom.postHistoryInstructions, state.settings.postHistoryInstructions || '');
+    hydrateValueControl(dom.userDescription, state.settings.userDescription || '');
     bindSettingsPromptShortcutButtons();
 }
 
