@@ -210,13 +210,16 @@ async function assertFrontendStatePersistenceHelpers() {
   await context.__persist(true, { preserveLastSaved: true });
   assert(saved.length === 2 && saved[1].lastSaved === 123456, 'Status-only persists should preserve the previous snapshot freshness timestamp.');
 
+  await context.__persist(true, { lastSaved: 6000 });
+  assert(saved.length === 3 && saved[2].lastSaved === 6000, 'Explicit snapshot timestamps should be preserved when applying remote data.');
+
   await context.__persist(false);
   await context.__persist(false);
   assert(timeouts.length === 2 && timeouts[0].delay === 450 && timeouts[1].delay === 450, 'Debounced persist should schedule saves with the storage debounce delay.');
   assert(cleared.includes('timeout-0'), 'Debounced persist should clear the previous pending save.');
   timeouts[1].handler();
   await Promise.resolve();
-  assert(saved.length === 3, 'Debounced persist handler should eventually save the snapshot.');
+  assert(saved.length === 4, 'Debounced persist handler should eventually save the snapshot.');
 }
 
 async function assertFrontendWebGLBackgroundHelpers() {
@@ -329,6 +332,7 @@ async function assertFrontendCloudSnapshotApply() {
   const normalizeSource = await readFile(new URL('../src/app/22-cloud-sync-normalize.js', import.meta.url), 'utf8');
   const applySource = await readFile(new URL('../src/app/22-cloud-sync-apply.js', import.meta.url), 'utf8');
   let persisted = false;
+  const persistCalls = [];
   let notified = null;
   let rendered = false;
   const context = {
@@ -360,7 +364,10 @@ async function assertFrontendCloudSnapshotApply() {
     }),
     normalizeConversation(conv) { conv.normalized = true; },
     defaultConversation() { return { id: 'default', messages: [] }; },
-    persistState() { persisted = true; },
+    persistState(force, options) {
+      persisted = true;
+      persistCalls.push({ force, options });
+    },
     appStore: { notify(value) { notified = value; } },
     requestFullRender() { rendered = true; },
     updateInputState() {},
@@ -395,6 +402,7 @@ async function assertFrontendCloudSnapshotApply() {
   assert(context.state.activeConvId === 'c1', 'Cloud apply did not restore active conversation.');
   assert(context.state._charactersMigrated === true, 'Cloud apply did not restore character migration flag.');
   assert(persisted === true, 'Cloud apply did not persist restored snapshot.');
+  assert(persistCalls[0].force === true && persistCalls[0].options.lastSaved === 123, 'Cloud apply should persist using the remote snapshot freshness timestamp.');
   assert(rendered === true, 'Cloud apply did not request a full render.');
   assert(Array.isArray(notified) && notified.includes('characters') && notified.includes('worldBooks'), 'Cloud apply did not notify restored data domains.');
 
@@ -419,6 +427,7 @@ async function assertFrontendCloudSnapshotApply() {
   assert(context.state.worldBooks && !Array.isArray(context.state.worldBooks), 'Cloud apply should normalize invalid world books to an object map.');
   assert(context.state._charactersMigrated === true, 'Cloud apply should normalize character migration metadata.');
   assert(Number.isFinite(dirtyApplied.lastSaved), 'Cloud apply should normalize invalid timestamps.');
+  assert(persistCalls[1].options.lastSaved === dirtyApplied.lastSaved, 'Cloud apply should persist using the normalized remote timestamp.');
 }
 
 async function assertFrontendCloudSyncCrypto() {

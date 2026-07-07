@@ -3917,7 +3917,7 @@ function applyCloudSyncSnapshot(snapshot) {
 
     normalizeCloudSyncRestoredConversations();
     ensureCloudSyncRestoredActiveConversation();
-    persistCloudSyncAppliedSnapshot();
+    persistCloudSyncAppliedSnapshot(data);
     notifyCloudSyncSnapshotApplied();
     return data;
 }
@@ -3959,9 +3959,9 @@ function ensureCloudSyncRestoredActiveConversation() {
     state.activeConvId = conv.id;
 }
 
-function persistCloudSyncAppliedSnapshot() {
+function persistCloudSyncAppliedSnapshot(data) {
     _cloudSyncSavingStatus = true;
-    try { persistState(true); } finally { _cloudSyncSavingStatus = false; }
+    try { persistState(true, { lastSaved: data && data.lastSaved }); } finally { _cloudSyncSavingStatus = false; }
 }
 
 function notifyCloudSyncSnapshotApplied() {
@@ -5477,7 +5477,11 @@ var _persistTimeout = null;
 function persistState(immediate, options) {
     options = options || {};
     const previousLastSaved = Number(StorageService && StorageService._lastSaveSnapshot && StorageService._lastSaveSnapshot.lastSaved || 0) || 0;
-    const snapshotLastSaved = options.preserveLastSaved && previousLastSaved ? previousLastSaved : Date.now();
+    const requestedLastSaved = Number(options.lastSaved);
+    const hasRequestedLastSaved = Number.isFinite(requestedLastSaved) && requestedLastSaved > 0;
+    const snapshotLastSaved = hasRequestedLastSaved
+        ? requestedLastSaved
+        : (options.preserveLastSaved && previousLastSaved ? previousLastSaved : Date.now());
     const dataToSave = {
         settings: getSafeSettingsForPersist(),
         conversations: state.conversations,

@@ -13,7 +13,7 @@ function applyCloudSyncSnapshot(snapshot) {
 
     normalizeCloudSyncRestoredConversations();
     ensureCloudSyncRestoredActiveConversation();
-    persistCloudSyncAppliedSnapshot();
+    persistCloudSyncAppliedSnapshot(data);
     notifyCloudSyncSnapshotApplied();
     return data;
 }
@@ -55,9 +55,9 @@ function ensureCloudSyncRestoredActiveConversation() {
     state.activeConvId = conv.id;
 }
 
-function persistCloudSyncAppliedSnapshot() {
+function persistCloudSyncAppliedSnapshot(data) {
     _cloudSyncSavingStatus = true;
-    try { persistState(true); } finally { _cloudSyncSavingStatus = false; }
+    try { persistState(true, { lastSaved: data && data.lastSaved }); } finally { _cloudSyncSavingStatus = false; }
 }
 
 function notifyCloudSyncSnapshotApplied() {

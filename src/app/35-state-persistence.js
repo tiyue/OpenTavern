@@ -4,7 +4,11 @@ var _persistTimeout = null;
 function persistState(immediate, options) {
     options = options || {};
     const previousLastSaved = Number(StorageService && StorageService._lastSaveSnapshot && StorageService._lastSaveSnapshot.lastSaved || 0) || 0;
-    const snapshotLastSaved = options.preserveLastSaved && previousLastSaved ? previousLastSaved : Date.now();
+    const requestedLastSaved = Number(options.lastSaved);
+    const hasRequestedLastSaved = Number.isFinite(requestedLastSaved) && requestedLastSaved > 0;
+    const snapshotLastSaved = hasRequestedLastSaved
+        ? requestedLastSaved
+        : (options.preserveLastSaved && previousLastSaved ? previousLastSaved : Date.now());
     const dataToSave = {
         settings: getSafeSettingsForPersist(),
         conversations: state.conversations,
