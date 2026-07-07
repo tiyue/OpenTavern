@@ -3860,6 +3860,7 @@ async function requestCloudSync(method, payload) {
     var endpoint = getCloudSyncEndpoint();
     if (!endpoint) throw new Error('Cloud sync endpoint is required.');
     if (!s.cloudSyncToken) throw new Error('Cloud sync token is required.');
+    if (s.cloudSyncToken.length < 8) throw new Error('Cloud sync token must be at least 8 characters.');
 
     var headers = {
         'Accept': 'application/json',

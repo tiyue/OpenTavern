@@ -494,6 +494,65 @@ async function assertFrontendCloudSyncCrypto() {
   await assertRejects(context.__decrypt(encrypted), 'Short decryption passphrases should be rejected before WebCrypto runs.');
 }
 
+async function assertFrontendCloudSyncTransport() {
+  const sources = await Promise.all([
+    '../src/app/22-cloud-sync.js',
+    '../src/app/22-cloud-sync-normalize.js',
+    '../src/app/22-cloud-sync-transport.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const requests = [];
+  const context = {
+    state: {
+      settings: {
+        cloudSyncEndpoint: 'https://sync.example/api',
+        cloudSyncToken: 'short',
+      },
+    },
+    defaultSettings: () => ({
+      cloudSyncEnabled: false,
+      cloudSyncAutoUpload: false,
+      cloudSyncEndpoint: '/api/sync',
+      cloudSyncToken: '',
+      cloudSyncEncrypted: false,
+      cloudSyncPassphrase: '',
+      cloudSyncLastAt: 0,
+      cloudSyncLastStatus: '',
+    }),
+    StorageService: { _lastSaveSnapshot: null },
+    document: { getElementById() { return null; } },
+    async fetch(url, options) {
+      requests.push({ url, options });
+      return new Response(JSON.stringify({ success: true, data: null }), { status: 200 });
+    },
+    Response,
+    JSON,
+    Date,
+    Number,
+    Object,
+    Array,
+    String,
+    Error,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__request = requestCloudSync;\nthis.__status = setCloudSyncStatus;`, context);
+
+  await assertRejects(context.__request('GET'), 'Short cloud sync tokens should be rejected before fetch.');
+  assert(requests.length === 0, 'Short cloud sync tokens should not issue a network request.');
+
+  context.state.settings.cloudSyncToken = 'valid-token';
+  const result = await context.__request('GET');
+  assert(result.success === true, 'Valid cloud sync requests should parse JSON responses.');
+  assert(requests[0].url === 'https://sync.example/api', 'Cloud sync transport should use the configured endpoint.');
+  assert(requests[0].options.headers.Authorization === 'Bearer valid-token', 'Cloud sync transport should send the bearer token.');
+  assert(requests[0].options.headers['X-OpenTavern-Token'] === 'valid-token', 'Cloud sync transport should send the compatibility token header.');
+
+  context.fetch = async function() {
+    return new Response(JSON.stringify({ success: false, error: 'bad token' }), { status: 200 });
+  };
+  await assertRejects(context.__request('GET'), 'Cloud sync API error responses should reject.');
+}
+
 async function assertFrontendCloudSyncOperations() {
   const sources = await Promise.all([
     '../src/app/22-cloud-sync-operation-helpers.js',
@@ -4539,6 +4598,7 @@ async function main() {
   await assertFrontendWebGLBackgroundHelpers();
   await assertFrontendCloudSnapshotApply();
   await assertFrontendCloudSyncCrypto();
+  await assertFrontendCloudSyncTransport();
   await assertFrontendCloudSyncOperations();
   await assertFrontendSummaryService();
   await assertFrontendAutoSummarizationHelpers();
