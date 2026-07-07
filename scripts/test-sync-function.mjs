@@ -5092,6 +5092,99 @@ async function assertFrontendStorageRecoveryScanner() {
   assert(warnings.length === 0, `Storage recovery scanner should not warn on successful scans: ${warnings.join('\n')}`);
 }
 
+async function assertFrontendLegacyIDBRecoveryReader() {
+  const sources = await Promise.all([
+    '../src/app/23-storage-legacy-idb-requests.js',
+    '../src/app/23-storage-legacy-idb-snapshot.js',
+    '../src/app/23-storage-legacy-idb.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const events = [];
+  let activeDb = null;
+  function storeNames(names) {
+    const list = names.slice();
+    list.contains = (name) => list.includes(name);
+    return list;
+  }
+  function asyncRequest(result) {
+    const request = {};
+    Promise.resolve().then(() => {
+      request.result = result;
+      if (request.onsuccess) request.onsuccess({ target: request });
+    });
+    return request;
+  }
+  function fakeDb(stores) {
+    const names = storeNames(Object.keys(stores));
+    return {
+      objectStoreNames: names,
+      close() { events.push('close'); },
+      transaction(requestedStores, mode) {
+        events.push(`tx:${mode}:${requestedStores.join(',')}`);
+        return {
+          objectStore(name) {
+            return {
+              get(key) {
+                return asyncRequest(stores[name] && Object.prototype.hasOwnProperty.call(stores[name], key) ? stores[name][key] : null);
+              },
+              getAll() {
+                return asyncRequest(Array.isArray(stores[name]) ? stores[name] : []);
+              },
+            };
+          },
+        };
+      },
+    };
+  }
+
+  const context = {
+    indexedDB: {
+      open(name) {
+        events.push(`open:${name}`);
+        const request = {};
+        Promise.resolve().then(() => {
+          if (request.onsuccess) request.onsuccess({ target: { result: activeDb } });
+        });
+        return request;
+      },
+    },
+    Date: { now: () => 999 },
+    Promise,
+    Array,
+    Object,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__read = readLegacyIndexedDB;\nthis.__build = buildLegacyIDBRecoverySnapshot;`, context);
+
+  activeDb = fakeDb({
+    settings: { main: { model: 'legacy-model' } },
+    conversations: [{ id: 'c1', messages: [{ content: 'legacy chat' }] }, { title: 'missing id' }],
+    worldBooks: [{ id: 'wb1', entries: [{ content: 'legacy world' }] }],
+    metadata: { main: {
+      conversationOrder: ['c1'],
+      activeConvId: 'c1',
+      characters: { arona: { name: 'Arona' } },
+      charactersMigrated: true,
+      lastSaved: 123,
+    } },
+  });
+  const restored = await context.__read();
+  assert(restored.settings.model === 'legacy-model', 'Legacy IDB reader should restore settings.');
+  assert(restored.conversations.c1.messages[0].content === 'legacy chat', 'Legacy IDB reader should restore conversations by id.');
+  assert(restored.worldBooks.wb1.entries[0].content === 'legacy world', 'Legacy IDB reader should restore world books by id.');
+  assert(restored.characters.arona.name === 'Arona' && restored.charactersMigrated === true, 'Legacy IDB reader should restore character metadata.');
+  assert(restored.lastSaved === 123 && restored._loadedFrom === 'legacy-idb', 'Legacy IDB reader should preserve metadata and source markers.');
+  assert(events.includes('open:OpenTavernDB') && events.some((event) => event.startsWith('tx:readonly')) && events.includes('close'), 'Legacy IDB reader should open, transact, and close the old database.');
+
+  events.length = 0;
+  activeDb = fakeDb({ misc: [] });
+  assert(await context.__read() === null, 'Legacy IDB reader should return null when no recoverable legacy stores exist.');
+  assert(events.includes('close'), 'Legacy IDB reader should close databases without recoverable stores.');
+
+  const fallback = context.__build(null, [{ id: 'c2' }], [], null);
+  assert(fallback.conversations.c2.id === 'c2' && fallback.lastSaved === 999, 'Legacy IDB snapshot builder should map records by id and default timestamps.');
+}
+
 async function assertFrontendIDBStorageHelpers() {
   const sources = await Promise.all([
     '../src/app/20-storage-idb-connection.js',
@@ -5633,6 +5726,7 @@ async function main() {
   await assertFrontendStorageServiceInfoHelpers();
   await assertFrontendStorageServicePipeline();
   await assertFrontendStorageRecoveryScanner();
+  await assertFrontendLegacyIDBRecoveryReader();
   await assertFrontendStorageServiceFileProtocolStatus();
   await assertFrontendStorageStatusRenderHelpers();
   await assertFrontendStateInitialization();

@@ -4197,6 +4197,68 @@ function scheduleCloudSyncUpload() {
         });
     }, 2500);
 }
+// ==================== Legacy IndexedDB Request Helpers ====================
+function legacyIDBHasStore(storeNames, storeName) {
+    return !!(storeNames && storeNames.contains && storeNames.contains(storeName));
+}
+
+function closeLegacyIndexedDB(db) {
+    try { db.close(); } catch (_) {}
+}
+
+function getLegacyIDBStoreValue(tx, storeNames, storeName, key) {
+    return new Promise(function(resolve) {
+        try {
+            if (!legacyIDBHasStore(storeNames, storeName)) {
+                resolve(null);
+                return;
+            }
+            const request = tx.objectStore(storeName).get(key);
+            request.onsuccess = function() { resolve(request.result); };
+            request.onerror = function() { resolve(null); };
+        } catch (_) {
+            resolve(null);
+        }
+    });
+}
+
+function getAllLegacyIDBStoreValues(tx, storeNames, storeName) {
+    return new Promise(function(resolve) {
+        try {
+            if (!legacyIDBHasStore(storeNames, storeName)) {
+                resolve([]);
+                return;
+            }
+            const request = tx.objectStore(storeName).getAll();
+            request.onsuccess = function() { resolve(request.result || []); };
+            request.onerror = function() { resolve([]); };
+        } catch (_) {
+            resolve([]);
+        }
+    });
+}
+// ==================== Legacy IndexedDB Snapshot Builder ====================
+function mapLegacyIDBRecordsById(records) {
+    const out = {};
+    (records || []).forEach(function(record) {
+        if (record && record.id) out[record.id] = record;
+    });
+    return out;
+}
+
+function buildLegacyIDBRecoverySnapshot(settings, conversationsRaw, worldBooksRaw, meta) {
+    return {
+        settings: settings || {},
+        conversations: mapLegacyIDBRecordsById(conversationsRaw),
+        worldBooks: mapLegacyIDBRecordsById(worldBooksRaw),
+        conversationOrder: (meta && meta.conversationOrder) || [],
+        activeConvId: (meta && meta.activeConvId) || null,
+        characters: (meta && meta.characters) || {},
+        charactersMigrated: !!(meta && meta.charactersMigrated),
+        lastSaved: (meta && meta.lastSaved) || Date.now(),
+        _loadedFrom: 'legacy-idb'
+    };
+}
 // ==================== Legacy IndexedDB Recovery Reader ====================
 async function readLegacyIndexedDB() {
     return new Promise((resolve) => {
@@ -4207,9 +4269,9 @@ async function readLegacyIndexedDB() {
             req.onsuccess = (ev) => {
                 const db = ev.target.result;
                 const storeNames = db.objectStoreNames;
-                const hasDataStores = storeNames.contains('conversations') || storeNames.contains('metadata');
+                const hasDataStores = legacyIDBHasStore(storeNames, 'conversations') || legacyIDBHasStore(storeNames, 'metadata');
                 if (!hasDataStores) {
-                    try { db.close(); } catch (_) {}
+                    closeLegacyIndexedDB(db);
                     resolve(null);
                     return;
                 }
@@ -4217,55 +4279,20 @@ async function readLegacyIndexedDB() {
                 try {
                     const tx = db.transaction(Array.from(storeNames), 'readonly');
 
-                    const getP = (storeName, key) => new Promise(r => {
-                        try {
-                            if (!storeNames.contains(storeName)) { r(null); return; }
-                            const g = tx.objectStore(storeName).get(key);
-                            g.onsuccess = () => r(g.result);
-                            g.onerror = () => r(null);
-                        } catch { r(null); }
-                    });
-
-                    const getAllP = (storeName) => new Promise(r => {
-                        try {
-                            if (!storeNames.contains(storeName)) { r([]); return; }
-                            const g = tx.objectStore(storeName).getAll();
-                            g.onsuccess = () => r(g.result || []);
-                            g.onerror = () => r([]);
-                        } catch { r([]); }
-                    });
-
                     Promise.all([
-                        getP('settings', 'main'),
-                        getAllP('conversations'),
-                        getAllP('worldBooks'),
-                        getP('metadata', 'main')
+                        getLegacyIDBStoreValue(tx, storeNames, 'settings', 'main'),
+                        getAllLegacyIDBStoreValues(tx, storeNames, 'conversations'),
+                        getAllLegacyIDBStoreValues(tx, storeNames, 'worldBooks'),
+                        getLegacyIDBStoreValue(tx, storeNames, 'metadata', 'main')
                     ]).then(([settings, convsRaw, wbsRaw, meta]) => {
-                        try { db.close(); } catch (_) {}
-
-                        const conversations = {};
-                        (convsRaw || []).forEach(c => { if (c && c.id) conversations[c.id] = c; });
-
-                        const worldBooks = {};
-                        (wbsRaw || []).forEach(w => { if (w && w.id) worldBooks[w.id] = w; });
-
-                        resolve({
-                            settings: settings || {},
-                            conversations,
-                            worldBooks,
-                            conversationOrder: (meta && meta.conversationOrder) || [],
-                            activeConvId: (meta && meta.activeConvId) || null,
-                            characters: (meta && meta.characters) || {},
-                            charactersMigrated: !!(meta && meta.charactersMigrated),
-                            lastSaved: (meta && meta.lastSaved) || Date.now(),
-                            _loadedFrom: 'legacy-idb'
-                        });
+                        closeLegacyIndexedDB(db);
+                        resolve(buildLegacyIDBRecoverySnapshot(settings, convsRaw, wbsRaw, meta));
                     }).catch(() => {
-                        try { db.close(); } catch (_) {}
+                        closeLegacyIndexedDB(db);
                         resolve(null);
                     });
                 } catch (_) {
-                    try { db.close(); } catch (_) {}
+                    closeLegacyIndexedDB(db);
                     resolve(null);
                 }
             };
