@@ -159,6 +159,8 @@ body {
 }
 .msg-action-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.14); color: #d4d4d8; }
 .msg-action-btn.copy-btn:hover { color: #60a5fa; border-color: rgba(96,165,250,0.3); background: rgba(96,165,250,0.08); }
+.msg-action-btn.speak-btn:hover,
+.msg-action-btn.speak-btn.speaking { color: #34d399; border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.08); }
 .msg-action-btn.retry-btn:hover { color: #f59e0b; border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.08); }
 .msg-action-btn.del-btn:hover { color: #f87171; border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.08); }
 .msg-action-btn.edit-btn:hover { color: #a78bfa; border-color: rgba(167,139,250,0.3); background: rgba(167,139,250,0.08); }
@@ -1353,6 +1355,62 @@ body.theme-new-dark ::-webkit-scrollbar-thumb:hover { background: rgba(40, 35, 3
                 <input id="modelName" type="text" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all" placeholder="gpt-4o">
             </div>
 
+            <div class="glass rounded-2xl p-3 border border-white/5">
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_tts_api_title">TTS API</label>
+                        <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_tts_api_hint">Use an OpenAI-compatible /audio/speech API. Browser speech is used as fallback.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                        <input type="checkbox" id="ttsEnabled" class="sr-only peer">
+                        <div class="w-9 h-5 bg-white/10 rounded-full peer-checked:bg-amber-500/60 peer-checked:ring-1 peer-checked:ring-amber-500/40 transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                    </label>
+                </div>
+                <div class="space-y-2">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_tts_api_endpoint">API Endpoint</label>
+                        <input id="ttsApiEndpoint" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="https://api.openai.com/v1/audio/speech">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_tts_api_key">API Key</label>
+                        <input id="ttsApiKey" type="password" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="sk-...">
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_tts_model">Model</label>
+                            <input id="ttsModel" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="tts-1">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_tts_voice">Voice</label>
+                            <input id="ttsVoice" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="alloy">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_tts_speed">Speed</label>
+                                <span id="ttsSpeedVal" class="text-xs text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full">1</span>
+                            </div>
+                            <input type="range" id="ttsSpeed" min="0.25" max="4" step="0.05" value="1" class="w-full">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_tts_response_format">Response Format</label>
+                            <select id="ttsResponseFormat" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
+                                <option value="mp3">mp3</option>
+                                <option value="opus">opus</option>
+                                <option value="aac">aac</option>
+                                <option value="flac">flac</option>
+                                <option value="wav">wav</option>
+                                <option value="pcm">pcm</option>
+                            </select>
+                        </div>
+                    </div>
+                    <label class="flex items-center gap-2 text-[11px] text-zinc-300 cursor-pointer select-none">
+                        <input type="checkbox" id="ttsStream" class="accent-amber-500 w-3.5 h-3.5 flex-shrink-0">
+                        <span data-i18n="settings_tts_stream">Send stream: true in TTS request</span>
+                    </label>
+                </div>
+            </div>
             <!-- WebLLM 本地后端选择（零加载：仅用户在设置中主动切换并确认后才动态 import） -->
             <div>
                 <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_inference_backend">推理后端</label>
@@ -1499,7 +1557,7 @@ body.theme-new-dark ::-webkit-scrollbar-thumb:hover { background: rgba(40, 35, 3
                     </label>
                 </div>
             </div>
-                        <div class="glass rounded-2xl p-3 border border-white/5">
+            <div class="glass rounded-2xl p-3 border border-white/5">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                         <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_st_preset_title">SillyTavern Preset Prompts</label>
@@ -3300,6 +3358,15 @@ var i18n = {
         settings_ollama_compat_label: 'Ollama 兼容模式',
         settings_ollama_compat_hint: '开启后会在发送前合并/降级多条 system 消息，避免部分本地模型的 Jinja 模板报错。',
         settings_model: '模型',
+        settings_tts_api_title: 'TTS API',
+        settings_tts_api_hint: '使用 OpenAI 兼容的 /audio/speech API。未配置或失败时自动使用浏览器朗读兜底。',
+        settings_tts_api_endpoint: 'API 端点',
+        settings_tts_api_key: 'API 密钥',
+        settings_tts_model: '模型',
+        settings_tts_voice: '音色',
+        settings_tts_speed: '语速',
+        settings_tts_stream: '请求中发送 stream: true',
+        settings_tts_response_format: '返回格式',
         settings_comfy_title: 'ComfyUI 图像生成',
         settings_comfy_hint: '连接本机 ComfyUI，通过导入 API workflow 手动生成图片并附加到聊天。',
         settings_comfy_server: 'ComfyUI 地址',
@@ -3402,6 +3469,10 @@ var i18n = {
         prompt_viewer_title: '完整提示词（发送给 API）',
         copy: '复制',
         copied: '已复制！',
+        speak_msg: '朗读消息',
+        stop_speaking: '停止朗读',
+        tts_not_supported: '当前浏览器不支持文字朗读。',
+        tts_empty_message: '这条消息没有可朗读的文字。',
         delete_msg: '删除消息',
         regenerate: '重新生成',
         edit_msg: '编辑消息',
@@ -3741,6 +3812,15 @@ var i18n = {
         settings_ollama_compat_label: 'Ollama 相容模式',
         settings_ollama_compat_hint: '開啟後會在送出前合併/降級多條 system 訊息，避免部分本地模型的 Jinja 模板報錯。',
         settings_model: '模型',
+        settings_tts_api_title: 'TTS API',
+        settings_tts_api_hint: '使用 OpenAI 相容的 /audio/speech API。未設定或失敗時自動使用瀏覽器朗讀備援。',
+        settings_tts_api_endpoint: 'API 端點',
+        settings_tts_api_key: 'API 金鑰',
+        settings_tts_model: '模型',
+        settings_tts_voice: '音色',
+        settings_tts_speed: '語速',
+        settings_tts_stream: '請求中傳送 stream: true',
+        settings_tts_response_format: '返回格式',
         settings_comfy_title: 'ComfyUI 圖像生成',
         settings_comfy_hint: '連接本機 ComfyUI，透過匯入 API workflow 手動生成圖片並附加到聊天。',
         settings_comfy_server: 'ComfyUI 地址',
@@ -3843,6 +3923,10 @@ var i18n = {
         prompt_viewer_title: '完整提示詞（傳送給 API）',
         copy: '複製',
         copied: '已複製！',
+        speak_msg: '朗讀訊息',
+        stop_speaking: '停止朗讀',
+        tts_not_supported: '目前瀏覽器不支援文字朗讀。',
+        tts_empty_message: '這則訊息沒有可朗讀的文字。',
         delete_msg: '刪除訊息',
         regenerate: '重新生成',
         edit_msg: '編輯訊息',
@@ -4135,6 +4219,15 @@ var i18n = {
         settings_ollama_compat_label: 'Ollama Compatibility Mode',
         settings_ollama_compat_hint: 'Merges or downgrades multiple system messages before sending to avoid Jinja template errors in some local models.',
         settings_model: 'Model',
+        settings_tts_api_title: 'TTS API',
+        settings_tts_api_hint: 'Use an OpenAI-compatible /audio/speech API. Browser speech is used as fallback.',
+        settings_tts_api_endpoint: 'API Endpoint',
+        settings_tts_api_key: 'API Key',
+        settings_tts_model: 'Model',
+        settings_tts_voice: 'Voice',
+        settings_tts_speed: 'Speed',
+        settings_tts_stream: 'Send stream: true in TTS request',
+        settings_tts_response_format: 'Response Format',
         settings_comfy_title: 'ComfyUI Image Generation',
         settings_comfy_hint: 'Connect to local ComfyUI, import an API workflow, then manually generate images into chat.',
         settings_comfy_server: 'ComfyUI Server',
@@ -4237,6 +4330,10 @@ var i18n = {
         prompt_viewer_title: 'Full Prompt (sent to API)',
         copy: 'Copy',
         copied: 'Copied!',
+        speak_msg: 'Read aloud',
+        stop_speaking: 'Stop reading',
+        tts_not_supported: 'This browser does not support text-to-speech.',
+        tts_empty_message: 'This message has no readable text.',
         delete_msg: 'Delete message',
         regenerate: 'Regenerate',
         edit_msg: 'Edit message',
@@ -6221,6 +6318,7 @@ function getSafeSettingsForPersist() {
     if (!s.saveApiKey) {
         s.apiKey = '';
         s.summarizeApiKey = '';
+        s.ttsApiKey = '';
     }
     return s;
 }
@@ -6320,6 +6418,14 @@ function defaultSettings() {
         saveApiKey: false,
         ollamaCompatMode: false,
         model: 'gpt-4o',
+        ttsEnabled: false,
+        ttsApiEndpoint: 'https://api.openai.com/v1/audio/speech',
+        ttsApiKey: '',
+        ttsModel: 'tts-1',
+        ttsVoice: 'alloy',
+        ttsSpeed: 1,
+        ttsStream: false,
+        ttsResponseFormat: 'mp3',
         contextLength: 20,
         maxTokens: 1024,
         temperature: 0.7,
@@ -12888,7 +12994,9 @@ function cacheDom() {
         'sidebar','convList','noConvHint','chatTopBar','charAvatar','chatTitle','chatSubtitle',
         'messagesContainer','emptyState','messageInput','sendBtn','stopBtn','mentionBtn','mentionPill','mentionPillName','mentionPillClear','comfyGenerateBtn',
         'settingsModal','settingsBackdrop','settingsCloseBtn',
-        'apiEndpoint','apiKey','saveApiKey','ollamaCompatMode','modelName','contextLength','contextLenVal',
+        'apiEndpoint','apiKey','saveApiKey','ollamaCompatMode','modelName',
+        'ttsEnabled','ttsApiEndpoint','ttsApiKey','ttsModel','ttsVoice','ttsSpeed','ttsSpeedVal','ttsStream','ttsResponseFormat',
+        'contextLength','contextLenVal',
         'maxTokens','maxTokensVal','temperature','tempVal','topP','topPVal',
         'userName','systemPrompt','postHistoryInstructions','fillPostHistoryBtn','fillRoleplayPromptBtn','twoStageEnabled','twoStageTemperature','twoStageTempVal','twoStageTopP','twoStageTopPVal','twoStageIncludeRecentContext','twoStageSystemPrompt','twoStagePostHistoryInstructions','restoreTwoStagePromptBtn','requestCotEnabled','showCotEnabled','userDescription',
         'stPresetImportBtn','stPresetExportBtn','stPresetDeleteBtn','stPresetImportFile','stPresetStatus','stPresetList',
@@ -12960,6 +13068,25 @@ function cacheDom() {
 
 function defaultSillyTavernPreset() {
     return { name: '', importedAt: '', prompts: [], promptOrder: [] };
+}
+
+function ensureTtsSettings() {
+    if (!state.settings) state.settings = defaultSettings();
+    var defs = defaultSettings();
+    ['ttsEnabled','ttsApiEndpoint','ttsApiKey','ttsModel','ttsVoice','ttsSpeed','ttsStream','ttsResponseFormat'].forEach(function(key) {
+        if (state.settings[key] === undefined || state.settings[key] === null) state.settings[key] = defs[key];
+    });
+    state.settings.ttsEnabled = !!state.settings.ttsEnabled;
+    state.settings.ttsApiEndpoint = String(state.settings.ttsApiEndpoint || defs.ttsApiEndpoint);
+    state.settings.ttsApiKey = String(state.settings.ttsApiKey || '');
+    state.settings.ttsModel = String(state.settings.ttsModel || defs.ttsModel);
+    state.settings.ttsVoice = String(state.settings.ttsVoice || defs.ttsVoice);
+    var speed = parseFloat(state.settings.ttsSpeed);
+    state.settings.ttsSpeed = Number.isFinite(speed) ? Math.min(4, Math.max(0.25, speed)) : defs.ttsSpeed;
+    state.settings.ttsStream = !!state.settings.ttsStream;
+    var fmt = String(state.settings.ttsResponseFormat || defs.ttsResponseFormat).toLowerCase();
+    state.settings.ttsResponseFormat = ['mp3','opus','aac','flac','wav','pcm'].indexOf(fmt) >= 0 ? fmt : defs.ttsResponseFormat;
+    return state.settings;
 }
 
 function ensureComfySettings() {
@@ -13849,6 +13976,7 @@ function renderMessages() {
                         <button class="msg-action-btn copy-btn" data-action="copy" data-msg-idx="${actualIdx}" title="${t('copy')}">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                         </button>
+                        ${renderSpeakButton(actualIdx)}
                         <button class="msg-action-btn edit-btn" data-action="edit" data-msg-idx="${actualIdx}" title="${t('edit_msg')}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
                         ${!isUser ? `
                         <button class="msg-action-btn retry-btn" data-action="retry" data-msg-idx="${actualIdx}" title="${t('regenerate')}">
@@ -13896,6 +14024,7 @@ function renderMessages() {
         html += '<div class="msg-bubble">' + renderMessageBubbleContent(msg, isUser) + '</div>';
         html += '<div class="msg-actions">';
         html += '<button class="msg-action-btn copy-btn" data-action="copy" data-msg-idx="' + actualIdx + '" title="' + t('copy') + '"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
+        html += renderSpeakButton(actualIdx);
         html += '<button class="msg-action-btn edit-btn" data-action="edit" data-msg-idx="' + actualIdx + '" title="' + t('edit_msg') + '"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
         if (!isUser) {
             html += '<button class="msg-action-btn retry-btn" data-action="retry" data-msg-idx="' + actualIdx + '" title="' + t('regenerate') + '"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></button>';
@@ -13955,6 +14084,7 @@ function renderMessagesFullHistory(conv) {
         html += '<div class="msg-bubble">' + renderMessageBubbleContent(msg, isUser) + '</div>';
         html += '<div class="msg-actions">';
         html += '<button class="msg-action-btn copy-btn" data-action="copy" data-msg-idx="' + actualIdx + '" title="' + t('copy') + '"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
+        html += renderSpeakButton(actualIdx);
         html += '<button class="msg-action-btn edit-btn" data-action="edit" data-msg-idx="' + actualIdx + '" title="' + t('edit_msg') + '"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
         if (!isUser) {
             html += '<button class="msg-action-btn retry-btn" data-action="retry" data-msg-idx="' + actualIdx + '" title="' + t('regenerate') + '"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></button>';
@@ -14671,6 +14801,217 @@ function regenerateMessage(actualIdx) {
     }
 }
 
+var currentSpeechUtterance = null;
+var currentSpeechAudio = null;
+var currentSpeechObjectUrl = null;
+var currentSpeechAbortController = null;
+var currentSpeechButton = null;
+var currentSpeechMessageIdx = null;
+
+function renderSpeechIcon(isSpeaking) {
+    if (isSpeaking) {
+        return '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"></rect></svg>';
+    }
+    return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>';
+}
+
+function renderSpeakButton(actualIdx) {
+    var label = t('speak_msg');
+    return '<button class="msg-action-btn speak-btn" data-action="speak" data-msg-idx="' + actualIdx + '" title="' + escapeHtml(label) + '" aria-label="' + escapeHtml(label) + '">' + renderSpeechIcon(false) + '</button>';
+}
+
+function setSpeechButtonState(btn, isSpeaking) {
+    if (!btn) return;
+    var label = t(isSpeaking ? 'stop_speaking' : 'speak_msg');
+    btn.classList.toggle('speaking', !!isSpeaking);
+    btn.setAttribute('title', label);
+    btn.setAttribute('aria-label', label);
+    btn.innerHTML = renderSpeechIcon(!!isSpeaking);
+}
+
+function getSpeechLang() {
+    var lang = (state.settings && state.settings.lang) || 'zh-CN';
+    if (lang === 'en') return 'en-US';
+    return lang;
+}
+
+function cleanTextForSpeech(text) {
+    return String(text || '')
+        .replace(/<think>[\s\S]*?<\/think>/gi, ' ')
+        .replace(/```[\s\S]*?```/g, ' ')
+        .replace(/!\[[^\]]*\]\([^)]+\)/g, ' ')
+        .replace(/\[[^\]]*\]\([^)]+\)/g, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/[\u200B-\u200D\uFEFF]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function getAudioMimeType(format) {
+    var fmt = String(format || 'mp3').toLowerCase();
+    if (fmt === 'mp3') return 'audio/mpeg';
+    if (fmt === 'wav') return 'audio/wav';
+    if (fmt === 'opus') return 'audio/ogg; codecs=opus';
+    if (fmt === 'aac') return 'audio/aac';
+    if (fmt === 'flac') return 'audio/flac';
+    if (fmt === 'pcm') return 'audio/pcm';
+    return 'audio/mpeg';
+}
+
+function normalizeTtsEndpoint(url) {
+    var u = String(url || '').trim();
+    if (!u) return '';
+    u = u.replace(/\/+$/, '');
+    if (/\/audio\/speech$/i.test(u)) return u;
+    if (/\/v\d+(?:\/?)$/i.test(u)) return u + '/audio/speech';
+    return u + '/v1/audio/speech';
+}
+
+function canUseTtsApi() {
+    var settings = ensureTtsSettings();
+    return !!(settings.ttsEnabled && settings.ttsApiEndpoint && settings.ttsApiKey && settings.ttsModel && settings.ttsVoice);
+}
+
+function resetSpeechState() {
+    var btn = currentSpeechButton;
+    currentSpeechUtterance = null;
+    currentSpeechAudio = null;
+    if (currentSpeechObjectUrl) {
+        try { URL.revokeObjectURL(currentSpeechObjectUrl); } catch (_) {}
+    }
+    currentSpeechObjectUrl = null;
+    currentSpeechAbortController = null;
+    currentSpeechButton = null;
+    currentSpeechMessageIdx = null;
+    setSpeechButtonState(btn, false);
+}
+
+function stopSpeaking() {
+    if (currentSpeechAbortController) {
+        try { currentSpeechAbortController.abort(); } catch (_) {}
+    }
+    if (currentSpeechAudio) {
+        try { currentSpeechAudio.pause(); currentSpeechAudio.src = ''; } catch (_) {}
+    }
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    resetSpeechState();
+}
+
+function speakWithBrowserSpeech(text, actualIdx, btn) {
+    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+        alert(t('tts_not_supported'));
+        return;
+    }
+    stopSpeaking();
+    var utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = getSpeechLang();
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    currentSpeechUtterance = utterance;
+    currentSpeechButton = btn || null;
+    currentSpeechMessageIdx = actualIdx;
+    setSpeechButtonState(currentSpeechButton, true);
+
+    utterance.onend = function() {
+        if (currentSpeechUtterance === utterance) resetSpeechState();
+    };
+    utterance.onerror = function() {
+        if (currentSpeechUtterance === utterance) resetSpeechState();
+    };
+    window.speechSynthesis.speak(utterance);
+}
+
+function playTtsBlob(blob, actualIdx, btn) {
+    if (!blob || !blob.size) throw new Error('Empty audio response');
+    var settings = ensureTtsSettings();
+    var typedBlob = blob.type ? blob : new Blob([blob], { type: getAudioMimeType(settings.ttsResponseFormat) });
+    var url = URL.createObjectURL(typedBlob);
+    var audio = new Audio(url);
+    currentSpeechAudio = audio;
+    currentSpeechObjectUrl = url;
+    currentSpeechButton = btn || null;
+    currentSpeechMessageIdx = actualIdx;
+    setSpeechButtonState(currentSpeechButton, true);
+
+    audio.onended = function() {
+        if (currentSpeechAudio === audio) resetSpeechState();
+    };
+    audio.onerror = function() {
+        if (currentSpeechAudio === audio) resetSpeechState();
+    };
+    return audio.play();
+}
+
+function speakMessageWithTtsApi(text, actualIdx, btn) {
+    var settings = ensureTtsSettings();
+    var endpoint = normalizeTtsEndpoint(settings.ttsApiEndpoint);
+    var payload = {
+        model: settings.ttsModel,
+        input: text,
+        voice: settings.ttsVoice,
+        speed: settings.ttsSpeed,
+        stream: !!settings.ttsStream,
+        response_format: settings.ttsResponseFormat
+    };
+
+    stopSpeaking();
+    currentSpeechButton = btn || null;
+    currentSpeechMessageIdx = actualIdx;
+    setSpeechButtonState(currentSpeechButton, true);
+    currentSpeechAbortController = new AbortController();
+
+    return fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + settings.ttsApiKey
+        },
+        body: JSON.stringify(payload),
+        signal: currentSpeechAbortController.signal
+    }).then(function(response) {
+        if (!response.ok) {
+            return response.text().then(function(body) {
+                var msg = 'TTS API Error ' + response.status;
+                try {
+                    var json = JSON.parse(body);
+                    if (json.error && json.error.message) msg += ': ' + json.error.message;
+                    else if (json.message) msg += ': ' + json.message;
+                } catch (_) {
+                    if (body) msg += ': ' + body.slice(0, 200);
+                }
+                throw new Error(msg);
+            });
+        }
+        return response.blob();
+    }).then(function(blob) {
+        if (currentSpeechMessageIdx !== actualIdx) return;
+        return playTtsBlob(blob, actualIdx, btn);
+    }).catch(function(err) {
+        if (err && err.name === 'AbortError') return;
+        console.warn('[TTS] API failed, falling back to browser speech:', err);
+        speakWithBrowserSpeech(text, actualIdx, btn);
+    });
+}
+
+function speakMessageText(actualIdx, btn) {
+    var conv = getActiveConv();
+    var msg = conv && conv.messages ? conv.messages[actualIdx] : null;
+    var text = cleanTextForSpeech(msg && msg.content);
+    if (!text) {
+        alert(t('tts_empty_message'));
+        return;
+    }
+    if ((currentSpeechUtterance || currentSpeechAudio || currentSpeechAbortController) && currentSpeechMessageIdx === actualIdx) {
+        stopSpeaking();
+        return;
+    }
+    if (canUseTtsApi()) {
+        speakMessageWithTtsApi(text, actualIdx, btn);
+    } else {
+        speakWithBrowserSpeech(text, actualIdx, btn);
+    }
+}
+
 function copyMessageText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(function() {
@@ -14968,7 +15309,10 @@ function bindEvents() {
             if (conv && conv.messages[idx]) {
                 copyMessageText(conv.messages[idx].content);
             }
+        } else if (action === 'speak') {
+            speakMessageText(idx, btn);
         } else if (action === 'delete') {
+            if (currentSpeechMessageIdx === idx) stopSpeaking();
             deleteMessage(idx);
         } else if (action === 'retry') {
             if (state.isGenerating) return;
@@ -15030,6 +15374,16 @@ function bindEvents() {
         if (dom.saveApiKey) dom.saveApiKey.checked = !!state.settings.saveApiKey;
         if (dom.ollamaCompatMode) dom.ollamaCompatMode.checked = !!state.settings.ollamaCompatMode;
         dom.modelName.value = state.settings.model;
+        ensureTtsSettings();
+        if (dom.ttsEnabled) dom.ttsEnabled.checked = !!state.settings.ttsEnabled;
+        if (dom.ttsApiEndpoint) dom.ttsApiEndpoint.value = state.settings.ttsApiEndpoint || '';
+        if (dom.ttsApiKey) dom.ttsApiKey.value = state.settings.ttsApiKey || '';
+        if (dom.ttsModel) dom.ttsModel.value = state.settings.ttsModel || 'tts-1';
+        if (dom.ttsVoice) dom.ttsVoice.value = state.settings.ttsVoice || 'alloy';
+        if (dom.ttsSpeed) dom.ttsSpeed.value = state.settings.ttsSpeed || 1;
+        if (dom.ttsSpeedVal) dom.ttsSpeedVal.textContent = state.settings.ttsSpeed || 1;
+        if (dom.ttsStream) dom.ttsStream.checked = !!state.settings.ttsStream;
+        if (dom.ttsResponseFormat) dom.ttsResponseFormat.value = state.settings.ttsResponseFormat || 'mp3';
         dom.contextLength.value = state.settings.contextLength;
         dom.contextLenVal.textContent = state.settings.contextLength;
         dom.maxTokens.value = state.settings.maxTokens;
@@ -15371,6 +15725,18 @@ function bindEvents() {
         state.settings.saveApiKey = dom.saveApiKey ? !!dom.saveApiKey.checked : false;
         state.settings.ollamaCompatMode = dom.ollamaCompatMode ? !!dom.ollamaCompatMode.checked : false;
         state.settings.model = dom.modelName.value.trim() || 'gpt-4o';
+        ensureTtsSettings();
+        if (dom.ttsEnabled) state.settings.ttsEnabled = !!dom.ttsEnabled.checked;
+        if (dom.ttsApiEndpoint) state.settings.ttsApiEndpoint = dom.ttsApiEndpoint.value.trim() || defaultSettings().ttsApiEndpoint;
+        if (dom.ttsApiKey) state.settings.ttsApiKey = dom.ttsApiKey.value.trim();
+        if (dom.ttsModel) state.settings.ttsModel = dom.ttsModel.value.trim() || 'tts-1';
+        if (dom.ttsVoice) state.settings.ttsVoice = dom.ttsVoice.value.trim() || 'alloy';
+        if (dom.ttsSpeed) {
+            var ttsSpeed = parseFloat(dom.ttsSpeed.value);
+            state.settings.ttsSpeed = Number.isFinite(ttsSpeed) ? Math.min(4, Math.max(0.25, ttsSpeed)) : 1;
+        }
+        if (dom.ttsStream) state.settings.ttsStream = !!dom.ttsStream.checked;
+        if (dom.ttsResponseFormat) state.settings.ttsResponseFormat = dom.ttsResponseFormat.value || 'mp3';
         state.settings.contextLength = parseInt(dom.contextLength.value) || 20;
         state.settings.maxTokens = parseInt(dom.maxTokens.value) || 1024;
         state.settings.temperature = parseFloat(dom.temperature.value) || 0.7;
@@ -15495,6 +15861,7 @@ function bindEvents() {
     bindSlider(dom.maxTokens, dom.maxTokensVal);
     bindSlider(dom.temperature, dom.tempVal);
     bindSlider(dom.topP, dom.topPVal);
+    if (dom.ttsSpeed && dom.ttsSpeedVal) bindSlider(dom.ttsSpeed, dom.ttsSpeedVal);
     if (dom.twoStageTemperature && dom.twoStageTempVal) bindSlider(dom.twoStageTemperature, dom.twoStageTempVal);
     if (dom.twoStageTopP && dom.twoStageTopPVal) bindSlider(dom.twoStageTopP, dom.twoStageTopPVal);
     bindSlider(dom.worldInfoBudget, dom.worldInfoBudgetVal);
