@@ -7504,7 +7504,7 @@ function renderWIEntryList(filter) {
         dom.wiEntryStats.textContent = entries.length + ' ' + t('world_book_entry');
     }
 }
-// ==================== World Book Global List Row UI ====================
+// ==================== World Book Global List Filter ====================
 function getFilteredWorldBookList(filter) {
     if (!state.worldBooks) state.worldBooks = {};
 
@@ -7516,7 +7516,27 @@ function getFilteredWorldBookList(filter) {
         return (wb.name || '').toLowerCase().indexOf(f) !== -1;
     });
 }
+// ==================== World Book Global List Actions ====================
+function openWorldBookFromList(wb) {
+    wiState.currentWorldBookId = wb.id;
+    wiState.viewMode = 'entries';
+    wiState.selectedUid = null;
+    dom.wiBookName.value = wb.name || '';
+    renderWIEntryList(dom.wiSearch.value.trim());
+    updateWorldBookModalHeader();
+}
 
+function unlinkWorldBookFromCurrentConversation(wbId) {
+    var currentConv = getActiveConv();
+    if (!currentConv) return;
+    currentConv.worldBookIds = (currentConv.worldBookIds || []).filter(function(id) { return id !== wbId; });
+    wiState.dirty = true;
+    updateWIDirtyIndicator();
+    persistState(true);
+    renderWorldInfoBadge();
+    renderWorldBookList(getCurrentWorldBookFilter());
+}
+// ==================== World Book Global List Row UI ====================
 function renderWorldBookListEmpty(container) {
     var empty = document.createElement('div');
     empty.className = 'text-xs text-zinc-500 px-2 py-6 text-center';
@@ -7570,26 +7590,6 @@ function createWorldBookListRow(wb, linkedIds) {
     }
 
     return row;
-}
-
-function openWorldBookFromList(wb) {
-    wiState.currentWorldBookId = wb.id;
-    wiState.viewMode = 'entries';
-    wiState.selectedUid = null;
-    dom.wiBookName.value = wb.name || '';
-    renderWIEntryList(dom.wiSearch.value.trim());
-    updateWorldBookModalHeader();
-}
-
-function unlinkWorldBookFromCurrentConversation(wbId) {
-    var currentConv = getActiveConv();
-    if (!currentConv) return;
-    currentConv.worldBookIds = (currentConv.worldBookIds || []).filter(function(id) { return id !== wbId; });
-    wiState.dirty = true;
-    updateWIDirtyIndicator();
-    persistState(true);
-    renderWorldInfoBadge();
-    renderWorldBookList(getCurrentWorldBookFilter());
 }
 // ==================== World Book Global List UI ====================
 function renderWorldBookList(filter) {

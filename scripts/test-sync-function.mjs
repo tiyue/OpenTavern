@@ -4280,7 +4280,11 @@ async function assertFrontendWorldBookImportExportUIHelpers() {
 }
 
 async function assertFrontendWorldBookGlobalListUIHelpers() {
-  const source = await readFile(new URL('../src/app/43-worldbook-global-list-row-ui.js', import.meta.url), 'utf8');
+  const sources = await Promise.all([
+    '../src/app/43-worldbook-global-list-filter.js',
+    '../src/app/43-worldbook-global-list-actions.js',
+    '../src/app/43-worldbook-global-list-row-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
   function fakeButton() {
     return { addEventListener() {} };
@@ -4300,21 +4304,31 @@ async function assertFrontendWorldBookGlobalListUIHelpers() {
     };
   }
 
+  const events = [];
+  const currentConv = { worldBookIds: ['one', 'two'] };
   const context = {
     state: { worldBooks: {
       one: { id: 'one', name: 'Kivotos', entries: { a: {} } },
       two: { id: 'two', name: 'Gehenna', entries: {} },
     } },
-    dom: { wiEntryStats: { textContent: '' } },
-    wiState: { currentWorldBookId: 'one' },
+    dom: { wiEntryStats: { textContent: '' }, wiBookName: { value: '' }, wiSearch: { value: '  lore  ' } },
+    wiState: { currentWorldBookId: 'one', viewMode: 'books', selectedUid: 'old', dirty: false },
     document: { createElement: fakeElement },
     t: (key) => ({ world_book_entry: 'entry', world_book_linked: 'Linked', world_book_unlink: 'Unlink', world_book_delete_book: 'Delete', world_book_no_books_hint: 'No books' }[key] || key),
     escapeHtml: (value) => String(value),
+    getActiveConv: () => currentConv,
+    renderWIEntryList(filter) { events.push(`entries:${filter}`); },
+    updateWorldBookModalHeader() { events.push('header'); },
+    updateWIDirtyIndicator() { events.push('dirty'); },
+    persistState(force) { events.push(`persist:${force}`); },
+    renderWorldInfoBadge() { events.push('badge'); },
+    renderWorldBookList(filter) { events.push(`books:${filter}`); },
+    getCurrentWorldBookFilter: () => 'kiv',
     Object,
     String,
   };
 
-  vm.runInNewContext(`${source}\nthis.__filter = getFilteredWorldBookList;\nthis.__empty = renderWorldBookListEmpty;\nthis.__row = createWorldBookListRow;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__filter = getFilteredWorldBookList;\nthis.__empty = renderWorldBookListEmpty;\nthis.__row = createWorldBookListRow;\nthis.__open = openWorldBookFromList;\nthis.__unlink = unlinkWorldBookFromCurrentConversation;`, context);
 
   assert(context.__filter('kiv').map((book) => book.id).join(',') === 'one', 'World book global list should filter by book name.');
 
@@ -4326,6 +4340,15 @@ async function assertFrontendWorldBookGlobalListUIHelpers() {
   assert(row.className.includes('bg-amber-500/10'), 'World book global list row should mark the selected book active.');
   assert(row.innerHTML.includes('&times;</button>'), 'World book global delete button should render a valid close control.');
   assert(row.innerHTML.includes('Linked') && !row.innerHTML.includes('鏈'), 'World book global list row should render translated linked text without mojibake.');
+
+  context.__open({ id: 'two', name: 'Gehenna' });
+  assert(context.wiState.currentWorldBookId === 'two' && context.wiState.viewMode === 'entries' && context.wiState.selectedUid === null, 'World book global list open action should select the book and switch to entry mode.');
+  assert(context.dom.wiBookName.value === 'Gehenna' && events.includes('entries:lore') && events.includes('header'), 'World book global list open action should refresh the editor view.');
+
+  events.length = 0;
+  context.__unlink('one');
+  assert(currentConv.worldBookIds.join(',') === 'two' && context.wiState.dirty === true, 'World book global list unlink action should remove the book from the active conversation and mark dirty.');
+  assert(events.join('|') === 'dirty|persist:true|badge|books:kiv', 'World book global list unlink action should refresh persistence, badge, and list state.');
 }
 
 async function assertFrontendFileProtocolOPFSSilence() {
