@@ -5806,7 +5806,7 @@ async function assertFrontendIDBStorageHelpers() {
     setTimeout,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__normalize = normalizeIDBStorageData;\nthis.__retry = withRetryIDBStorage;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__normalize = normalizeIDBStorageData;\nthis.__retry = withRetryIDBStorage;\nthis.__tx = runIDBStorageTransaction;`, context);
 
   const normalized = context.__normalize({ data: { conversations: {} } });
   assert(normalized.conversations && Number.isFinite(normalized.lastSaved), 'IDB normalize should unwrap stored snapshot data and add lastSaved.');
@@ -5825,6 +5825,22 @@ async function assertFrontendIDBStorageHelpers() {
   const result = await context.__retry(storage, async (db) => db, { retries: 1 });
   assert(result.ok === true && result.fresh === true, 'IDB retry should reopen with a fresh connection after failure.');
   assert(attempts === 2 && resets === 1, 'IDB retry should reset once and retry exactly once.');
+
+  let txArgs = null;
+  const txResult = await context.__tx({
+    transaction(storeName, mode) {
+      txArgs = { storeName, mode };
+      return {
+        error: null,
+        objectStore(name) {
+          return { value: `store:${name}` };
+        },
+      };
+    },
+  }, { _storeName: 'snapshots' }, 'readonly', function(tx, resolve) {
+    resolve(tx.objectStore('snapshots').value);
+  });
+  assert(txArgs.storeName === 'snapshots' && txArgs.mode === 'readonly' && txResult === 'store:snapshots', 'IDB transaction helper should run actions against the configured store and mode.');
 }
 
 async function assertFrontendStorageServiceFileProtocolStatus() {

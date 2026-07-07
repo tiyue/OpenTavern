@@ -13,3 +13,18 @@ async function getIDBStorageInfo(storage) {
         return { backend: 'idb', used: 0 };
     }
 }
+
+function runIDBStorageTransaction(db, storage, mode, action, messages) {
+    messages = messages || {};
+    return new Promise((resolve, reject) => {
+        let tx;
+        try {
+            tx = db.transaction(storage._storeName, mode);
+            tx.onerror = () => reject(tx.error || new Error(messages.error || 'IndexedDB transaction failed'));
+            tx.onabort = () => reject(tx.error || new Error(messages.abort || 'IndexedDB transaction aborted'));
+            action(tx, resolve, reject);
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
