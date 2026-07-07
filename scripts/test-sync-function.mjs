@@ -310,6 +310,7 @@ async function assertFrontendWebGLBackgroundHelpers() {
 
 async function assertFrontendCloudSnapshotApply() {
   const cloudSource = await readFile(new URL('../src/app/22-cloud-sync.js', import.meta.url), 'utf8');
+  const normalizeSource = await readFile(new URL('../src/app/22-cloud-sync-normalize.js', import.meta.url), 'utf8');
   const applySource = await readFile(new URL('../src/app/22-cloud-sync-apply.js', import.meta.url), 'utf8');
   let persisted = false;
   let notified = null;
@@ -355,7 +356,7 @@ async function assertFrontendCloudSnapshotApply() {
     String,
   };
 
-  vm.runInNewContext(`${cloudSource}\n${applySource}\nthis.__apply = applyCloudSyncSnapshot;`, context);
+  vm.runInNewContext(`${cloudSource}\n${normalizeSource}\n${applySource}\nthis.__apply = applyCloudSyncSnapshot;`, context);
   const applied = context.__apply({
     settings: { model: 'remote-model', cloudSyncToken: 'remote-token' },
     conversations: { c1: { id: 'c1', messages: [{ role: 'user', content: 'hello cloud' }] } },
@@ -380,6 +381,28 @@ async function assertFrontendCloudSnapshotApply() {
   assert(persisted === true, 'Cloud apply did not persist restored snapshot.');
   assert(rendered === true, 'Cloud apply did not request a full render.');
   assert(Array.isArray(notified) && notified.includes('characters') && notified.includes('worldBooks'), 'Cloud apply did not notify restored data domains.');
+
+  const dirtyApplied = context.__apply({
+    settings: { model: 'dirty-model' },
+    conversations: {
+      c2: { id: 'c2', messages: [] },
+      c1: { id: 'c1', messages: [] },
+    },
+    conversationOrder: ['missing', 'c2', 1, 'c2'],
+    activeConvId: 1,
+    characters: null,
+    worldBooks: [],
+    charactersMigrated: 'yes',
+    lastSaved: 'not-a-number',
+  });
+
+  assert(dirtyApplied.conversationOrder.join(',') === 'c2,c1', 'Cloud apply should normalize dirty conversation order.');
+  assert(context.state.activeConvId === 'c2', 'Cloud apply should recover from an invalid active conversation id.');
+  assert(context.state.conversations.c2.normalized === true, 'Cloud apply should normalize recovered conversations.');
+  assert(context.state.characters && !Array.isArray(context.state.characters), 'Cloud apply should normalize invalid character cards to an object map.');
+  assert(context.state.worldBooks && !Array.isArray(context.state.worldBooks), 'Cloud apply should normalize invalid world books to an object map.');
+  assert(context.state._charactersMigrated === true, 'Cloud apply should normalize character migration metadata.');
+  assert(Number.isFinite(dirtyApplied.lastSaved), 'Cloud apply should normalize invalid timestamps.');
 }
 
 async function assertFrontendCloudSyncOperations() {

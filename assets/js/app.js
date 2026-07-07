@@ -3705,20 +3705,6 @@ function getCloudSyncEndpoint() {
     return String(s.cloudSyncEndpoint || '/api/sync').trim() || '/api/sync';
 }
 
-function normalizeCloudSyncSnapshot(raw) {
-    var data = raw && raw.data !== undefined ? raw.data : raw;
-    if (data && data.snapshot !== undefined) data = data.snapshot;
-    if (!data || typeof data !== 'object') throw new Error('Cloud snapshot is empty or invalid.');
-    if (data.encrypted === true) return data;
-    if (!data.settings || typeof data.settings !== 'object') data.settings = {};
-    if (!data.conversations || typeof data.conversations !== 'object') data.conversations = {};
-    if (!data.characters || typeof data.characters !== 'object') data.characters = {};
-    if (!data.worldBooks || typeof data.worldBooks !== 'object') data.worldBooks = {};
-    if (!Array.isArray(data.conversationOrder)) data.conversationOrder = Object.keys(data.conversations || {});
-    if (!data.lastSaved) data.lastSaved = Date.now();
-    return data;
-}
-
 function getCloudSyncFreshness(remote) {
     var remoteTime = Number(remote && remote.lastSaved || 0) || 0;
     var localTime = Number(StorageService && StorageService._lastSaveSnapshot && StorageService._lastSaveSnapshot.lastSaved || 0) || 0;
@@ -3727,6 +3713,68 @@ function getCloudSyncFreshness(remote) {
     if (remoteTime > localTime + 1000) return 'newer';
     if (remoteTime < localTime - 1000) return 'older';
     return 'same';
+}
+// ==================== Cloud Sync Snapshot Normalization ====================
+function isCloudSyncObjectMap(value) {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeCloudSyncObjectMap(value) {
+    return isCloudSyncObjectMap(value) ? value : {};
+}
+
+function normalizeCloudSyncTimestamp(value) {
+    var timestamp = Number(value);
+    return Number.isFinite(timestamp) ? timestamp : Date.now();
+}
+
+function normalizeCloudSyncConversationOrder(data) {
+    var conversationIds = Object.keys(data.conversations || {});
+    var knownIds = Object.create(null);
+    var seenIds = Object.create(null);
+    var order = [];
+
+    conversationIds.forEach(function(id) {
+        knownIds[id] = true;
+    });
+
+    if (Array.isArray(data.conversationOrder)) {
+        data.conversationOrder.forEach(function(id) {
+            if (typeof id !== 'string' || !knownIds[id] || seenIds[id]) return;
+            seenIds[id] = true;
+            order.push(id);
+        });
+    }
+
+    conversationIds.forEach(function(id) {
+        if (seenIds[id]) return;
+        seenIds[id] = true;
+        order.push(id);
+    });
+
+    data.conversationOrder = order;
+}
+
+function normalizeCloudSyncActiveConversation(data) {
+    if (typeof data.activeConvId === 'string' && Object.prototype.hasOwnProperty.call(data.conversations, data.activeConvId)) return;
+    data.activeConvId = data.conversationOrder[0] || null;
+}
+
+function normalizeCloudSyncSnapshot(raw) {
+    var data = raw && raw.data !== undefined ? raw.data : raw;
+    if (data && data.snapshot !== undefined) data = data.snapshot;
+    if (!data || typeof data !== 'object') throw new Error('Cloud snapshot is empty or invalid.');
+    if (data.encrypted === true) return data;
+
+    data.settings = normalizeCloudSyncObjectMap(data.settings);
+    data.conversations = normalizeCloudSyncObjectMap(data.conversations);
+    data.characters = normalizeCloudSyncObjectMap(data.characters);
+    data.worldBooks = normalizeCloudSyncObjectMap(data.worldBooks);
+    normalizeCloudSyncConversationOrder(data);
+    normalizeCloudSyncActiveConversation(data);
+    data.charactersMigrated = !!data.charactersMigrated;
+    data.lastSaved = normalizeCloudSyncTimestamp(data.lastSaved);
+    return data;
 }
 // ==================== Cloud Sync Encryption ====================
 function bytesToBase64(bytes) {
