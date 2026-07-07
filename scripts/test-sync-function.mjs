@@ -2439,6 +2439,7 @@ async function assertFrontendSettingsSaveHelpers() {
 async function assertFrontendSettingsHydrationHelpers() {
   const sources = await Promise.all([
     '../src/app/68-settings-basic-hydration.js',
+    '../src/app/68-settings-advanced-hydration-helpers.js',
     '../src/app/68-settings-advanced-hydration.js',
     '../src/app/68-settings-integration-hydration.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
@@ -2519,7 +2520,7 @@ async function assertFrontendSettingsHydrationHelpers() {
     parseInt,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__primary = hydratePrimaryApiSettings;\nthis.__generation = hydrateGenerationSettings;\nthis.__prompt = hydratePromptSettings;\nthis.__two = hydrateTwoStageSettings;\nthis.__summary = hydrateSummarySettings;\nthis.__budget = hydrateWorldInfoBudgetSettings;\nthis.__theme = hydrateThemePerformanceSettings;\nthis.__summaryApi = hydrateSummarizationApiSettings;\nthis.__st = hydrateSillyTavernPresetSettings;\nthis.__comfy = hydrateComfySettingsControls;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__primary = hydratePrimaryApiSettings;\nthis.__generation = hydrateGenerationSettings;\nthis.__prompt = hydratePromptSettings;\nthis.__two = hydrateTwoStageSettings;\nthis.__summary = hydrateSummarySettings;\nthis.__budget = hydrateWorldInfoBudgetSettings;\nthis.__theme = hydrateThemePerformanceSettings;\nthis.__summaryApi = hydrateSummarizationApiSettings;\nthis.__st = hydrateSillyTavernPresetSettings;\nthis.__comfy = hydrateComfySettingsControls;\nthis.__defaultOn = hydrateCheckboxControlDefaultOn;\nthis.__restorePrompt = bindDefaultPromptRestoreButton;`, context);
 
   context.__primary();
   context.__generation();
@@ -2532,6 +2533,15 @@ async function assertFrontendSettingsHydrationHelpers() {
   context.__st();
   context.__comfy();
 
+  const defaultOnCheckbox = input();
+  context.__defaultOn(defaultOnCheckbox, undefined);
+  assert(defaultOnCheckbox.checked === true, 'Settings advanced hydration helper should default checkboxes on.');
+  const restoreBtn = input();
+  const restorePrompt = input('custom');
+  context.__restorePrompt(restoreBtn, restorePrompt, 'restored prompt');
+  restoreBtn.onclick();
+  assert(restorePrompt.value === 'restored prompt' && context.state.settings.twoStageSystemPrompt === 'restored prompt' && events.includes('persist'), 'Settings advanced hydration helper should restore default prompts and persist.');
+
   assert(context.dom.apiEndpoint.value === 'https://api.example' && context.dom.saveApiKey.checked === true, 'Settings hydration should fill primary API controls.');
   assert(context.dom.contextLenVal.textContent === 32 && context.dom.tempVal.textContent === 0.4, 'Settings hydration should fill generation slider labels.');
   assert(context.dom.twoStageSystemPrompt.value === 'default two stage' && context.dom.showCotEnabled.checked === false, 'Settings hydration should fill two-stage controls.');
@@ -2540,10 +2550,11 @@ async function assertFrontendSettingsHydrationHelpers() {
   assert(context.dom.summarizeApiEndpoint.value === 'https://summary.example' && context.dom.comfyServer.value === 'http://127.0.0.1:8188', 'Settings hydration should fill integration controls.');
   assert(events.includes('st-ensure') && events.includes('comfy-status') && events.includes('summary-warning'), 'Settings hydration should call dependent render/status helpers.');
 
+  const shortcutPersistCountBefore = events.filter((event) => event === 'persist').length;
   context.dom.fillRoleplayPromptBtn.onclick();
   context.dom.restoreTwoStagePromptBtn.onclick();
   assert(context.state.settings.systemPrompt === 'base system' && context.state.settings.twoStageSystemPrompt === 'default two stage', 'Settings hydration shortcut buttons should restore defaults.');
-  assert(events.filter((event) => event === 'persist').length === 2, 'Settings hydration shortcut buttons should persist changes.');
+  assert(events.filter((event) => event === 'persist').length === shortcutPersistCountBefore + 2, 'Settings hydration shortcut buttons should persist changes.');
 }
 
 async function assertFrontendPublicCardAssets() {

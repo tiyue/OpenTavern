@@ -362,6 +362,7 @@
   "67-message-edit-helpers.js",
   "67-message-edit-ui.js",
   "68-settings-basic-hydration.js",
+  "68-settings-advanced-hydration-helpers.js",
   "68-settings-advanced-hydration.js",
   "68-settings-integration-hydration.js",
   "68-settings-modal-hydration.js",
