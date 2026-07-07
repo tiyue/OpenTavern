@@ -294,6 +294,7 @@
   "60-library-ui-render.js",
   "60-library-card-filter.js",
   "60-library-card-display-helpers.js",
+  "60-library-card-image-upload-helpers.js",
   "60-library-card-grid-ui.js",
   "60-library-my-card-action-helpers.js",
   "60-library-my-card-actions-ui.js",

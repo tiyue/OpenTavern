@@ -2706,6 +2706,43 @@ async function assertFrontendMyCardControlHelpers() {
   assert(events.includes('delete:arona') && events.includes('render'), 'My card controls should delete and refresh after confirmation.');
 }
 
+async function assertFrontendMyCardImageUploadHelpers() {
+  const source = await readFile(new URL('../src/app/60-library-card-image-upload-helpers.js', import.meta.url), 'utf8');
+  const events = [];
+  const avatars = {
+    charAvatar: { innerHTML: '', className: '' },
+    charCardAvatar: { innerHTML: '', className: '' },
+  };
+  const context = {
+    state: { characters: { arona: { name: 'Arona' } } },
+    currentCharacterName: ' Arona ',
+    persistState(flag) { events.push(`persist:${flag}`); },
+    renderMyCards() { events.push('render'); },
+    document: {
+      getElementById(id) {
+        return avatars[id] || null;
+      },
+    },
+    String,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__key = getCardImageUploadKey;\nthis.__active = isActiveCharacterCardKey;\nthis.__html = buildCardImageUploadAvatarHtml;\nthis.__save = saveMyCharacterPreviewImage;`, context);
+
+  assert(context.__key({ name: ' Arona ' }) === 'arona', 'My card image upload should normalize character keys.');
+  assert(context.__active('arona') === true, 'My card image upload should detect the active character key.');
+  assert(context.__html({ name: 'A "Quoted"' }, 'data-url', 'rounded-xl').includes('alt="A &quot;Quoted&quot;"'), 'My card image upload should escape avatar alt quotes.');
+
+  assert(context.__save({ name: 'Arona' }, 'data:image/png;base64,abc') === true, 'My card image upload should save preview images for known cards.');
+  assert(context.state.characters.arona.previewImage === 'data:image/png;base64,abc', 'My card image upload should store previewImage on the character card.');
+  assert(events.join('|') === 'persist:true|render', 'My card image upload should persist and refresh the card grid after saving.');
+  assert(avatars.charAvatar.innerHTML.includes('data:image/png;base64,abc') && avatars.charAvatar.className.includes('rounded-xl'), 'My card image upload should refresh the active chat avatar.');
+  assert(avatars.charCardAvatar.innerHTML.includes('rounded-lg') && avatars.charCardAvatar.className.includes('rounded-lg'), 'My card image upload should refresh the active card avatar.');
+
+  const eventCount = events.length;
+  assert(context.__save({ name: 'Missing' }, 'data:image/png;base64,missing') === false, 'My card image upload should ignore missing cards.');
+  assert(events.length === eventCount, 'My card image upload should not persist when no card was updated.');
+}
+
 async function assertFrontendMyCardActionHelpers() {
   const sources = await Promise.all([
     '../src/app/60-library-my-card-action-helpers.js',
@@ -6313,6 +6350,7 @@ async function main() {
   await assertFrontendLibraryCardDisplayHelpers();
   await assertFrontendMyCardGridFiltering();
   await assertFrontendMyCardControlHelpers();
+  await assertFrontendMyCardImageUploadHelpers();
   await assertFrontendMyCardActionHelpers();
   await assertFrontendPublicCardGridFiltering();
   await assertFrontendDomCache();
