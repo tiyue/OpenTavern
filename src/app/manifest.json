@@ -14,6 +14,8 @@
   "11-webllm-engine.js",
   "11-webllm-confirm-helpers.js",
   "11-webllm-download-ui.js",
+  "11-webllm-storage-preflight.js",
+  "11-webllm-progress-ui-helpers.js",
   "11-webllm-initialization-helpers.js",
   "11-webllm-initialization-ui.js",
   "12-i18n-core.js",

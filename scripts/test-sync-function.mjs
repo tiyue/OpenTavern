@@ -3091,7 +3091,11 @@ async function assertFrontendWebGPUDeviceHelpers() {
 }
 
 async function assertFrontendWebLLMInitializationHelpers() {
-  const source = await readFile(new URL('../src/app/11-webllm-initialization-helpers.js', import.meta.url), 'utf8');
+  const sources = await Promise.all([
+    '../src/app/11-webllm-storage-preflight.js',
+    '../src/app/11-webllm-progress-ui-helpers.js',
+    '../src/app/11-webllm-initialization-helpers.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
   function classList(initial = []) {
     const values = new Set(initial);
@@ -3128,7 +3132,7 @@ async function assertFrontendWebLLMInitializationHelpers() {
     Set,
   };
 
-  vm.runInNewContext(`${source}\nthis.__preflight = preflightWebLLMStorageQuota;\nthis.__progress = updateWebLLMInitializationProgress;\nthis.__cleanup = cleanupWebLLMProgressHandlers;\nthis.__reset = resetWebLLMProgressUI;\nthis.__finish = finishWebLLMInitialization;\nthis.__cancel = cancelWebLLMInitialization;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__preflight = preflightWebLLMStorageQuota;\nthis.__progress = updateWebLLMInitializationProgress;\nthis.__cleanup = cleanupWebLLMProgressHandlers;\nthis.__reset = resetWebLLMProgressUI;\nthis.__finish = finishWebLLMInitialization;\nthis.__cancel = cancelWebLLMInitialization;`, context);
 
   const allowed = await context.__preflight({ label: 'Model', sizeMB: 900 });
   assert(allowed === false && context.state.settings.inferenceBackend === 'remote-api', 'WebLLM preflight should revert backend when storage confirmation is rejected.');
