@@ -4164,6 +4164,98 @@ async function assertFrontendCharacterPanelUI() {
   assert(dom.charCardName.textContent === 'Arona' && dom.charCardTagCount.textContent === '2 tags', 'Character panel should render single-character metadata.');
 }
 
+async function assertFrontendCharacterEditorUI() {
+  const sources = await Promise.all([
+    '../src/app/65-character-editor-helpers.js',
+    '../src/app/65-character-editor-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function input(value = '') {
+    return { value };
+  }
+  function classList() {
+    const values = new Set(['hidden']);
+    return {
+      values,
+      add(name) { values.add(name); },
+      remove(name) { values.delete(name); },
+    };
+  }
+
+  const events = [];
+  let activeConv = {
+    title: 'New chat',
+    messages: [],
+    character: {
+      name: 'Unnamed',
+      tags: ['old'],
+      alternate_greetings: ['hi'],
+      extensions: { depth: 1 },
+    },
+  };
+  const dom = {
+    charEditName: input('Arona'),
+    charEditTags: input('ai, guide, '),
+    charEditDescription: input('desc'),
+    charEditPersonality: input('kind'),
+    charEditScenario: input('scene'),
+    charEditFirstMes: input('Hello {{user}} from {{char}}'),
+    charEditMesExample: input('example'),
+    charEditSystemPrompt: input('system'),
+    charEditPostHistory: input('post'),
+    charEditCreatorNotes: input('notes'),
+    charEditorModal: { classList: classList() },
+  };
+  const context = {
+    dom,
+    state: { settings: { userName: 'Sensei' }, characters: {} },
+    getActiveConv() { return activeConv; },
+    replacePlaceholders(text, charName, userName) {
+      return text.replaceAll('{{char}}', charName).replaceAll('{{user}}', userName);
+    },
+    t: (key) => ({ title_new_chat_match: 'New Chat', new_chat_title: 'New chat', chat_with: 'Chat with ' }[key] || key),
+    persistState: () => events.push('persist'),
+    renderLibraryGrids: () => events.push('library'),
+    renderCharacterUI: () => events.push('character'),
+    renderMessagesOnly: () => events.push('messages'),
+    renderConversationListOnly: () => events.push('conversations'),
+    appStore: { notify: (key) => events.push(`notify:${key}`) },
+    Date: { now: () => 999 },
+    JSON,
+    String,
+    Set,
+    Array,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__open = openCharacterEditor;\nthis.__save = saveCharacterEdits;\nthis.__tags = parseCharacterEditorTags;\nthis.__build = buildCharacterFromEditorForm;`, context);
+
+  activeConv.character.name = 'Plana';
+  activeConv.character.description = 'loaded desc';
+  context.__open();
+  assert(dom.charEditName.value === 'Plana' && dom.charEditDescription.value === 'loaded desc' && !dom.charEditorModal.classList.values.has('hidden'), 'Character editor should hydrate the active character into the form.');
+
+  dom.charEditName.value = 'Arona';
+  dom.charEditTags.value = 'ai, guide, ';
+  dom.charEditDescription.value = 'desc';
+  dom.charEditPersonality.value = 'kind';
+  dom.charEditScenario.value = 'scene';
+  dom.charEditFirstMes.value = 'Hello {{user}} from {{char}}';
+  dom.charEditMesExample.value = 'example';
+  dom.charEditSystemPrompt.value = 'system';
+  dom.charEditPostHistory.value = 'post';
+  dom.charEditCreatorNotes.value = 'notes';
+  assert(context.__tags(' a, , b ').join(',') === 'a,b', 'Character editor should parse comma-separated tags.');
+  activeConv.character.name = 'Unnamed';
+  activeConv.messages = [];
+  context.__save();
+  assert(activeConv.character.name === 'Arona' && activeConv.character.tags.join(',') === 'ai,guide', 'Character editor should save form fields into the conversation character.');
+  assert(activeConv.character.alternate_greetings[0] === 'hi' && activeConv.character.extensions.depth === 1, 'Character editor should preserve existing character metadata.');
+  assert(activeConv.messages[0].content === 'Hello Sensei from Arona', 'Character editor should seed first messages for new characters.');
+  assert(context.state.characters.arona.name === 'Arona' && context.state.characters.arona !== activeConv.character, 'Character editor should register an independent global card copy.');
+  assert(activeConv.title === 'Chat with Arona' && activeConv.updated === 999, 'Character editor should update conversation title and timestamp.');
+  assert(events.includes('persist') && events.includes('library') && events.includes('notify:conversations'), 'Character editor should persist and refresh dependent UI.');
+}
+
 async function assertFrontendStateLifecycleHelpers() {
   const sources = await Promise.all([
     '../src/app/33-render-shortcuts.js',
@@ -6051,6 +6143,7 @@ async function main() {
   await assertFrontendMobileSidebarUI();
   await assertFrontendConversationListUI();
   await assertFrontendCharacterPanelUI();
+  await assertFrontendCharacterEditorUI();
   await assertFrontendStateLifecycleHelpers();
   await assertFrontendMessageContentHelpers();
   await assertFrontendMessageEditHelpers();

@@ -13083,31 +13083,27 @@ function deleteCharacterFromLibrary(nameOrKey) {
         showNewChatCharacterPicker();
     }
 }
-// ==================== Character Editor UI ====================
-function openCharacterEditor() {
-    var conv = getActiveConv();
-    var c = conv && conv.character;
-    dom.charEditName.value = c ? c.name : '';
-    dom.charEditTags.value = c && c.tags ? c.tags.join(', ') : '';
-    dom.charEditDescription.value = c ? c.description : '';
-    dom.charEditPersonality.value = c ? c.personality : '';
-    dom.charEditScenario.value = c ? c.scenario : '';
-    dom.charEditFirstMes.value = c ? c.first_mes : '';
-    dom.charEditMesExample.value = c ? c.mes_example : '';
-    dom.charEditSystemPrompt.value = c ? c.system_prompt : '';
-    dom.charEditPostHistory.value = c ? c.post_history_instructions : '';
-    dom.charEditCreatorNotes.value = c ? c.creator_notes : '';
-    dom.charEditorModal.classList.remove('hidden');
+// ==================== Character Editor Helpers ====================
+function hydrateCharacterEditorForm(character) {
+    dom.charEditName.value = character ? character.name : '';
+    dom.charEditTags.value = character && character.tags ? character.tags.join(', ') : '';
+    dom.charEditDescription.value = character ? character.description : '';
+    dom.charEditPersonality.value = character ? character.personality : '';
+    dom.charEditScenario.value = character ? character.scenario : '';
+    dom.charEditFirstMes.value = character ? character.first_mes : '';
+    dom.charEditMesExample.value = character ? character.mes_example : '';
+    dom.charEditSystemPrompt.value = character ? character.system_prompt : '';
+    dom.charEditPostHistory.value = character ? character.post_history_instructions : '';
+    dom.charEditCreatorNotes.value = character ? character.creator_notes : '';
 }
 
-function saveCharacterEdits() {
-    var conv = getActiveConv();
-    if (!conv) return;
+function parseCharacterEditorTags(tagsRaw) {
+    tagsRaw = String(tagsRaw || '').trim();
+    return tagsRaw ? tagsRaw.split(',').map(function(tag) { return tag.trim(); }).filter(Boolean) : [];
+}
 
-    var tagsRaw = dom.charEditTags.value.trim();
-    var tags = tagsRaw ? tagsRaw.split(',').map(function(t) { return t.trim(); }).filter(Boolean) : [];
-
-    var character = {
+function buildCharacterFromEditorForm(previousCharacter) {
+    return {
         name: dom.charEditName.value.trim() || 'Unnamed',
         description: dom.charEditDescription.value,
         personality: dom.charEditPersonality.value,
@@ -13117,30 +13113,54 @@ function saveCharacterEdits() {
         system_prompt: dom.charEditSystemPrompt.value,
         post_history_instructions: dom.charEditPostHistory.value,
         creator_notes: dom.charEditCreatorNotes.value,
-        tags: tags,
-        alternate_greetings: conv.character ? (conv.character.alternate_greetings || []) : [],
-        extensions: conv.character ? (conv.character.extensions || {}) : {}
+        tags: parseCharacterEditorTags(dom.charEditTags.value),
+        alternate_greetings: previousCharacter ? (previousCharacter.alternate_greetings || []) : [],
+        extensions: previousCharacter ? (previousCharacter.extensions || {}) : {}
     };
+}
+
+function registerEditedCharacter(character) {
+    if (!character.name) return;
+    var key = character.name.trim().toLowerCase();
+    if (!state.characters) state.characters = {};
+    state.characters[key] = JSON.parse(JSON.stringify(character));
+}
+
+function shouldSeedEditedCharacterFirstMessage(conv, character, wasNew) {
+    return !!(wasNew && character.first_mes && conv.messages.length === 0);
+}
+
+function updateEditedCharacterConversationTitle(conv, character, wasNew) {
+    if (conv.title === t('title_new_chat_match') || conv.title === t('new_chat_title') || (wasNew && conv.title.indexOf(t('chat_with')) === 0)) {
+        conv.title = t('chat_with') + character.name;
+    }
+}
+// ==================== Character Editor UI ====================
+function openCharacterEditor() {
+    var conv = getActiveConv();
+    var c = conv && conv.character;
+    hydrateCharacterEditorForm(c);
+    dom.charEditorModal.classList.remove('hidden');
+}
+
+function saveCharacterEdits() {
+    var conv = getActiveConv();
+    if (!conv) return;
 
     var wasNew = !conv.character || !conv.character.name || conv.character.name === 'Unnamed';
+    var character = buildCharacterFromEditorForm(conv.character);
     conv.character = character;
 
-    if (character.name) {
-        const key = character.name.trim().toLowerCase();
-        if (!state.characters) state.characters = {};
-        state.characters[key] = JSON.parse(JSON.stringify(character));
-    }
+    registerEditedCharacter(character);
 
-    if (wasNew && character.first_mes && conv.messages.length === 0) {
+    if (shouldSeedEditedCharacterFirstMessage(conv, character, wasNew)) {
         var charName = character.name;
         var userName = state.settings.userName || 'User';
         var firstMes = replacePlaceholders(character.first_mes, charName, userName);
         if (firstMes) conv.messages.push({ role: 'assistant', content: firstMes });
     }
 
-    if (conv.title === t('title_new_chat_match') || conv.title === t('new_chat_title') || (wasNew && conv.title.indexOf(t('chat_with')) === 0)) {
-        conv.title = t('chat_with') + character.name;
-    }
+    updateEditedCharacterConversationTitle(conv, character, wasNew);
     conv.updated = Date.now();
     persistState();
 

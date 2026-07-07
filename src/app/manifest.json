@@ -343,6 +343,7 @@
   "65-character-panel-helpers.js",
   "65-character-panel-ui.js",
   "65-character-library-actions.js",
+  "65-character-editor-helpers.js",
   "65-character-editor-ui.js",
   "65-character-export.js",
   "65-mobile-sidebar-ui.js",
