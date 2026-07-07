@@ -14526,27 +14526,38 @@ function readSettingsFormIntoState() {
     readCloudSyncSettingsFromForm();
     readWebLLMSettingsFromForm();
 }
-function applyClosedSettingsEffects() {
-    persistState();
-    dom.settingsModal.classList.add('hidden');
-
+function applySavedSettingsThemeEffects() {
     if (typeof applyUiTheme === 'function') {
         applyUiTheme(state.settings.uiTheme);
     }
     if (typeof applyPerformanceMode === 'function') {
         applyPerformanceMode(state.settings.lowPowerMode);
     }
-    updateInputState();
+}
 
+function clearActiveConversationWorldInfoCache() {
     var conv = getActiveConv();
     if (conv) {
         conv._wiCache = null;
     }
-    renderTokenBar();
+}
 
+function scheduleAutoSummaryAfterSettingsSave() {
     if (state.settings.summaryEnabled) {
         setTimeout(function() { autoSummarize(); }, 120);
     }
+}
+function applyClosedSettingsEffects() {
+    persistState();
+    dom.settingsModal.classList.add('hidden');
+
+    applySavedSettingsThemeEffects();
+    updateInputState();
+
+    clearActiveConversationWorldInfoCache();
+    renderTokenBar();
+
+    scheduleAutoSummaryAfterSettingsSave();
 
     appStore.notify('settings');
 }

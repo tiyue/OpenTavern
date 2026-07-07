@@ -391,6 +391,7 @@
   "68-settings-save-comfy-form.js",
   "68-settings-save-webllm-form.js",
   "68-settings-save-form.js",
+  "68-settings-save-effect-helpers.js",
   "68-settings-save-effects.js",
   "68-settings-save.js",
   "70-send-message-helpers.js",

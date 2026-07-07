@@ -2325,6 +2325,7 @@ async function assertFrontendSettingsSaveHelpers() {
     '../src/app/68-settings-save-comfy-form.js',
     '../src/app/68-settings-save-webllm-form.js',
     '../src/app/68-settings-save-form.js',
+    '../src/app/68-settings-save-effect-helpers.js',
     '../src/app/68-settings-save-effects.js',
     '../src/app/68-settings-save.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
@@ -2418,11 +2419,14 @@ async function assertFrontendSettingsSaveHelpers() {
     Set,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__close = closeSettings;\nthis.__rawOr = readControlValueOr;\nthis.__trimOr = readTrimmedControlValueOr;\nthis.__checkbox = readCheckboxControlValue;\nthis.__finiteFloat = readFiniteFloatControlValue;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__close = closeSettings;\nthis.__clearWi = clearActiveConversationWorldInfoCache;\nthis.__rawOr = readControlValueOr;\nthis.__trimOr = readTrimmedControlValueOr;\nthis.__checkbox = readCheckboxControlValue;\nthis.__finiteFloat = readFiniteFloatControlValue;`, context);
   assert(context.__rawOr(input('  raw  '), 'fallback') === '  raw  ', 'Settings save form helper should preserve raw control values when requested.');
   assert(context.__trimOr(input('  '), 'fallback') === 'fallback', 'Settings save form helper should default blank trimmed values.');
   assert(context.__checkbox(null, true) === true, 'Settings save form helper should use checkbox fallback values.');
   assert(context.__finiteFloat(input('0'), 0.3) === 0 && context.__finiteFloat(input('NaN'), 0.3) === 0.3, 'Settings save form helper should preserve finite floats and default invalid values.');
+  activeConv._wiCache = { stale: true };
+  context.__clearWi();
+  assert(activeConv._wiCache === null, 'Settings save effects helper should clear the active world-info cache.');
   context.__close();
 
   assert(context.state.settings.apiEndpoint === 'https://api.example/v1', 'Settings save should trim API endpoint.');
