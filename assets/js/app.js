@@ -14083,12 +14083,12 @@ function openSettings() {
 }
 function readCloudSyncSettingsFromForm() {
     ensureCloudSyncSettings();
-    if (dom.cloudSyncEnabled) state.settings.cloudSyncEnabled = !!dom.cloudSyncEnabled.checked;
-    if (dom.cloudSyncAutoUpload) state.settings.cloudSyncAutoUpload = !!dom.cloudSyncAutoUpload.checked;
-    if (dom.cloudSyncEndpoint) state.settings.cloudSyncEndpoint = dom.cloudSyncEndpoint.value.trim() || '/api/sync';
-    if (dom.cloudSyncToken) state.settings.cloudSyncToken = dom.cloudSyncToken.value.trim();
-    if (dom.cloudSyncEncrypted) state.settings.cloudSyncEncrypted = !!dom.cloudSyncEncrypted.checked;
-    if (dom.cloudSyncPassphrase) state.settings.cloudSyncPassphrase = dom.cloudSyncPassphrase.value;
+    if (dom.cloudSyncEnabled) state.settings.cloudSyncEnabled = readCheckboxControlValue(dom.cloudSyncEnabled, false);
+    if (dom.cloudSyncAutoUpload) state.settings.cloudSyncAutoUpload = readCheckboxControlValue(dom.cloudSyncAutoUpload, false);
+    if (dom.cloudSyncEndpoint) state.settings.cloudSyncEndpoint = readTrimmedControlValueOr(dom.cloudSyncEndpoint, '/api/sync');
+    if (dom.cloudSyncToken) state.settings.cloudSyncToken = readTrimmedControlValue(dom.cloudSyncToken);
+    if (dom.cloudSyncEncrypted) state.settings.cloudSyncEncrypted = readCheckboxControlValue(dom.cloudSyncEncrypted, false);
+    if (dom.cloudSyncPassphrase) state.settings.cloudSyncPassphrase = readControlValue(dom.cloudSyncPassphrase);
 }
 function hydrateCloudSyncSettingsControls() {
     // Cloud Sync
@@ -14417,6 +14417,14 @@ function readTrimmedControlValue(control) {
     return control ? String(control.value || '').trim() : '';
 }
 
+function readControlValue(control) {
+    return control ? String(control.value || '') : '';
+}
+
+function readControlValueOr(control, fallback) {
+    return readControlValue(control) || fallback;
+}
+
 function readTrimmedControlValueOr(control, fallback) {
     return readTrimmedControlValue(control) || fallback;
 }
@@ -14464,47 +14472,47 @@ function readMainSettingsFromForm() {
 // ==================== Settings Save Summary Form ====================
 function readSummarySettingsFromForm() {
     ensureSillyTavernPresetSettings();
-    state.settings.summaryEnabled = dom.summaryEnabled.checked;
-    if (dom.summaryThreshold) state.settings.summaryThreshold = parseInt(dom.summaryThreshold.value) || 12;
-    if (dom.summaryMaxWords) state.settings.summaryMaxWords = parseInt(dom.summaryMaxWords.value) || 0;
-    if (dom.summaryPrompt) state.settings.summaryPrompt = dom.summaryPrompt.value.trim();
+    state.settings.summaryEnabled = readCheckboxControlValue(dom.summaryEnabled, false);
+    if (dom.summaryThreshold) state.settings.summaryThreshold = readIntegerControlValue(dom.summaryThreshold, 12);
+    if (dom.summaryMaxWords) state.settings.summaryMaxWords = readIntegerControlValue(dom.summaryMaxWords, 0);
+    if (dom.summaryPrompt) state.settings.summaryPrompt = readTrimmedControlValue(dom.summaryPrompt);
 }
 
 function readWorldInfoBudgetSettingsFromForm() {
-    state.settings.worldInfoBudgetEnabled = dom.worldInfoBudgetEnabled.checked;
-    state.settings.worldInfoBudget = parseInt(dom.worldInfoBudget.value) || 2048;
+    state.settings.worldInfoBudgetEnabled = readCheckboxControlValue(dom.worldInfoBudgetEnabled, false);
+    state.settings.worldInfoBudget = readIntegerControlValue(dom.worldInfoBudget, 2048);
 }
 // ==================== Settings Save UI Form ====================
 function readUiBehaviorSettingsFromForm() {
-    state.settings.uiTheme = dom.uiTheme ? (dom.uiTheme.value || 'new-light') : 'new-light';
+    state.settings.uiTheme = readControlValueOr(dom.uiTheme, 'new-light');
     state.settings.uiTheme = typeof normalizeUiTheme === 'function' ? normalizeUiTheme(state.settings.uiTheme) : state.settings.uiTheme;
     if (typeof cacheUiTheme === 'function') cacheUiTheme(state.settings.uiTheme);
-    state.settings.lowPowerMode = dom.lowPowerMode ? !!dom.lowPowerMode.checked : false;
+    state.settings.lowPowerMode = readCheckboxControlValue(dom.lowPowerMode, false);
 }
 // ==================== Settings Save Summarization API Form ====================
 function readSummarizationApiSettingsFromForm() {
-    state.settings.summarizeUseMainAPI = dom.summarizeUseMainAPI.checked;
-    state.settings.summarizeApiEndpoint = dom.summarizeApiEndpoint.value.trim();
-    state.settings.summarizeApiKey = dom.summarizeApiKey.value.trim();
-    state.settings.summarizeModel = dom.summarizeModel.value.trim() || 'deepseek-v4-flash';
+    state.settings.summarizeUseMainAPI = readCheckboxControlValue(dom.summarizeUseMainAPI, false);
+    state.settings.summarizeApiEndpoint = readTrimmedControlValue(dom.summarizeApiEndpoint);
+    state.settings.summarizeApiKey = readTrimmedControlValue(dom.summarizeApiKey);
+    state.settings.summarizeModel = readTrimmedControlValueOr(dom.summarizeModel, 'deepseek-v4-flash');
 }
 // ==================== Settings Save ComfyUI Form ====================
 function readComfySettingsFromForm() {
     ensureComfySettings();
-    if (dom.comfyEnabled) state.settings.comfyEnabled = !!dom.comfyEnabled.checked;
-    if (dom.comfyServer) state.settings.comfyServer = normalizeComfyServer(dom.comfyServer.value);
-    if (dom.comfyPositiveNodeId) state.settings.comfyPositiveNodeId = dom.comfyPositiveNodeId.value.trim();
-    if (dom.comfyNegativeNodeId) state.settings.comfyNegativeNodeId = dom.comfyNegativeNodeId.value.trim();
-    if (dom.comfySeedNodeId) state.settings.comfySeedNodeId = dom.comfySeedNodeId.value.trim();
-    if (dom.comfyNegativePrompt) state.settings.comfyNegativePrompt = dom.comfyNegativePrompt.value.trim();
-    if (dom.comfyPromptTemplate) state.settings.comfyPromptTemplate = dom.comfyPromptTemplate.value.trim() || defaultSettings().comfyPromptTemplate;
+    if (dom.comfyEnabled) state.settings.comfyEnabled = readCheckboxControlValue(dom.comfyEnabled, false);
+    if (dom.comfyServer) state.settings.comfyServer = normalizeComfyServer(readControlValue(dom.comfyServer));
+    if (dom.comfyPositiveNodeId) state.settings.comfyPositiveNodeId = readTrimmedControlValue(dom.comfyPositiveNodeId);
+    if (dom.comfyNegativeNodeId) state.settings.comfyNegativeNodeId = readTrimmedControlValue(dom.comfyNegativeNodeId);
+    if (dom.comfySeedNodeId) state.settings.comfySeedNodeId = readTrimmedControlValue(dom.comfySeedNodeId);
+    if (dom.comfyNegativePrompt) state.settings.comfyNegativePrompt = readTrimmedControlValue(dom.comfyNegativePrompt);
+    if (dom.comfyPromptTemplate) state.settings.comfyPromptTemplate = readTrimmedControlValueOr(dom.comfyPromptTemplate, defaultSettings().comfyPromptTemplate);
 }
 // ==================== Settings Save WebLLM Form ====================
 function readWebLLMSettingsFromForm() {
     var backendSel = document.getElementById('inferenceBackend');
     var webllmSel = document.getElementById('webllmModel');
-    if (backendSel) state.settings.inferenceBackend = backendSel.value || 'remote-api';
-    if (webllmSel) state.settings.webllmModel = webllmSel.value || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+    if (backendSel) state.settings.inferenceBackend = readControlValueOr(backendSel, 'remote-api');
+    if (webllmSel) state.settings.webllmModel = readControlValueOr(webllmSel, 'Llama-3.2-1B-Instruct-q4f16_1-MLC');
 }
 // ==================== Settings Save Form Facade ====================
 // Form readers are split by settings group across 68-settings-save-*-form.js.

@@ -3,6 +3,14 @@ function readTrimmedControlValue(control) {
     return control ? String(control.value || '').trim() : '';
 }
 
+function readControlValue(control) {
+    return control ? String(control.value || '') : '';
+}
+
+function readControlValueOr(control, fallback) {
+    return readControlValue(control) || fallback;
+}
+
 function readTrimmedControlValueOr(control, fallback) {
     return readTrimmedControlValue(control) || fallback;
 }

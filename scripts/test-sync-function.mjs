@@ -2418,7 +2418,8 @@ async function assertFrontendSettingsSaveHelpers() {
     Set,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__close = closeSettings;\nthis.__trimOr = readTrimmedControlValueOr;\nthis.__checkbox = readCheckboxControlValue;\nthis.__finiteFloat = readFiniteFloatControlValue;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__close = closeSettings;\nthis.__rawOr = readControlValueOr;\nthis.__trimOr = readTrimmedControlValueOr;\nthis.__checkbox = readCheckboxControlValue;\nthis.__finiteFloat = readFiniteFloatControlValue;`, context);
+  assert(context.__rawOr(input('  raw  '), 'fallback') === '  raw  ', 'Settings save form helper should preserve raw control values when requested.');
   assert(context.__trimOr(input('  '), 'fallback') === 'fallback', 'Settings save form helper should default blank trimmed values.');
   assert(context.__checkbox(null, true) === true, 'Settings save form helper should use checkbox fallback values.');
   assert(context.__finiteFloat(input('0'), 0.3) === 0 && context.__finiteFloat(input('NaN'), 0.3) === 0.3, 'Settings save form helper should preserve finite floats and default invalid values.');
