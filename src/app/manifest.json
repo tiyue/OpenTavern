@@ -315,6 +315,7 @@
   "60-library-my-card-filter.js",
   "60-library-my-card-grid-ui.js",
   "60-library-public-card-item-ui.js",
+  "60-library-public-card-detail-content-helpers.js",
   "60-library-public-card-detail-modal-helpers.js",
   "60-library-public-card-detail-modal-ui.js",
   "60-library-public-card-filter.js",

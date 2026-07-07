@@ -2990,6 +2990,7 @@ async function assertFrontendPublicCardListUI() {
 
 async function assertFrontendLibraryPublicCardDetailModal() {
   const sources = await Promise.all([
+    '../src/app/60-library-public-card-detail-content-helpers.js',
     '../src/app/60-library-public-card-detail-modal-helpers.js',
     '../src/app/60-library-public-card-detail-modal-ui.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
