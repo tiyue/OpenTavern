@@ -82,6 +82,8 @@
   "32-group-system-prompt.js",
   "32-group-chat-message-helpers.js",
   "32-group-chat-core.js",
+  "32-group-mention-render.js",
+  "32-group-mention-pill.js",
   "32-group-mention-ui.js",
   "33-render-shortcuts.js",
   "33-final-assistant-message-ui.js",

@@ -2665,6 +2665,111 @@ async function assertFrontendGroupChatCoreHelpers() {
   assert(context.__mention('hello @plana and @Arona', conv).name === 'Plana', 'Group mention parsing should resolve the first case-insensitive mention.');
 }
 
+async function assertFrontendGroupMentionUI() {
+  const sources = await Promise.all([
+    '../src/app/32-group-mention-render.js',
+    '../src/app/32-group-mention-pill.js',
+    '../src/app/32-group-mention-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function classList(initial = []) {
+    const values = new Set(initial);
+    return {
+      values,
+      add(...names) { names.forEach((name) => values.add(name)); },
+      remove(...names) { names.forEach((name) => values.delete(name)); },
+    };
+  }
+  function element() {
+    return {
+      className: '',
+      innerHTML: '',
+      children: [],
+      listeners: {},
+      classList: classList(['hidden']),
+      onclick: null,
+      appendChild(child) { this.children.push(child); },
+      addEventListener(type, handler) { this.listeners[type] = handler; },
+    };
+  }
+
+  const events = [];
+  const modal = element();
+  const list = element();
+  const mentionPill = element();
+  const mentionPillName = { textContent: '' };
+  const input = {
+    value: '@Old hello',
+    focus() { events.push('focus-input'); },
+  };
+  const conv = {
+    group: {
+      members: [
+        { character: { name: 'LongName（extra）', personality: 'Helpful <guide>', previewImage: '/a.png' }, muted: false },
+        { character: { name: 'Muted', personality: 'Silent' }, muted: true },
+      ],
+    },
+  };
+  const context = {
+    dom: {
+      groupMentionModal: modal,
+      groupMentionList: list,
+      groupMentionCloseBtn: { onclick: null },
+      groupMentionBackdrop: { onclick: null },
+      mentionPill,
+      mentionPillName,
+      messageInput: input,
+    },
+    pendingGroupMention: null,
+    document: { createElement: element },
+    getGroupMembers(current) { return current.group.members || []; },
+    escapeHtml(value) {
+      return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    },
+    Set,
+    Array,
+    String,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__display = getGroupMentionDisplayName;\nthis.__avatar = buildGroupMentionAvatarHtml;\nthis.__member = createGroupMentionMemberElement;\nthis.__show = showGroupMentionPanel;\nthis.__set = setPendingGroupMention;\nthis.__clear = clearPendingGroupMention;`, context);
+
+  assert(context.__display({ name: 'LongName（extra）' }) === 'Long…', 'Group mention display name should trim parenthesized suffix and cap mobile length.');
+  assert(context.__avatar({ name: '<A>', previewImage: '/a.png' }).includes('&lt;A&gt;'), 'Group mention avatar HTML should escape image alt text.');
+
+  let selected = null;
+  const activeItem = context.__member(conv.group.members[0], (char) => { selected = char; });
+  const mutedItem = context.__member(conv.group.members[1], () => { selected = 'muted'; });
+  activeItem.listeners.click();
+  assert(selected.name === 'LongName（extra）', 'Group mention member click should select active members.');
+  assert(!mutedItem.listeners.click, 'Group mention member click should not bind muted members.');
+
+  context.__show({ group: { members: [] } });
+  assert(list.innerHTML.includes('当前群组没有成员') && !modal.classList.values.has('hidden'), 'Group mention panel should show an empty state for groups without members.');
+
+  list.children = [];
+  list.innerHTML = '';
+  modal.classList.add('hidden');
+  input.value = '@Old hello';
+  context.__show(conv);
+  assert(list.children.length === 2 && !modal.classList.values.has('hidden'), 'Group mention panel should render all members and show the modal.');
+  list.children[0].listeners.click();
+  assert(context.pendingGroupMention.name === 'LongName（extra）', 'Group mention selection should set the pending character.');
+  assert(modal.classList.values.has('hidden') && events.includes('focus-input'), 'Group mention selection should close the modal and focus the input.');
+  assert(mentionPill.classList.values.has('flex') && !mentionPill.classList.values.has('hidden'), 'Group mention selection should show the mention pill.');
+  assert(mentionPillName.textContent === '@Long…' && mentionPill.title === 'LongName（extra）', 'Group mention pill should show compact text and full title.');
+  assert(input.value === 'hello', 'Group mention selection should remove stale inline @ text from the input.');
+
+  modal.classList.remove('hidden');
+  context.dom.groupMentionCloseBtn.onclick();
+  assert(modal.classList.values.has('hidden'), 'Group mention close button should hide the modal.');
+  modal.classList.remove('hidden');
+  context.dom.groupMentionBackdrop.onclick();
+  assert(modal.classList.values.has('hidden'), 'Group mention backdrop should hide the modal.');
+
+  context.__clear();
+  assert(context.pendingGroupMention === null && mentionPill.classList.values.has('hidden') && mentionPillName.textContent === '', 'Group mention clear should reset pending state and hide the pill.');
+}
+
 async function assertFrontendConversationModelHelpers() {
   const sources = await Promise.all([
     '../src/app/41-world-info-constants.js',
@@ -4328,6 +4433,7 @@ async function main() {
   await assertFrontendWebGPUDeviceHelpers();
   await assertFrontendWebLLMInitializationHelpers();
   await assertFrontendGroupChatCoreHelpers();
+  await assertFrontendGroupMentionUI();
   await assertFrontendConversationModelHelpers();
   await assertFrontendComfyUIHelpers();
   await assertFrontendLibraryViewHelpers();
