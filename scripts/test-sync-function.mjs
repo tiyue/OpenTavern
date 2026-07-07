@@ -4293,6 +4293,63 @@ async function assertFrontendStorageServiceSaveHelpers() {
   assert(mirroredSnapshot.conversations.c1.id === 'c1' && mirroredSnapshot !== mirrorInput, 'Storage save helper should clone snapshots before OPFS mirroring.');
 }
 
+async function assertFrontendStorageServiceLoadHelpers() {
+  const sources = await Promise.all([
+    '../src/app/20-storage-service-backend-sync.js',
+    '../src/app/20-storage-service-load-candidates.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  const events = [];
+  const context = {
+    storageIsFileProtocol() { return false; },
+    navigator: { storage: { getDirectory() {} } },
+    IDBStorage: {
+      async loadAll() {
+        events.push('idb-load');
+        return { conversations: { idb: {} }, lastSaved: 200 };
+      },
+      async saveAll() { events.push('idb-save'); },
+    },
+    OPFSStorage: {
+      async loadAll() {
+        events.push('opfs-load');
+        return { conversations: { opfs: {} }, lastSaved: 100 };
+      },
+      async saveAll() { events.push('opfs-save'); },
+    },
+    async readLegacyIndexedDB() {
+      events.push('legacy-load');
+      return { conversations: { legacy: {} }, lastSaved: 400 };
+    },
+    console: { warn() {} },
+    JSON,
+    Object,
+    Array,
+    Promise,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__collect = collectStorageServiceSnapshotCandidates;\nthis.__sync = syncStorageServiceSnapshotToAvailableBackends;`, context);
+
+  const service = {
+    _idbAvailable: true,
+    _opfsMirrorAvailable: true,
+    _opfsReadableAvailable: false,
+    _isValidSnapshot(data) { return !!(data && data.conversations); },
+    _cloneForPersist(data) { return JSON.parse(JSON.stringify(data)); },
+    _readLocalSnapshot() { return { conversations: { local: {} }, lastSaved: 300 }; },
+    _tryWriteLocalSnapshot() { events.push('local-write'); },
+    _isSafari() { return false; },
+  };
+
+  const candidates = await context.__collect(service, {});
+  assert(candidates.map((item) => item.backend).join(',') === 'opfs,idb,localStorage,legacy-idb', 'Storage load helper should collect all available snapshot candidates in priority order.');
+  assert(service._idbFailed === false && service._idbFailureReason === null, 'Storage load helper should clear IDB failure state after a successful read.');
+
+  events.length = 0;
+  await context.__sync(service, { conversations: { c1: {} }, lastSaved: 500 }, 'idb');
+  assert(!events.includes('idb-save') && events.includes('local-write') && events.includes('opfs-save'), 'Storage backend sync helper should skip the source backend and mirror to the remaining available backends.');
+}
+
 async function assertFrontendStorageServicePipeline() {
   const sources = await Promise.all([
     '../src/app/20-storage-service-helpers.js',
@@ -4300,6 +4357,8 @@ async function assertFrontendStorageServicePipeline() {
     '../src/app/20-storage-service-info.js',
     '../src/app/20-storage-service-clear-backends.js',
     '../src/app/20-storage-service-clear.js',
+    '../src/app/20-storage-service-backend-sync.js',
+    '../src/app/20-storage-service-load-candidates.js',
     '../src/app/20-storage-service-load.js',
     '../src/app/20-storage-service-save-helpers.js',
     '../src/app/20-storage-service-save.js',
@@ -4446,6 +4505,8 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
     '../src/app/20-storage-service-info.js',
     '../src/app/20-storage-service-clear-backends.js',
     '../src/app/20-storage-service-clear.js',
+    '../src/app/20-storage-service-backend-sync.js',
+    '../src/app/20-storage-service-load-candidates.js',
     '../src/app/20-storage-service-load.js',
     '../src/app/20-storage-service-save-helpers.js',
     '../src/app/20-storage-service-save.js',
@@ -4931,6 +4992,7 @@ async function main() {
   await assertFrontendWorldBookGlobalListUIHelpers();
   await assertFrontendFileProtocolOPFSSilence();
   await assertFrontendIDBStorageHelpers();
+  await assertFrontendStorageServiceLoadHelpers();
   await assertFrontendStorageServiceSaveHelpers();
   await assertFrontendStorageServicePipeline();
   await assertFrontendStorageServiceFileProtocolStatus();

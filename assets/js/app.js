@@ -2881,7 +2881,7 @@ function createEmptyStorageServiceSnapshot() {
         charactersMigrated: true
     };
 }
-// ==================== StorageService Load Pipeline ====================
+// ==================== StorageService Backend Sync ====================
 async function syncStorageServiceSnapshotToAvailableBackends(service, data, source) {
     if (!service._isValidSnapshot(data)) return;
     const snapshot = service._cloneForPersist(data);
@@ -2907,7 +2907,7 @@ async function syncStorageServiceSnapshotToAvailableBackends(service, data, sour
 
     if (jobs.length) await Promise.all(jobs);
 }
-
+// ==================== StorageService Load Candidates ====================
 async function collectStorageServiceSnapshotCandidates(service, options) {
     options = options || {};
     const shouldReadLegacy = options.includeLegacy !== false;
@@ -2947,7 +2947,7 @@ async function collectStorageServiceSnapshotCandidates(service, options) {
 
     return candidates;
 }
-
+// ==================== StorageService Load Pipeline ====================
 async function readNewestStorageServiceSnapshotNoSync(service) {
     const candidates = await collectStorageServiceSnapshotCandidates(service, {
         includeLegacy: false,
