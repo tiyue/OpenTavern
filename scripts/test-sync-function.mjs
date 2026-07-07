@@ -5737,6 +5737,7 @@ async function assertFrontendLegacyIDBRecoveryReader() {
 async function assertFrontendIDBStorageHelpers() {
   const sources = await Promise.all([
     '../src/app/20-storage-idb-connection.js',
+    '../src/app/20-storage-idb-helpers.js',
     '../src/app/20-storage-idb-operations.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
