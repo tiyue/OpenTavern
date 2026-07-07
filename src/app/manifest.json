@@ -63,6 +63,7 @@
   "20-storage-service-save.js",
   "20-storage-service-opfs-init-helpers.js",
   "20-storage-service-opfs-init.js",
+  "20-storage-service-page-lifecycle.js",
   "20-storage-service-init.js",
   "20-storage-service-state.js",
   "20-storage-service-helper-api.js",

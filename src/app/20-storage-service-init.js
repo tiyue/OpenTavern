@@ -2,25 +2,7 @@
 function installStorageServicePageHideHandler(service) {
     if (service._pageHideInstalled) return;
     service._pageHideInstalled = true;
-
-    window.addEventListener('pagehide', () => {
-        try {
-            const snapshot = service._lastSaveSnapshot;
-            if (snapshot) {
-                service._tryWriteLocalSnapshot(snapshot);
-                console.log('[Storage] pagehide: sync-flushed snapshot to localStorage');
-            }
-        } catch (_) {}
-        try { if (typeof persistState === 'function') persistState(true); } catch (_) {}
-    });
-
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            try { if (typeof persistState === 'function') persistState(true); } catch (_) {}
-        }
-    });
-
-    console.log('[Storage] pagehide/visibilitychange snapshot handlers installed');
+    bindStorageServicePageLifecycleHandlers(service);
 }
 
 async function initStorageService(service) {

@@ -5456,6 +5456,61 @@ async function assertFrontendStorageServiceSaveHelpers() {
   assert(context.__markLocal(localService, true) === true && localService._primaryBackend === 'localStorage' && localService._lastUsedBackend === 'localStorage', 'Storage save helper should mark localStorage as canonical fallback when needed.');
 }
 
+async function assertFrontendStorageServicePageLifecycleHelpers() {
+  const source = await readFile(new URL('../src/app/20-storage-service-page-lifecycle.js', import.meta.url), 'utf8');
+  const events = [];
+  let pagehideHandler = null;
+  let visibilityHandler = null;
+  const context = {
+    window: {
+      addEventListener(type, handler) {
+        events.push(`window:${type}`);
+        if (type === 'pagehide') pagehideHandler = handler;
+      },
+    },
+    document: {
+      hidden: false,
+      addEventListener(type, handler) {
+        events.push(`document:${type}`);
+        if (type === 'visibilitychange') visibilityHandler = handler;
+      },
+    },
+    persistState(force) {
+      events.push(`persist:${force}`);
+    },
+    console: { log(message) { events.push(`log:${message}`); } },
+  };
+
+  vm.runInNewContext(`${source}\nthis.__bind = bindStorageServicePageLifecycleHandlers;\nthis.__pagehide = persistStorageServicePageHide;\nthis.__visibility = persistStorageServiceVisibilityState;`, context);
+
+  const snapshot = { conversations: { c1: {} }, lastSaved: 1 };
+  const service = {
+    _lastSaveSnapshot: snapshot,
+    _tryWriteLocalSnapshot(data) {
+      events.push(`local:${data.lastSaved}`);
+    },
+  };
+
+  context.__bind(service);
+  assert(typeof pagehideHandler === 'function' && typeof visibilityHandler === 'function', 'Storage page lifecycle helper should register pagehide and visibility handlers.');
+
+  pagehideHandler();
+  assert(events.includes('local:1') && events.includes('persist:true'), 'Storage page lifecycle helper should flush the latest snapshot and persist on pagehide.');
+
+  const persistCount = events.filter((event) => event === 'persist:true').length;
+  context.document.hidden = false;
+  visibilityHandler();
+  assert(events.filter((event) => event === 'persist:true').length === persistCount, 'Storage page lifecycle helper should ignore visible visibilitychange events.');
+
+  context.document.hidden = true;
+  visibilityHandler();
+  assert(events.filter((event) => event === 'persist:true').length === persistCount + 1, 'Storage page lifecycle helper should persist when the document becomes hidden.');
+
+  service._lastSaveSnapshot = null;
+  context.__pagehide(service);
+  assert(events.filter((event) => event.startsWith('local:')).length === 1, 'Storage page lifecycle helper should not write local snapshots when no snapshot is available.');
+}
+
 async function assertFrontendStorageServiceLoadHelpers() {
   const sources = await Promise.all([
     '../src/app/20-storage-service-backend-sync.js',
@@ -5578,6 +5633,7 @@ async function assertFrontendStorageServicePipeline() {
     '../src/app/20-storage-service-save.js',
     '../src/app/20-storage-service-opfs-init-helpers.js',
     '../src/app/20-storage-service-opfs-init.js',
+    '../src/app/20-storage-service-page-lifecycle.js',
     '../src/app/20-storage-service-init.js',
     '../src/app/20-storage-service-state.js',
     '../src/app/20-storage-service-helper-api.js',
@@ -5931,6 +5987,7 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
     '../src/app/20-storage-service-save.js',
     '../src/app/20-storage-service-opfs-init-helpers.js',
     '../src/app/20-storage-service-opfs-init.js',
+    '../src/app/20-storage-service-page-lifecycle.js',
     '../src/app/20-storage-service-init.js',
     '../src/app/20-storage-service-state.js',
     '../src/app/20-storage-service-helper-api.js',
@@ -6484,6 +6541,7 @@ async function main() {
   await assertFrontendIDBStorageHelpers();
   await assertFrontendStorageServiceLoadHelpers();
   await assertFrontendStorageServiceSaveHelpers();
+  await assertFrontendStorageServicePageLifecycleHelpers();
   await assertFrontendStorageServiceInfoHelpers();
   await assertFrontendStorageServicePipeline();
   await assertFrontendStorageRecoveryScanner();
