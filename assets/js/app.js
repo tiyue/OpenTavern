@@ -2790,35 +2790,7 @@ function getStorageServiceFallbackInfo(service) {
         safariOpfsReadOnly: false
     };
 }
-// ==================== StorageService Clear Helpers ====================
-async function clearStorageServiceData(service) {
-    let cleared = { opfs: false, idb: false, ls: false };
-    const emptyData = createEmptyStorageServiceSnapshot();
-
-    await clearStorageServiceOPFS(service, emptyData, cleared);
-    await clearStorageServiceIDB(cleared);
-    clearStorageServiceLocalSnapshot(emptyData, cleared);
-    await clearStorageServiceLegacyIDB(cleared);
-    await clearStorageServiceWebLLMCache(cleared);
-
-    console.log('[Storage] clearAllData result:', cleared);
-    if (typeof updateStorageInfo === 'function') setTimeout(() => updateStorageInfo(), 80);
-    return cleared;
-}
-
-function createEmptyStorageServiceSnapshot() {
-    return {
-        lastSaved: Date.now(),
-        conversations: {},
-        conversationOrder: [],
-        activeConvId: null,
-        worldBooks: {},
-        characters: {},
-        settings: {},
-        charactersMigrated: true
-    };
-}
-
+// ==================== StorageService Backend Clear Helpers ====================
 async function clearStorageServiceOPFS(service, emptyData, cleared) {
     try {
         if (typeof OPFSStorage !== 'undefined' && typeof OPFSStorage.saveAll === 'function' && service._opfsMirrorAvailable && !service._isSafari()) {
@@ -2880,6 +2852,34 @@ async function clearStorageServiceWebLLMCache(cleared) {
             cleared.webllm = true;
         }
     } catch (e) {}
+}
+// ==================== StorageService Clear Helpers ====================
+async function clearStorageServiceData(service) {
+    let cleared = { opfs: false, idb: false, ls: false };
+    const emptyData = createEmptyStorageServiceSnapshot();
+
+    await clearStorageServiceOPFS(service, emptyData, cleared);
+    await clearStorageServiceIDB(cleared);
+    clearStorageServiceLocalSnapshot(emptyData, cleared);
+    await clearStorageServiceLegacyIDB(cleared);
+    await clearStorageServiceWebLLMCache(cleared);
+
+    console.log('[Storage] clearAllData result:', cleared);
+    if (typeof updateStorageInfo === 'function') setTimeout(() => updateStorageInfo(), 80);
+    return cleared;
+}
+
+function createEmptyStorageServiceSnapshot() {
+    return {
+        lastSaved: Date.now(),
+        conversations: {},
+        conversationOrder: [],
+        activeConvId: null,
+        worldBooks: {},
+        characters: {},
+        settings: {},
+        charactersMigrated: true
+    };
 }
 // ==================== StorageService Load Pipeline ====================
 async function syncStorageServiceSnapshotToAvailableBackends(service, data, source) {

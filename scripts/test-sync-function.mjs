@@ -3850,6 +3850,7 @@ async function assertFrontendStorageServicePipeline() {
     '../src/app/20-storage-service-helpers.js',
     '../src/app/20-storage-service-maintenance.js',
     '../src/app/20-storage-service-info.js',
+    '../src/app/20-storage-service-clear-backends.js',
     '../src/app/20-storage-service-clear.js',
     '../src/app/20-storage-service-load.js',
     '../src/app/20-storage-service-save.js',
@@ -3947,6 +3948,11 @@ async function assertFrontendStorageServicePipeline() {
   });
   assert(service.getBackend() === 'localStorage', 'StorageService should use localStorage when IDB is unavailable.');
   assert(JSON.parse(localStorageMock[context.STORAGE_KEY]).characters.local.name === 'Local Card', 'StorageService localStorage fallback did not persist character cards.');
+
+  const cleared = await service.clearAllData();
+  const clearedSnapshot = JSON.parse(localStorageMock[context.STORAGE_KEY]);
+  assert(cleared.opfs === true && cleared.ls === true, 'StorageService clearAllData should clear available backends and local snapshots.');
+  assert(Object.keys(clearedSnapshot.conversations).length === 0 && clearedSnapshot.charactersMigrated === true, 'StorageService clearAllData should leave an empty recovery snapshot.');
 }
 
 async function assertFrontendIDBStorageHelpers() {
@@ -3988,6 +3994,7 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
     '../src/app/20-storage-service-helpers.js',
     '../src/app/20-storage-service-maintenance.js',
     '../src/app/20-storage-service-info.js',
+    '../src/app/20-storage-service-clear-backends.js',
     '../src/app/20-storage-service-clear.js',
     '../src/app/20-storage-service-load.js',
     '../src/app/20-storage-service-save.js',
