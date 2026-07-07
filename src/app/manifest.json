@@ -49,6 +49,7 @@
   "20-storage-service-api.js",
   "20-storage-service.js",
   "21-storage-backup-reminder.js",
+  "21-storage-opfs-status-text.js",
   "21-storage-usage-format.js",
   "21-storage-status-render.js",
   "21-storage-status-ui.js",

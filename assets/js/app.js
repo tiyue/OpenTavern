@@ -3385,7 +3385,7 @@ function showBackupReminderIfNeeded() {
         };
     }, 4500);
 }
-// ==================== Storage Usage Formatting ====================
+// ==================== Storage OPFS Status Text ====================
 function getStorageBackendLabel(backend) {
     if (backend === 'opfs') return 'OPFS';
     if (backend === 'idb') return 'IndexedDB';
@@ -3419,7 +3419,7 @@ function getOPFSStatusText(info) {
     if (info.safariOpfsReadOnly) return 'OPFS: Safari \u4ec5\u4f5c\u6062\u590d\u6765\u6e90';
     return 'OPFS: \u4ec5\u4f5c\u6062\u590d\u6765\u6e90';
 }
-
+// ==================== Storage Usage Formatting ====================
 function buildStorageUsageText(info) {
     info = info || {};
     const backendLabel = getStorageBackendLabel(info.backend || StorageService.getBackend());

@@ -3991,6 +3991,7 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
     '../src/app/20-storage-service-operations-api.js',
     '../src/app/20-storage-service-api.js',
     '../src/app/20-storage-service.js',
+    '../src/app/21-storage-opfs-status-text.js',
     '../src/app/21-storage-usage-format.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
@@ -4071,7 +4072,7 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
     setTimeout,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__StorageService = StorageService;\nthis.__getOPFSStatusText = getOPFSStatusText;\nthis.__buildStorageUsageText = buildStorageUsageText;\nthis.__buildStorageHintText = buildStorageHintText;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__StorageService = StorageService;\nthis.__backend = getStorageBackendLabel;\nthis.__formatMB = formatStorageMB;\nthis.__getOPFSStatusText = getOPFSStatusText;\nthis.__buildStorageUsageText = buildStorageUsageText;\nthis.__buildStorageHintText = buildStorageHintText;`, context);
   const service = context.__StorageService;
   await service.init();
   const info = await service.getStorageInfo();
@@ -4079,6 +4080,8 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
   const usageText = context.__buildStorageUsageText(info);
   const hintText = context.__buildStorageHintText(info, service.getBackend());
 
+  assert(context.__backend('legacy-idb') === '旧版 IndexedDB' && context.__backend('unknown') === 'localStorage', 'Storage backend labels should preserve known and fallback labels.');
+  assert(context.__formatMB(1048576) === '1.0', 'Storage MB formatter should format bytes as one-decimal megabytes.');
   assert(service._opfsSkipped === true, 'StorageService should mark OPFS as skipped on file://.');
   assert(service._opfsFailed === false, 'StorageService should not mark file:// OPFS skip as a failure.');
   assert(info.fileProtocol === true, 'Storage info should expose file protocol mode.');
@@ -4098,6 +4101,7 @@ async function assertFrontendStorageServiceFileProtocolStatus() {
 
 async function assertFrontendStorageStatusRenderHelpers() {
   const sources = await Promise.all([
+    '../src/app/21-storage-opfs-status-text.js',
     '../src/app/21-storage-usage-format.js',
     '../src/app/21-storage-status-render.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
