@@ -1,22 +1,8 @@
 // ==================== My Library Card Action Tiles ====================
 function appendMyCardActionTiles(grid) {
-    grid.appendChild(createMyCardActionTile({
-        iconHtml: '＋',
-        iconClass: 'text-4xl mb-2 text-amber-400',
-        title: '新建角色',
-        subtitle: '手动创建',
-        onClick: () => {
-            if (typeof openCharacterEditor === 'function') openCharacterEditor();
-        }
-    }));
-
-    grid.appendChild(createMyCardActionTile({
-        iconHtml: 'Import',
-        iconClass: 'text-xs mb-2 uppercase tracking-wider text-zinc-500',
-        title: '导入角色卡',
-        subtitle: '从文件',
-        onClick: openMyCardImportModal
-    }));
+    getMyCardActionTileConfigs().forEach(function(options) {
+        grid.appendChild(createMyCardActionTile(options));
+    });
 }
 
 function createMyCardActionTile(options) {
@@ -34,6 +20,5 @@ function createMyCardActionTile(options) {
 function openMyCardImportModal() {
     if (!dom.importModal) return;
     dom.importModal.classList.remove('hidden');
-    if (dom.importStatus) dom.importStatus.classList.add('hidden');
-    if (dom.importFileInput) dom.importFileInput.value = '';
+    resetMyCardImportModalControls();
 }

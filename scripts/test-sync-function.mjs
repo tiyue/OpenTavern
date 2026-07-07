@@ -2697,6 +2697,56 @@ async function assertFrontendMyCardControlHelpers() {
   assert(events.includes('delete:arona') && events.includes('render'), 'My card controls should delete and refresh after confirmation.');
 }
 
+async function assertFrontendMyCardActionHelpers() {
+  const sources = await Promise.all([
+    '../src/app/60-library-my-card-action-helpers.js',
+    '../src/app/60-library-my-card-actions-ui.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function classList() {
+    const values = new Set(['hidden']);
+    return {
+      values,
+      add(name) { values.add(name); },
+      remove(name) { values.delete(name); },
+    };
+  }
+  function makeElement() {
+    return {
+      className: '',
+      innerHTML: '',
+      listeners: {},
+      addEventListener(type, handler) { this.listeners[type] = handler; },
+      appendChild(child) { this.children = this.children || []; this.children.push(child); },
+    };
+  }
+
+  const events = [];
+  const grid = { children: [], appendChild(child) { this.children.push(child); } };
+  const context = {
+    dom: {
+      importModal: { classList: classList() },
+      importStatus: { classList: classList() },
+      importFileInput: { value: 'old' },
+    },
+    document: { createElement: makeElement },
+    openCharacterEditor: () => events.push('editor'),
+    Set,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__configs = getMyCardActionTileConfigs;\nthis.__append = appendMyCardActionTiles;\nthis.__open = openMyCardImportModal;`, context);
+
+  const configs = context.__configs();
+  assert(configs.length === 2 && configs[0].title === '新建角色' && configs[1].title === '导入角色卡', 'My card actions should expose create and import tile configs.');
+  configs[0].onClick();
+  assert(events.includes('editor'), 'My card create tile should open the character editor.');
+
+  context.__append(grid);
+  assert(grid.children.length === 2 && grid.children[0].innerHTML.includes('新建角色'), 'My card actions should append both action tiles.');
+  context.__open();
+  assert(!context.dom.importModal.classList.values.has('hidden') && context.dom.importStatus.classList.values.has('hidden') && context.dom.importFileInput.value === '', 'My card import modal should open and reset stale controls.');
+}
+
 async function assertFrontendPublicCardGridFiltering() {
   const sources = await Promise.all([
     '../src/app/60-library-public-card-filter.js',
@@ -6231,6 +6281,7 @@ async function main() {
   await assertFrontendLibraryCardDisplayHelpers();
   await assertFrontendMyCardGridFiltering();
   await assertFrontendMyCardControlHelpers();
+  await assertFrontendMyCardActionHelpers();
   await assertFrontendPublicCardGridFiltering();
   await assertFrontendDomCache();
   await assertFrontendPublicCardListUI();
