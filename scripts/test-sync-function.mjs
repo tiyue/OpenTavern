@@ -1445,6 +1445,111 @@ async function assertFrontendPromptSummaryEvents() {
   assert(dom.summaryManagerModal.classList.values.has('hidden'), 'Summary manager close button should hide the modal.');
 }
 
+async function assertFrontendSettingsEventBindings() {
+  const sources = await Promise.all([
+    '../src/app/71-event-settings-slider-bindings.js',
+    '../src/app/71-event-settings-modal-bindings.js',
+    '../src/app/71-event-settings-integration-bindings.js',
+    '../src/app/71-event-settings-bindings.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function el(value = '') {
+    return {
+      value,
+      textContent: '',
+      checked: false,
+      clicked: false,
+      listeners: {},
+      addEventListener(type, handler) {
+        const prev = this.listeners[type];
+        this.listeners[type] = prev
+          ? function(...args) {
+              prev.apply(this, args);
+              handler.apply(this, args);
+            }
+          : handler;
+      },
+      click() { this.clicked = true; },
+    };
+  }
+
+  const events = [];
+  const dom = {
+    sidebarSettingsBtn: el(),
+    topSettingsBtn: el(),
+    settingsCloseBtn: el(),
+    settingsBackdrop: el(),
+    stPresetImportBtn: el(),
+    stPresetImportFile: el(),
+    stPresetExportBtn: el(),
+    stPresetDeleteBtn: el(),
+    comfyImportWorkflowBtn: el(),
+    comfyWorkflowFile: el(),
+    comfyTestBtn: el(),
+    contextLength: el('32'),
+    contextLenVal: el(),
+    maxTokens: el('2048'),
+    maxTokensVal: el(),
+    temperature: el('0.4'),
+    tempVal: el(),
+    topP: el('0.8'),
+    topPVal: el(),
+    twoStageTemperature: el('0.25'),
+    twoStageTempVal: el(),
+    twoStageTopP: el('0.75'),
+    twoStageTopPVal: el(),
+    worldInfoBudget: el('4096'),
+    worldInfoBudgetVal: el(),
+    summaryThreshold: el('18'),
+    summaryThresholdVal: el(),
+    summaryEnabled: el(),
+    summarizeUseMainAPI: el(),
+  };
+
+  const context = {
+    dom,
+    state: { settings: {} },
+    openSettings() { events.push('open'); },
+    closeSettings() { events.push('close'); },
+    importSillyTavernPresetFile(file) { events.push(`st:${file.name}`); },
+    exportSillyTavernPreset() { events.push('st-export'); },
+    deleteSillyTavernPreset() { events.push('st-delete'); },
+    importComfyWorkflowFile(file) { events.push(`comfy:${file.name}`); },
+    testComfyConnection() { events.push('comfy-test'); },
+    updateSummaryThresholdWarning() { events.push('summary-warning'); },
+    toggleSummarizeCustomSection() { events.push('toggle-summary-api'); },
+    parseInt,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__bind = bindSettingsEvents;`, context);
+  context.__bind();
+
+  dom.sidebarSettingsBtn.listeners.click();
+  dom.topSettingsBtn.listeners.click();
+  dom.settingsCloseBtn.listeners.click();
+  dom.settingsBackdrop.listeners.click();
+  assert(events.filter((event) => event === 'open').length === 2 && events.filter((event) => event === 'close').length === 2, 'Settings modal events should bind open and close controls.');
+
+  dom.stPresetImportBtn.listeners.click();
+  dom.stPresetImportFile.listeners.change({ target: { files: [{ name: 'preset.json' }] } });
+  dom.stPresetExportBtn.listeners.click();
+  dom.stPresetDeleteBtn.listeners.click();
+  dom.comfyImportWorkflowBtn.listeners.click();
+  dom.comfyWorkflowFile.listeners.change({ target: { files: [{ name: 'workflow.json' }] } });
+  dom.comfyTestBtn.listeners.click();
+  assert(dom.stPresetImportFile.clicked === true && dom.comfyWorkflowFile.clicked === true, 'Settings integration events should trigger hidden file inputs.');
+  assert(events.includes('st:preset.json') && events.includes('st-export') && events.includes('st-delete') && events.includes('comfy:workflow.json') && events.includes('comfy-test'), 'Settings integration events should bind preset and ComfyUI controls.');
+
+  dom.contextLength.listeners.input.call(dom.contextLength);
+  dom.summaryThreshold.listeners.input.call(dom.summaryThreshold);
+  dom.summaryEnabled.checked = true;
+  dom.summaryEnabled.listeners.change.call(dom.summaryEnabled);
+  dom.summarizeUseMainAPI.listeners.change();
+  assert(dom.contextLenVal.textContent === '32' && String(dom.summaryThresholdVal.textContent) === '18', 'Settings slider events should update displayed values.');
+  assert(context.state.settings.summaryThreshold === 18 && context.state.settings.summaryEnabled === true, 'Settings summary controls should update state.');
+  assert(events.includes('toggle-summary-api') && events.includes('summary-warning'), 'Settings summary controls should refresh dependent UI.');
+}
+
 async function assertFrontendApiConnectionHelpers() {
   const helperSources = await Promise.all([
     '../src/app/31-api-connection-test-config.js',
@@ -5471,6 +5576,7 @@ async function main() {
   await assertFrontendSummaryManagerHelpers();
   await assertFrontendSummaryHistoryUI();
   await assertFrontendPromptSummaryEvents();
+  await assertFrontendSettingsEventBindings();
   await assertFrontendApiConnectionHelpers();
   await assertFrontendApiCompatibilityHelpers();
   await assertFrontendGenerationHelpers();
