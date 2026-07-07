@@ -7,39 +7,13 @@ function resetIDBStorageConnection(storage) {
 
 function openIDBStorage(storage, options) {
     options = options || {};
-    if (!('indexedDB' in window)) return Promise.reject(new Error('IndexedDB not supported'));
+    const unsupportedError = getIDBStorageUnsupportedError();
+    if (unsupportedError) return Promise.reject(unsupportedError);
     if (options.fresh) storage._resetConnection();
     if (storage._db) return Promise.resolve(storage._db);
     if (storage._dbPromise) return storage._dbPromise;
 
-    storage._dbPromise = new Promise((resolve, reject) => {
-        const req = indexedDB.open(storage._dbName, 1);
-        req.onupgradeneeded = (ev) => {
-            const db = ev.target.result;
-            if (!db.objectStoreNames.contains(storage._storeName)) {
-                db.createObjectStore(storage._storeName);
-            }
-        };
-        req.onsuccess = (ev) => {
-            const db = ev.target.result;
-            storage._db = db;
-            db.onversionchange = () => storage._resetConnection();
-            db.onclose = () => storage._resetConnection();
-            db.onerror = () => { /* transaction handlers report concrete errors */ };
-            resolve(db);
-        };
-        req.onerror = () => {
-            storage._resetConnection();
-            reject(req.error || new Error('IndexedDB open failed'));
-        };
-        req.onblocked = () => {
-            storage._resetConnection();
-            reject(new Error('IndexedDB open blocked'));
-        };
-    }).catch((err) => {
-        storage._resetConnection();
-        throw err;
-    });
+    storage._dbPromise = createIDBStorageOpenPromise(storage);
     return storage._dbPromise;
 }
 

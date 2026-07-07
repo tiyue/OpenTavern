@@ -5816,22 +5816,67 @@ async function assertFrontendLegacyIDBRecoveryReader() {
 
 async function assertFrontendIDBStorageHelpers() {
   const sources = await Promise.all([
+    '../src/app/20-storage-idb-open-helpers.js',
     '../src/app/20-storage-idb-connection.js',
     '../src/app/20-storage-idb-helpers.js',
     '../src/app/20-storage-idb-operations.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
+  let openCalls = 0;
+  const createdStores = [];
+  const fakeDb = {
+    objectStoreNames: {
+      contains(name) {
+        return createdStores.includes(name);
+      },
+    },
+    createObjectStore(name) {
+      createdStores.push(name);
+    },
+  };
+  const indexedDBMock = {
+    open(name, version) {
+      openCalls += 1;
+      const req = { name, version };
+      Promise.resolve().then(() => {
+        if (req.onupgradeneeded) req.onupgradeneeded({ target: { result: fakeDb } });
+        if (req.onsuccess) req.onsuccess({ target: { result: fakeDb } });
+      });
+      return req;
+    },
+  };
   const context = {
+    indexedDB: indexedDBMock,
+    window: { indexedDB: indexedDBMock },
     Date,
     Error,
     Promise,
     setTimeout,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__normalize = normalizeIDBStorageData;\nthis.__retry = withRetryIDBStorage;\nthis.__tx = runIDBStorageTransaction;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__open = openIDBStorage;\nthis.__normalize = normalizeIDBStorageData;\nthis.__retry = withRetryIDBStorage;\nthis.__tx = runIDBStorageTransaction;`, context);
 
   const normalized = context.__normalize({ data: { conversations: {} } });
   assert(normalized.conversations && Number.isFinite(normalized.lastSaved), 'IDB normalize should unwrap stored snapshot data and add lastSaved.');
+
+  let openResets = 0;
+  const openStorage = {
+    _dbName: 'OpenTavernSnapshotDB',
+    _storeName: 'snapshots',
+    _dbPromise: null,
+    _db: null,
+    _resetConnection() {
+      openResets += 1;
+      this._db = null;
+      this._dbPromise = null;
+    },
+  };
+  const openedDb = await context.__open(openStorage, {});
+  const cachedDb = await context.__open(openStorage, {});
+  assert(openedDb === fakeDb && cachedDb === fakeDb && openStorage._db === fakeDb, 'IDB open helper should cache successful database connections.');
+  assert(openCalls === 1 && createdStores.join(',') === 'snapshots', 'IDB open helper should create the configured store once on upgrade.');
+  fakeDb.onversionchange();
+  assert(openResets === 1 && openStorage._db === null && openStorage._dbPromise === null, 'IDB open helper should reset cached connections on version changes.');
 
   let attempts = 0;
   let resets = 0;

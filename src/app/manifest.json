@@ -41,6 +41,7 @@
   "20-storage-opfs-clear.js",
   "20-storage-opfs-io.js",
   "20-storage-opfs.js",
+  "20-storage-idb-open-helpers.js",
   "20-storage-idb-connection.js",
   "20-storage-idb-helpers.js",
   "20-storage-idb-operations.js",
