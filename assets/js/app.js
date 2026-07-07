@@ -13313,7 +13313,7 @@ function bindCharacterImportModalEvents() {
         }
     });
 }
-// ==================== Prompt Viewer Events ====================
+// ==================== Prompt Viewer State ====================
 var currentPromptViewerStage = 'main';
 
 function setPromptStageButtons(stage) {
@@ -13338,7 +13338,17 @@ function findLatestMainAssistantMessage(conv) {
     }
     return null;
 }
-
+// ==================== Prompt Viewer Clipboard ====================
+function copyPromptViewerText() {
+    var text = dom.promptViewerContent.textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+            dom.copyPromptBtn.textContent = t('copied');
+            setTimeout(function() { dom.copyPromptBtn.textContent = t('copy'); }, 1500);
+        });
+    }
+}
+// ==================== Prompt Viewer Events ====================
 function refreshPromptViewer() {
     try {
         var messages;
@@ -13365,16 +13375,6 @@ function showFullPrompt() {
 
 function closePromptViewer() {
     dom.promptViewerModal.classList.add('hidden');
-}
-
-function copyPromptViewerText() {
-    var text = dom.promptViewerContent.textContent;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(function() {
-            dom.copyPromptBtn.textContent = t('copied');
-            setTimeout(function() { dom.copyPromptBtn.textContent = t('copy'); }, 1500);
-        });
-    }
 }
 
 function bindPromptViewerEvents() {

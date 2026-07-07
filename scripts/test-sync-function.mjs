@@ -1290,6 +1290,8 @@ async function assertFrontendSummaryHistoryUI() {
 
 async function assertFrontendPromptSummaryEvents() {
   const sources = await Promise.all([
+    '../src/app/66-prompt-viewer-state.js',
+    '../src/app/66-prompt-viewer-clipboard.js',
     '../src/app/66-prompt-viewer-events.js',
     '../src/app/66-summary-manager-events.js',
     '../src/app/66-prompt-summary-events.js',

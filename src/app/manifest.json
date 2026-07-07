@@ -325,6 +325,8 @@
   "66-character-import-conversation.js",
   "66-character-import-status-ui.js",
   "66-character-import-events.js",
+  "66-prompt-viewer-state.js",
+  "66-prompt-viewer-clipboard.js",
   "66-prompt-viewer-events.js",
   "66-summary-manager-events.js",
   "66-prompt-summary-events.js",
