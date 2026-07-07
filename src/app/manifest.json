@@ -288,6 +288,7 @@
   "60-library-public-card-item-ui.js",
   "60-library-public-card-detail-modal-ui.js",
   "60-library-public-card-grid-ui.js",
+  "60-dom-cache-ids.js",
   "60-dom-cache.js",
   "61-chat-topbar-ui.js",
   "61-chat-shell-ui.js",

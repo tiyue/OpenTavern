@@ -2465,6 +2465,29 @@ async function assertFrontendPublicCardGridFiltering() {
   assert(filtered.length === 1 && filtered[0].name === 'Alpha', 'Public card grid filtering did not use the library filter.');
 }
 
+async function assertFrontendDomCache() {
+  const sources = await Promise.all([
+    '../src/app/60-dom-cache-ids.js',
+    '../src/app/60-dom-cache.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+  const requested = [];
+  const context = {
+    document: {
+      getElementById(id) {
+        requested.push(id);
+        return { id };
+      },
+    },
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__cache = cacheDom;\nthis.__dom = dom;\nthis.__ids = DOM_CACHE_IDS;`, context);
+  context.__cache();
+
+  assert(context.__ids.includes('cloudSyncStatus') && context.__ids.includes('groupMentionList'), 'DOM cache ids should include cloud sync and group mention controls.');
+  assert(requested.length === context.__ids.length, 'cacheDom should request every configured DOM id.');
+  assert(context.__dom.messageInput.id === 'messageInput' && context.__dom.cloudSyncStatus.id === 'cloudSyncStatus', 'cacheDom should populate the shared dom cache.');
+}
+
 async function assertFrontendPublicCardListUI() {
   const sources = await Promise.all([
     '../src/app/60-public-card-text-ui.js',
@@ -5393,6 +5416,7 @@ async function main() {
   await assertFrontendSettingsHydrationHelpers();
   await assertFrontendPublicCardAssets();
   await assertFrontendPublicCardGridFiltering();
+  await assertFrontendDomCache();
   await assertFrontendPublicCardListUI();
   await assertFrontendI18nRuntime();
   await assertFrontendSillyTavernPresetNormalizer();
