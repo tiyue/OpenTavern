@@ -539,6 +539,15 @@ async function assertFrontendCloudSyncCrypto() {
     payload: [],
   }), 'Malformed encrypted envelopes should be rejected before WebCrypto runs.');
 
+  await assertRejects(context.__decrypt({
+    encrypted: true,
+    algorithm: 'AES-GCM',
+    iterations: 0,
+    salt: encrypted.salt,
+    iv: encrypted.iv,
+    payload: encrypted.payload,
+  }), 'Explicitly invalid encrypted envelope iterations should be rejected.');
+
   context.state.settings.cloudSyncPassphrase = 'short';
   await assertRejects(context.__encrypt(snapshot), 'Short encryption passphrases should be rejected.');
   await assertRejects(context.__decrypt(encrypted), 'Short decryption passphrases should be rejected before WebCrypto runs.');
@@ -4918,6 +4927,15 @@ async function main() {
     env,
   });
   assert(badEncryptedEnvelope.status === 400, 'Encrypted payload metadata must be non-empty strings.');
+
+  const badEncryptedIterations = await onRequest({
+    request: request('POST', tokenB, {
+      encrypted: true,
+      data: { encrypted: true, algorithm: 'AES-GCM', payload: 'Y2lwaGVy', iv: 'aXY=', salt: 'c2FsdA==', iterations: 0 },
+    }),
+    env,
+  });
+  assert(badEncryptedIterations.status === 400, 'Encrypted payload iterations must reject explicit invalid values.');
 
   const encryptedEnvelope = {
     encrypted: true,

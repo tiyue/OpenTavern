@@ -4,7 +4,8 @@ function isCloudSyncNonEmptyString(value) {
 }
 
 function getCloudSyncEnvelopeIterations(envelope) {
-    var iterations = Number(envelope && envelope.iterations || 210000);
+    var raw = envelope && envelope.iterations;
+    var iterations = (raw === undefined || raw === null || raw === '') ? 210000 : Number(raw);
     if (!Number.isFinite(iterations) || iterations < 1) {
         throw new Error('Invalid encrypted cloud snapshot metadata.');
     }

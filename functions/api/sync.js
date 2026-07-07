@@ -64,7 +64,7 @@ function isNonEmptyString(value) {
 }
 
 function normalizeEncryptedIterations(value) {
-  const iterations = Number(value || 210000);
+  const iterations = value === undefined || value === null || value === '' ? 210000 : Number(value);
   if (!Number.isFinite(iterations) || iterations < 1) {
     throw new Error('Invalid encrypted sync payload.');
   }
@@ -75,7 +75,7 @@ function validateEncryptedSnapshot(snapshot) {
   if (!isNonEmptyString(snapshot.payload) || !isNonEmptyString(snapshot.iv) || !isNonEmptyString(snapshot.salt)) {
     throw new Error('Invalid encrypted sync payload.');
   }
-  if (snapshot.algorithm && snapshot.algorithm !== 'AES-GCM') {
+  if (snapshot.algorithm !== 'AES-GCM') {
     throw new Error('Unsupported encrypted sync payload algorithm.');
   }
   snapshot.iterations = normalizeEncryptedIterations(snapshot.iterations);
