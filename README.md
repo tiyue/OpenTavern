@@ -25,7 +25,7 @@ with full SillyTavern compatibility, advanced memory, and **Group Chat support**
 
 ### 核心特性（含最新更新）
 
-- **零配置**：单个 HTML 文件，双击即可运行。首次加载后可离线使用。
+- **零配置**：单个 HTML 文件，打开网页即可运行。首次加载后可离线使用。
 - **完整 SillyTavern 兼容**：支持导入/导出 `chara_card_v3` 角色卡，完整实现 World Info（世界书）。
 - **高级记忆系统**：自动 + 手动总结，支持历史记录、编辑、删除、自定义范围。
 - **独立总结 API**：可为长期记忆压缩使用完全不同的（更便宜/无限制）模型。
@@ -48,8 +48,8 @@ with full SillyTavern compatibility, advanced memory, and **Group Chat support**
 
 ### 快速开始（简体中文）
 
-1. 下载最新的 `index.html`
-2. 用现代浏览器打开（推荐 Chrome / Edge）
+1. 前往Cloudflare Pages: https://opentavern.pages.dev
+2. 用现代浏览器打开
 3. 点击右上角或侧边栏的 **⚙️ 设置**
 4. 配置 API Endpoint 和 Key（支持一键预设 DeepSeek），**或者**直接切换「推理后端」为「浏览器本地 (WebLLM)」（首次会弹出确认并下载模型）
 5. （可选）导入 SillyTavern 角色卡
