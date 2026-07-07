@@ -20,6 +20,9 @@ function applyCloudSyncSnapshot(snapshot) {
 
 function getCloudSyncLocalSettingsForRestore() {
     return {
+        apiKey: state.settings && state.settings.apiKey,
+        summarizeApiKey: state.settings && state.settings.summarizeApiKey,
+        saveApiKey: state.settings && state.settings.saveApiKey,
         cloudSyncEnabled: state.settings && state.settings.cloudSyncEnabled,
         cloudSyncAutoUpload: state.settings && state.settings.cloudSyncAutoUpload,
         cloudSyncEndpoint: state.settings && state.settings.cloudSyncEndpoint,

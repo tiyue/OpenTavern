@@ -356,6 +356,9 @@ async function assertFrontendCloudSnapshotApply() {
         cloudSyncToken: 'local-token',
         cloudSyncEncrypted: true,
         cloudSyncPassphrase: 'local-passphrase',
+        saveApiKey: true,
+        apiKey: 'local-api-key',
+        summarizeApiKey: 'local-summary-key',
       },
       conversations: {},
       conversationOrder: [],
@@ -393,7 +396,13 @@ async function assertFrontendCloudSnapshotApply() {
 
   vm.runInNewContext(`${cloudSource}\n${normalizeSource}\n${applySource}\nthis.__apply = applyCloudSyncSnapshot;`, context);
   const applied = context.__apply({
-    settings: { model: 'remote-model', cloudSyncToken: 'remote-token' },
+    settings: {
+      model: 'remote-model',
+      cloudSyncToken: 'remote-token',
+      saveApiKey: false,
+      apiKey: '',
+      summarizeApiKey: '',
+    },
     conversations: { c1: { id: 'c1', messages: [{ role: 'user', content: 'hello cloud' }] } },
     conversationOrder: ['c1'],
     activeConvId: 'c1',
@@ -407,6 +416,9 @@ async function assertFrontendCloudSnapshotApply() {
   assert(context.state.settings.model === 'remote-model', 'Cloud apply did not restore settings.');
   assert(context.state.settings.cloudSyncToken === 'local-token', 'Cloud apply must preserve local cloud sync token.');
   assert(context.state.settings.cloudSyncPassphrase === 'local-passphrase', 'Cloud apply must preserve local cloud sync passphrase.');
+  assert(context.state.settings.saveApiKey === true, 'Cloud apply must preserve the local API key persistence setting.');
+  assert(context.state.settings.apiKey === 'local-api-key', 'Cloud apply must preserve the local main API key.');
+  assert(context.state.settings.summarizeApiKey === 'local-summary-key', 'Cloud apply must preserve the local summary API key.');
   assert(context.state.conversations.c1.normalized === true, 'Cloud apply did not normalize restored conversations.');
   assert(context.state.conversations.c1.messages[0].content === 'hello cloud', 'Cloud apply did not restore chat history.');
   assert(context.state.characters.arona.name === 'Arona', 'Cloud apply did not restore character cards.');
