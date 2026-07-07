@@ -141,6 +141,90 @@ async function assertFrontendCloudSnapshot() {
   assert(context.__freshness({ lastSaved: 2000 }) === 'same', 'Cloud freshness should tolerate small timestamp drift.');
 }
 
+async function assertFrontendAppDialogHelpers() {
+  const sources = await Promise.all([
+    '../src/app/11-app-dialog-native.js',
+    '../src/app/11-app-dialog-dom.js',
+    '../src/app/11-app-dialog-events.js',
+    '../src/app/11-app-dialog.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+
+  function classList(initial = []) {
+    const values = new Set(initial);
+    return {
+      values,
+      add(...names) { names.forEach((name) => values.add(name)); },
+      remove(...names) { names.forEach((name) => values.delete(name)); },
+      contains(name) { return values.has(name); },
+    };
+  }
+  function element(initialClasses = []) {
+    return {
+      classList: classList(initialClasses),
+      style: {},
+      textContent: '',
+      className: '',
+      onclick: null,
+      focused: false,
+      focus() { this.focused = true; },
+    };
+  }
+
+  const nativeEvents = [];
+  const timers = [];
+  let keydownHandler = null;
+  let elements = {};
+  const context = {
+    window: {
+      alert(message) { nativeEvents.push(`alert:${message}`); },
+      confirm(message) { nativeEvents.push(`confirm:${message}`); return false; },
+    },
+    document: {
+      getElementById(id) { return elements[id] || null; },
+      addEventListener(type, handler) { if (type === 'keydown') keydownHandler = handler; },
+      removeEventListener(type, handler) { if (type === 'keydown' && keydownHandler === handler) keydownHandler = null; },
+    },
+    setTimeout(handler, delay) { timers.push({ handler, delay }); return `timer-${timers.length}`; },
+    Promise,
+    Object,
+    String,
+    Set,
+  };
+
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__alert = showGlassAlert;\nthis.__confirm = showGlassConfirm;`, context);
+
+  const nativeConfirmResult = await context.__confirm('Native confirm?');
+  assert(nativeConfirmResult === false && nativeEvents.includes('confirm:Native confirm?'), 'App dialog should fall back to native confirm when the modal is missing.');
+
+  elements = {
+    appDialogModal: element(['hidden']),
+    appDialogBackdrop: element(),
+    appDialogTitle: element(),
+    appDialogMessage: element(),
+    appDialogIcon: element(),
+    appDialogCancelBtn: element(),
+    appDialogOkBtn: element(),
+  };
+
+  const confirmPromise = context.__confirm('Delete item?', { title: 'Delete', danger: true, okText: 'Delete now' });
+  await Promise.resolve();
+  assert(!elements.appDialogModal.classList.values.has('hidden'), 'App dialog confirm should show the modal.');
+  assert(elements.appDialogTitle.textContent === 'Delete' && elements.appDialogMessage.textContent === 'Delete item?', 'App dialog should render title and message.');
+  assert(elements.appDialogCancelBtn.style.display === '' && elements.appDialogOkBtn.textContent === 'Delete now', 'App dialog confirm should show cancel and custom ok text.');
+  assert(elements.appDialogIcon.className.includes('bg-red-500/15'), 'App dialog danger mode should style the icon as danger.');
+  elements.appDialogOkBtn.onclick();
+  assert(await confirmPromise === true, 'App dialog ok button should resolve true.');
+  assert(elements.appDialogModal.classList.values.has('hidden') && elements.appDialogOkBtn.onclick === null && keydownHandler === null, 'App dialog cleanup should hide and unbind controls.');
+
+  const alertPromise = context.__alert('Heads up');
+  await Promise.resolve();
+  assert(elements.appDialogCancelBtn.style.display === 'none' && elements.appDialogIcon.textContent === '!', 'App dialog alert should hide cancel and use the alert icon.');
+  keydownHandler({ key: 'Escape' });
+  assert(await alertPromise === true, 'App dialog Escape should resolve alerts as acknowledged.');
+
+  assert(typeof context.window.showGlassAlert === 'function' && typeof context.window.showGlassConfirm === 'function', 'App dialog should publish alert and confirm helpers on window.');
+}
+
 async function assertFrontendStateStoreDefaults() {
   const sources = await Promise.all([
     '../src/app/30-state-store.js',
@@ -5138,6 +5222,7 @@ async function assertFrontendConversationImportHelpers() {
 
 async function main() {
   await assertFrontendCloudSnapshot();
+  await assertFrontendAppDialogHelpers();
   await assertFrontendStateStoreDefaults();
   await assertFrontendStatePersistenceHelpers();
   await assertFrontendWebGLBackgroundHelpers();

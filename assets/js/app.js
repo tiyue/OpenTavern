@@ -56,71 +56,98 @@ const WEBLLM_MODEL_INFO = {
     'Llama-3.2-1B-Instruct-q4f16_1-MLC': { label: 'Llama-3.2-1B', sizeMB: 850 },
     'Llama-3.2-3B-Instruct-q4f16_1-MLC': { label: 'Llama-3.2-3B', sizeMB: 2100 }
 };
-// ==================== App Dialog Helpers ====================
+// ==================== App Dialog Native Fallback ====================
 const nativeAlert = window.alert ? window.alert.bind(window) : null;
 const nativeConfirm = window.confirm ? window.confirm.bind(window) : null;
+
+function resolveNativeAppDialogFallback(options) {
+    if (options.showCancel && nativeConfirm) return nativeConfirm(String(options.message || ''));
+    if (nativeAlert) nativeAlert(String(options.message || ''));
+    return true;
+}
+// ==================== App Dialog DOM Helpers ====================
+function getAppDialogElements() {
+    return {
+        modal: document.getElementById('appDialogModal'),
+        backdrop: document.getElementById('appDialogBackdrop'),
+        titleEl: document.getElementById('appDialogTitle'),
+        messageEl: document.getElementById('appDialogMessage'),
+        iconEl: document.getElementById('appDialogIcon'),
+        cancelBtn: document.getElementById('appDialogCancelBtn'),
+        okBtn: document.getElementById('appDialogOkBtn')
+    };
+}
+
+function applyAppDialogOptions(elements, options) {
+    const showCancel = !!options.showCancel;
+
+    if (elements.titleEl) elements.titleEl.textContent = options.title || (showCancel ? '\u8bf7\u786e\u8ba4' : '\u63d0\u793a');
+    if (elements.messageEl) elements.messageEl.textContent = String(options.message || '');
+    if (elements.iconEl) {
+        elements.iconEl.textContent = options.icon || (showCancel ? '?' : '!');
+        elements.iconEl.className = 'w-9 h-9 rounded-2xl flex items-center justify-center text-lg flex-shrink-0 ' +
+            (options.danger ? 'bg-red-500/15 text-red-300' : 'bg-amber-500/15 text-amber-300');
+    }
+    if (elements.cancelBtn) {
+        elements.cancelBtn.style.display = showCancel ? '' : 'none';
+        elements.cancelBtn.textContent = options.cancelText || '\u53d6\u6d88';
+    }
+    if (elements.okBtn) {
+        elements.okBtn.textContent = options.okText || '\u786e\u5b9a';
+        elements.okBtn.className = 'px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-lg transition-all ' +
+            (options.danger ? 'bg-red-500 hover:bg-red-400 active:bg-red-600 shadow-red-500/20' : 'bg-amber-500 hover:bg-amber-400 active:bg-amber-600 shadow-amber-500/20');
+    }
+}
+
+function focusAppDialogDefaultButton(elements, showCancel) {
+    setTimeout(function() {
+        try { (showCancel && elements.cancelBtn ? elements.cancelBtn : elements.okBtn).focus(); } catch (_) {}
+    }, 0);
+}
+// ==================== App Dialog Event Helpers ====================
+function bindAppDialogControls(elements, showCancel, cleanup) {
+    function onKeyDown(ev) {
+        if (ev.key === 'Escape') cleanup(showCancel ? false : true);
+    }
+
+    if (elements.cancelBtn) elements.cancelBtn.onclick = function() { cleanup(false); };
+    if (elements.okBtn) elements.okBtn.onclick = function() { cleanup(true); };
+    if (elements.backdrop) elements.backdrop.onclick = function() { cleanup(showCancel ? false : true); };
+    document.addEventListener('keydown', onKeyDown, true);
+
+    return function unbindAppDialogControls() {
+        if (elements.cancelBtn) elements.cancelBtn.onclick = null;
+        if (elements.okBtn) elements.okBtn.onclick = null;
+        if (elements.backdrop) elements.backdrop.onclick = null;
+        document.removeEventListener('keydown', onKeyDown, true);
+    };
+}
+// ==================== App Dialog Helpers ====================
 let _appDialogQueue = Promise.resolve();
 
 function showGlassDialog(options) {
     options = options || {};
     const run = function() {
         return new Promise(function(resolve) {
-            const modal = document.getElementById('appDialogModal');
-            if (!modal) {
-                if (options.showCancel && nativeConfirm) resolve(nativeConfirm(String(options.message || '')));
-                else {
-                    if (nativeAlert) nativeAlert(String(options.message || ''));
-                    resolve(true);
-                }
+            const elements = getAppDialogElements();
+            if (!elements.modal) {
+                resolve(resolveNativeAppDialogFallback(options));
                 return;
             }
 
-            const backdrop = document.getElementById('appDialogBackdrop');
-            const titleEl = document.getElementById('appDialogTitle');
-            const messageEl = document.getElementById('appDialogMessage');
-            const iconEl = document.getElementById('appDialogIcon');
-            const cancelBtn = document.getElementById('appDialogCancelBtn');
-            const okBtn = document.getElementById('appDialogOkBtn');
             const showCancel = !!options.showCancel;
-
-            if (titleEl) titleEl.textContent = options.title || (showCancel ? '\u8bf7\u786e\u8ba4' : '\u63d0\u793a');
-            if (messageEl) messageEl.textContent = String(options.message || '');
-            if (iconEl) {
-                iconEl.textContent = options.icon || (showCancel ? '?' : '!');
-                iconEl.className = 'w-9 h-9 rounded-2xl flex items-center justify-center text-lg flex-shrink-0 ' +
-                    (options.danger ? 'bg-red-500/15 text-red-300' : 'bg-amber-500/15 text-amber-300');
-            }
-            if (cancelBtn) {
-                cancelBtn.style.display = showCancel ? '' : 'none';
-                cancelBtn.textContent = options.cancelText || '\u53d6\u6d88';
-            }
-            if (okBtn) {
-                okBtn.textContent = options.okText || '\u786e\u5b9a';
-                okBtn.className = 'px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-lg transition-all ' +
-                    (options.danger ? 'bg-red-500 hover:bg-red-400 active:bg-red-600 shadow-red-500/20' : 'bg-amber-500 hover:bg-amber-400 active:bg-amber-600 shadow-amber-500/20');
-            }
+            applyAppDialogOptions(elements, options);
+            var unbind = function() {};
 
             function cleanup(value) {
-                modal.classList.add('hidden');
-                if (cancelBtn) cancelBtn.onclick = null;
-                if (okBtn) okBtn.onclick = null;
-                if (backdrop) backdrop.onclick = null;
-                document.removeEventListener('keydown', onKeyDown, true);
+                elements.modal.classList.add('hidden');
+                unbind();
                 resolve(value);
             }
 
-            function onKeyDown(ev) {
-                if (ev.key === 'Escape') cleanup(showCancel ? false : true);
-            }
-
-            if (cancelBtn) cancelBtn.onclick = function() { cleanup(false); };
-            if (okBtn) okBtn.onclick = function() { cleanup(true); };
-            if (backdrop) backdrop.onclick = function() { cleanup(showCancel ? false : true); };
-            document.addEventListener('keydown', onKeyDown, true);
-            modal.classList.remove('hidden');
-            setTimeout(function() {
-                try { (showCancel && cancelBtn ? cancelBtn : okBtn).focus(); } catch (_) {}
-            }, 0);
+            unbind = bindAppDialogControls(elements, showCancel, cleanup);
+            elements.modal.classList.remove('hidden');
+            focusAppDialogDefaultButton(elements, showCancel);
         });
     };
     const next = _appDialogQueue.then(run, run);
