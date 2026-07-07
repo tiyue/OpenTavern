@@ -2260,6 +2260,7 @@ async function assertFrontendWorldBookActivation() {
     '../src/app/44-worldbook-activation-helpers.js',
     '../src/app/44-worldbook-activation-collection.js',
     '../src/app/44-worldbook-activation-cache.js',
+    '../src/app/44-worldbook-activation-groups.js',
     '../src/app/44-worldbook-activation-selection.js',
     '../src/app/44-worldbook-activation-result.js',
     '../src/app/44-worldbook-activation.js',
@@ -2355,6 +2356,7 @@ async function assertFrontendWorldBookActivationHelpers() {
   const sources = await Promise.all([
     '../src/app/44-worldbook-activation-collection.js',
     '../src/app/44-worldbook-activation-cache.js',
+    '../src/app/44-worldbook-activation-groups.js',
     '../src/app/44-worldbook-activation-selection.js',
     '../src/app/44-worldbook-activation-result.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));

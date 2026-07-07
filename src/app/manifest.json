@@ -160,6 +160,7 @@
   "44-worldbook-activation-helpers.js",
   "44-worldbook-activation-collection.js",
   "44-worldbook-activation-cache.js",
+  "44-worldbook-activation-groups.js",
   "44-worldbook-activation-selection.js",
   "44-worldbook-activation-result.js",
   "44-worldbook-activation.js",
