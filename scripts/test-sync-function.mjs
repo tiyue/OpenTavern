@@ -735,6 +735,9 @@ async function assertFrontendCloudSyncTransport() {
 async function assertFrontendCloudSyncOperations() {
   const sources = await Promise.all([
     '../src/app/22-cloud-sync-operation-helpers.js',
+    '../src/app/22-cloud-sync-upload.js',
+    '../src/app/22-cloud-sync-download.js',
+    '../src/app/22-cloud-sync-sync.js',
     '../src/app/22-cloud-sync-operations.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 

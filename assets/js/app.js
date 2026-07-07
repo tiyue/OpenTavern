@@ -4079,7 +4079,7 @@ function persistCloudSyncStatusSilently() {
         console.warn('[CloudSync] failed to persist sync status:', err && err.message);
     });
 }
-// ==================== Cloud Sync Upload / Download ====================
+// ==================== Cloud Sync Upload ====================
 async function uploadCloudSyncSnapshot(statusEl, options) {
     ensureCloudSyncSettings();
     options = options || {};
@@ -4119,7 +4119,7 @@ async function uploadCloudSyncSnapshot(statusEl, options) {
     await persistCloudSyncOperationState();
     return result;
 }
-
+// ==================== Cloud Sync Download ====================
 async function downloadCloudSyncSnapshot(statusEl, rawData) {
     ensureCloudSyncSettings();
     setCloudSyncPendingStatus(statusEl, 'Downloading...');
@@ -4139,7 +4139,7 @@ async function downloadCloudSyncSnapshot(statusEl, rawData) {
     await persistCloudSyncOperationState();
     return data;
 }
-
+// ==================== Cloud Sync Compare And Sync ====================
 async function syncCloudSyncSnapshot(statusEl) {
     ensureCloudSyncSettings();
     setCloudSyncPendingStatus(statusEl, 'Checking cloud snapshot...');
@@ -4163,6 +4163,11 @@ async function syncCloudSyncSnapshot(statusEl) {
     await persistCloudSyncOperationState();
     return { success: true, upToDate: true };
 }
+// ==================== Cloud Sync Operations Facade ====================
+// Upload, download, and compare/sync workflows live in:
+// - 22-cloud-sync-upload.js
+// - 22-cloud-sync-download.js
+// - 22-cloud-sync-sync.js
 // ==================== Cloud Sync Auto Upload ====================
 var _cloudSyncUploadTimer = null;
 
