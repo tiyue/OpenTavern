@@ -1360,6 +1360,7 @@ body.theme-new-dark ::-webkit-scrollbar-thumb:hover { background: rgba(40, 35, 3
                     <div>
                         <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_tts_api_title">TTS API</label>
                         <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_tts_api_hint">Use an OpenAI-compatible /audio/speech API. Browser speech is used as fallback.</p>
+                        <p class="text-[10px] text-amber-400/90 mt-1 leading-snug" data-i18n="settings_tts_cors_hint">Pure frontend calls may be blocked by CORS. Fish Audio usually needs a proxy or backend relay.</p>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
                         <input type="checkbox" id="ttsEnabled" class="sr-only peer">
@@ -1368,12 +1369,33 @@ body.theme-new-dark ::-webkit-scrollbar-thumb:hover { background: rgba(40, 35, 3
                 </div>
                 <div class="space-y-2">
                     <div>
+                        <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_tts_provider">Provider</label>
+                        <select id="ttsProvider" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
+                            <option value="openai" data-i18n="settings_tts_provider_openai">OpenAI-compatible</option>
+                            <option value="fish" data-i18n="settings_tts_provider_fish">Fish Audio</option>
+                        </select>
+                    </div>
+                    <div>
                         <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_tts_api_endpoint">API Endpoint</label>
                         <input id="ttsApiEndpoint" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="https://api.openai.com/v1/audio/speech">
                     </div>
                     <div>
                         <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_tts_api_key">API Key</label>
                         <input id="ttsApiKey" type="password" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="sk-...">
+                        <label class="mt-2 flex items-center gap-2 text-[11px] text-zinc-300 cursor-pointer select-none">
+                            <input type="checkbox" id="saveTtsApiKey" class="accent-amber-500 w-3.5 h-3.5 flex-shrink-0">
+                            <span data-i18n="settings_tts_save_api_key">将 TTS API Key 保存到浏览器本地存储</span>
+                        </label>
+                        <div class="mt-2 flex flex-wrap items-center gap-2">
+                            <button type="button" onclick="testTtsApiConnection()"
+                                    class="px-3 py-1 text-xs rounded-lg bg-white/5 hover:bg-amber-500/20 active:bg-amber-500/30 text-amber-300 hover:text-amber-200 transition-all border border-white/10 font-medium"
+                                    data-i18n="api_test_button">测试 API 连接</button>
+                            <button type="button" id="downloadTtsWorkerBtn"
+                                    class="px-3 py-1 text-xs rounded-lg bg-white/5 hover:bg-zinc-500/20 active:bg-zinc-500/30 text-zinc-300 hover:text-zinc-100 transition-all border border-white/10 font-medium"
+                                    data-i18n="settings_tts_download_worker">下载 worker.js 代理代码</button>
+                            <span class="text-[10px] text-zinc-500" data-i18n="settings_tts_test_hint">Sends a short TTS request</span>
+                        </div>
+                        <div id="ttsApiTestResult" class="mt-1.5 text-xs rounded-lg p-2 hidden border"></div>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
@@ -1408,6 +1430,10 @@ body.theme-new-dark ::-webkit-scrollbar-thumb:hover { background: rgba(40, 35, 3
                     <label class="flex items-center gap-2 text-[11px] text-zinc-300 cursor-pointer select-none">
                         <input type="checkbox" id="ttsStream" class="accent-amber-500 w-3.5 h-3.5 flex-shrink-0">
                         <span data-i18n="settings_tts_stream">Send stream: true in TTS request</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-[11px] text-zinc-300 cursor-pointer select-none">
+                        <input type="checkbox" id="ttsBrowserFallbackEnabled" class="accent-amber-500 w-3.5 h-3.5 flex-shrink-0">
+                        <span data-i18n="settings_tts_browser_fallback">Enable browser built-in speech fallback</span>
                     </label>
                 </div>
             </div>
@@ -3359,13 +3385,23 @@ var i18n = {
         settings_ollama_compat_hint: '开启后会在发送前合并/降级多条 system 消息，避免部分本地模型的 Jinja 模板报错。',
         settings_model: '模型',
         settings_tts_api_title: 'TTS API',
-        settings_tts_api_hint: '使用 OpenAI 兼容的 /audio/speech API。未配置或失败时自动使用浏览器朗读兜底。',
+        settings_tts_api_hint: '使用 OpenAI 兼容的 /audio/speech API。浏览器内置朗读默认关闭，可在下方手动启用后备。',
+        settings_tts_cors_hint: '纯前端直连可能被 CORS 跨域拦截。Fish Audio 通常需要代理或后端中转。',
         settings_tts_api_endpoint: 'API 端点',
+        settings_tts_provider: '服务商',
+        settings_tts_provider_openai: 'OpenAI 兼容',
+        settings_tts_provider_fish: 'Fish Audio',
         settings_tts_api_key: 'API 密钥',
+        settings_tts_save_api_key: '将 TTS API Key 保存到浏览器本地存储',
+        settings_tts_download_worker: '下载 worker.js 代理代码',
         settings_tts_model: '模型',
         settings_tts_voice: '音色',
         settings_tts_speed: '语速',
         settings_tts_stream: '请求中发送 stream: true',
+        settings_tts_browser_fallback: '启用浏览器内置朗读后备',
+        settings_tts_test_hint: '发送一次短文本 TTS 请求',
+        tts_test_success: 'TTS API 连接成功，已收到音频响应。',
+        tts_test_failed: 'TTS API 连接失败：',
         settings_tts_response_format: '返回格式',
         settings_comfy_title: 'ComfyUI 图像生成',
         settings_comfy_hint: '连接本机 ComfyUI，通过导入 API workflow 手动生成图片并附加到聊天。',
@@ -3473,6 +3509,8 @@ var i18n = {
         stop_speaking: '停止朗读',
         tts_not_supported: '当前浏览器不支持文字朗读。',
         tts_empty_message: '这条消息没有可朗读的文字。',
+        tts_no_engine_enabled: '请先在设置中启用 TTS API，或手动开启浏览器内置朗读后备。',
+        tts_api_failed_no_fallback: 'TTS API 请求失败，且浏览器内置朗读后备未开启。',
         delete_msg: '删除消息',
         regenerate: '重新生成',
         edit_msg: '编辑消息',
@@ -3813,13 +3851,23 @@ var i18n = {
         settings_ollama_compat_hint: '開啟後會在送出前合併/降級多條 system 訊息，避免部分本地模型的 Jinja 模板報錯。',
         settings_model: '模型',
         settings_tts_api_title: 'TTS API',
-        settings_tts_api_hint: '使用 OpenAI 相容的 /audio/speech API。未設定或失敗時自動使用瀏覽器朗讀備援。',
+        settings_tts_api_hint: '使用 OpenAI 相容的 /audio/speech API。瀏覽器內建朗讀預設關閉，可在下方手動啟用備援。',
+        settings_tts_cors_hint: '純前端直連可能被 CORS 跨域攔截。Fish Audio 通常需要代理或後端中轉。',
         settings_tts_api_endpoint: 'API 端點',
+        settings_tts_provider: '服務商',
+        settings_tts_provider_openai: 'OpenAI 相容',
+        settings_tts_provider_fish: 'Fish Audio',
         settings_tts_api_key: 'API 金鑰',
+        settings_tts_save_api_key: '將 TTS API Key 儲存到瀏覽器本地儲存',
+        settings_tts_download_worker: '下載 worker.js 代理程式碼',
         settings_tts_model: '模型',
         settings_tts_voice: '音色',
         settings_tts_speed: '語速',
         settings_tts_stream: '請求中傳送 stream: true',
+        settings_tts_browser_fallback: '啟用瀏覽器內建朗讀備援',
+        settings_tts_test_hint: '傳送一次短文字 TTS 請求',
+        tts_test_success: 'TTS API 連接成功，已收到音訊回應。',
+        tts_test_failed: 'TTS API 連接失敗：',
         settings_tts_response_format: '返回格式',
         settings_comfy_title: 'ComfyUI 圖像生成',
         settings_comfy_hint: '連接本機 ComfyUI，透過匯入 API workflow 手動生成圖片並附加到聊天。',
@@ -3927,6 +3975,8 @@ var i18n = {
         stop_speaking: '停止朗讀',
         tts_not_supported: '目前瀏覽器不支援文字朗讀。',
         tts_empty_message: '這則訊息沒有可朗讀的文字。',
+        tts_no_engine_enabled: '請先在設定中啟用 TTS API，或手動開啟瀏覽器內建朗讀備援。',
+        tts_api_failed_no_fallback: 'TTS API 請求失敗，且瀏覽器內建朗讀備援未開啟。',
         delete_msg: '刪除訊息',
         regenerate: '重新生成',
         edit_msg: '編輯訊息',
@@ -4220,13 +4270,23 @@ var i18n = {
         settings_ollama_compat_hint: 'Merges or downgrades multiple system messages before sending to avoid Jinja template errors in some local models.',
         settings_model: 'Model',
         settings_tts_api_title: 'TTS API',
-        settings_tts_api_hint: 'Use an OpenAI-compatible /audio/speech API. Browser speech is used as fallback.',
+        settings_tts_api_hint: 'Use an OpenAI-compatible /audio/speech API. Browser speech fallback is off by default and can be enabled below.',
+        settings_tts_cors_hint: 'Pure frontend calls may be blocked by CORS. Fish Audio usually needs a proxy or backend relay.',
         settings_tts_api_endpoint: 'API Endpoint',
+        settings_tts_provider: 'Provider',
+        settings_tts_provider_openai: 'OpenAI-compatible',
+        settings_tts_provider_fish: 'Fish Audio',
         settings_tts_api_key: 'API Key',
+        settings_tts_save_api_key: 'Save TTS API Key to browser local storage',
+        settings_tts_download_worker: 'Download worker.js proxy code',
         settings_tts_model: 'Model',
         settings_tts_voice: 'Voice',
         settings_tts_speed: 'Speed',
         settings_tts_stream: 'Send stream: true in TTS request',
+        settings_tts_browser_fallback: 'Enable browser built-in speech fallback',
+        settings_tts_test_hint: 'Sends a short TTS request',
+        tts_test_success: 'TTS API connection succeeded; audio response received.',
+        tts_test_failed: 'TTS API connection failed: ',
         settings_tts_response_format: 'Response Format',
         settings_comfy_title: 'ComfyUI Image Generation',
         settings_comfy_hint: 'Connect to local ComfyUI, import an API workflow, then manually generate images into chat.',
@@ -4334,6 +4394,8 @@ var i18n = {
         stop_speaking: 'Stop reading',
         tts_not_supported: 'This browser does not support text-to-speech.',
         tts_empty_message: 'This message has no readable text.',
+        tts_no_engine_enabled: 'Enable TTS API in Settings, or manually enable browser built-in speech fallback.',
+        tts_api_failed_no_fallback: 'TTS API request failed, and browser built-in speech fallback is disabled.',
         delete_msg: 'Delete message',
         regenerate: 'Regenerate',
         edit_msg: 'Edit message',
@@ -6318,6 +6380,8 @@ function getSafeSettingsForPersist() {
     if (!s.saveApiKey) {
         s.apiKey = '';
         s.summarizeApiKey = '';
+    }
+    if (!s.saveTtsApiKey) {
         s.ttsApiKey = '';
     }
     return s;
@@ -6419,12 +6483,15 @@ function defaultSettings() {
         ollamaCompatMode: false,
         model: 'gpt-4o',
         ttsEnabled: false,
+        ttsProvider: 'openai',
         ttsApiEndpoint: 'https://api.openai.com/v1/audio/speech',
         ttsApiKey: '',
+        saveTtsApiKey: false,
         ttsModel: 'tts-1',
         ttsVoice: 'alloy',
         ttsSpeed: 1,
         ttsStream: false,
+        ttsBrowserFallbackEnabled: false,
         ttsResponseFormat: 'mp3',
         contextLength: 20,
         maxTokens: 1024,
@@ -12995,7 +13062,7 @@ function cacheDom() {
         'messagesContainer','emptyState','messageInput','sendBtn','stopBtn','mentionBtn','mentionPill','mentionPillName','mentionPillClear','comfyGenerateBtn',
         'settingsModal','settingsBackdrop','settingsCloseBtn',
         'apiEndpoint','apiKey','saveApiKey','ollamaCompatMode','modelName',
-        'ttsEnabled','ttsApiEndpoint','ttsApiKey','ttsModel','ttsVoice','ttsSpeed','ttsSpeedVal','ttsStream','ttsResponseFormat',
+        'ttsEnabled','ttsProvider','ttsApiEndpoint','ttsApiKey','saveTtsApiKey','ttsApiTestResult','downloadTtsWorkerBtn','ttsModel','ttsVoice','ttsSpeed','ttsSpeedVal','ttsStream','ttsBrowserFallbackEnabled','ttsResponseFormat',
         'contextLength','contextLenVal',
         'maxTokens','maxTokensVal','temperature','tempVal','topP','topPVal',
         'userName','systemPrompt','postHistoryInstructions','fillPostHistoryBtn','fillRoleplayPromptBtn','twoStageEnabled','twoStageTemperature','twoStageTempVal','twoStageTopP','twoStageTopPVal','twoStageIncludeRecentContext','twoStageSystemPrompt','twoStagePostHistoryInstructions','restoreTwoStagePromptBtn','requestCotEnabled','showCotEnabled','userDescription',
@@ -13073,17 +13140,20 @@ function defaultSillyTavernPreset() {
 function ensureTtsSettings() {
     if (!state.settings) state.settings = defaultSettings();
     var defs = defaultSettings();
-    ['ttsEnabled','ttsApiEndpoint','ttsApiKey','ttsModel','ttsVoice','ttsSpeed','ttsStream','ttsResponseFormat'].forEach(function(key) {
+    ['ttsEnabled','ttsProvider','ttsApiEndpoint','ttsApiKey','saveTtsApiKey','ttsModel','ttsVoice','ttsSpeed','ttsStream','ttsBrowserFallbackEnabled','ttsResponseFormat'].forEach(function(key) {
         if (state.settings[key] === undefined || state.settings[key] === null) state.settings[key] = defs[key];
     });
     state.settings.ttsEnabled = !!state.settings.ttsEnabled;
+    state.settings.ttsProvider = (state.settings.ttsProvider === 'fish') ? 'fish' : 'openai';
     state.settings.ttsApiEndpoint = String(state.settings.ttsApiEndpoint || defs.ttsApiEndpoint);
     state.settings.ttsApiKey = String(state.settings.ttsApiKey || '');
+    state.settings.saveTtsApiKey = !!state.settings.saveTtsApiKey;
     state.settings.ttsModel = String(state.settings.ttsModel || defs.ttsModel);
     state.settings.ttsVoice = String(state.settings.ttsVoice || defs.ttsVoice);
     var speed = parseFloat(state.settings.ttsSpeed);
     state.settings.ttsSpeed = Number.isFinite(speed) ? Math.min(4, Math.max(0.25, speed)) : defs.ttsSpeed;
     state.settings.ttsStream = !!state.settings.ttsStream;
+    state.settings.ttsBrowserFallbackEnabled = !!state.settings.ttsBrowserFallbackEnabled;
     var fmt = String(state.settings.ttsResponseFormat || defs.ttsResponseFormat).toLowerCase();
     state.settings.ttsResponseFormat = ['mp3','opus','aac','flac','wav','pcm'].indexOf(fmt) >= 0 ? fmt : defs.ttsResponseFormat;
     return state.settings;
@@ -14867,9 +14937,57 @@ function normalizeTtsEndpoint(url) {
     return u + '/v1/audio/speech';
 }
 
+function normalizeFishTtsEndpoint(url) {
+    var u = String(url || '').trim() || 'https://api.fish.audio/v1/tts';
+    u = u.replace(/\/+$/, '');
+    if (/\/v1\/tts$/i.test(u)) return u;
+    if (/\/v1$/i.test(u)) return u + '/tts';
+    return u + '/v1/tts';
+}
+
+function getTtsProvider() {
+    var settings = ensureTtsSettings();
+    return settings.ttsProvider === 'fish' ? 'fish' : 'openai';
+}
+
+function getFishAudioFormat(format) {
+    var fmt = String(format || 'mp3').toLowerCase();
+    return ['wav','pcm','mp3','opus'].indexOf(fmt) >= 0 ? fmt : 'mp3';
+}
 function canUseTtsApi() {
     var settings = ensureTtsSettings();
     return !!(settings.ttsEnabled && settings.ttsApiEndpoint && settings.ttsApiKey && settings.ttsModel && settings.ttsVoice);
+}
+
+function getTtsConfigError() {
+    var settings = ensureTtsSettings();
+    var missing = [];
+    if (!settings.ttsEnabled) missing.push('TTS API disabled');
+    if (!settings.ttsApiEndpoint) missing.push('endpoint');
+    if (!settings.ttsApiKey) missing.push('API key');
+    if (!settings.ttsModel) missing.push('model');
+    if (!settings.ttsVoice) missing.push(getTtsProvider() === 'fish' ? 'reference_id / voice' : 'voice');
+    if (!missing.length) return '';
+    return 'TTS API config incomplete: ' + missing.join(', ');
+}
+
+function canUseBrowserSpeechFallback() {
+    var settings = ensureTtsSettings();
+    return !!settings.ttsBrowserFallbackEnabled;
+}
+
+function fallbackToBrowserSpeech(text, actualIdx, btn, err) {
+    if (err) console.warn('[TTS] API failed:', err);
+    if (canUseBrowserSpeechFallback()) {
+        speakWithBrowserSpeech(text, actualIdx, btn);
+        return;
+    }
+    resetSpeechState();
+    if (err) {
+        alert(String(err.message || err));
+    } else {
+        alert(t('tts_no_engine_enabled'));
+    }
 }
 
 function resetSpeechState() {
@@ -14943,6 +15061,13 @@ function playTtsBlob(blob, actualIdx, btn) {
 }
 
 function speakMessageWithTtsApi(text, actualIdx, btn) {
+    if (getTtsProvider() === 'fish') {
+        return speakMessageWithFishAudio(text, actualIdx, btn);
+    }
+    return speakMessageWithOpenAiCompatibleTts(text, actualIdx, btn);
+}
+
+function speakMessageWithOpenAiCompatibleTts(text, actualIdx, btn) {
     var settings = ensureTtsSettings();
     var endpoint = normalizeTtsEndpoint(settings.ttsApiEndpoint);
     var payload = {
@@ -14968,29 +15093,69 @@ function speakMessageWithTtsApi(text, actualIdx, btn) {
         },
         body: JSON.stringify(payload),
         signal: currentSpeechAbortController.signal
-    }).then(function(response) {
-        if (!response.ok) {
-            return response.text().then(function(body) {
-                var msg = 'TTS API Error ' + response.status;
-                try {
-                    var json = JSON.parse(body);
-                    if (json.error && json.error.message) msg += ': ' + json.error.message;
-                    else if (json.message) msg += ': ' + json.message;
-                } catch (_) {
-                    if (body) msg += ': ' + body.slice(0, 200);
-                }
-                throw new Error(msg);
-            });
-        }
-        return response.blob();
-    }).then(function(blob) {
+    }).then(handleTtsAudioResponse).then(function(blob) {
         if (currentSpeechMessageIdx !== actualIdx) return;
         return playTtsBlob(blob, actualIdx, btn);
     }).catch(function(err) {
         if (err && err.name === 'AbortError') return;
-        console.warn('[TTS] API failed, falling back to browser speech:', err);
-        speakWithBrowserSpeech(text, actualIdx, btn);
+        fallbackToBrowserSpeech(text, actualIdx, btn, err);
     });
+}
+
+function speakMessageWithFishAudio(text, actualIdx, btn) {
+    var settings = ensureTtsSettings();
+    var endpoint = normalizeFishTtsEndpoint(settings.ttsApiEndpoint === defaultSettings().ttsApiEndpoint ? '' : settings.ttsApiEndpoint);
+    var payload = {
+        text: text,
+        reference_id: settings.ttsVoice,
+        prosody: {
+            speed: settings.ttsSpeed,
+            volume: 0,
+            normalize_loudness: true
+        },
+        normalize: true,
+        format: getFishAudioFormat(settings.ttsResponseFormat)
+    };
+
+    stopSpeaking();
+    currentSpeechButton = btn || null;
+    currentSpeechMessageIdx = actualIdx;
+    setSpeechButtonState(currentSpeechButton, true);
+    currentSpeechAbortController = new AbortController();
+
+    return fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + settings.ttsApiKey,
+            'model': (!settings.ttsModel || settings.ttsModel === 'tts-1') ? 's2.1-pro-free' : settings.ttsModel
+        },
+        body: JSON.stringify(payload),
+        signal: currentSpeechAbortController.signal
+    }).then(handleTtsAudioResponse).then(function(blob) {
+        if (currentSpeechMessageIdx !== actualIdx) return;
+        return playTtsBlob(blob, actualIdx, btn);
+    }).catch(function(err) {
+        if (err && err.name === 'AbortError') return;
+        fallbackToBrowserSpeech(text, actualIdx, btn, err);
+    });
+}
+
+function handleTtsAudioResponse(response) {
+    if (!response.ok) {
+        return response.text().then(function(body) {
+            var msg = 'TTS API Error ' + response.status;
+            try {
+                var json = JSON.parse(body);
+                if (json.error && json.error.message) msg += ': ' + json.error.message;
+                else if (json.message) msg += ': ' + json.message;
+            } catch (_) {
+                if (body) msg += ': ' + body.slice(0, 200);
+            }
+            throw new Error(msg);
+        });
+    }
+    return response.blob();
 }
 
 function speakMessageText(actualIdx, btn) {
@@ -15008,9 +15173,95 @@ function speakMessageText(actualIdx, btn) {
     if (canUseTtsApi()) {
         speakMessageWithTtsApi(text, actualIdx, btn);
     } else {
-        speakWithBrowserSpeech(text, actualIdx, btn);
+        fallbackToBrowserSpeech(text, actualIdx, btn, new Error(getTtsConfigError() || t('tts_no_engine_enabled')));
     }
 }
+
+async function testTtsApiConnection() {
+    var resultEl = document.getElementById('ttsApiTestResult');
+    if (!resultEl) return;
+    resultEl.classList.remove('hidden');
+    resultEl.className = 'mt-1.5 text-xs rounded-lg p-2 border border-amber-500/30 bg-amber-500/10 text-amber-300';
+    resultEl.textContent = t('api_test_testing');
+
+    var snapshot = Object.assign({}, state.settings || {});
+    ensureTtsSettings();
+    state.settings.ttsEnabled = true;
+    state.settings.ttsProvider = (document.getElementById('ttsProvider') || {}).value === 'fish' ? 'fish' : 'openai';
+    state.settings.ttsApiEndpoint = ((document.getElementById('ttsApiEndpoint') || {}).value || '').trim() || (state.settings.ttsProvider === 'fish' ? 'https://api.fish.audio/v1/tts' : defaultSettings().ttsApiEndpoint);
+    state.settings.ttsApiKey = ((document.getElementById('ttsApiKey') || {}).value || '').trim();
+    state.settings.ttsModel = ((document.getElementById('ttsModel') || {}).value || '').trim() || (state.settings.ttsProvider === 'fish' ? 's2.1-pro-free' : 'tts-1');
+    state.settings.ttsVoice = ((document.getElementById('ttsVoice') || {}).value || '').trim() || (state.settings.ttsProvider === 'fish' ? '' : 'alloy');
+    state.settings.ttsSpeed = Math.min(4, Math.max(0.25, parseFloat(((document.getElementById('ttsSpeed') || {}).value || '1')) || 1));
+    state.settings.ttsStream = !!((document.getElementById('ttsStream') || {}).checked);
+    state.settings.ttsResponseFormat = ((document.getElementById('ttsResponseFormat') || {}).value || 'mp3');
+
+    try {
+        var cfgErr = getTtsConfigError();
+        if (cfgErr) throw new Error(cfgErr);
+        var response;
+        if (getTtsProvider() === 'fish') {
+            response = await fetch(normalizeFishTtsEndpoint(state.settings.ttsApiEndpoint), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + state.settings.ttsApiKey,
+                    'model': state.settings.ttsModel || 's2.1-pro-free'
+                },
+                body: JSON.stringify({
+                    text: 'test',
+                    reference_id: state.settings.ttsVoice,
+                    prosody: { speed: state.settings.ttsSpeed, volume: 0, normalize_loudness: true },
+                    normalize: true,
+                    format: getFishAudioFormat(state.settings.ttsResponseFormat)
+                })
+            });
+        } else {
+            response = await fetch(normalizeTtsEndpoint(state.settings.ttsApiEndpoint), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + state.settings.ttsApiKey
+                },
+                body: JSON.stringify({
+                    model: state.settings.ttsModel,
+                    input: 'test',
+                    voice: state.settings.ttsVoice,
+                    speed: state.settings.ttsSpeed,
+                    stream: !!state.settings.ttsStream,
+                    response_format: state.settings.ttsResponseFormat
+                })
+            });
+        }
+        var blob = await handleTtsAudioResponse(response);
+        if (!blob || !blob.size) throw new Error('Empty audio response');
+        resultEl.className = 'mt-1.5 text-xs rounded-lg p-2 border border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
+        resultEl.textContent = t('tts_test_success') + ' (' + Math.round(blob.size / 1024) + ' KB)';
+    } catch (err) {
+        resultEl.className = 'mt-1.5 text-xs rounded-lg p-2 border border-red-500/30 bg-red-500/10 text-red-300 whitespace-pre-wrap';
+        resultEl.textContent = t('tts_test_failed') + (err && err.message ? err.message : String(err));
+    } finally {
+        state.settings = Object.assign(state.settings || {}, snapshot);
+    }
+}
+window.testTtsApiConnection = testTtsApiConnection;
+
+function getTtsWorkerProxyCode() {
+    return "/**\n * Cloudflare Worker - TTS proxy for OpenAI-compatible and Fish Audio APIs.\n *\n * Routes:\n * - POST /v1/audio/speech -\u003e OpenAI-compatible TTS\n * - POST /v1/tts          -\u003e Fish Audio TTS\n *\n * The browser may send either normal provider headers:\n * - Authorization: Bearer \u003ckey\u003e\n * - model: \u003cfish-model\u003e\n *\n * Or proxy-specific headers:\n * - X-OpenAI-Key: \u003ckey\u003e\n * - X-Fish-Key: \u003ckey\u003e\n * - X-Fish-Model: \u003cfish-model\u003e\n */\n\nconst CORS_HEADERS = {\n  \u0027Access-Control-Allow-Origin\u0027: \u0027*\u0027,\n  \u0027Access-Control-Allow-Methods\u0027: \u0027POST, OPTIONS\u0027,\n  \u0027Access-Control-Allow-Headers\u0027: \u0027Content-Type, Authorization, model, X-OpenAI-Key, X-Fish-Key, X-Fish-Model\u0027,\n  \u0027Access-Control-Max-Age\u0027: \u002786400\u0027,\n};\n\nexport default {\n  async fetch(request) {\n    const url = new URL(request.url);\n    const path = url.pathname.replace(/\\/+$/, \u0027\u0027);\n\n    if (request.method === \u0027OPTIONS\u0027) {\n      return new Response(null, { status: 204, headers: CORS_HEADERS });\n    }\n\n    if (request.method !== \u0027POST\u0027) {\n      return textResponse(\u0027Method Not Allowed\u0027, 405);\n    }\n\n    try {\n      if (path === \u0027/v1/audio/speech\u0027) {\n        return await handleOpenAI(request);\n      }\n\n      if (path === \u0027/v1/tts\u0027) {\n        return await handleFishAudio(request);\n      }\n\n      return jsonResponse({\n        error: \u0027Not Found. Use /v1/audio/speech for OpenAI-compatible TTS or /v1/tts for Fish Audio.\u0027,\n      }, 404);\n    } catch (err) {\n      return jsonResponse({\n        error: err \u0026\u0026 err.message ? err.message : \u0027Internal Server Error\u0027,\n      }, 500);\n    }\n  },\n};\n\nasync function handleOpenAI(request) {\n  const openaiKey = request.headers.get(\u0027X-OpenAI-Key\u0027) || getBearerToken(request);\n\n  if (!openaiKey) {\n    return jsonResponse({ error: \u0027Missing API key. Send X-OpenAI-Key or Authorization: Bearer \u003ckey\u003e.\u0027 }, 401);\n  }\n\n  const body = await request.json();\n  const response = await fetch(\u0027https://api.openai.com/v1/audio/speech\u0027, {\n    method: \u0027POST\u0027,\n    headers: {\n      \u0027Authorization\u0027: `Bearer ${openaiKey}`,\n      \u0027Content-Type\u0027: \u0027application/json\u0027,\n    },\n    body: JSON.stringify(body),\n  });\n\n  return proxyAudioResponse(response);\n}\n\nasync function handleFishAudio(request) {\n  const fishKey = request.headers.get(\u0027X-Fish-Key\u0027) || getBearerToken(request);\n  const fishModel = request.headers.get(\u0027X-Fish-Model\u0027) || request.headers.get(\u0027model\u0027) || \u0027s2.1-pro-free\u0027;\n\n  if (!fishKey) {\n    return jsonResponse({ error: \u0027Missing API key. Send X-Fish-Key or Authorization: Bearer \u003ckey\u003e.\u0027 }, 401);\n  }\n\n  const body = await request.json();\n  const response = await fetch(\u0027https://api.fish.audio/v1/tts\u0027, {\n    method: \u0027POST\u0027,\n    headers: {\n      \u0027Authorization\u0027: `Bearer ${fishKey}`,\n      \u0027Content-Type\u0027: \u0027application/json\u0027,\n      \u0027model\u0027: fishModel,\n    },\n    body: JSON.stringify(body),\n  });\n\n  return proxyAudioResponse(response);\n}\n\nasync function proxyAudioResponse(response) {\n  if (!response.ok) {\n    const errorText = await response.text();\n    return new Response(errorText, {\n      status: response.status,\n      headers: withCors({\n        \u0027Content-Type\u0027: response.headers.get(\u0027Content-Type\u0027) || \u0027text/plain; charset=utf-8\u0027,\n      }),\n    });\n  }\n\n  return new Response(response.body, {\n    status: response.status,\n    headers: withCors({\n      \u0027Content-Type\u0027: response.headers.get(\u0027Content-Type\u0027) || \u0027audio/mpeg\u0027,\n    }),\n  });\n}\n\nfunction getBearerToken(request) {\n  const value = request.headers.get(\u0027Authorization\u0027) || \u0027\u0027;\n  const match = value.match(/^Bearer\\s+(.+)$/i);\n  return match ? match[1].trim() : \u0027\u0027;\n}\n\nfunction jsonResponse(data, status) {\n  return new Response(JSON.stringify(data), {\n    status,\n    headers: withCors({ \u0027Content-Type\u0027: \u0027application/json; charset=utf-8\u0027 }),\n  });\n}\n\nfunction textResponse(text, status) {\n  return new Response(text, {\n    status,\n    headers: withCors({ \u0027Content-Type\u0027: \u0027text/plain; charset=utf-8\u0027 }),\n  });\n}\n\nfunction withCors(headers) {\n  return Object.assign({}, CORS_HEADERS, headers || {});\n}\r\n";
+}
+
+function downloadTtsWorkerProxyCode() {
+    var blob = new Blob([getTtsWorkerProxyCode()], { type: 'text/javascript;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'worker.js';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function() { URL.revokeObjectURL(url); }, 0);
+}
+window.downloadTtsWorkerProxyCode = downloadTtsWorkerProxyCode;
 
 function copyMessageText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -15376,14 +15627,35 @@ function bindEvents() {
         dom.modelName.value = state.settings.model;
         ensureTtsSettings();
         if (dom.ttsEnabled) dom.ttsEnabled.checked = !!state.settings.ttsEnabled;
+        if (dom.ttsProvider) dom.ttsProvider.value = state.settings.ttsProvider || 'openai';
         if (dom.ttsApiEndpoint) dom.ttsApiEndpoint.value = state.settings.ttsApiEndpoint || '';
         if (dom.ttsApiKey) dom.ttsApiKey.value = state.settings.ttsApiKey || '';
+        if (dom.saveTtsApiKey) dom.saveTtsApiKey.checked = !!state.settings.saveTtsApiKey;
         if (dom.ttsModel) dom.ttsModel.value = state.settings.ttsModel || 'tts-1';
         if (dom.ttsVoice) dom.ttsVoice.value = state.settings.ttsVoice || 'alloy';
         if (dom.ttsSpeed) dom.ttsSpeed.value = state.settings.ttsSpeed || 1;
         if (dom.ttsSpeedVal) dom.ttsSpeedVal.textContent = state.settings.ttsSpeed || 1;
         if (dom.ttsStream) dom.ttsStream.checked = !!state.settings.ttsStream;
+        if (dom.ttsBrowserFallbackEnabled) dom.ttsBrowserFallbackEnabled.checked = !!state.settings.ttsBrowserFallbackEnabled;
         if (dom.ttsResponseFormat) dom.ttsResponseFormat.value = state.settings.ttsResponseFormat || 'mp3';
+        function syncTtsProviderDefaults(force) {
+            if (!dom.ttsProvider) return;
+            var provider = dom.ttsProvider.value;
+            var openAiEndpoint = defaultSettings().ttsApiEndpoint;
+            if (provider === 'fish') {
+                if (dom.ttsApiEndpoint && (force || !dom.ttsApiEndpoint.value.trim() || dom.ttsApiEndpoint.value.trim() === openAiEndpoint)) dom.ttsApiEndpoint.value = 'https://api.fish.audio/v1/tts';
+                if (dom.ttsModel && (force || !dom.ttsModel.value.trim() || dom.ttsModel.value.trim() === 'tts-1')) dom.ttsModel.value = 's2.1-pro-free';
+                if (dom.ttsVoice && dom.ttsVoice.value.trim() === 'alloy') dom.ttsVoice.value = '';
+            } else {
+                if (dom.ttsApiEndpoint && (force || !dom.ttsApiEndpoint.value.trim() || dom.ttsApiEndpoint.value.trim() === 'https://api.fish.audio/v1/tts')) dom.ttsApiEndpoint.value = openAiEndpoint;
+                if (dom.ttsModel && (force || !dom.ttsModel.value.trim() || dom.ttsModel.value.trim() === 's2.1-pro-free')) dom.ttsModel.value = 'tts-1';
+                if (dom.ttsVoice && !dom.ttsVoice.value.trim()) dom.ttsVoice.value = 'alloy';
+            }
+        }
+        if (dom.ttsProvider) {
+            dom.ttsProvider.onchange = function() { syncTtsProviderDefaults(true); };
+            syncTtsProviderDefaults(false);
+        }
         dom.contextLength.value = state.settings.contextLength;
         dom.contextLenVal.textContent = state.settings.contextLength;
         dom.maxTokens.value = state.settings.maxTokens;
@@ -15727,15 +15999,18 @@ function bindEvents() {
         state.settings.model = dom.modelName.value.trim() || 'gpt-4o';
         ensureTtsSettings();
         if (dom.ttsEnabled) state.settings.ttsEnabled = !!dom.ttsEnabled.checked;
-        if (dom.ttsApiEndpoint) state.settings.ttsApiEndpoint = dom.ttsApiEndpoint.value.trim() || defaultSettings().ttsApiEndpoint;
+        if (dom.ttsProvider) state.settings.ttsProvider = dom.ttsProvider.value === 'fish' ? 'fish' : 'openai';
+        if (dom.ttsApiEndpoint) state.settings.ttsApiEndpoint = dom.ttsApiEndpoint.value.trim() || (state.settings.ttsProvider === 'fish' ? 'https://api.fish.audio/v1/tts' : defaultSettings().ttsApiEndpoint);
         if (dom.ttsApiKey) state.settings.ttsApiKey = dom.ttsApiKey.value.trim();
-        if (dom.ttsModel) state.settings.ttsModel = dom.ttsModel.value.trim() || 'tts-1';
-        if (dom.ttsVoice) state.settings.ttsVoice = dom.ttsVoice.value.trim() || 'alloy';
+        state.settings.saveTtsApiKey = dom.saveTtsApiKey ? !!dom.saveTtsApiKey.checked : false;
+        if (dom.ttsModel) state.settings.ttsModel = dom.ttsModel.value.trim() || (state.settings.ttsProvider === 'fish' ? 's2.1-pro-free' : 'tts-1');
+        if (dom.ttsVoice) state.settings.ttsVoice = dom.ttsVoice.value.trim() || (state.settings.ttsProvider === 'fish' ? '' : 'alloy');
         if (dom.ttsSpeed) {
             var ttsSpeed = parseFloat(dom.ttsSpeed.value);
             state.settings.ttsSpeed = Number.isFinite(ttsSpeed) ? Math.min(4, Math.max(0.25, ttsSpeed)) : 1;
         }
         if (dom.ttsStream) state.settings.ttsStream = !!dom.ttsStream.checked;
+        if (dom.ttsBrowserFallbackEnabled) state.settings.ttsBrowserFallbackEnabled = !!dom.ttsBrowserFallbackEnabled.checked;
         if (dom.ttsResponseFormat) state.settings.ttsResponseFormat = dom.ttsResponseFormat.value || 'mp3';
         state.settings.contextLength = parseInt(dom.contextLength.value) || 20;
         state.settings.maxTokens = parseInt(dom.maxTokens.value) || 1024;
@@ -15835,6 +16110,7 @@ function bindEvents() {
     if (dom.topSettingsBtn) dom.topSettingsBtn.addEventListener('click', openSettings);
     if (dom.settingsCloseBtn) dom.settingsCloseBtn.addEventListener('click', closeSettings);
     if (dom.settingsBackdrop) dom.settingsBackdrop.addEventListener('click', closeSettings);
+    if (dom.downloadTtsWorkerBtn) dom.downloadTtsWorkerBtn.addEventListener('click', downloadTtsWorkerProxyCode);
     if (dom.stPresetImportBtn) dom.stPresetImportBtn.addEventListener('click', function() {
         if (dom.stPresetImportFile) dom.stPresetImportFile.click();
     });
@@ -16356,3 +16632,6 @@ init().then(function() {
 </script>
 </body>
 </html>
+
+
+
