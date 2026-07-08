@@ -14886,6 +14886,7 @@ function renderSpeechIcon(isSpeaking) {
 }
 
 function renderSpeakButton(actualIdx) {
+    if (!isTtsFeatureEnabled()) return '';
     var label = t('speak_msg');
     return '<button class="msg-action-btn speak-btn" data-action="speak" data-msg-idx="' + actualIdx + '" title="' + escapeHtml(label) + '" aria-label="' + escapeHtml(label) + '">' + renderSpeechIcon(false) + '</button>';
 }
@@ -14974,6 +14975,10 @@ function getTtsConfigError() {
 function canUseBrowserSpeechFallback() {
     var settings = ensureTtsSettings();
     return !!settings.ttsBrowserFallbackEnabled;
+}
+
+function isTtsFeatureEnabled() {
+    return canUseTtsApi() || (canUseBrowserSpeechFallback() && 'speechSynthesis' in window);
 }
 
 function fallbackToBrowserSpeech(text, actualIdx, btn, err) {
@@ -15992,6 +15997,7 @@ function bindEvents() {
         dom.settingsModal.classList.remove('hidden');
     }
     function closeSettings() {
+        var prevTtsFeatureEnabled = isTtsFeatureEnabled();
         state.settings.apiEndpoint = dom.apiEndpoint.value.trim();
         state.settings.apiKey = dom.apiKey.value.trim();
         state.settings.saveApiKey = dom.saveApiKey ? !!dom.saveApiKey.checked : false;
@@ -16105,6 +16111,14 @@ function bindEvents() {
 
         // 显式通知 settings 变更
         appStore.notify('settings');
+
+        if (isTtsFeatureEnabled() !== prevTtsFeatureEnabled) {
+            var activeConv = getActiveConv();
+            if (activeConv) {
+                activeConv._lastRenderedVisibleCount = 0;
+                renderMessagesOnly();
+            }
+        }
     }
     if (dom.sidebarSettingsBtn) dom.sidebarSettingsBtn.addEventListener('click', openSettings);
     if (dom.topSettingsBtn) dom.topSettingsBtn.addEventListener('click', openSettings);
