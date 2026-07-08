@@ -1,0 +1,20 @@
+[Unit]
+Description=OpenTavern Cloud Sync Backend
+After=network.target
+
+[Service]
+Type=simple
+User=opentavern
+Group=opentavern
+Environment=OPENTAVERN_SYNC_HOST=127.0.0.1
+Environment=OPENTAVERN_SYNC_PORT=8787
+Environment=OPENTAVERN_SYNC_DB=/var/lib/opentavern-sync/sync.sqlite3
+ExecStart=/usr/bin/python3 /opt/opentavern-sync/opentavern_sync_server.py
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
