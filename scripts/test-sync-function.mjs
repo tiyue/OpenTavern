@@ -14,6 +14,7 @@ function createMockD1() {
     db: {
       async exec() {},
       prepare(sql) {
+        const normalizedSql = String(sql || '').trim().toLowerCase();
         return {
           _bind: [],
           bind(...args) {
@@ -26,6 +27,11 @@ function createMockD1() {
             return row ? { data: row.data, updated_at: row.updated_at } : null;
           },
           async run() {
+            if (normalizedSql.startsWith('delete')) {
+              const key = this._bind[0];
+              const existed = store.delete(key);
+              return { success: true, meta: { changes: existed ? 1 : 0 } };
+            }
             const [key, data, updatedAt] = this._bind;
             store.set(key, { data, updated_at: updatedAt });
             return { success: true };
@@ -36,10 +42,10 @@ function createMockD1() {
   };
 }
 
-function request(method, token, body) {
-  const headers = { 'Content-Type': 'application/json' };
+function request(method, token, body, extraHeaders = {}, url = 'https://example.com/api/sync') {
+  const headers = { 'Content-Type': 'application/json', ...extraHeaders };
   if (token) headers.Authorization = `Bearer ${token}`;
-  return new Request('https://example.com/api/sync', {
+  return new Request(url, {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -6913,16 +6919,33 @@ async function main() {
   const unauthorized = await onRequest({ request: request('GET'), env });
   assert(unauthorized.status === 401, 'Expected missing-token request to be unauthorized.');
 
+  const health = await onRequest({
+    request: request('GET', null, undefined, {}, 'https://example.com/api/sync?health=1'),
+    env,
+  });
+  await assertOk(health, 'health check');
+  const healthJson = await readJson(health);
+  assert(healthJson.service === 'opentavern-sync' && healthJson.methods.includes('DELETE'), 'Health check should expose backend sync capabilities.');
+
+  const preflight = await onRequest({ request: request('OPTIONS'), env });
+  assert(preflight.headers.get('Access-Control-Allow-Methods').includes('DELETE'), 'CORS preflight should allow DELETE sync requests.');
+
   const post = await onRequest({ request: request('POST', tokenA, { data: snapshot }), env });
   await assertOk(post, 'POST');
   const postJson = await readJson(post);
-  assert(postJson.success && postJson.updatedAt, 'POST response missing success metadata.');
+  assert(postJson.success && postJson.updatedAt && postJson.bytes > 0, 'POST response missing success metadata.');
+  assert(post.headers.get('ETag') === `"${postJson.updatedAt}"`, 'POST should expose a sync ETag matching updatedAt.');
+  assert(post.headers.get('X-OpenTavern-Exists') === 'true', 'POST should expose snapshot existence metadata.');
 
   const badArraySnapshot = await onRequest({
     request: request('POST', 'test-token-array', { data: [] }),
     env,
   });
   assert(badArraySnapshot.status === 400, 'Array sync payloads should be rejected.');
+
+  const headA = await onRequest({ request: request('HEAD', tokenA), env });
+  assert(headA.status === 200 && headA.headers.get('X-OpenTavern-Exists') === 'true', 'HEAD should report existing cloud snapshots.');
+  assert(headA.headers.get('ETag') === `"${postJson.updatedAt}"` && Number(headA.headers.get('X-OpenTavern-Data-Bytes')) > 0, 'HEAD should expose sync metadata headers.');
 
   const getA = await onRequest({ request: request('GET', tokenA), env });
   await assertOk(getA, 'GET A');
@@ -6940,11 +6963,50 @@ async function main() {
   assert(getAJson.data.characters.arona.tags.includes('blue-archive'), 'Character card tags were not restored.');
   assert(getAJson.data.worldBooks.wb1, 'World book was not restored.');
   assert(getAJson.data.worldBooks.wb1.entries[0].content === 'Kivotos', 'World book entry was not restored.');
+  assert(getAJson.bytes > 0 && getA.headers.get('X-OpenTavern-Encrypted') === 'false', 'GET should expose payload size and encryption metadata.');
+
+  const stalePost = await onRequest({
+    request: request('POST', tokenA, { data: Object.assign({}, snapshot, { settings: { model: 'stale-write' } }) }, {
+      'X-OpenTavern-If-Match-Updated-At': String(postJson.updatedAt - 1),
+    }),
+    env,
+  });
+  const staleJson = await readJson(stalePost);
+  assert(stalePost.status === 409 && staleJson.currentUpdatedAt === postJson.updatedAt, 'Conditional POST should reject stale cloud snapshot writes.');
+
+  const conditionalPost = await onRequest({
+    request: request('POST', tokenA, { data: Object.assign({}, snapshot, { settings: { model: 'conditional-model' }, lastSaved: 789 }) }, {
+      'If-Match': `"${postJson.updatedAt}"`,
+    }),
+    env,
+  });
+  await assertOk(conditionalPost, 'conditional POST');
+  const conditionalJson = await readJson(conditionalPost);
+  assert(conditionalJson.updatedAt > postJson.updatedAt, 'Conditional POST should advance the backend updatedAt value.');
+
+  const staleDelete = await onRequest({
+    request: request('DELETE', tokenA, undefined, { 'X-OpenTavern-If-Match-Updated-At': String(postJson.updatedAt) }),
+    env,
+  });
+  assert(staleDelete.status === 409, 'Conditional DELETE should reject stale snapshot metadata.');
+
+  const deleteA = await onRequest({
+    request: request('DELETE', tokenA, undefined, { 'X-OpenTavern-If-Match-Updated-At': String(conditionalJson.updatedAt) }),
+    env,
+  });
+  await assertOk(deleteA, 'DELETE A');
+  const deleteAJson = await readJson(deleteA);
+  assert(deleteAJson.deleted === true && deleteAJson.previousUpdatedAt === conditionalJson.updatedAt, 'DELETE should remove existing cloud snapshots and report previous metadata.');
+  const deletedGetA = await onRequest({ request: request('GET', tokenA), env });
+  const deletedGetAJson = await readJson(deletedGetA);
+  assert(deletedGetAJson.data === null && deletedGetA.headers.get('X-OpenTavern-Exists') === 'false', 'Deleted cloud snapshots should no longer be returned.');
 
   const getB = await onRequest({ request: request('GET', tokenB), env });
   await assertOk(getB, 'GET B');
   const getBJson = await readJson(getB);
   assert(getBJson.data === null, 'Different tokens must not share snapshots.');
+  const headB = await onRequest({ request: request('HEAD', tokenB), env });
+  assert(headB.headers.get('X-OpenTavern-Exists') === 'false', 'HEAD should report missing cloud snapshots.');
 
   const partialToken = 'test-token-partial';
   const partialPost = await onRequest({
