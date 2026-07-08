@@ -1,23 +1,26 @@
 // ==================== Cloud Sync Upload ====================
 async function uploadCloudSyncSnapshot(statusEl, options) {
     ensureCloudSyncSettings();
+    disableCloudSyncEncryptionWhenUnavailable(statusEl);
     options = options || {};
-    setCloudSyncPendingStatus(statusEl, 'Uploading...');
-    var snapshot = buildAppDataSnapshot();
+    setCloudSyncPendingStatus(statusEl, '正在上传...');
+    var comparisonSnapshot = options.force ? null : prepareCloudSyncLocalSnapshotForComparison();
+    var snapshot = buildAppDataSnapshot({ skipSettingsFormSync: !options.force });
 
     if (!options.force) {
         var remote = null;
         try {
             remote = await readCloudSyncRemoteSnapshot();
         } catch (err) {
-            console.warn('[CloudSync] remote preflight failed, skipping protected upload:', err && err.message);
-            var verifyMsg = 'Cloud upload skipped: could not verify remote snapshot freshness.';
+            console.warn('[CloudSync] 云端快照预检失败，已跳过受保护上传:', err && err.message);
+            var verifyMsg = '已跳过云端上传：无法确认云端快照是否为最新。';
             setCloudSyncStatus(verifyMsg, true);
             await persistCloudSyncOperationState();
             return { success: false, skipped: true, reason: 'preflight-failed' };
         }
-        if (remote && getCloudSyncFreshness(remote) === 'newer') {
-            var skipMsg = 'Cloud upload skipped: remote snapshot is newer. Use Download or Upload now to overwrite.';
+        var freshness = remote && getCloudSyncFreshness(remote, comparisonSnapshot);
+        if (freshness === 'newer' || freshness === 'newer-by-size') {
+            var skipMsg = '已跳过云端上传：云端快照较新。请先下载，或点击“立即上传”强制覆盖。';
             setCloudSyncStatus(skipMsg, true);
             await persistCloudSyncOperationState();
             return { success: false, skipped: true, reason: 'remote-newer' };
@@ -33,7 +36,7 @@ async function uploadCloudSyncSnapshot(statusEl, options) {
         data: payload
     });
     var when = formatCloudSyncTimestamp(result.updatedAt);
-    var msg = 'Cloud upload complete: ' + when + (payload && payload.encrypted ? ' (encrypted)' : '');
+    var msg = '云端上传完成：' + when + (payload && payload.encrypted ? '（已加密）' : '');
     setCloudSyncStatus(msg, false);
     await persistCloudSyncOperationState();
     return result;

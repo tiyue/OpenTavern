@@ -7,7 +7,7 @@ function appendMyCardActionTiles(grid) {
 
 function createMyCardActionTile(options) {
     const card = document.createElement('div');
-    card.className = 'glass rounded-2xl overflow-hidden cursor-pointer hover:bg-white/5 transition-all border border-dashed border-amber-500/50 flex flex-col items-center justify-center text-center p-4 aspect-[3/4]';
+    card.className = 'my-card-action-tile glass rounded-2xl overflow-hidden cursor-pointer hover:bg-white/5 transition-all border border-dashed border-amber-500/50 flex flex-col items-center justify-center text-center p-4 aspect-[3/4]';
     card.innerHTML = `
         <div class="${options.iconClass}">${options.iconHtml}</div>
         <div class="text-sm font-medium">${options.title}</div>

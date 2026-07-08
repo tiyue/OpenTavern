@@ -96,6 +96,11 @@ async function assertFrontendCloudSnapshot() {
         cloudSyncPassphrase: 'secret-passphrase',
         cloudSyncLastAt: 123456,
         cloudSyncLastStatus: 'last status',
+        systemPrompt: '',
+        postHistoryInstructions: '',
+        twoStageSystemPrompt: '',
+        twoStagePostHistoryInstructions: '',
+        summaryPrompt: '',
       },
       conversations: {
         c1: { id: 'c1', messages: [{ role: 'user', content: 'frontend hello' }] },
@@ -111,12 +116,20 @@ async function assertFrontendCloudSnapshot() {
       _charactersMigrated: true,
     },
     StorageService: { _lastSaveSnapshot: null },
+    dom: {
+      settingsModal: { classList: { contains() { return false; } } },
+      systemPrompt: { value: '  cloud system prompt  ' },
+      postHistoryInstructions: { value: '  cloud post-history prompt  ' },
+      twoStageSystemPrompt: { value: '  cloud second-stage system prompt  ' },
+      twoStagePostHistoryInstructions: { value: '  cloud second-stage post prompt  ' },
+      summaryPrompt: { value: '  cloud summary prompt  ' },
+    },
     console,
     Date,
     JSON,
   };
 
-  vm.runInNewContext(`${compatSource}\n${cloudSource}\nthis.__freshness = getCloudSyncFreshness;`, context);
+  vm.runInNewContext(`${compatSource}\n${cloudSource}\nthis.__freshness = getCloudSyncFreshness;\nthis.__prepareLocal = prepareCloudSyncLocalSnapshotForComparison;\nthis.__bytes = getCloudSyncSerializedBytes;\nthis.__conversationBytes = getCloudSyncConversationSerializedBytes;`, context);
   const snapshot = context.buildAppDataSnapshot();
 
   assert(snapshot.settings.model === 'frontend-model', 'Frontend cloud snapshot did not include settings.');
@@ -126,6 +139,11 @@ async function assertFrontendCloudSnapshot() {
   assert(snapshot.settings.cloudSyncPassphrase === '', 'Frontend cloud snapshot must strip the cloud sync passphrase.');
   assert(snapshot.settings.cloudSyncLastAt === 0, 'Frontend cloud snapshot must strip transient cloud sync timestamps.');
   assert(snapshot.settings.cloudSyncLastStatus === '', 'Frontend cloud snapshot must strip transient cloud status.');
+  assert(snapshot.settings.systemPrompt === 'cloud system prompt', 'Frontend cloud snapshot should include non-empty custom system prompts from the visible settings form.');
+  assert(snapshot.settings.postHistoryInstructions === 'cloud post-history prompt', 'Frontend cloud snapshot should include non-empty post-history prompts from the visible settings form.');
+  assert(snapshot.settings.twoStageSystemPrompt === 'cloud second-stage system prompt', 'Frontend cloud snapshot should include non-empty second-stage system prompts from the visible settings form.');
+  assert(snapshot.settings.twoStagePostHistoryInstructions === 'cloud second-stage post prompt', 'Frontend cloud snapshot should include non-empty second-stage post-history prompts from the visible settings form.');
+  assert(snapshot.settings.summaryPrompt === 'cloud summary prompt', 'Frontend cloud snapshot should include non-empty summary prompts from the visible settings form.');
   assert(snapshot.conversations.c1.messages[0].content === 'frontend hello', 'Frontend cloud snapshot did not include chat history.');
   assert(snapshot.conversationOrder[0] === 'c1', 'Frontend cloud snapshot did not include conversation order.');
   assert(snapshot.activeConvId === 'c1', 'Frontend cloud snapshot did not include active conversation id.');
@@ -142,9 +160,29 @@ async function assertFrontendCloudSnapshot() {
   assert(snapshot.characters.arona.first_mes === 'Sensei!', 'Frontend cloud snapshot should not retain live character card references.');
   assert(snapshot.worldBooks.wb1.entries[0].content === 'Kivotos', 'Frontend cloud snapshot should not retain live world book references.');
   assert(context.__freshness({ lastSaved: 1000 }) === 'newer', 'Cloud freshness should treat a timestamped remote snapshot as newer when no local snapshot is known.');
-  context.StorageService._lastSaveSnapshot = { lastSaved: 2500 };
+  context.StorageService._lastSaveSnapshot = { lastSaved: 2500, settings: { apiKey: 'stored-secret', cloudSyncToken: 'stored-token' } };
   assert(context.__freshness({ lastSaved: 1000 }) === 'older', 'Cloud freshness should compare against the loaded local snapshot timestamp.');
   assert(context.__freshness({ lastSaved: 2000 }) === 'same', 'Cloud freshness should tolerate small timestamp drift.');
+  const comparableLocal = context.__prepareLocal();
+  assert(comparableLocal.lastSaved === 2500, 'Cloud comparison snapshot should keep the stored local timestamp.');
+  assert(comparableLocal.settings.apiKey === '' && comparableLocal.settings.cloudSyncToken === '', 'Cloud comparison snapshot should use cloud-safe settings.');
+  const localBytes = context.__conversationBytes(comparableLocal);
+  assert(localBytes > 0, 'Cloud freshness should be able to measure local conversation bytes.');
+  const remoteLarger = JSON.parse(JSON.stringify(comparableLocal));
+  remoteLarger.lastSaved = 1000;
+  remoteLarger.conversations.c2 = { id: 'c2', messages: [{ role: 'user', content: 'larger remote conversation payload'.repeat(10) }] };
+  remoteLarger.conversationOrder.push('c2');
+  assert(context.__freshness(remoteLarger, comparableLocal) === 'newer-by-size', 'Cloud freshness should use remote conversation byte size before timestamps.');
+  const remoteSmaller = { lastSaved: 4000, conversations: {}, conversationOrder: [], activeConvId: null };
+  assert(context.__freshness(remoteSmaller, comparableLocal) === 'older-by-size', 'Cloud freshness should use local conversation byte size before timestamps.');
+  const remoteSameSize = JSON.parse(JSON.stringify(comparableLocal));
+  assert(context.__freshness(remoteSameSize, comparableLocal) === 'same', 'Cloud freshness should fall back to timestamp comparison when conversation sizes match.');
+  remoteSameSize.lastSaved = 4000;
+  assert(context.__freshness(remoteSameSize, comparableLocal) === 'newer', 'Cloud freshness should use timestamps when conversation sizes match.');
+  const encryptedRemote = JSON.parse(JSON.stringify(remoteLarger));
+  encryptedRemote.lastSaved = 2500;
+  encryptedRemote.encrypted = true;
+  assert(context.__freshness(encryptedRemote, comparableLocal) === 'same', 'Cloud freshness should not compare encrypted envelope bytes with plain local snapshots.');
 }
 
 async function assertFrontendAppDialogHelpers() {
@@ -314,22 +352,39 @@ async function assertFrontendStatePersistenceHelpers() {
   assert(saved[0].worldBooks.wb1.id === 'wb1' && saved[0].characters.arona.name === 'Arona', 'Immediate persist should include world books and character cards.');
   assert(saved[0].charactersMigrated === true && saved[0].lastSaved === 123456, 'Immediate persist should include migration and timestamp metadata.');
   assert(context.StorageService._lastSaveSnapshot.activeConvId === 'c1', 'Persist should cache the latest snapshot before async storage completes.');
-  assert(events.includes('storage-info') && events.includes('cloud-upload'), 'Immediate persist should refresh storage status and schedule cloud upload.');
+  assert(events.includes('storage-info') && !events.includes('cloud-upload'), 'Initial persist should refresh storage status without auto uploading unchanged conversations.');
+
+  events.length = 0;
+  now = 222222;
+  context.state.settings.model = 'settings-only-change';
+  await context.__persist(true);
+  assert(saved.length === 2 && saved[1].lastSaved === 222222, 'Settings-only persists should still save local state.');
+  assert(events.includes('storage-info') && !events.includes('cloud-upload'), 'Settings-only persists should not schedule automatic cloud upload.');
+
+  events.length = 0;
+  now = 333333;
+  context.state.conversations.c1.messages.push({ content: 'conversation changed' });
+  await context.__persist(true);
+  assert(saved.length === 3 && saved[2].conversations.c1.messages.length === 2, 'Conversation persists should save changed messages.');
+  assert(events.includes('cloud-upload'), 'Conversation changes should schedule automatic cloud upload.');
 
   now = 999999;
   await context.__persist(true, { preserveLastSaved: true });
-  assert(saved.length === 2 && saved[1].lastSaved === 123456, 'Status-only persists should preserve the previous snapshot freshness timestamp.');
+  assert(saved.length === 4 && saved[3].lastSaved === 333333, 'Status-only persists should preserve the previous snapshot freshness timestamp.');
 
   await context.__persist(true, { lastSaved: 6000 });
-  assert(saved.length === 3 && saved[2].lastSaved === 6000, 'Explicit snapshot timestamps should be preserved when applying remote data.');
+  assert(saved.length === 5 && saved[4].lastSaved === 6000, 'Explicit snapshot timestamps should be preserved when applying remote data.');
 
+  events.length = 0;
+  context.state.conversations.c1.messages.push({ content: 'debounced conversation change' });
   await context.__persist(false);
   await context.__persist(false);
   assert(timeouts.length === 2 && timeouts[0].delay === 450 && timeouts[1].delay === 450, 'Debounced persist should schedule saves with the storage debounce delay.');
   assert(cleared.includes('timeout-0'), 'Debounced persist should clear the previous pending save.');
   timeouts[1].handler();
-  await Promise.resolve();
-  assert(saved.length === 4, 'Debounced persist handler should eventually save the snapshot.');
+  for (let i = 0; i < 3; i++) await Promise.resolve();
+  assert(saved.length === 6, 'Debounced persist handler should eventually save the snapshot.');
+  assert(events.includes('cloud-upload'), 'Debounced conversation changes should still schedule automatic cloud upload.');
 }
 
 async function assertFrontendWebGLBackgroundHelpers() {
@@ -450,6 +505,13 @@ async function assertFrontendCloudSnapshotApply() {
   const persistCalls = [];
   let notified = null;
   let rendered = false;
+  const promptControls = {
+    systemPrompt: { value: 'old system prompt' },
+    postHistoryInstructions: { value: 'old post prompt' },
+    twoStageSystemPrompt: { value: 'old second system prompt' },
+    twoStagePostHistoryInstructions: { value: 'old second post prompt' },
+    summaryPrompt: { value: 'old summary prompt' },
+  };
   const context = {
     state: {
       settings: {
@@ -462,6 +524,11 @@ async function assertFrontendCloudSnapshotApply() {
         saveApiKey: true,
         apiKey: 'local-api-key',
         summarizeApiKey: 'local-summary-key',
+        systemPrompt: 'local system prompt',
+        postHistoryInstructions: 'local post prompt',
+        twoStageSystemPrompt: 'local second system prompt',
+        twoStagePostHistoryInstructions: 'local second post prompt',
+        summaryPrompt: 'local summary prompt',
       },
       conversations: {},
       conversationOrder: [],
@@ -479,7 +546,35 @@ async function assertFrontendCloudSnapshotApply() {
       cloudSyncPassphrase: '',
       cloudSyncLastAt: 0,
       cloudSyncLastStatus: '',
+      systemPrompt: '',
+      postHistoryInstructions: '',
+      twoStageSystemPrompt: 'default second system prompt',
+      twoStagePostHistoryInstructions: '',
+      summaryPrompt: '',
     }),
+    dom: {
+      settingsModal: { classList: { contains() { return false; } } },
+      ...promptControls,
+    },
+    hydratePrimaryApiSettings() {},
+    hydrateGenerationSettings() {},
+    hydratePromptSettings() {
+      promptControls.systemPrompt.value = context.state.settings.systemPrompt || '';
+      promptControls.postHistoryInstructions.value = context.state.settings.postHistoryInstructions || '';
+    },
+    hydrateTwoStageSettings() {
+      promptControls.twoStageSystemPrompt.value = context.state.settings.twoStageSystemPrompt || '';
+      promptControls.twoStagePostHistoryInstructions.value = context.state.settings.twoStagePostHistoryInstructions || '';
+    },
+    hydrateSillyTavernPresetSettings() {},
+    hydrateSummarySettings() {
+      promptControls.summaryPrompt.value = context.state.settings.summaryPrompt || '';
+    },
+    hydrateWorldInfoBudgetSettings() {},
+    hydrateThemePerformanceSettings() {},
+    hydrateSummarizationApiSettings() {},
+    hydrateComfySettingsControls() {},
+    bindWebLLMSettingsControls() {},
     normalizeConversation(conv) { conv.normalized = true; },
     defaultConversation() { return { id: 'default', messages: [] }; },
     persistState(force, options) {
@@ -505,6 +600,11 @@ async function assertFrontendCloudSnapshotApply() {
       saveApiKey: false,
       apiKey: '',
       summarizeApiKey: '',
+      systemPrompt: 'remote system prompt',
+      postHistoryInstructions: 'remote post prompt',
+      twoStageSystemPrompt: 'remote second system prompt',
+      twoStagePostHistoryInstructions: 'remote second post prompt',
+      summaryPrompt: 'remote summary prompt',
     },
     conversations: { c1: { id: 'c1', messages: [{ role: 'user', content: 'hello cloud' }] } },
     conversationOrder: ['c1'],
@@ -522,6 +622,12 @@ async function assertFrontendCloudSnapshotApply() {
   assert(context.state.settings.saveApiKey === true, 'Cloud apply must preserve the local API key persistence setting.');
   assert(context.state.settings.apiKey === 'local-api-key', 'Cloud apply must preserve the local main API key.');
   assert(context.state.settings.summarizeApiKey === 'local-summary-key', 'Cloud apply must preserve the local summary API key.');
+  assert(context.state.settings.systemPrompt === 'remote system prompt', 'Cloud apply did not restore the remote system prompt.');
+  assert(promptControls.systemPrompt.value === 'remote system prompt', 'Cloud apply should refresh the visible system prompt field.');
+  assert(promptControls.postHistoryInstructions.value === 'remote post prompt', 'Cloud apply should refresh the visible post-history prompt field.');
+  assert(promptControls.twoStageSystemPrompt.value === 'remote second system prompt', 'Cloud apply should refresh the visible second-stage system prompt field.');
+  assert(promptControls.twoStagePostHistoryInstructions.value === 'remote second post prompt', 'Cloud apply should refresh the visible second-stage post-history prompt field.');
+  assert(promptControls.summaryPrompt.value === 'remote summary prompt', 'Cloud apply should refresh the visible summary prompt field.');
   assert(context.state.conversations.c1.normalized === true, 'Cloud apply did not normalize restored conversations.');
   assert(context.state.conversations.c1.messages[0].content === 'hello cloud', 'Cloud apply did not restore chat history.');
   assert(context.state.characters.arona.name === 'Arona', 'Cloud apply did not restore character cards.');
@@ -781,12 +887,13 @@ async function assertFrontendCloudSyncOperations() {
     },
     ensureCloudSyncSettings() { events.push('ensure'); return context.state.settings; },
     buildAppDataSnapshot() { events.push('snapshot'); return localSnapshot; },
+    prepareCloudSyncLocalSnapshotForComparison() { events.push('prepare'); return localSnapshot; },
     readCloudSyncRemoteSnapshot() {
       events.push('read');
       if (context.readFails) throw new Error('offline');
       return context.remoteSnapshot;
     },
-    getCloudSyncFreshness(remote) { events.push(`fresh:${remote && remote.freshness || 'same'}`); return (remote && remote.freshness) || 'same'; },
+    getCloudSyncFreshness(remote, local) { events.push(`fresh:${remote && remote.freshness || 'same'}:${local ? 'local' : 'none'}`); return (remote && remote.freshness) || 'same'; },
     async encryptCloudSyncSnapshot(snapshot) {
       events.push('encrypt');
       return Object.assign({ encrypted: !!context.encryptAsEncrypted }, snapshot);
@@ -830,7 +937,7 @@ async function assertFrontendCloudSyncOperations() {
   assert(capturedRequest.payload.data.settings.model === 'cloud-model', 'Cloud upload should include settings.');
   assert(capturedRequest.payload.data.characters.arona.name === 'Arona', 'Cloud upload should include character cards.');
   assert(capturedRequest.payload.data.worldBooks.wb1.id === 'wb1', 'Cloud upload should include world books.');
-  assert(events.some((event) => event.startsWith('status:ok:Cloud upload complete')) && events.includes('persist:true:true'), 'Cloud upload should report success and persist status.');
+  assert(events.some((event) => event.startsWith('status:ok:云端上传完成')) && events.includes('persist:true:true'), 'Cloud upload should report success and persist status.');
 
   events.length = 0;
   capturedRequest = null;
@@ -848,6 +955,12 @@ async function assertFrontendCloudSyncOperations() {
   assert(events.includes('persist:true:true') && events.includes('preserve-last-saved'), 'Protected cloud upload remote-newer skips should persist the status without changing snapshot freshness.');
 
   events.length = 0;
+  capturedRequest = null;
+  context.remoteSnapshot = { freshness: 'newer-by-size', lastSaved: 1000 };
+  const skippedBySize = await context.__upload(explicitStatus, { force: false });
+  assert(skippedBySize.skipped === true && skippedBySize.reason === 'remote-newer' && capturedRequest === null, 'Protected cloud upload should skip when the remote snapshot wins by byte size.');
+
+  events.length = 0;
   context.remoteSnapshot = { freshness: 'same', lastSaved: 1000 };
   const synced = await context.__sync(null);
   assert(synced.upToDate === true && events.includes('persist:true:true'), 'Cloud sync should persist status when local and remote snapshots are already in sync.');
@@ -862,6 +975,22 @@ async function assertFrontendCloudSyncOperations() {
   const syncDownloaded = await context.__sync(explicitStatus);
   assert(syncDownloaded.lastSaved === 7000 && appliedSnapshot === syncDownloaded, 'Cloud sync should apply the newer remote snapshot.');
   assert(events.filter((event) => event === 'read').length === 1, 'Cloud sync should reuse the preflight remote snapshot instead of reading twice.');
+
+  events.length = 0;
+  appliedSnapshot = null;
+  context.remoteSnapshot = {
+    freshness: 'newer-by-size',
+    lastSaved: 7000,
+    data: { lastSaved: 7000, settings: { model: 'larger-cloud' }, conversations: {}, characters: {}, worldBooks: {} },
+  };
+  const syncDownloadedBySize = await context.__sync(explicitStatus);
+  assert(syncDownloadedBySize.settings.model === 'larger-cloud' && appliedSnapshot === syncDownloadedBySize, 'Cloud sync should download when the remote snapshot wins by byte size.');
+
+  events.length = 0;
+  capturedRequest = null;
+  context.remoteSnapshot = { freshness: 'older-by-size', lastSaved: 1000 };
+  const syncUploadedBySize = await context.__sync(explicitStatus);
+  assert(syncUploadedBySize.success === true && capturedRequest.method === 'POST', 'Cloud sync should upload when the local snapshot wins by byte size.');
 
   events.length = 0;
   appliedSnapshot = null;
@@ -933,7 +1062,7 @@ async function assertFrontendCloudSyncScheduler() {
   for (let i = 0; i < 5; i++) await Promise.resolve();
 
   assert(events.includes('upload'), 'Cloud sync scheduler should attempt the auto upload.');
-  assert(events.some((event) => event.includes('Cloud auto upload failed: network down')), 'Cloud sync scheduler should report auto upload failures.');
+  assert(events.some((event) => event.includes('云端自动上传失败：network down')), 'Cloud sync scheduler should report auto upload failures.');
   assert(events.includes('persist:true:true:true'), 'Cloud sync scheduler should persist failure status while preserving snapshot freshness.');
   assert(context.__saving() === false, 'Cloud sync scheduler should restore the saving guard after failure status persistence.');
 }
@@ -4416,11 +4545,12 @@ async function assertFrontendConversationListUI() {
     dom: { convList },
     state: {
       activeConvId: 'c2',
-      conversationOrder: ['c1', 'c2', 'g1', 'other', 'missing'],
+      conversationOrder: ['c1', 'c2', 'g1', 'legacy', 'other', 'missing'],
       conversations: {
         c1: { title: 'Arona chat', character: { name: 'Arona' }, created: 1000, updated: 1000 },
         c2: { title: 'Active Plana chat', character: { name: 'Plana' }, created: 2000, updated: 2000 },
         g1: { title: 'Group chat', group: { members: [{ character: { name: 'Arona' } }] }, created: 3000, updated: 3000 },
+        legacy: { title: 'Legacy chat', character: { name: 'Arona' }, messages: [{ createdAt: 5000, content: 'latest legacy' }] },
         other: { title: 'Other chat', character: { name: 'Other' }, created: 4000, updated: 4000 },
       },
     },
@@ -4447,12 +4577,13 @@ async function assertFrontendConversationListUI() {
   vm.runInNewContext(`${sources.join('\n')}\nthis.__visible = getVisibleConversationListOrder;\nthis.__empty = buildConversationListEmptyHtml;\nthis.__item = buildConversationListItemHtml;\nthis.__render = renderConversationList;`, context);
 
   const visibleOrder = context.__visible();
-  assert(visibleOrder.join(',') === 'c1,c2,g1', 'Conversation list helper should keep matching character, active, and group conversations.');
+  assert(visibleOrder.join(',') === 'legacy,g1,c2,c1', 'Conversation list helper should sort matching conversations by timestamp descending.');
   assert(context.__item('c1', context.state.conversations.c1, false).includes('data-exp-id="c1"'), 'Conversation list helper should render export actions for rows.');
   context.__render();
+  assert(convList.innerHTML.indexOf('data-conv-id="legacy"') < convList.innerHTML.indexOf('data-conv-id="g1"'), 'Conversation list should render newer timestamped conversations first.');
   assert(convList.innerHTML.includes('data-conv-id="c1"') && convList.innerHTML.includes('data-conv-id="c2"') && convList.innerHTML.includes('data-conv-id="g1"'), 'Conversation list should include matching character, active, and group conversations in chat view.');
   assert(!convList.innerHTML.includes('Other chat'), 'Conversation list should filter unrelated conversations in chat view.');
-  assert(context.state.conversationOrder.join(',') === 'c1,c2,g1,other,missing', 'Conversation list render should not mutate conversation order.');
+  assert(context.state.conversationOrder.join(',') === 'c1,c2,g1,legacy,other,missing', 'Conversation list render should not mutate conversation order.');
 
   convRows[0].listeners.click({});
   deleteRows[0].listeners.click({ stopPropagation() { events.push('stop-delete'); } });

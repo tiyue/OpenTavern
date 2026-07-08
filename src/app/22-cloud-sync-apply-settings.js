@@ -2,7 +2,7 @@
 function getCloudSyncLocalSettingsForRestore() {
     var local = {
         cloudSyncLastAt: Date.now(),
-        cloudSyncLastStatus: 'Cloud download applied.'
+        cloudSyncLastStatus: '云端下载已应用。'
     };
     [
         'apiKey',

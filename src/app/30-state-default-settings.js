@@ -56,6 +56,7 @@ function defaultSettings() {
         cloudSyncEncrypted: false,
         cloudSyncPassphrase: '',
         cloudSyncLastAt: 0,
-        cloudSyncLastStatus: ''
+        cloudSyncLastStatus: '',
+        myCardOrder: []
     };
 }

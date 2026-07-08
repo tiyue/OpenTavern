@@ -13,4 +13,7 @@ async function initState() {
     applyApiKeyPersistencePolicy();
     migrateCharacterRegistryOnStartup();
     ensureActiveConversationOnStartup();
+    if (typeof rememberCloudSyncConversationBaseline === 'function') {
+        rememberCloudSyncConversationBaseline();
+    }
 }

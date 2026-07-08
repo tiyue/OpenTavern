@@ -2,15 +2,19 @@
 async function encryptCloudSyncSnapshot(snapshot) {
     var s = ensureCloudSyncSettings();
     if (!s.cloudSyncEncrypted) return snapshot;
-    var passphrase = String(s.cloudSyncPassphrase || '');
-    if (passphrase.length < 8) throw new Error('Encryption passphrase must be at least 8 characters.');
 
-    var salt = crypto.getRandomValues(new Uint8Array(16));
-    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var passphrase = String(s.cloudSyncPassphrase || '');
+    if (passphrase.length < 8) throw new Error('加密密码至少需要 8 个字符。');
+
+    var cryptoApi = getCloudSyncWebCryptoApi();
+    if (!cryptoApi) throw new Error(getCloudSyncWebCryptoUnavailableMessage());
+
+    var salt = cryptoApi.getRandomValues(new Uint8Array(16));
+    var iv = cryptoApi.getRandomValues(new Uint8Array(12));
     var iterations = 210000;
     var key = await deriveCloudSyncKey(passphrase, salt, iterations);
     var plaintext = new TextEncoder().encode(JSON.stringify(snapshot));
-    var cipher = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, plaintext));
+    var cipher = new Uint8Array(await cryptoApi.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, plaintext));
 
     return {
         encrypted: true,

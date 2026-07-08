@@ -9,8 +9,8 @@ function scheduleCloudSyncUpload() {
     _cloudSyncUploadTimer = setTimeout(function() {
         _cloudSyncUploadTimer = null;
         uploadCloudSyncSnapshot(null, { force: false }).catch(function(err) {
-            console.warn('[CloudSync] auto upload failed:', err && err.message);
-            setCloudSyncStatus('Cloud auto upload failed: ' + ((err && err.message) || err), true);
+            console.warn('[CloudSync] 自动上传失败:', err && err.message);
+            setCloudSyncStatus('云端自动上传失败：' + ((err && err.message) || err), true);
             persistCloudSyncStatusSilently();
         });
     }, 2500);

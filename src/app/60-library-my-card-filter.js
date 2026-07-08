@@ -8,7 +8,10 @@ function buildMyLibraryCharacterFilterCard(character) {
 }
 
 function getFilteredMyLibraryCharacters() {
-    return Object.values(state.characters || {}).filter(function(character) {
+    var characters = typeof getOrderedMyLibraryCharacters === 'function'
+        ? getOrderedMyLibraryCharacters()
+        : Object.values(state.characters || {});
+    return characters.filter(function(character) {
         return passesLibraryFilter(buildMyLibraryCharacterFilterCard(character));
     });
 }

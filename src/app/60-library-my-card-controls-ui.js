@@ -41,7 +41,6 @@ async function confirmAndDeleteMyCharacterCard(char) {
 function isMyCharacterCardControlClick(e) {
     return !!(
         e.target.closest('.char-img-btn') ||
-        e.target.closest('.char-delete-btn') ||
-        e.target.closest('button[title="移除角色卡"]')
+        e.target.closest('.char-delete-btn')
     );
 }

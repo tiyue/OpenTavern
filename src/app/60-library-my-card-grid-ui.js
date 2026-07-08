@@ -3,9 +3,8 @@ function renderMyCards() {
     if (!grid) return;
 
     grid.innerHTML = '';
-    appendMyCardActionTiles(grid);
-
     getFilteredMyLibraryCharacters().forEach(char => {
         grid.appendChild(createMyLibraryCharacterCard(char));
     });
+    appendMyCardActionTiles(grid);
 }

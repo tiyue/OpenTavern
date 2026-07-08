@@ -309,6 +309,7 @@
   "60-library-my-card-action-helpers.js",
   "60-library-my-card-actions-ui.js",
   "60-library-my-card-control-helpers.js",
+  "60-library-my-card-order.js",
   "60-library-my-card-controls-ui.js",
   "60-library-my-card-preview-ui.js",
   "60-library-my-card-info-ui.js",

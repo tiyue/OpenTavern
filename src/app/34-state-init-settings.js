@@ -47,6 +47,9 @@ function ensureStateSettingDefaults() {
     if (typeof state.settings.summaryPrompt !== 'string') {
         state.settings.summaryPrompt = '';
     }
+    if (!Array.isArray(state.settings.myCardOrder)) {
+        state.settings.myCardOrder = [];
+    }
 }
 
 function applyStartupUiPreferences() {

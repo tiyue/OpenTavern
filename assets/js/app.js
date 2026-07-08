@@ -3832,6 +3832,8 @@ async function getWebLLMUsedSize(options = {}) {
 }
 // ==================== Cloud Sync Settings & Snapshot ====================
 var _cloudSyncSavingStatus = false;
+var CLOUD_SYNC_TIME_TOLERANCE_MS = 1000;
+var CLOUD_SYNC_SIZE_TOLERANCE_BYTES = 32;
 
 function ensureCloudSyncSettings() {
     if (!state.settings) state.settings = defaultSettings();
@@ -3861,7 +3863,9 @@ function ensureCloudSyncSettings() {
     return state.settings;
 }
 
-function buildAppDataSnapshot() {
+function buildAppDataSnapshot(options) {
+    options = options || {};
+    if (!options.skipSettingsFormSync) syncOpenSettingsFormForCloudSnapshot();
     return {
         settings: getSafeSettingsForCloudSync(),
         conversations: cloneCloudSyncSnapshotValue(state.conversations, {}),
@@ -3870,8 +3874,78 @@ function buildAppDataSnapshot() {
         worldBooks: cloneCloudSyncSnapshotValue(state.worldBooks, {}),
         characters: cloneCloudSyncSnapshotValue(state.characters, {}),
         charactersMigrated: !!state._charactersMigrated,
-        lastSaved: Date.now()
+        lastSaved: Number.isFinite(Number(options.lastSaved)) ? Number(options.lastSaved) : Date.now()
     };
+}
+
+function syncOpenSettingsFormForCloudSnapshot() {
+    if (!state.settings || !isSettingsModalVisibleForCloudSnapshot()) return;
+    if (typeof readSettingsFormIntoState === 'function') {
+        readSettingsFormIntoState();
+        return;
+    }
+    syncNonEmptyPromptSettingsForCloudSnapshot();
+}
+
+function syncNonEmptyPromptSettingsForCloudSnapshot() {
+    [
+        'systemPrompt',
+        'postHistoryInstructions',
+        'twoStageSystemPrompt',
+        'twoStagePostHistoryInstructions',
+        'summaryPrompt'
+    ].forEach(function(key) {
+        copyNonEmptyPromptControlToCloudSettings(key);
+    });
+}
+
+function isSettingsModalVisibleForCloudSnapshot() {
+    return !!(
+        typeof dom !== 'undefined' &&
+        dom.settingsModal &&
+        dom.settingsModal.classList &&
+        !dom.settingsModal.classList.contains('hidden')
+    );
+}
+
+function copyNonEmptyPromptControlToCloudSettings(key) {
+    if (typeof dom === 'undefined' || !dom[key]) return;
+    var value = String(dom[key].value || '').trim();
+    if (value) state.settings[key] = value;
+}
+
+function prepareCloudSyncLocalSnapshotForComparison() {
+    var storedSnapshot = getCloudSyncStoredLocalSnapshotForComparison();
+    var storedLastSaved = getCloudSyncSnapshotLastSaved(storedSnapshot);
+    var beforeSettings = getCloudSyncComparableSettingsText();
+    if (state.settings && isSettingsModalVisibleForCloudSnapshot() && typeof readSettingsFormIntoState === 'function') {
+        readSettingsFormIntoState();
+    } else if (state.settings && isSettingsModalVisibleForCloudSnapshot()) {
+        syncNonEmptyPromptSettingsForCloudSnapshot();
+    }
+    var afterSettings = getCloudSyncComparableSettingsText();
+    if (beforeSettings !== afterSettings) {
+        return buildAppDataSnapshot({ skipSettingsFormSync: true, lastSaved: Date.now() });
+    }
+    return buildAppDataSnapshot({ skipSettingsFormSync: true, lastSaved: storedLastSaved });
+}
+
+function getCloudSyncComparableSettingsText() {
+    try {
+        return JSON.stringify(getSafeSettingsForCloudSync());
+    } catch (_) {
+        return '';
+    }
+}
+
+function getCloudSyncStoredLocalSnapshotForComparison() {
+    var snapshot = StorageService && StorageService._lastSaveSnapshot;
+    if (snapshot && typeof snapshot === 'object') return snapshot;
+    return null;
+}
+
+function getCloudSyncSnapshotLastSaved(snapshot) {
+    return Number(snapshot && snapshot.lastSaved || 0) || 0;
 }
 
 function cloneCloudSyncSnapshotValue(value, fallback) {
@@ -3885,13 +3959,58 @@ function getCloudSyncEndpoint() {
 }
 
 function getCloudSyncFreshness(remote) {
-    var remoteTime = Number(remote && remote.lastSaved || 0) || 0;
-    var localTime = Number(StorageService && StorageService._lastSaveSnapshot && StorageService._lastSaveSnapshot.lastSaved || 0) || 0;
+    var localSnapshot = arguments.length > 1 ? arguments[1] : getCloudSyncStoredLocalSnapshotForComparison();
+    var sizeFreshness = getCloudSyncConversationSizeFreshness(remote, localSnapshot);
+    if (sizeFreshness) return sizeFreshness;
+
+    var remoteTime = getCloudSyncSnapshotLastSaved(remote);
+    var localTime = getCloudSyncSnapshotLastSaved(localSnapshot);
     if (!remoteTime) return 'unknown';
     if (!localTime) return 'newer';
-    if (remoteTime > localTime + 1000) return 'newer';
-    if (remoteTime < localTime - 1000) return 'older';
+    if (remoteTime > localTime + CLOUD_SYNC_TIME_TOLERANCE_MS) return 'newer';
+    if (remoteTime < localTime - CLOUD_SYNC_TIME_TOLERANCE_MS) return 'older';
     return 'same';
+}
+
+function canCompareCloudSyncSnapshotBytes(remote) {
+    if (remote && remote.encrypted === true) return false;
+    return !(state && state.settings && state.settings.cloudSyncEncrypted);
+}
+
+function getCloudSyncConversationSizeFreshness(remote, localSnapshot) {
+    if (!canCompareCloudSyncSnapshotBytes(remote)) return '';
+    var remoteBytes = getCloudSyncConversationSerializedBytes(remote);
+    var localBytes = getCloudSyncConversationSerializedBytes(localSnapshot);
+    if (remoteBytes <= 0 || localBytes <= 0) return '';
+    var byteDiff = remoteBytes - localBytes;
+    if (Math.abs(byteDiff) <= CLOUD_SYNC_SIZE_TOLERANCE_BYTES) return '';
+    return byteDiff > 0 ? 'newer-by-size' : 'older-by-size';
+}
+
+function getCloudSyncRemoteBytes(remote) {
+    return Number(remote && remote.__cloudSyncBytes || 0) || 0;
+}
+
+function getCloudSyncSerializedBytes(value) {
+    if (!value) return 0;
+    try {
+        var text = JSON.stringify(value);
+        if (typeof TextEncoder !== 'undefined') {
+            return new TextEncoder().encode(text).length;
+        }
+        return text.length;
+    } catch (_) {
+        return 0;
+    }
+}
+
+function getCloudSyncConversationSerializedBytes(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return 0;
+    return getCloudSyncSerializedBytes({
+        conversations: snapshot.conversations || {},
+        conversationOrder: Array.isArray(snapshot.conversationOrder) ? snapshot.conversationOrder : [],
+        activeConvId: snapshot.activeConvId || null
+    });
 }
 // ==================== Cloud Sync Snapshot Normalization ====================
 function isCloudSyncObjectMap(value) {
@@ -3951,7 +4070,7 @@ function normalizeCloudSyncActiveConversation(data) {
 function normalizeCloudSyncSnapshot(raw) {
     var data = raw && raw.data !== undefined ? raw.data : raw;
     if (data && data.snapshot !== undefined) data = data.snapshot;
-    if (!isCloudSyncObjectMap(data)) throw new Error('Cloud snapshot is empty or invalid.');
+    if (!isCloudSyncObjectMap(data)) throw new Error('云端快照为空或格式无效。');
     if (data.encrypted === true) return data;
 
     data.settings = normalizeCloudSyncObjectMap(data.settings);
@@ -3973,21 +4092,21 @@ function getCloudSyncEnvelopeIterations(envelope) {
     var raw = envelope && envelope.iterations;
     var iterations = (raw === undefined || raw === null || raw === '') ? 210000 : Number(raw);
     if (!Number.isFinite(iterations) || iterations < 1) {
-        throw new Error('Invalid encrypted cloud snapshot metadata.');
+        throw new Error('加密云端快照元数据无效。');
     }
     return Math.floor(iterations);
 }
 
 function validateCloudSyncEncryptedEnvelope(envelope) {
     if (envelope.algorithm !== 'AES-GCM') {
-        throw new Error('Unsupported cloud snapshot encryption algorithm.');
+        throw new Error('不支持的云端快照加密算法。');
     }
     if (
         !isCloudSyncNonEmptyString(envelope.payload) ||
         !isCloudSyncNonEmptyString(envelope.iv) ||
         !isCloudSyncNonEmptyString(envelope.salt)
     ) {
-        throw new Error('Invalid encrypted cloud snapshot metadata.');
+        throw new Error('加密云端快照元数据无效。');
     }
     getCloudSyncEnvelopeIterations(envelope);
 }
@@ -4008,17 +4127,36 @@ function base64ToBytes(text) {
     return bytes;
 }
 // ==================== Cloud Sync Key Derivation ====================
+function getCloudSyncWebCryptoApi() {
+    if (typeof crypto !== 'undefined' && crypto && crypto.subtle && crypto.getRandomValues) {
+        return crypto;
+    }
+    if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle && window.crypto.getRandomValues) {
+        return window.crypto;
+    }
+    return null;
+}
+
+function isCloudSyncWebCryptoAvailable() {
+    return !!getCloudSyncWebCryptoApi();
+}
+
+function getCloudSyncWebCryptoUnavailableMessage() {
+    return '当前页面不支持浏览器加密同步。HTTP/IP 访问通常无法使用 WebCrypto；请关闭“加密上传内容”，或改用 HTTPS 域名后再开启加密。';
+}
+
 async function deriveCloudSyncKey(passphrase, salt, iterations) {
-    if (!window.crypto || !crypto.subtle) throw new Error('WebCrypto is required for encrypted cloud sync.');
+    var cryptoApi = getCloudSyncWebCryptoApi();
+    if (!cryptoApi) throw new Error(getCloudSyncWebCryptoUnavailableMessage());
     var enc = new TextEncoder();
-    var material = await crypto.subtle.importKey(
+    var material = await cryptoApi.subtle.importKey(
         'raw',
         enc.encode(passphrase),
         'PBKDF2',
         false,
         ['deriveKey']
     );
-    return crypto.subtle.deriveKey(
+    return cryptoApi.subtle.deriveKey(
         { name: 'PBKDF2', salt: salt, iterations: iterations, hash: 'SHA-256' },
         material,
         { name: 'AES-GCM', length: 256 },
@@ -4030,15 +4168,19 @@ async function deriveCloudSyncKey(passphrase, salt, iterations) {
 async function encryptCloudSyncSnapshot(snapshot) {
     var s = ensureCloudSyncSettings();
     if (!s.cloudSyncEncrypted) return snapshot;
-    var passphrase = String(s.cloudSyncPassphrase || '');
-    if (passphrase.length < 8) throw new Error('Encryption passphrase must be at least 8 characters.');
 
-    var salt = crypto.getRandomValues(new Uint8Array(16));
-    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var passphrase = String(s.cloudSyncPassphrase || '');
+    if (passphrase.length < 8) throw new Error('加密密码至少需要 8 个字符。');
+
+    var cryptoApi = getCloudSyncWebCryptoApi();
+    if (!cryptoApi) throw new Error(getCloudSyncWebCryptoUnavailableMessage());
+
+    var salt = cryptoApi.getRandomValues(new Uint8Array(16));
+    var iv = cryptoApi.getRandomValues(new Uint8Array(12));
     var iterations = 210000;
     var key = await deriveCloudSyncKey(passphrase, salt, iterations);
     var plaintext = new TextEncoder().encode(JSON.stringify(snapshot));
-    var cipher = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, plaintext));
+    var cipher = new Uint8Array(await cryptoApi.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, plaintext));
 
     return {
         encrypted: true,
@@ -4056,16 +4198,20 @@ async function encryptCloudSyncSnapshot(snapshot) {
 // ==================== Cloud Sync Decrypt Snapshot ====================
 async function decryptCloudSyncSnapshot(envelope) {
     if (!envelope || envelope.encrypted !== true) return envelope;
+
     var s = ensureCloudSyncSettings();
     var passphrase = String(s.cloudSyncPassphrase || '');
-    if (passphrase.length < 8) throw new Error('Encryption passphrase must be at least 8 characters to restore this cloud snapshot.');
+    if (passphrase.length < 8) throw new Error('恢复此云端快照需要至少 8 个字符的加密密码。');
     validateCloudSyncEncryptedEnvelope(envelope);
+
+    var cryptoApi = getCloudSyncWebCryptoApi();
+    if (!cryptoApi) throw new Error(getCloudSyncWebCryptoUnavailableMessage());
 
     var salt = base64ToBytes(envelope.salt);
     var iv = base64ToBytes(envelope.iv);
     var cipher = base64ToBytes(envelope.payload);
     var key = await deriveCloudSyncKey(passphrase, salt, getCloudSyncEnvelopeIterations(envelope));
-    var plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, cipher);
+    var plain = await cryptoApi.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, cipher);
     var text = new TextDecoder().decode(new Uint8Array(plain));
     return normalizeCloudSyncSnapshot(JSON.parse(text));
 }
@@ -4079,9 +4225,9 @@ async function decryptCloudSyncSnapshot(envelope) {
 async function requestCloudSync(method, payload) {
     var s = ensureCloudSyncSettings();
     var endpoint = getCloudSyncEndpoint();
-    if (!endpoint) throw new Error('Cloud sync endpoint is required.');
-    if (!s.cloudSyncToken) throw new Error('Cloud sync token is required.');
-    if (s.cloudSyncToken.length < 8) throw new Error('Cloud sync token must be at least 8 characters.');
+    if (!endpoint) throw new Error('请填写云同步端点。');
+    if (!s.cloudSyncToken) throw new Error('请填写云同步令牌。');
+    if (s.cloudSyncToken.length < 8) throw new Error('云同步令牌至少需要 8 个字符。');
 
     var headers = {
         'Accept': 'application/json',
@@ -4110,7 +4256,27 @@ async function requestCloudSync(method, payload) {
 async function readCloudSyncRemoteSnapshot() {
     var result = await requestCloudSync('GET');
     if (!result || result.data === null || result.data === undefined) return null;
-    return normalizeCloudSyncSnapshot(result);
+    return attachCloudSyncRemoteMetadata(normalizeCloudSyncSnapshot(result), result);
+}
+
+function attachCloudSyncRemoteMetadata(snapshot, result) {
+    if (!snapshot || typeof snapshot !== 'object') return snapshot;
+    var bytes = Number(result && result.bytes);
+    var updatedAt = Number(result && result.updatedAt);
+    try {
+        Object.defineProperty(snapshot, '__cloudSyncBytes', {
+            value: Number.isFinite(bytes) ? bytes : 0,
+            configurable: true
+        });
+        Object.defineProperty(snapshot, '__cloudSyncUpdatedAt', {
+            value: Number.isFinite(updatedAt) ? updatedAt : 0,
+            configurable: true
+        });
+    } catch (_) {
+        snapshot.__cloudSyncBytes = Number.isFinite(bytes) ? bytes : 0;
+        snapshot.__cloudSyncUpdatedAt = Number.isFinite(updatedAt) ? updatedAt : 0;
+    }
+    return snapshot;
 }
 
 function setCloudSyncStatus(message, isError) {
@@ -4127,7 +4293,7 @@ function setCloudSyncStatus(message, isError) {
 function getCloudSyncLocalSettingsForRestore() {
     var local = {
         cloudSyncLastAt: Date.now(),
-        cloudSyncLastStatus: 'Cloud download applied.'
+        cloudSyncLastStatus: '云端下载已应用。'
     };
     [
         'apiKey',
@@ -4183,9 +4349,34 @@ function persistCloudSyncAppliedSnapshot(data) {
 
 function notifyCloudSyncSnapshotApplied() {
     appStore.notify(['settings', 'conversations', 'characters', 'worldBooks', 'activeConvId']);
+    refreshOpenSettingsControlsAfterCloudSyncApply();
     if (typeof requestFullRender === 'function') requestFullRender();
     if (typeof updateInputState === 'function') updateInputState();
     if (typeof updateStorageInfo === 'function') updateStorageInfo();
+}
+
+function refreshOpenSettingsControlsAfterCloudSyncApply() {
+    if (!isSettingsModalOpenForCloudSyncRefresh()) return;
+    if (typeof hydratePrimaryApiSettings === 'function') hydratePrimaryApiSettings();
+    if (typeof hydrateGenerationSettings === 'function') hydrateGenerationSettings();
+    if (typeof hydratePromptSettings === 'function') hydratePromptSettings();
+    if (typeof hydrateTwoStageSettings === 'function') hydrateTwoStageSettings();
+    if (typeof hydrateSillyTavernPresetSettings === 'function') hydrateSillyTavernPresetSettings();
+    if (typeof hydrateSummarySettings === 'function') hydrateSummarySettings();
+    if (typeof hydrateWorldInfoBudgetSettings === 'function') hydrateWorldInfoBudgetSettings();
+    if (typeof hydrateThemePerformanceSettings === 'function') hydrateThemePerformanceSettings();
+    if (typeof hydrateSummarizationApiSettings === 'function') hydrateSummarizationApiSettings();
+    if (typeof hydrateComfySettingsControls === 'function') hydrateComfySettingsControls();
+    if (typeof bindWebLLMSettingsControls === 'function') bindWebLLMSettingsControls();
+}
+
+function isSettingsModalOpenForCloudSyncRefresh() {
+    return !!(
+        typeof dom !== 'undefined' &&
+        dom.settingsModal &&
+        dom.settingsModal.classList &&
+        !dom.settingsModal.classList.contains('hidden')
+    );
 }
 // ==================== Cloud Sync Apply Snapshot ====================
 function applyCloudSyncSnapshot(snapshot) {
@@ -4218,6 +4409,32 @@ function formatCloudSyncTimestamp(timestamp) {
     return timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString();
 }
 
+function formatCloudSyncFreshnessLabel(freshness) {
+    if (freshness === 'newer') return '云端较新';
+    if (freshness === 'older') return '云端较旧';
+    if (freshness === 'newer-by-size') return '云端较新（大小不同）';
+    if (freshness === 'older-by-size') return '云端较旧（大小不同）';
+    if (freshness === 'same') return '与本地一致';
+    return '状态未知';
+}
+
+function disableCloudSyncEncryptionWhenUnavailable(statusEl) {
+    var s = ensureCloudSyncSettings();
+    if (!s.cloudSyncEncrypted) return false;
+    if (typeof isCloudSyncWebCryptoAvailable !== 'function' || isCloudSyncWebCryptoAvailable()) return false;
+
+    s.cloudSyncEncrypted = false;
+    if (typeof dom !== 'undefined' && dom.cloudSyncEncrypted) {
+        dom.cloudSyncEncrypted.checked = false;
+        dom.cloudSyncEncrypted.disabled = true;
+    }
+    if (typeof dom !== 'undefined' && dom.cloudSyncPassphrase) {
+        dom.cloudSyncPassphrase.disabled = true;
+    }
+    setCloudSyncPendingStatus(statusEl, '当前 HTTP 页面不支持浏览器加密同步，已自动关闭“加密上传内容”，本次将按普通云同步处理。');
+    return true;
+}
+
 async function persistCloudSyncOperationState() {
     _cloudSyncSavingStatus = true;
     try {
@@ -4229,29 +4446,32 @@ async function persistCloudSyncOperationState() {
 
 function persistCloudSyncStatusSilently() {
     persistCloudSyncOperationState().catch(function(err) {
-        console.warn('[CloudSync] failed to persist sync status:', err && err.message);
+        console.warn('[CloudSync] 持久化同步状态失败:', err && err.message);
     });
 }
 // ==================== Cloud Sync Upload ====================
 async function uploadCloudSyncSnapshot(statusEl, options) {
     ensureCloudSyncSettings();
+    disableCloudSyncEncryptionWhenUnavailable(statusEl);
     options = options || {};
-    setCloudSyncPendingStatus(statusEl, 'Uploading...');
-    var snapshot = buildAppDataSnapshot();
+    setCloudSyncPendingStatus(statusEl, '正在上传...');
+    var comparisonSnapshot = options.force ? null : prepareCloudSyncLocalSnapshotForComparison();
+    var snapshot = buildAppDataSnapshot({ skipSettingsFormSync: !options.force });
 
     if (!options.force) {
         var remote = null;
         try {
             remote = await readCloudSyncRemoteSnapshot();
         } catch (err) {
-            console.warn('[CloudSync] remote preflight failed, skipping protected upload:', err && err.message);
-            var verifyMsg = 'Cloud upload skipped: could not verify remote snapshot freshness.';
+            console.warn('[CloudSync] 云端快照预检失败，已跳过受保护上传:', err && err.message);
+            var verifyMsg = '已跳过云端上传：无法确认云端快照是否为最新。';
             setCloudSyncStatus(verifyMsg, true);
             await persistCloudSyncOperationState();
             return { success: false, skipped: true, reason: 'preflight-failed' };
         }
-        if (remote && getCloudSyncFreshness(remote) === 'newer') {
-            var skipMsg = 'Cloud upload skipped: remote snapshot is newer. Use Download or Upload now to overwrite.';
+        var freshness = remote && getCloudSyncFreshness(remote, comparisonSnapshot);
+        if (freshness === 'newer' || freshness === 'newer-by-size') {
+            var skipMsg = '已跳过云端上传：云端快照较新。请先下载，或点击“立即上传”强制覆盖。';
             setCloudSyncStatus(skipMsg, true);
             await persistCloudSyncOperationState();
             return { success: false, skipped: true, reason: 'remote-newer' };
@@ -4267,7 +4487,7 @@ async function uploadCloudSyncSnapshot(statusEl, options) {
         data: payload
     });
     var when = formatCloudSyncTimestamp(result.updatedAt);
-    var msg = 'Cloud upload complete: ' + when + (payload && payload.encrypted ? ' (encrypted)' : '');
+    var msg = '云端上传完成：' + when + (payload && payload.encrypted ? '（已加密）' : '');
     setCloudSyncStatus(msg, false);
     await persistCloudSyncOperationState();
     return result;
@@ -4275,10 +4495,10 @@ async function uploadCloudSyncSnapshot(statusEl, options) {
 // ==================== Cloud Sync Download ====================
 async function downloadCloudSyncSnapshot(statusEl, rawData) {
     ensureCloudSyncSettings();
-    setCloudSyncPendingStatus(statusEl, 'Downloading...');
+    setCloudSyncPendingStatus(statusEl, '正在下载...');
     rawData = rawData || await readCloudSyncRemoteSnapshot();
     if (!rawData) {
-        var emptyMsg = 'No cloud snapshot found for this token.';
+        var emptyMsg = '未找到此同步令牌对应的云端快照。';
         setCloudSyncStatus(emptyMsg, true);
         await persistCloudSyncOperationState();
         return null;
@@ -4287,7 +4507,7 @@ async function downloadCloudSyncSnapshot(statusEl, rawData) {
     var data = await decryptCloudSyncSnapshot(rawData);
     applyCloudSyncSnapshot(data);
     var when = formatCloudSyncTimestamp(data.lastSaved);
-    var msg = 'Cloud download applied: ' + when + ' (' + freshness + ' than local before restore)' + (rawData && rawData.encrypted ? ' (encrypted)' : '');
+    var msg = '云端下载已应用：' + when + '（恢复前' + formatCloudSyncFreshnessLabel(freshness) + '）' + (rawData && rawData.encrypted ? '（已加密）' : '');
     setCloudSyncStatus(msg, false);
     await persistCloudSyncOperationState();
     return data;
@@ -4295,23 +4515,25 @@ async function downloadCloudSyncSnapshot(statusEl, rawData) {
 // ==================== Cloud Sync Compare And Sync ====================
 async function syncCloudSyncSnapshot(statusEl) {
     ensureCloudSyncSettings();
-    setCloudSyncPendingStatus(statusEl, 'Checking cloud snapshot...');
+    disableCloudSyncEncryptionWhenUnavailable(statusEl);
+    setCloudSyncPendingStatus(statusEl, '正在检查云端快照...');
+    var localSnapshot = prepareCloudSyncLocalSnapshotForComparison();
 
     var remote = await readCloudSyncRemoteSnapshot();
     if (!remote) {
-        setCloudSyncStatus('No cloud snapshot found. Uploading local snapshot...', false);
+        setCloudSyncStatus('未找到云端快照，正在上传本地快照...', false);
         return uploadCloudSyncSnapshot(statusEl, { force: true });
     }
 
-    var freshness = getCloudSyncFreshness(remote);
-    if (freshness === 'newer') {
+    var freshness = getCloudSyncFreshness(remote, localSnapshot);
+    if (freshness === 'newer' || freshness === 'newer-by-size') {
         return downloadCloudSyncSnapshot(statusEl, remote);
     }
-    if (freshness === 'older') {
-        setCloudSyncStatus('Local snapshot is newer. Uploading to cloud...', false);
+    if (freshness === 'older' || freshness === 'older-by-size') {
+        setCloudSyncStatus('本地快照较新，正在上传到云端...', false);
         return uploadCloudSyncSnapshot(statusEl, { force: true });
     }
-    var msg = 'Cloud sync already up to date.';
+    var msg = '云同步已是最新。';
     setCloudSyncStatus(msg, false);
     await persistCloudSyncOperationState();
     return { success: true, upToDate: true };
@@ -4332,8 +4554,8 @@ function scheduleCloudSyncUpload() {
     _cloudSyncUploadTimer = setTimeout(function() {
         _cloudSyncUploadTimer = null;
         uploadCloudSyncSnapshot(null, { force: false }).catch(function(err) {
-            console.warn('[CloudSync] auto upload failed:', err && err.message);
-            setCloudSyncStatus('Cloud auto upload failed: ' + ((err && err.message) || err), true);
+            console.warn('[CloudSync] 自动上传失败:', err && err.message);
+            setCloudSyncStatus('云端自动上传失败：' + ((err && err.message) || err), true);
             persistCloudSyncStatusSilently();
         });
     }, 2500);
@@ -4790,7 +5012,8 @@ function defaultSettings() {
         cloudSyncEncrypted: false,
         cloudSyncPassphrase: '',
         cloudSyncLastAt: 0,
-        cloudSyncLastStatus: ''
+        cloudSyncLastStatus: '',
+        myCardOrder: []
     };
 }
 // ==================== App State ====================
@@ -5745,6 +5968,9 @@ function ensureStateSettingDefaults() {
     if (typeof state.settings.summaryPrompt !== 'string') {
         state.settings.summaryPrompt = '';
     }
+    if (!Array.isArray(state.settings.myCardOrder)) {
+        state.settings.myCardOrder = [];
+    }
 }
 
 function applyStartupUiPreferences() {
@@ -5827,9 +6053,13 @@ async function initState() {
     applyApiKeyPersistencePolicy();
     migrateCharacterRegistryOnStartup();
     ensureActiveConversationOnStartup();
+    if (typeof rememberCloudSyncConversationBaseline === 'function') {
+        rememberCloudSyncConversationBaseline();
+    }
 }
 // ==================== Debounced Persist ====================
 var _persistTimeout = null;
+var _cloudSyncConversationSignature = null;
 
 function persistState(immediate, options) {
     options = options || {};
@@ -5849,6 +6079,7 @@ function persistState(immediate, options) {
         charactersMigrated: !!state._charactersMigrated,
         lastSaved: snapshotLastSaved
     };
+    const cloudSyncConversationSignatureBeforePersist = getCloudSyncConversationSignatureBeforePersist();
 
     if (StorageService) {
         StorageService._lastSaveSnapshot = dataToSave;
@@ -5865,7 +6096,12 @@ function persistState(immediate, options) {
             if (typeof updateStorageInfo === 'function') {
                 updateStorageInfo();
             }
-            if (typeof scheduleCloudSyncUpload === 'function') {
+            const shouldAutoCloudSync = shouldScheduleCloudSyncUploadForPersist(
+                dataToSave,
+                options,
+                cloudSyncConversationSignatureBeforePersist
+            );
+            if (shouldAutoCloudSync && typeof scheduleCloudSyncUpload === 'function') {
                 scheduleCloudSyncUpload();
             }
         }
@@ -5890,6 +6126,54 @@ function persistState(immediate, options) {
 
 function getActiveConv() {
     return state.conversations[state.activeConvId];
+}
+
+function getCloudSyncConversationSignatureBeforePersist() {
+    if (_cloudSyncConversationSignature !== null) return _cloudSyncConversationSignature;
+    const previousSnapshot = StorageService && StorageService._lastSaveSnapshot;
+    return previousSnapshot ? buildCloudSyncConversationSignature(previousSnapshot) : null;
+}
+
+function shouldScheduleCloudSyncUploadForPersist(snapshot, options, previousSignature) {
+    const signature = buildCloudSyncConversationSignature(snapshot);
+    const requestedLastSaved = Number(options && options.lastSaved);
+    const skipAutoUpload = !!(
+        options &&
+        (
+            options.preserveLastSaved ||
+            options.skipCloudSyncAutoUpload ||
+            (Number.isFinite(requestedLastSaved) && requestedLastSaved > 0)
+        )
+    );
+    const baseline = previousSignature === undefined ? getCloudSyncConversationSignatureBeforePersist() : previousSignature;
+    if (baseline === null) {
+        _cloudSyncConversationSignature = signature;
+        return false;
+    }
+
+    const changed = signature !== baseline;
+    _cloudSyncConversationSignature = signature;
+    return changed && !skipAutoUpload;
+}
+
+function rememberCloudSyncConversationBaseline(snapshot) {
+    _cloudSyncConversationSignature = buildCloudSyncConversationSignature(snapshot || {
+        conversations: state.conversations,
+        conversationOrder: state.conversationOrder,
+        activeConvId: state.activeConvId
+    });
+}
+
+function buildCloudSyncConversationSignature(snapshot) {
+    try {
+        return JSON.stringify({
+            conversations: snapshot && snapshot.conversations || {},
+            conversationOrder: Array.isArray(snapshot && snapshot.conversationOrder) ? snapshot.conversationOrder : [],
+            activeConvId: snapshot && snapshot.activeConvId || null
+        });
+    } catch (_) {
+        return '';
+    }
 }
 // ==================== Translation DOM Updates ====================
 function applyTranslations() {
@@ -11529,7 +11813,7 @@ function appendMyCardActionTiles(grid) {
 
 function createMyCardActionTile(options) {
     const card = document.createElement('div');
-    card.className = 'glass rounded-2xl overflow-hidden cursor-pointer hover:bg-white/5 transition-all border border-dashed border-amber-500/50 flex flex-col items-center justify-center text-center p-4 aspect-[3/4]';
+    card.className = 'my-card-action-tile glass rounded-2xl overflow-hidden cursor-pointer hover:bg-white/5 transition-all border border-dashed border-amber-500/50 flex flex-col items-center justify-center text-center p-4 aspect-[3/4]';
     card.innerHTML = `
         <div class="${options.iconClass}">${options.iconHtml}</div>
         <div class="text-sm font-medium">${options.title}</div>
@@ -11570,6 +11854,411 @@ function getMyCharacterDeleteConfirmConfig(char) {
         message: `\u786e\u5b9a\u4ece\u89d2\u8272\u5e93\u4e2d\u5220\u9664\u300c${displayName}\u300d\uff1f\n\u5df2\u6709\u5bf9\u8bdd\u4e2d\u7684\u89d2\u8272\u5361\u6570\u636e\u4e0d\u4f1a\u53d7\u5f71\u54cd\u3002`,
         options: { title: '\u5220\u9664\u89d2\u8272\u5361', danger: true, okText: '\u5220\u9664' }
     };
+}
+// ==================== My Library Card Ordering ====================
+var MY_CARD_REORDER_HOLD_MS = 380;
+var MY_CARD_REORDER_MOVE_CANCEL_PX = 18;
+var MY_CARD_REORDER_EDGE_SCROLL_PX = 68;
+var MY_CARD_REORDER_EDGE_SCROLL_STEP = 18;
+var myCardReorderState = null;
+var myCardReorderSuppressClickUntil = 0;
+
+function getAllMyCardKeys() {
+    return Object.keys(state.characters || {});
+}
+
+function normalizeMyCardOrder(order) {
+    var known = new Set(getAllMyCardKeys());
+    var seen = new Set();
+    var result = [];
+
+    (Array.isArray(order) ? order : []).forEach(function(key) {
+        key = String(key || '').trim().toLowerCase();
+        if (known.has(key) && !seen.has(key)) {
+            seen.add(key);
+            result.push(key);
+        }
+    });
+
+    getAllMyCardKeys().forEach(function(key) {
+        if (!seen.has(key)) {
+            seen.add(key);
+            result.push(key);
+        }
+    });
+
+    return result;
+}
+
+function getMyCardOrder() {
+    if (!state.settings) state.settings = {};
+    state.settings.myCardOrder = normalizeMyCardOrder(state.settings.myCardOrder);
+    return state.settings.myCardOrder.slice();
+}
+
+function getOrderedMyLibraryCharacters() {
+    var characters = state.characters || {};
+    return getMyCardOrder().map(function(key) {
+        return characters[key];
+    }).filter(Boolean);
+}
+
+function removeMyCardKeyFromOrder(key) {
+    if (!state.settings || !Array.isArray(state.settings.myCardOrder)) return;
+    state.settings.myCardOrder = state.settings.myCardOrder.filter(function(item) {
+        return item !== key;
+    });
+}
+
+function bindMyCardReorderEvents(cardEl) {
+    if (!cardEl || cardEl._myCardReorderBound) return;
+    cardEl._myCardReorderBound = true;
+    cardEl.addEventListener('pointerdown', beginMyCardReorderPointer);
+    cardEl.addEventListener('touchstart', beginMyCardReorderTouch, { passive: true });
+    cardEl.addEventListener('dragstart', preventMyCardNativeDrag);
+    cardEl.addEventListener('contextmenu', suppressMyCardReorderContextMenu);
+}
+
+function beginMyCardReorderPointer(e) {
+    if (e.pointerType === 'touch') return;
+    if (e.button !== undefined && e.button !== 0) return;
+    beginMyCardReorderSession(e.currentTarget, e.clientX, e.clientY, {
+        pointerId: e.pointerId,
+        pointerType: e.pointerType || 'mouse',
+        sourceEvent: e
+    });
+}
+
+function beginMyCardReorderTouch(e) {
+    if (!e.changedTouches || !e.changedTouches.length) return;
+    var touch = e.changedTouches[0];
+    beginMyCardReorderSession(e.currentTarget, touch.clientX, touch.clientY, {
+        touchId: touch.identifier,
+        pointerType: 'touch',
+        sourceEvent: e
+    });
+}
+
+function beginMyCardReorderSession(cardEl, clientX, clientY, input) {
+    if (!cardEl || isMyCharacterCardControlClick(input.sourceEvent)) return;
+
+    var key = cardEl.getAttribute('data-card-key');
+    var grid = cardEl.parentElement;
+    if (!key || !grid) return;
+
+    cancelMyCardReorderSession(myCardReorderState);
+    myCardReorderState = {
+        cardEl: cardEl,
+        grid: grid,
+        key: key,
+        pointerId: input.pointerId,
+        touchId: input.touchId,
+        pointerType: input.pointerType,
+        startX: clientX,
+        startY: clientY,
+        lastX: clientX,
+        lastY: clientY,
+        grabOffsetX: 0,
+        grabOffsetY: 0,
+        active: false,
+        timer: null,
+        placeholder: null,
+        originalParent: grid,
+        originalNextSibling: cardEl.nextSibling,
+        originalStyle: cardEl.getAttribute('style'),
+        scrollContainer: getMyCardReorderScrollContainer(grid)
+    };
+
+    myCardReorderState.timer = setTimeout(function() {
+        startMyCardReorderDrag(myCardReorderState);
+    }, MY_CARD_REORDER_HOLD_MS);
+
+    addMyCardReorderDocumentListeners(myCardReorderState);
+    try {
+        if (input.pointerId !== undefined) cardEl.setPointerCapture(input.pointerId);
+    } catch (_) {}
+}
+
+function addMyCardReorderDocumentListeners(session) {
+    if (!session) return;
+    if (session.pointerType === 'touch') {
+        window.addEventListener('touchmove', moveMyCardReorderTouch, { passive: false, capture: true });
+        window.addEventListener('touchend', endMyCardReorderTouch, true);
+        window.addEventListener('touchcancel', cancelMyCardReorderTouch, true);
+        return;
+    }
+    window.addEventListener('pointermove', moveMyCardReorderPointer, true);
+    window.addEventListener('pointerup', endMyCardReorderPointer, true);
+    window.addEventListener('pointercancel', cancelMyCardReorderPointer, true);
+}
+
+function removeMyCardReorderDocumentListeners(session) {
+    if (!session) return;
+    if (session.pointerType === 'touch') {
+        window.removeEventListener('touchmove', moveMyCardReorderTouch, true);
+        window.removeEventListener('touchend', endMyCardReorderTouch, true);
+        window.removeEventListener('touchcancel', cancelMyCardReorderTouch, true);
+        return;
+    }
+    window.removeEventListener('pointermove', moveMyCardReorderPointer, true);
+    window.removeEventListener('pointerup', endMyCardReorderPointer, true);
+    window.removeEventListener('pointercancel', cancelMyCardReorderPointer, true);
+}
+
+function moveMyCardReorderPointer(e) {
+    var session = myCardReorderState;
+    if (!session || session.pointerId !== e.pointerId) return;
+    updateMyCardReorderSession(session, e.clientX, e.clientY, e);
+}
+
+function endMyCardReorderPointer(e) {
+    var session = myCardReorderState;
+    if (!session || session.pointerId !== e.pointerId) return;
+    if (session.active) e.preventDefault();
+    finishMyCardReorderSession(session, session.active);
+}
+
+function cancelMyCardReorderPointer(e) {
+    var session = myCardReorderState;
+    if (!session || session.pointerId !== e.pointerId) return;
+    cancelMyCardReorderSession(session);
+}
+
+function moveMyCardReorderTouch(e) {
+    var session = myCardReorderState;
+    var touch = getMyCardReorderTouch(e, session);
+    if (!session || !touch) return;
+    updateMyCardReorderSession(session, touch.clientX, touch.clientY, e);
+}
+
+function endMyCardReorderTouch(e) {
+    var session = myCardReorderState;
+    if (!session || !hasMyCardReorderChangedTouch(e, session)) return;
+    if (session.active) e.preventDefault();
+    finishMyCardReorderSession(session, session.active);
+}
+
+function cancelMyCardReorderTouch(e) {
+    var session = myCardReorderState;
+    if (!session || !hasMyCardReorderChangedTouch(e, session)) return;
+    cancelMyCardReorderSession(session);
+}
+
+function updateMyCardReorderSession(session, clientX, clientY, event) {
+    session.lastX = clientX;
+    session.lastY = clientY;
+
+    if (!session.active) {
+        var dx = Math.abs(clientX - session.startX);
+        var dy = Math.abs(clientY - session.startY);
+        if (dx > MY_CARD_REORDER_MOVE_CANCEL_PX || dy > MY_CARD_REORDER_MOVE_CANCEL_PX) {
+            cancelMyCardReorderSession(session);
+        }
+        return;
+    }
+
+    if (event && event.cancelable) event.preventDefault();
+    moveMyCardReorderFloatingCard(session, clientX, clientY);
+    moveMyCardReorderPlaceholder(session, clientX, clientY);
+    autoScrollMyCardReorderContainer(session, clientY);
+}
+
+function startMyCardReorderDrag(session) {
+    if (!session || myCardReorderState !== session || session.active) return;
+    if (!session.cardEl.isConnected || session.cardEl.parentElement !== session.grid) {
+        cancelMyCardReorderSession(session);
+        return;
+    }
+
+    var rect = session.cardEl.getBoundingClientRect();
+    session.active = true;
+    session.grabOffsetX = Math.max(0, Math.min(rect.width, session.startX - rect.left));
+    session.grabOffsetY = Math.max(0, Math.min(rect.height, session.startY - rect.top));
+    session.placeholder = createMyCardReorderPlaceholder(rect);
+    session.grid.insertBefore(session.placeholder, session.cardEl);
+    document.body.appendChild(session.cardEl);
+    document.body.classList.add('my-card-reordering');
+
+    session.cardEl.classList.add('my-card-reorder-dragging');
+    session.cardEl.style.position = 'fixed';
+    session.cardEl.style.left = rect.left + 'px';
+    session.cardEl.style.top = rect.top + 'px';
+    session.cardEl.style.width = rect.width + 'px';
+    session.cardEl.style.height = rect.height + 'px';
+    session.cardEl.style.zIndex = '9999';
+    session.cardEl.style.pointerEvents = 'none';
+    session.cardEl.style.opacity = '0.96';
+    session.cardEl.style.transform = 'scale(1.03)';
+    session.cardEl.style.transition = 'transform 120ms ease, box-shadow 120ms ease';
+
+    moveMyCardReorderFloatingCard(session, session.lastX, session.lastY);
+    myCardReorderSuppressClickUntil = Date.now() + 900;
+}
+
+function createMyCardReorderPlaceholder(rect) {
+    var placeholder = document.createElement('div');
+    placeholder.className = 'my-card-reorder-placeholder rounded-2xl';
+    placeholder.style.height = rect.height + 'px';
+    placeholder.style.minHeight = rect.height + 'px';
+    return placeholder;
+}
+
+function moveMyCardReorderFloatingCard(session, clientX, clientY) {
+    var left = clientX - session.grabOffsetX;
+    var top = clientY - session.grabOffsetY;
+    session.cardEl.style.left = left + 'px';
+    session.cardEl.style.top = top + 'px';
+}
+
+function moveMyCardReorderPlaceholder(session, clientX, clientY) {
+    var anchor = getMyCardReorderInsertAnchor(session.grid, session.cardEl, clientX, clientY);
+    if (anchor === session.placeholder) return;
+    session.grid.insertBefore(session.placeholder, anchor);
+}
+
+function getMyCardReorderInsertAnchor(grid, draggedCard, clientX, clientY) {
+    var cards = Array.from(grid.querySelectorAll('.my-library-character-card')).filter(function(card) {
+        return card !== draggedCard;
+    });
+
+    for (var i = 0; i < cards.length; i++) {
+        var card = cards[i];
+        var rect = card.getBoundingClientRect();
+        var rowHit = clientY >= rect.top - 8 && clientY <= rect.bottom + 8;
+        if (rowHit) {
+            if (clientX < rect.left + rect.width / 2) return card;
+            continue;
+        }
+        if (clientY < rect.top + rect.height / 2) return card;
+    }
+
+    return getMyCardActionInsertAnchor(grid);
+}
+
+function getMyCardActionInsertAnchor(grid) {
+    return grid ? grid.querySelector('.my-card-action-tile') : null;
+}
+
+function autoScrollMyCardReorderContainer(session, clientY) {
+    var scroller = session.scrollContainer;
+    if (!scroller) return;
+
+    var rect = scroller.getBoundingClientRect();
+    if (clientY < rect.top + MY_CARD_REORDER_EDGE_SCROLL_PX) {
+        scroller.scrollTop -= MY_CARD_REORDER_EDGE_SCROLL_STEP;
+    } else if (clientY > rect.bottom - MY_CARD_REORDER_EDGE_SCROLL_PX) {
+        scroller.scrollTop += MY_CARD_REORDER_EDGE_SCROLL_STEP;
+    }
+}
+
+function getMyCardReorderScrollContainer(grid) {
+    var node = grid ? grid.parentElement : null;
+    while (node && node !== document.body) {
+        var style = window.getComputedStyle(node);
+        if (/(auto|scroll)/.test(style.overflowY)) return node;
+        node = node.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+}
+
+function finishMyCardReorderSession(session, commit) {
+    if (!session) return;
+    if (session.timer) clearTimeout(session.timer);
+    removeMyCardReorderDocumentListeners(session);
+
+    if (session.active) {
+        if (commit) {
+            session.grid.insertBefore(session.cardEl, session.placeholder);
+        } else {
+            restoreMyCardToOriginalPosition(session);
+        }
+    }
+
+    cleanupMyCardReorderSession(session);
+    if (commit && session.active) {
+        persistMyCardOrderFromGrid(session.grid);
+        myCardReorderSuppressClickUntil = Date.now() + 700;
+    }
+    if (myCardReorderState === session) myCardReorderState = null;
+}
+
+function cancelMyCardReorderSession(session) {
+    finishMyCardReorderSession(session, false);
+}
+
+function restoreMyCardToOriginalPosition(session) {
+    if (!session || !session.originalParent) return;
+    var anchor = session.originalNextSibling && session.originalNextSibling.parentElement === session.originalParent
+        ? session.originalNextSibling
+        : getMyCardActionInsertAnchor(session.originalParent);
+    session.originalParent.insertBefore(session.cardEl, anchor);
+}
+
+function cleanupMyCardReorderSession(session) {
+    if (!session) return;
+    if (session.placeholder && session.placeholder.parentElement) {
+        session.placeholder.parentElement.removeChild(session.placeholder);
+    }
+    session.cardEl.classList.remove('my-card-reorder-dragging');
+    if (session.originalStyle === null) {
+        session.cardEl.removeAttribute('style');
+    } else {
+        session.cardEl.setAttribute('style', session.originalStyle);
+    }
+    document.body.classList.remove('my-card-reordering');
+    try {
+        if (session.pointerId !== undefined) session.cardEl.releasePointerCapture(session.pointerId);
+    } catch (_) {}
+}
+
+function persistMyCardOrderFromGrid(grid) {
+    if (!grid || !state.settings) return;
+    var visibleKeys = Array.from(grid.querySelectorAll('.my-library-character-card')).map(function(card) {
+        return card.getAttribute('data-card-key');
+    }).filter(Boolean);
+
+    var visibleSet = new Set(visibleKeys);
+    var visibleQueue = visibleKeys.slice();
+    var nextOrder = getMyCardOrder().map(function(key) {
+        return visibleSet.has(key) ? visibleQueue.shift() : key;
+    }).filter(Boolean);
+
+    visibleQueue.forEach(function(key) {
+        if (nextOrder.indexOf(key) === -1) nextOrder.push(key);
+    });
+
+    state.settings.myCardOrder = normalizeMyCardOrder(nextOrder);
+    persistState(true);
+}
+
+function shouldSuppressMyCardReorderClick() {
+    return Date.now() < myCardReorderSuppressClickUntil;
+}
+
+function getMyCardReorderTouch(e, session) {
+    if (!session || session.touchId === undefined) return null;
+    for (var i = 0; i < e.touches.length; i++) {
+        if (e.touches[i].identifier === session.touchId) return e.touches[i];
+    }
+    return null;
+}
+
+function hasMyCardReorderChangedTouch(e, session) {
+    if (!session || session.touchId === undefined || !e.changedTouches) return false;
+    for (var i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === session.touchId) return true;
+    }
+    return false;
+}
+
+function preventMyCardNativeDrag(e) {
+    e.preventDefault();
+}
+
+function suppressMyCardReorderContextMenu(e) {
+    if (myCardReorderState) {
+        e.preventDefault();
+    }
 }
 // ==================== My Library Card Controls ====================
 function createMyCharacterCardControls(char) {
@@ -11614,8 +12303,7 @@ async function confirmAndDeleteMyCharacterCard(char) {
 function isMyCharacterCardControlClick(e) {
     return !!(
         e.target.closest('.char-img-btn') ||
-        e.target.closest('.char-delete-btn') ||
-        e.target.closest('button[title="移除角色卡"]')
+        e.target.closest('.char-delete-btn')
     );
 }
 // ==================== My Library Card Preview UI ====================
@@ -11653,14 +12341,19 @@ function createMyCharacterInfo(char) {
 // ==================== My Library Card Items ====================
 function createMyLibraryCharacterCard(char) {
     const cardEl = document.createElement('div');
-    cardEl.className = 'glass rounded-2xl overflow-hidden cursor-pointer hover:bg-white/5 transition-all border border-white/5 hover:border-white/10 flex flex-col group';
+    cardEl.className = 'my-library-character-card glass rounded-2xl overflow-hidden cursor-pointer hover:bg-white/5 transition-all border border-white/5 hover:border-white/10 flex flex-col group select-none';
+    cardEl.setAttribute('data-card-key', getMyCharacterCardKey(char));
 
     cardEl.appendChild(createMyCharacterPreview(char));
     cardEl.appendChild(createMyCharacterInfo(char));
     cardEl.addEventListener('click', (e) => {
+        if (typeof shouldSuppressMyCardReorderClick === 'function' && shouldSuppressMyCardReorderClick()) return;
         if (isMyCharacterCardControlClick(e)) return;
         loadOrCreateChatForCharacter(char);
     });
+    if (typeof bindMyCardReorderEvents === 'function') {
+        bindMyCardReorderEvents(cardEl);
+    }
 
     return cardEl;
 }
@@ -11674,7 +12367,10 @@ function buildMyLibraryCharacterFilterCard(character) {
 }
 
 function getFilteredMyLibraryCharacters() {
-    return Object.values(state.characters || {}).filter(function(character) {
+    var characters = typeof getOrderedMyLibraryCharacters === 'function'
+        ? getOrderedMyLibraryCharacters()
+        : Object.values(state.characters || {});
+    return characters.filter(function(character) {
         return passesLibraryFilter(buildMyLibraryCharacterFilterCard(character));
     });
 }
@@ -11683,11 +12379,10 @@ function renderMyCards() {
     if (!grid) return;
 
     grid.innerHTML = '';
-    appendMyCardActionTiles(grid);
-
     getFilteredMyLibraryCharacters().forEach(char => {
         grid.appendChild(createMyLibraryCharacterCard(char));
     });
+    appendMyCardActionTiles(grid);
 }
 // ==================== Public Library Card Items ====================
 function createPublicLibraryCard(card) {
@@ -13150,7 +13845,7 @@ function conversationMatchesCurrentCharacterFilter(id, conv, activeId, character
 }
 
 function getVisibleConversationListOrder() {
-    var order = (state.conversationOrder || []).slice();
+    var order = getConversationListTimestampOrder((state.conversationOrder || []).slice());
     if (currentView === 'chat' && currentCharacterName) {
         var activeId = state.activeConvId;
         order = order.filter(function(id) {
@@ -13160,6 +13855,52 @@ function getVisibleConversationListOrder() {
     return order;
 }
 
+function getConversationListTimestampOrder(order) {
+    return order
+        .filter(function(id) { return !!(state.conversations && state.conversations[id]); })
+        .map(function(id, index) {
+            return {
+                id: id,
+                index: index,
+                timestamp: getConversationListTimestamp(state.conversations[id])
+            };
+        })
+        .sort(function(a, b) {
+            return (b.timestamp - a.timestamp) || (a.index - b.index);
+        })
+        .map(function(item) { return item.id; });
+}
+
+function getConversationListTimestamp(conv) {
+    if (!conv) return 0;
+    return normalizeConversationListTimestamp(conv.updated) ||
+        getLastMessageTimestampForConversationList(conv) ||
+        normalizeConversationListTimestamp(conv.created) ||
+        0;
+}
+
+function getLastMessageTimestampForConversationList(conv) {
+    var messages = Array.isArray(conv && conv.messages) ? conv.messages : [];
+    for (var i = messages.length - 1; i >= 0; i--) {
+        var msg = messages[i];
+        var timestamp = normalizeConversationListTimestamp(
+            msg && (msg.updated || msg.updatedAt || msg.createdAt || msg.timestamp || msg.time)
+        );
+        if (timestamp) return timestamp;
+    }
+    return 0;
+}
+
+function normalizeConversationListTimestamp(value) {
+    var timestamp = Number(value);
+    if (Number.isFinite(timestamp) && timestamp > 0) return timestamp;
+    if (typeof value === 'string' && value.trim()) {
+        var parsed = Date.parse(value);
+        if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    }
+    return 0;
+}
+
 function buildConversationListEmptyHtml() {
     return '<p class="text-xs text-zinc-500 text-center py-8 px-2">' + t('no_conversations').replace(/\n/g,'<br>') + '</p>';
 }
@@ -13167,12 +13908,15 @@ function buildConversationListEmptyHtml() {
 function buildConversationListItemHtml(id, conv, isActive) {
     var charName = conv.character ? conv.character.name : '';
     var title = conv.title || (charName ? t('chat_with') + charName : t('new_chat_title'));
-    var date = new Date(conv.updated || conv.created).toLocaleDateString();
+    var timestamp = getConversationListTimestamp(conv);
+    var date = timestamp ? new Date(timestamp).toLocaleDateString() : '';
+    var metaHtml = escapeHtml(charName || t('no_character'));
+    if (date) metaHtml += ' &middot; ' + escapeHtml(date);
     var html = '';
     html += '<div class="conv-item group flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer ' + (isActive ? 'active' : '') + '" data-conv-id="' + id + '">';
     html += '<div class="flex-1 min-w-0" data-conv-id="' + id + '">';
     html += '<p class="text-xs font-medium text-zinc-300 truncate">' + escapeHtml(title) + '</p>';
-    html += '<p class="text-[10px] text-zinc-500 truncate">' + (charName || t('no_character')) + ' &middot; ' + date + '</p>';
+    html += '<p class="text-[10px] text-zinc-500 truncate">' + metaHtml + '</p>';
     html += '</div>';
     html += '<button class="conv-export-btn flex-shrink-0 w-5 h-5 rounded-lg flex items-center justify-center text-zinc-600 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all text-[10px] opacity-0 group-hover:opacity-100" data-exp-id="' + id + '" title="' + t('conv_export_title') + '">&#128229;</button>';
     html += '<button class="conv-delete-btn flex-shrink-0 w-5 h-5 rounded-lg flex items-center justify-center text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-all text-xs opacity-0 group-hover:opacity-100" data-del-id="' + id + '" title="Delete">&times;</button>';
@@ -13333,6 +14077,9 @@ function deleteCharacterFromLibrary(nameOrKey) {
     if (!state.characters || !state.characters[key]) return;
 
     delete state.characters[key];
+    if (typeof removeMyCardKeyFromOrder === 'function') {
+        removeMyCardKeyFromOrder(key);
+    }
     persistState(true);
 
     try {
@@ -14337,11 +15084,21 @@ function readCloudSyncSettingsFromForm() {
     if (dom.cloudSyncAutoUpload) state.settings.cloudSyncAutoUpload = readCheckboxControlValue(dom.cloudSyncAutoUpload, false);
     if (dom.cloudSyncEndpoint) state.settings.cloudSyncEndpoint = readTrimmedControlValueOr(dom.cloudSyncEndpoint, '/api/sync');
     if (dom.cloudSyncToken) state.settings.cloudSyncToken = readTrimmedControlValue(dom.cloudSyncToken);
-    if (dom.cloudSyncEncrypted) state.settings.cloudSyncEncrypted = readCheckboxControlValue(dom.cloudSyncEncrypted, false);
+    if (dom.cloudSyncEncrypted) {
+        var encrypted = readCheckboxControlValue(dom.cloudSyncEncrypted, false);
+        if (encrypted && typeof isCloudSyncWebCryptoAvailable === 'function' && !isCloudSyncWebCryptoAvailable()) {
+            encrypted = false;
+            dom.cloudSyncEncrypted.checked = false;
+            if (typeof setCloudSyncPendingStatus === 'function') {
+                setCloudSyncPendingStatus(dom.cloudSyncStatus, '当前 HTTP 页面不支持浏览器加密同步，已关闭“加密上传内容”。本次将按普通云同步上传。');
+            }
+        }
+        state.settings.cloudSyncEncrypted = encrypted;
+    }
     if (dom.cloudSyncPassphrase) state.settings.cloudSyncPassphrase = readControlValue(dom.cloudSyncPassphrase);
 }
 function hydrateCloudSyncSettingsControls() {
-    // Cloud Sync
+    // 云同步
     ensureCloudSyncSettings();
     if (dom.cloudSyncEnabled) dom.cloudSyncEnabled.checked = !!state.settings.cloudSyncEnabled;
     if (dom.cloudSyncAutoUpload) dom.cloudSyncAutoUpload.checked = !!state.settings.cloudSyncAutoUpload;
@@ -14352,15 +15109,16 @@ function hydrateCloudSyncSettingsControls() {
     if (dom.cloudSyncStatus) {
         var cloudStatus = state.settings.cloudSyncLastStatus || '';
         if (!cloudStatus && state.settings.cloudSyncLastAt) {
-            cloudStatus = 'Last sync: ' + new Date(state.settings.cloudSyncLastAt).toLocaleString();
+            cloudStatus = '上次同步：' + new Date(state.settings.cloudSyncLastAt).toLocaleString();
         }
         dom.cloudSyncStatus.textContent = cloudStatus;
     }
+    applyCloudSyncEncryptionAvailabilityHint();
     if (dom.cloudSyncNowBtn) {
         dom.cloudSyncNowBtn.onclick = function() {
             readCloudSyncSettingsFromForm();
             syncCloudSyncSnapshot(dom.cloudSyncStatus).catch(function(err) {
-                setCloudSyncStatus('Cloud sync failed: ' + ((err && err.message) || err), true);
+                setCloudSyncStatus('云同步失败：' + ((err && err.message) || err), true);
                 persistCloudSyncStatusSilently();
             });
         };
@@ -14369,7 +15127,7 @@ function hydrateCloudSyncSettingsControls() {
         dom.cloudSyncUploadBtn.onclick = function() {
             readCloudSyncSettingsFromForm();
             uploadCloudSyncSnapshot(dom.cloudSyncStatus, { force: true }).catch(function(err) {
-                setCloudSyncStatus('Cloud upload failed: ' + ((err && err.message) || err), true);
+                setCloudSyncStatus('云端上传失败：' + ((err && err.message) || err), true);
                 persistCloudSyncStatusSilently();
             });
         };
@@ -14378,11 +15136,34 @@ function hydrateCloudSyncSettingsControls() {
         dom.cloudSyncDownloadBtn.onclick = function() {
             readCloudSyncSettingsFromForm();
             downloadCloudSyncSnapshot(dom.cloudSyncStatus).catch(function(err) {
-                setCloudSyncStatus('Cloud download failed: ' + ((err && err.message) || err), true);
+                setCloudSyncStatus('云端下载失败：' + ((err && err.message) || err), true);
                 persistCloudSyncStatusSilently();
             });
         };
     }
+}
+
+function applyCloudSyncEncryptionAvailabilityHint() {
+    if (
+        !dom.cloudSyncEncrypted ||
+        typeof isCloudSyncWebCryptoAvailable !== 'function' ||
+        isCloudSyncWebCryptoAvailable()
+    ) return true;
+    dom.cloudSyncEncrypted.checked = false;
+    dom.cloudSyncEncrypted.disabled = true;
+    if (state.settings) state.settings.cloudSyncEncrypted = false;
+    var toggle = dom.cloudSyncEncrypted.closest('label');
+    if (toggle) {
+        toggle.classList.add('opacity-50', 'cursor-not-allowed');
+        toggle.title = typeof getCloudSyncWebCryptoUnavailableMessage === 'function'
+            ? getCloudSyncWebCryptoUnavailableMessage()
+            : '当前页面不支持浏览器加密同步。';
+    }
+    if (dom.cloudSyncPassphrase) dom.cloudSyncPassphrase.disabled = true;
+    if (dom.cloudSyncStatus && typeof setCloudSyncPendingStatus === 'function') {
+        setCloudSyncPendingStatus(dom.cloudSyncStatus, '当前 HTTP 页面不支持浏览器加密同步，已关闭“加密上传内容”。如需加密，请使用 HTTPS 域名访问。');
+    }
+    return false;
 }
 function bindWebLLMSettingsControls() {
     // ===== WebLLM 后端设置（新增） =====
@@ -15036,6 +15817,29 @@ function bindLanguageEvents() {
         });
     });
 }
+
+function bindCloudSyncShortcutEvents() {
+    document.querySelectorAll('.cloud-sync-shortcut-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            if (btn.disabled) return;
+            var label = btn.getAttribute('data-label') || btn.textContent || '立即同步';
+            btn.disabled = true;
+            btn.textContent = '同步中...';
+            syncCloudSyncSnapshot(dom.cloudSyncStatus).then(function() {
+                btn.textContent = '已同步';
+            }).catch(function(err) {
+                setCloudSyncStatus('云同步失败：' + ((err && err.message) || err), true);
+                persistCloudSyncStatusSilently();
+                btn.textContent = '同步失败';
+            }).finally(function() {
+                setTimeout(function() {
+                    btn.disabled = false;
+                    btn.textContent = label;
+                }, 1200);
+            });
+        });
+    });
+}
 // ==================== Character and Data Event Bindings ====================
 function bindCharacterAndDataEvents() {
     dom.charCreateBtn.addEventListener('click', openCharacterEditor);
@@ -15202,6 +16006,7 @@ function bindEvents() {
     bindSidebarEvents();
     bindMessageActionEvents();
     bindLanguageEvents();
+    bindCloudSyncShortcutEvents();
     bindCharacterAndDataEvents();
     bindSettingsEvents();
 

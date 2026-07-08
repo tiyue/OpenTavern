@@ -19,6 +19,9 @@ function deleteCharacterFromLibrary(nameOrKey) {
     if (!state.characters || !state.characters[key]) return;
 
     delete state.characters[key];
+    if (typeof removeMyCardKeyFromOrder === 'function') {
+        removeMyCardKeyFromOrder(key);
+    }
     persistState(true);
 
     try {

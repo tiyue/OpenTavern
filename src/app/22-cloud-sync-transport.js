@@ -2,9 +2,9 @@
 async function requestCloudSync(method, payload) {
     var s = ensureCloudSyncSettings();
     var endpoint = getCloudSyncEndpoint();
-    if (!endpoint) throw new Error('Cloud sync endpoint is required.');
-    if (!s.cloudSyncToken) throw new Error('Cloud sync token is required.');
-    if (s.cloudSyncToken.length < 8) throw new Error('Cloud sync token must be at least 8 characters.');
+    if (!endpoint) throw new Error('请填写云同步端点。');
+    if (!s.cloudSyncToken) throw new Error('请填写云同步令牌。');
+    if (s.cloudSyncToken.length < 8) throw new Error('云同步令牌至少需要 8 个字符。');
 
     var headers = {
         'Accept': 'application/json',
@@ -33,7 +33,27 @@ async function requestCloudSync(method, payload) {
 async function readCloudSyncRemoteSnapshot() {
     var result = await requestCloudSync('GET');
     if (!result || result.data === null || result.data === undefined) return null;
-    return normalizeCloudSyncSnapshot(result);
+    return attachCloudSyncRemoteMetadata(normalizeCloudSyncSnapshot(result), result);
+}
+
+function attachCloudSyncRemoteMetadata(snapshot, result) {
+    if (!snapshot || typeof snapshot !== 'object') return snapshot;
+    var bytes = Number(result && result.bytes);
+    var updatedAt = Number(result && result.updatedAt);
+    try {
+        Object.defineProperty(snapshot, '__cloudSyncBytes', {
+            value: Number.isFinite(bytes) ? bytes : 0,
+            configurable: true
+        });
+        Object.defineProperty(snapshot, '__cloudSyncUpdatedAt', {
+            value: Number.isFinite(updatedAt) ? updatedAt : 0,
+            configurable: true
+        });
+    } catch (_) {
+        snapshot.__cloudSyncBytes = Number.isFinite(bytes) ? bytes : 0;
+        snapshot.__cloudSyncUpdatedAt = Number.isFinite(updatedAt) ? updatedAt : 0;
+    }
+    return snapshot;
 }
 
 function setCloudSyncStatus(message, isError) {
