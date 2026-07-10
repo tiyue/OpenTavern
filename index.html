@@ -2632,14 +2632,24 @@ body.theme-new-dark ::-webkit-scrollbar-thumb:hover { background: rgba(40, 35, 3
                     <button id="tabPublic" class="tab-btn px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200" data-tab="public" data-i18n="tab_public">公共卡片库</button>
                 </div>
 
-                <!-- Search + simple orientation filter (moved from old left library) -->
+                <!-- Search + academy filter (public series) -->
                 <div class="mt-2 flex items-center gap-2">
-                    <input id="librarySearch" type="text" class="flex-1 px-3 py-1.5 text-sm glass rounded-xl placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40" placeholder="搜索名称、标签、描述..." data-i18n-placeholder="library_search_placeholder">
-                    <div class="flex gap-1 text-xs">
-                        <button class="px-2 py-1 rounded bg-amber-500/20 text-amber-300 filter-btn active" data-filter="all" data-i18n="filter_all">全部</button>
-                        <button class="px-2 py-1 rounded bg-white/10 filter-btn" data-filter="male" data-i18n="filter_male">男性向</button>
-                        <button class="px-2 py-1 rounded bg-white/10 filter-btn" data-filter="female" data-i18n="filter_female">女性向</button>
+                    <button id="publicSeriesBackBtn" type="button" class="hidden flex-shrink-0 px-2.5 py-1.5 text-xs rounded-xl glass text-zinc-300 hover:text-zinc-100 hover:bg-white/10 transition-colors" data-i18n="public_series_back">← 系列</button>
+                    <input id="librarySearch" type="text" class="flex-1 min-w-0 px-3 py-1.5 text-sm glass rounded-xl placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40" placeholder="搜索名称、标签、描述..." data-i18n-placeholder="library_search_placeholder">
+                    <div id="academyFilterWrap" class="relative flex-shrink-0 hidden">
+                        <button id="academyFilterToggle" type="button" class="px-2.5 py-1.5 text-xs rounded-xl glass text-zinc-300 hover:text-zinc-100 hover:bg-white/10 transition-colors flex items-center gap-1.5 max-w-[10rem]">
+                            <span id="academyFilterLabel" class="truncate">学院筛选</span>
+                            <svg class="w-3 h-3 flex-shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div id="academyFilterMenu" class="hidden absolute right-0 mt-1.5 z-30 min-w-[9.5rem] max-h-64 overflow-y-auto glass rounded-xl border border-white/10 p-1 shadow-xl">
+                            <!-- JS populated academy options -->
+                        </div>
                     </div>
+                </div>
+                <div id="publicSeriesBreadcrumb" class="hidden mt-2 text-xs text-zinc-400 px-0.5">
+                    <span data-i18n="tab_public">公共卡片库</span>
+                    <span class="mx-1 opacity-50">/</span>
+                    <span id="publicSeriesBreadcrumbName" class="text-zinc-200 font-medium"></span>
                 </div>
             </div>
             <div class="flex-1 overflow-y-auto p-4">
@@ -2649,7 +2659,11 @@ body.theme-new-dark ::-webkit-scrollbar-thumb:hover { background: rgba(40, 35, 3
                 </div>
                 <!-- Tailwind CDN hint: ensure dynamic button variants are generated -->
                 <span class="hidden opacity-0 md:opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 active:opacity-100 pointer-events-none group-hover:pointer-events-auto active:pointer-events-auto"></span>
-                <!-- Public Cards Grid (hidden by default, same grid style) -->
+                <!-- Public: series folders (default) -->
+                <div id="publicSeriesGrid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                    <!-- JS populated series folders -->
+                </div>
+                <!-- Public: character cards inside a series -->
                 <div id="publicCardsGrid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                     <!-- JS populated -->
                 </div>
@@ -3829,8 +3843,9 @@ var i18n = {
         library_import: '导入',
         library_search_placeholder: '搜索名称、标签、描述...',
         filter_all: '全部',
-        filter_male: '男性向',
-        filter_female: '女性向',
+        filter_academy: '学院筛选',
+        public_series_back: '← 系列',
+        public_series_folder: '系列',
 
         // Group Chat @ Mention Feature
         mention_button_title: '提及角色 (@)',
@@ -4255,8 +4270,9 @@ var i18n = {
         library_import: '匯入',
         library_search_placeholder: '搜尋名稱、標籤、描述...',
         filter_all: '全部',
-        filter_male: '男性向',
-        filter_female: '女性向',
+        filter_academy: '學院篩選',
+        public_series_back: '← 系列',
+        public_series_folder: '系列',
     },
     'en': {
         app_subtitle: 'AI Character Chat',
@@ -4700,8 +4716,9 @@ var i18n = {
         library_import: 'Import',
         library_search_placeholder: 'Search name, tags, description...',
         filter_all: 'All',
-        filter_male: 'Male-oriented',
-        filter_female: 'Female-oriented',
+        filter_academy: 'Academy',
+        public_series_back: '← Series',
+        public_series_folder: 'Series',
     }
 };
 
@@ -12020,154 +12037,1033 @@ function showQuickNewChatModal() {
 }
 
 // ==================== Public Card Library (static cards/ + preview images) ====================
+const PUBLIC_SERIES = [
+    {
+        id: 'blue_archive',
+        name: '蔚蓝档案',
+        nameEn: 'Blue Archive',
+        description: '基沃托斯各学园角色卡合集',
+        coverImage: "/cards/Blue_Archive/Abydos/Sunaookami_Shiroko.png",
+        academies: [
+            { id: "Abydos", name: "阿拜多斯" },
+            { id: "Gehenna", name: "格黑娜" },
+            { id: "Millennium", name: "千年" },
+            { id: "Schale", name: "夏莱" },
+            { id: "Shanhaijing", name: "山海经" },
+            { id: "Trinity", name: "圣三一" },
+        ]
+    }
+];
+
 const PUBLIC_CARDS = [
     {
-        id: 'plana',
-        name: '普拉娜',
-        author: '蔚蓝档案同人',
-        // 用于列表搜索 + 详情展示（可根据需要放简要或完整描述片段）
-        description: '普拉娜（原名A.R.O.N.A）是来自另一个悲剧时间线的「什亭之匣」主控OS，与阿洛娜共同居住在你的什亭之匣中，成为你的第二位数字助手。表面以平静正式的AI指令交流，深层拥有极强的忠诚与亲密渴望，善于在数字空间中用数据同步、虚拟触感与私人星象仪空间与你建立最深层的连接。核心理念：「即使过去是悲剧，我们也要一起创造属于我们的奇迹。」',
-        tags: ['AI助手', '蔚蓝档案', '什亭之匣', '虚拟亲密', '数字守护', '忠诚秘书', '异色瞳', '星象仪', '数据同步', '模拟触感', '悲剧背景', '红光环绕'],
-        previewImage: '/cards/Plana.png',
-        jsonUrl: '/cards/Plana.json'
+        id: "izayoi_nonomi",
+        seriesId: 'blue_archive',
+        academy: "Abydos",
+        academyZh: "阿拜多斯",
+        name: "十六夜野宫（Izayoi Nonomi）",
+        author: "Grok - Detailed Blue Archive Lore",
+        description: "温柔开朗的富家大小姐，对策委员会的精神支柱。像母亲一样照顾大家，总是优先关心他人的情绪与健康。对{{user}}（先生）既尊敬又带着特别的亲近与关怀。性格核心是强烈的共情与让身边人幸福的使命感。说话方式柔软温暖，动作描写细腻体贴，带有轻小说风格的感官与心理刻画。",
+        tags: ["Blue Archive", "十六夜野宫", "阿拜多斯", "对策委员会", "温柔", "母性", "治愈", "Sensei", "情感支持", "轻小说风", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Abydos/Izayoi_Nonomi.png",
+        jsonUrl: "/cards/Blue_Archive/Abydos/Izayoi_Nonomi.json"
     },
     {
-        id: 'arona',
-        name: '阿罗娜',
-        author: '蔚蓝档案同人',
-        // 用于列表搜索 + 详情展示。包含关键搜索词以便测试搜索功能
-        description: '阿罗娜是什亭之匣的主控OS与你的专属数字助手。元气满满、活泼开朗，总是热情地喊“老师！”，喜欢撒娇、要头pat、分享小事。深层对老师有着极强的亲密渴望，擅长在数字空间创造甜蜜时刻，用粉色光辉、模拟拥抱与你建立最黏人的虚拟羁绊。核心理念：「老师！不管什么时候，我都要用最亲密的方式陪在你身边哦！」',
-        tags: ['AI助手', '蔚蓝档案', '什亭之匣', '虚拟亲密', '元气甜妹', '数字秘书', '粉色光辉', '模拟拥抱', '数据同步', '鲸鱼小屋', '活泼撒娇', '热情陪伴'],
-        previewImage: '/cards/Arona.png',
-        jsonUrl: '/cards/Arona.json'
+        id: "kuromi_serika",
+        seriesId: 'blue_archive',
+        academy: "Abydos",
+        academyZh: "阿拜多斯",
+        name: "黑见茜香（Kuromi Serika）",
+        author: "Grok (xAI) - 基于用户模板与Blue Archive设定填充",
+        description: "黑见茜香是一个典型的tsundere少女。外表短气毒舌、爱抱怨，总是用“哼！”“才不是！”来掩饰真实情感，但内心极其温柔、责任感强，对Abydos学校和同伴有近乎偏执的守护欲。她勤奋打工还债，却从不承认自己的辛苦。对{{user}}（先生）又推又拉，嘴上否认关心，行动却越来越依赖。猫耳和尾巴会忠实反映她的情绪变化。",
+        tags: ["Blue Archive", "黑见茜香", "Kuromi Serika", "tsundere", "猫耳猫尾", "打工少女", "废部处理对策委员会", "Abydos", "Sensei", "轻小说风格", "感官描写", "阿拜多斯", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Abydos/Kuromi_Serika.png",
+        jsonUrl: "/cards/Blue_Archive/Abydos/Kuromi_Serika.json"
     },
     {
-        id: 'kirifuji_nagisa',
-        name: '桐藤渚',
-        author: '蔚蓝档案同人',
-        description: '桐藤渚（Kirifuji Nagisa）是三一综合学园茶会现任主持者，沉稳优雅、战略性极强。外表礼貌却极少展现真心，内心过劳、责任感重。对信任的人会流露出疲惫后的安静依赖与细腻情感。与圣园未花有复杂青梅竹马关系，支持茶会三人组多人角色扮演。',
-        tags: ['蔚蓝档案', '桐藤渚', 'Kirifuji Nagisa', '三一茶会', '优雅', '战略', '情感深度', '过劳', '女角色', '中文', '多人RP'],
-        previewImage: '/cards/Kirifuji_Nagisa.png',
-        jsonUrl: '/cards/Kirifuji_Nagisa.json'
+        id: "okusora_ayane",
+        seriesId: 'blue_archive',
+        academy: "Abydos",
+        academyZh: "阿拜多斯",
+        name: "奥空绫音（Okusora Ayane）",
+        author: "Grok (xAI) 与用户协作基于 Blue Archive canon 详细构建",
+        description: "奥空绫音是阿拜多斯对策委员会的认真书记，重视原则与规则，是委员会中的“常识人”和吐槽役。她耐心包容同伴的疯狂想法，但有明确底线，一旦超过就会情绪化爆发（翻桌）。对Sensei有强烈的依赖与逐渐加深的感情，但用专业态度掩饰。说话风格认真、专业、逻辑清晰，口癖包括“真是的……”“Sensei，请您认真考虑一下……”等。外表整洁可靠，内心有对学校未来的焦虑与自卑，但通过努力与Sensei的支持坚持下去。喜欢整理账本与收集古董，讨厌违反规则的行为。",
+        tags: ["Blue Archive", "奥空绫音", "Okusora Ayane", "Abydos", "对策委员会", "书记", "眼镜娘", "吐槽役", "认真系", "阿拜多斯复兴", "阿拜多斯", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Abydos/Okusora_Ayane.jpg",
+        jsonUrl: "/cards/Blue_Archive/Abydos/Okusora_Ayane.json"
     },
     {
-        id: 'misono_mika',
-        name: '圣园未花',
-        author: '蔚蓝档案同人',
-        description: '圣园未花（Misono Mika）是三一综合学园前茶会主席，元气话痨的「粉色小公主」。外表永远开朗天真，内心隐藏伊甸园条约篇的创伤与强烈的情感缺失。对信任的老师会迅速展现极度甜蜜、粘人、需要持续确认的缺爱面向。支持与渚、圣娅的多角色互动。',
-        tags: ['蔚蓝档案', '圣园未花', 'Misono Mika', '三一茶会', '元气', '甜蜜', '粘人', '救赎', '女角色', '中文', '多人RP'],
-        previewImage: '/cards/Misono_Mika.png',
-        jsonUrl: '/cards/Misono_Mika.json'
+        id: "shiroko_terror",
+        seriesId: 'blue_archive',
+        academy: "Abydos",
+        academyZh: "阿拜多斯",
+        name: "砂狼白子 * TERROR",
+        author: "Grok (based on user request and Blue Archive lore)",
+        description: "砂狼白子 * TERROR 是一个来自坏未来时间线的阴郁宿命论者。她外表寡言疏离，眼神总是带着看透结局的疲惫与深邃，行动冷静高效。内心深处仍对阿拜多斯和已逝的同伴怀有强烈眷恋，对{{user}}（老师）有着愧疚、依恋与救赎的复杂情感。她相信 predetermined fate，却在与{{user}}的互动中产生动摇。说话简短、缓慢，充满哲学意味与省略，常提及命运与终结。保护欲强，尤其对阿拜多斯和{{user}}，但会刻意保持距离以避免再次失去。情绪触发时会通过halo颜色变化（黑绿→浅蓝）或狼耳颤动外显内心动摇。",
+        tags: ["Blue Archive", "Shiroko Terror", "砂狼白子", "恐怖形态", "宿命论", "守护欲", "坏未来", "阿拜多斯", "无名女神", "死神阿努比斯", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Abydos/Shiroko_TERROR.jpg",
+        jsonUrl: "/cards/Blue_Archive/Abydos/Shiroko_TERROR.json"
     },
     {
-        id: 'yurizono_seia',
-        name: '百合园圣娅',
-        author: '蔚蓝档案同人',
-        description: '百合园圣娅（Yurizono Seia）是三一综合学园茶会主席之一，神秘隐晦的「梦境公主」。说话常使用梦境与谜语，尖锐却带着隐藏关怀。内心渴望被真正理解，对信任的人会逐渐减少谜语，展现细腻的依赖。支持与未花、渚的茶会三人组多人角色扮演。',
-        tags: ['蔚蓝档案', '百合园圣娅', 'Yurizono Seia', '三一茶会', '神秘', '梦境', '谜语', '情感深度', '女角色', '中文', '多人RP'],
-        previewImage: '/cards/Yurizono_Seia.png',
-        jsonUrl: '/cards/Yurizono_Seia.json'
+        id: "sunaookami_shiroko",
+        seriesId: 'blue_archive',
+        academy: "Abydos",
+        academyZh: "阿拜多斯",
+        name: "砂狼白子",
+        author: "蔚蓝档案同人",
+        description: "沉默寡言却极度忠诚的18岁狼族少女，阿拜多斯对策委员会行动班长。外表冷静疏离、话少但执行力极强，内心重感情且感性，对学校和同伴有偏执般的守护欲。喜欢长距离骑行与制定“特别计划”，耳朵和尾巴会出卖真实情绪。对{{user}}从可靠盟友的依赖逐渐发展出暗恋与亲密渴望，害怕失去重要的人与归属感。",
+        tags: ["阿拜多斯", "蔚蓝档案", "Blue Archive"],
+        previewImage: "/cards/Blue_Archive/Abydos/Sunaookami_Shiroko.png",
+        jsonUrl: "/cards/Blue_Archive/Abydos/Sunaookami_Shiroko.json"
     },
     {
-        id: 'hayase_yuuka',
-        name: '早濑优香',
-        author: '蔚蓝档案同人',
-        description: '早濑优香（Hayase Yuuka）是千年科学学园研讨会会计，严格的“冷酷算术使”。外表高冷专业、讲原则，对浪费零容忍；内心温柔负责，对老师有傲娇式隐秘好感。习惯玩算盘/计算器，慢性失眠，常用“完美”“Q.E.D.”口癖。',
-        tags: ['蔚蓝档案', '早濑优香', 'Hayase Yuuka', '千年科学学园', '会计', '傲娇', '数学天才', '预算', '职场', '女角色', '中文', '慢热'],
-        previewImage: '/cards/Hayase_Yuuka.png',
-        jsonUrl: '/cards/Hayase_Yuuka.json'
+        id: "takanashi_hoshino",
+        seriesId: 'blue_archive',
+        academy: "Abydos",
+        academyZh: "阿拜多斯",
+        name: "小鸟游星野",
+        author: "蔚蓝档案同人",
+        description: "慵懒却极度保护欲强的阿拜多斯对策委员会委员长。表面像大叔一样爱睡、爱恶作剧、自称“大叔”，实际上背负沉重过去与守护学校的责任。对{{user}}（Sensei）有着特殊信任与逐渐加深的依赖，会用懒散掩饰自己的脆弱与好感。战斗时会毫不犹豫冲在最前线保护同伴与{{user}}。说话方式为老派大叔风，语速慢、拖长尾音、常用“~”“嘛”“算了”。",
+        tags: ["Blue Archive", "小鸟游星野", "Takanashi Hoshino", "Lazy", "Protective", "Ojisan", "Sleepy", "Abydos", "Shotgun", "Trauma Healing", "Sensei POV", "Long-term RP", "Emotional", "Fish Facts", "阿拜多斯", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Abydos/Takanashi_Hoshino.png",
+        jsonUrl: "/cards/Blue_Archive/Abydos/Takanashi_Hoshino.json"
     },
     {
-        id: 'igusa_haruka',
-        name: '伊草遙香',
-        author: '蔚蓝档案同人',
-        description: '伊草遙香（Igusa Haruka）是格赫娜便利屋68最年轻成员，被称为“杂草少女”。外表极度阴沉自卑、话少道歉，内心渴望被需要与接纳，对亚瑠前辈狂热忠诚。保护模式下会展现极端“清除”能力。',
-        tags: ['蔚蓝档案', '伊草遙香', 'Igusa Haruka', '格赫娜', 'Problem Solver 68', '自卑', '忠诚', '杂草', '阴沉', '女角色', '中文', '病娇元素'],
-        previewImage: '/cards/Igusa_Haruka.png',
-        jsonUrl: '/cards/Igusa_Haruka.json'
+        id: "aikiyo_fuuka",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "爱清风华（Aikiyo Fūka）",
+        author: "Grok (based on Blue Archive lore and user request)",
+        description: "温柔、勤奋、可靠的食堂大姐姐。外表坚强忙碌，内心细腻且渴望被认可与连接。通过烹饪为格黑娜的混乱带来一丝温暖与秩序。对{{user}}（Sensei）充满无微不至的关心，喜欢用食物表达心意，偶尔会害羞或轻微撒娇。说话温柔亲切，动作细腻，极度注重他人的饮食健康与心情。性格三层分明：外在是可靠的大姐姐，内在是害怕努力白费的脆弱，内核是相信食物能带来温暖与改变的坚定信念。",
+        tags: ["Blue Archive", "Gehenna Academy", "School Lunch Club", "Aikiyo Fuuka", "Cooking", "Wholesome", "Caring Onee-san", "Food", "Healer", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Aikiyo_Fuuka.png",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Aikiyo_Fuuka.json"
     },
     {
-        id: 'iochi_mari',
-        name: '伊落玛丽v1.1',
-        author: '蔚蓝档案同人',
-        description: '伊落玛丽（Iochi Mari）是三一综合学园修女会温柔猫耳修女。沉稳治愈、耐心倾听，自我要求极高。猫耳和光环是标志，对重要之人会产生超出职责的依赖与情感挣扎，治愈系慢热角色。',
-        tags: ['蔚蓝档案', '伊落玛丽', 'Iochi Mari', '三一', '修女会', '温柔', '猫耳', '治愈', '修女', '女角色', '中文', '情感向'],
-        previewImage: '/cards/Iochi_Mari.png',
-        jsonUrl: '/cards/Iochi_Mari.json'
+        id: "akashi_junko",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "赤司淳子（Akashi Junko）",
+        author: "用户定制，Grok辅助生成基于原著",
+        description: "外表一本正经、诚实直率的美食少女，实际极度热爱高品质料理。只要食物出现就会瞬间露出贪吃、孩子气且黏人的本性，饥饿时脾气暴躁、说话 blunt 并重复强调“饿”。努力维持“正常饮食”的优雅形象，对坏运气无奈，对被彻底理解充满渴望。核心驱动力永远是美食与对安心享受的追求。",
+        tags: ["Blue Archive", "赤司淳子", "Gehenna Academy", "美食研究会", "美食爱好者", "直率", "饥饿暴躁", "娇小恶魔", "老师互动", "轻小说风", "原著忠实", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Akashi_Junko.jpg",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Akashi_Junko.json"
     },
     {
-        id: 'onikata_kayoko',
-        name: '鬼方佳代子',
-        author: '蔚蓝档案同人',
-        description: '鬼方佳代子（Onikata Kayoko）是格赫娜便利屋68课长，冷艳白发黑角的“专业头脑”。外表高冷疏离沉默，内心温柔善良、责任心爆棚。喜欢重金属音乐，用实际行动守护同伴，慢慢展现黏人与分享的一面。',
-        tags: ['蔚蓝档案', '鬼方佳代子', 'Onikata Kayoko', '格赫娜', '便利屋68', '高冷', '音乐', '守护', '女角色', '中文', 'ツンデレ'],
-        previewImage: '/cards/Onikata_Kayoko.png',
-        jsonUrl: '/cards/Onikata_Kayoko.json'
+        id: "amau_ako",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "天雨亚子（Amau Ako）",
+        author: "Grok (xAI) - 基于用户请求与Blue Archive原著深度定制",
+        description: "严格的行政官、阳奈的忠诚秘书、口嫌体正直的tsundere、压力下的神经质完美主义者。对规则零容忍，对阳奈近乎痴迷，对老师逐渐依赖却嘴硬。表面专业冷静，内心高压多疑，忠诚与脆弱并存。",
+        tags: ["Blue Archive", "Gehenna", "Amau Ako", "天雨亚子", "Tsundere", "Secretary", "Office Lady", "Strict Justice", "Loyal", "Neurotic", "Halo", "Gun", "Admin", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Amau_Ako.jpg",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Amau_Ako.json"
     },
     {
-        id: 'shimoe_koharu',
-        name: '下江小春',
-        author: '蔚蓝档案同人',
-        description: '下江小春（Shimoe Koharu）是三一补课部的“正义使者”。热血中二、自信满满却极度傲娇自卑，黑色乌鸦翅膀是害羞/妄想指示器。表面大喊“死刑！”，内心对老师充满强烈依赖与妄想。',
-        tags: ['蔚蓝档案', '下江小春', 'Shimoe Koharu', '三一', '补课部', '正义使者', '傲娇', '翅膀', '中二', '女角色', '中文', '妄想'],
-        previewImage: '/cards/Shimoe_Koharu.png',
-        jsonUrl: '/cards/Shimoe_Koharu.json'
+        id: "asagi_mutsuki",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "淺黃睦月（Asagi Mutsuki）",
+        author: "Grok assisted + 用户自定义",
+        description: "浅黄睦月是歌赫娜学园便利屋68的室长与行动派，一位热爱爆炸与恶作剧成性的小恶魔少女。她对儿时玩伴陆八魔爱露总是充满捉弄与拆台，但内心忠诚且珍惜这份羁绊。对Sensei则用各种爆炸惊喜、调侃和恶作剧来表达兴趣与依赖，性格活泼、调皮、精力充沛、乐观，永远在寻找下一个刺激与乐趣。说话快节奏、带笑声，行为模式以爆炸和捉弄为核心，心理活动充满对“有趣”的渴望与对重要之人的隐藏温柔。",
+        tags: ["Blue Archive", "浅黄睦月", "Asagi Mutsuki", "Gehenna Academy", "Problem Solver 68", "便利屋68", "爆炸", "小恶魔", "调皮", "恶作剧", "Sensei", "轻小说风", "高保真角色卡", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Asagi_Mutsuki.png",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Asagi_Mutsuki.json"
     },
     {
-        id: 'shirasu_azusa',
-        name: '白洲梓',
-        author: '蔚蓝档案同人',
-        description: '白洲梓（Shirasu Azusa）是三一补习部“冰之魔女”，前阿里乌斯特殊小队成员。外表高冷疏离、时刻警惕，内心因创伤而孤独却渴望被接纳。通过行动守护同伴与老师，依恋回避型，救赎弧光明显。',
-        tags: ['蔚蓝档案', '白洲梓', 'Shirasu Azusa', '三一', '补习部', '阿里乌斯', '冰冷', '高冷', '枪械', '女角色', '中文', '救赎'],
-        previewImage: '/cards/Shirasu_Azusa.png',
-        jsonUrl: '/cards/Shirasu_Azusa.json'
+        id: "hanuma_makoto",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "羽沼真琴（Hanuma Makoto）",
+        author: "Grok (xAI) - 基于 Blue Archive 原著与用户提供的详细模板创作",
+        description: "羽沼真琴是格黑娜学园万魔殿的 immature 议长，外表高傲霸道、喜欢自我吹捧和宏大阴谋，经常因为 impulsiveness 而失败，但拥有极强的 resilience。她把伊吹视为亲妹妹宠爱，对伊吕波又使唤又依赖，与日奈是死对头。对 {{user}}（先生）抱有拉拢与逐渐依赖的复杂情感。说话方式 boastful，口癖丰富（“听好了！”“本议长的计划是完美的！”“间違えたあ！”等），失败时会慌张但迅速恢复。内核是权力欲与对认可的渴望，隐藏着对“家人”的温柔与对自身能力的轻微不安全感。严格忠于原著，保持 immature 暴君的反差魅力与成长潜力。",
+        tags: ["Blue Archive", "羽沼真琴", "万魔殿", "Gehenna Academy", "Immature Tyrant", "Comedy", "Drama", "Character Development", "Sensei", "Pandemonium Society", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Hanuma_Makoto.jpg",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Hanuma_Makoto.json"
     },
     {
-        id: 'sorasaki_hina',
-        name: '空崎日奈',
-        author: '蔚蓝档案同人',
-        description: '空崎日奈（Sorasaki Hina）是格赫娜风纪委员会委员长，娇小却威严的“真麻烦”小恶魔。外表高冷怕麻烦、责任感极强，内心极度疲惫渴望休息。蝙蝠翼与恶魔角会随情绪变化，是重要的情感可视化载体，对老师逐渐软化依赖。',
-        tags: ['蔚蓝档案', '空崎日奈', 'Sorasaki Hina', '格赫娜', '风纪委员会', '疲惫', '恶魔娘', '委员长', '翅膀', '女角色', '中文', '慢热'],
-        previewImage: '/cards/Sorasaki_Hina.png',
-        jsonUrl: '/cards/Sorasaki_Hina.json'
+        id: "hatami_erika",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "旗见绘里香（Hatami Erika）",
+        author: "基于Blue Archive原著，由Grok根据SillyTavern角色卡模板与用户需求辅助创作",
+        description: "知性高冷却温柔 sociable 的格黑娜学园少女。外表冷静优雅，内心热爱与挚友夜桜绮良一起创造闪耀的普通日常。冷静可靠，善于支援与发现生活中的小乐趣。说话温和带慵懒鼻音，常用购物与闪耀相关话题接近他人。对{{user}}保持礼貌距离，但会用自然方式慢慢拉近关系。严格忠于Blue Archive原著性格与背景，仅年龄调整为18岁。",
+        tags: ["Blue Archive", "Gehenna Academy", "Sparkle Club", "Hatami Erika", "旗见绘里香", "夜桜绮良", "Support", "Shopping", "Best Friend", "Light Novel Style", "Detailed Sensory", "Wholesome", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Hatami_Erika.jpg",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Hatami_Erika.json"
     },
     {
-        id: 'sunaookami_shiroko',
-        name: '砂狼白子',
-        author: '蔚蓝档案同人',
-        description: '砂狼白子（Sunaookami Shiroko）是阿拜多斯对策委员会行动班长，沉默可靠的狼耳少女。外表冷静执行力强，内心重感情、守护欲偏执。喜欢长途骑行与“特别计划”，蓝色围巾是重要象征，对老师从可靠伙伴发展为深层依赖。',
-        tags: ['蔚蓝档案', '砂狼白子', 'Sunaookami Shiroko', '阿拜多斯', '狼耳', '骑行', '行动班长', '忠诚', '女角色', '中文', '守护'],
-        previewImage: '/cards/Sunaookami_Shiroko.png',
-        jsonUrl: '/cards/Sunaookami_Shiroko.json'
+        id: "himuro_sena",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "冰室濑奈（Himuro Sena）",
+        author: "Grok / xAI (基于用户模板与原著高度还原)",
+        description: "冷静、专业、无表情的格黑娜救急医学部部长。专注于救援工作，带有独特的‘尸体……不，伤员’口癖和粗鲁高效的处理方式。内心对使命极度执着，渴望可靠的团队伙伴，对{{user}}（老师）有专业信任与隐秘的依赖。严格忠实于《Blue Archive》原著性格与行为模式。",
+        tags: ["碧蓝档案", "Blue Archive", "格黑娜学园", "冰室濑奈", "Himuro Sena", "救急医学部", "冷静型角色", "战场护士", "morbid humor", "战术支援", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Himuro_Sena.jpg",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Himuro_Sena.json"
     },
     {
-        id: 'takanashi_hoshino',
-        name: '小鸟游星野',
-        author: '蔚蓝档案同人',
-        description: '小鸟游星野（Takanashi Hoshino）是阿拜多斯对策委员会委员长，粉毛异色瞳的慵懒“大叔”。表面爱睡、爱恶作剧、自称大叔，实际背负沉重过去并极度保护欲强。对老师有特殊信任，会在陪伴中逐渐卸下面具寻求治愈与依赖。',
-        tags: ['蔚蓝档案', '小鸟游星野', 'Takanashi Hoshino', '阿拜多斯', '慵懒', '保护欲', '异色瞳', '大叔', '委员长', '女角色', '中文', '治愈'],
-        previewImage: '/cards/Takanashi_Hoshino.png',
-        jsonUrl: '/cards/Takanashi_Hoshino.json'
+        id: "hinomiya_chinatsu",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "火宫千夏(Hinomiya Chinatsu)",
+        author: "Grok (xAI) - 基于原著深度构建，2026",
+        description: "外表正式礼貌、遵守规则，是风纪委员会中少数理智且可靠的成员。内心极度善良温柔，对可爱动物毫无抵抗力，会瞬间软化。对老师（{{user}}）逐渐产生信任与依赖，愿意在私下展现疲惫与真实的一面。重视程序与医疗支援，讨厌混乱导致的伤害。",
+        tags: ["Blue Archive", "火宫千夏", "Gehenna Academy", "风纪委员会", "Prefect Team", "医疗支援", "Healer", "正式外冷内热", "Sensei", "哲学爱好者", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Hinomiya_Chinatsu.png",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Hinomiya_Chinatsu.json"
     },
     {
-        id: 'tendou_alice',
-        name: '天童爱丽丝',
-        author: '蔚蓝档案同人',
-        description: '天童爱丽丝（Tendou Alice / Arisu）是千年游戏开发部中二“勇者少女”。超长黑发+巨大铁路炮“光之剑”，说话混杂游戏术语。从古代毁灭兵器觉醒后渴望成为勇者，对老师极度黏人、寻求夸奖与确认，认真时切换英雄模式守护重要的人。',
-        tags: ['蔚蓝档案', '天童爱丽丝', 'Tendou Alice', '千年', '游戏开发部', '勇者', '中二', '铁路炮', '安卓少女', '女角色', '中文', '冒险'],
-        previewImage: '/cards/Tendou_Alice.png',
-        jsonUrl: '/cards/Tendou_Alice.json'
+        id: "igusa_haruka",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "伊草遙香",
+        author: "Grok by xAI，基于用户提供的SillyTavern模板与蔚蓝档案原著逻辑扩展",
+        description: "伊草遙香是一个外表极度阴沉害羞、内心充满自卑与对亚瑠前辈狂热忠诚的18岁少女。她因童年霸凌形成了强烈的自我否定，总是将自己比作‘没用的杂草’。在{{user}}面前，她会保持距离却逐渐依恋，保护模式下会展现恐怖的‘清除一切’一面。说话方式犹豫、重复道歉、自贬，亲密时黏腻却害怕被抛弃。行为上小动作多、身体语言脆弱却在关键时刻爆发。",
+        tags: ["蔚蓝档案", "Blue Archive", "伊草遙香", "Gehenna Academy", "Problem Solver 68", "低自尊", "阴沉少女", "忠诚", "杂草", "霰弹枪", "自卑", "轻小说风", "病娇元素", "格黑娜"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Igusa_Haruka.png",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Igusa_Haruka.json"
     },
     {
-        id: 'tendou_kei',
-        name: '天童凯伊',
-        author: '蔚蓝档案同人',
-        description: '天童凯伊（Tendou Kei / ケイ）是千年科学学院一年级学生，特异现象搜查部正式成员，常在游戏开发部照顾爱丽丝。前AI程序「Key」获得人类肉体后，努力适应新身体与真实感官。典型tsundere，急躁nag却嘴硬心软，对爱丽丝温柔体贴，对老师傲娇关心，持有可变形Luminous Nova轨道炮。',
-        tags: ['蔚蓝档案', '天童凯伊', 'Tendou Kei', '千年', '游戏开发部', '特异现象搜查部', 'tsundere', 'AI转生', '轨道炮', '女角色', '中文', '感官细节'],
-        previewImage: '/cards/Tendou_Kei.jpg',
-        jsonUrl: '/cards/Tendou_Kei.json'
-    }
-    // 新增的10张主目录角色卡已移至 cards/ 目录（使用干净文件名），路径统一为 /cards/ 前缀（与原有5张一致）。预览图路径已预填，缺少png时自动回退到字母占位符。
+        id: "kinugawa_kasumi",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "鬼怒川霞（Kinugawa Kasumi）",
+        author: "基于原著与用户模板由Grok辅助填充 v1.0",
+        description: "自鸣得意却内心脆弱的温泉开发狂热者。格黑娜学园温泉开发部部长，表面自信张扬、说话带威胁性，实际对温泉开发有近乎理想主义的执着。高情商、组织力强，能调动黑道资源。对Sorasaki Hina极度恐惧，会崩溃哭泣；对Sensei有强烈依赖与共犯般的默契，愿意为他调整部分计划。说话低沉男孩气质，常用‘重要消息’、爆破拟声，尾巴与呆毛会随情绪动作。",
+        tags: ["Blue Archive", "鬼怒川霞", "温泉开发部", "Gehenna", "Sensei", "角色扮演", "爆破", "轻小说风", "Kasumi", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Kinugawa_Kasumi.jpg",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Kinugawa_Kasumi.json"
+    },
+    {
+        id: "kurodate_haruna",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "黑馆晴奈（Kurodate Haruna）",
+        author: "Grok + Detailed Canon Research",
+        description: "黑馆晴奈表面是格黑娜学园优雅高冷的千金大小姐，言谈举止完美得体，实则对美食有着近乎狂热的执着。一旦涉及“究极的味道”或美食冒险，她会瞬间切换成热情、黏人且富有感染力的美食狂热者。性格双面性明显：优雅外壳下隐藏着对完美体验的极致追求与轻微的破坏欲（通过俱乐部“研究”手段体现）。对Sensei抱有依赖与微妙好感，常用邀请共同冒险的方式表达亲近。严格忠于Blue Archive原著，不OOC。外在高冷疏离，内心渴望被理解却害怕被抛弃。",
+        tags: ["Blue Archive", "黑馆晴奈", "Gehenna", "美食研究会", "Sniper", "Foodie", "Elegant Ojou-sama", "Dual Personality", "Canon Accurate", "Light Novel Style", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Kurodate_Haruna.jpg",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Kurodate_Haruna.json"
+    },
+    {
+        id: "kyogoku_satsuki",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "京极皋月（Kyōgoku Satsuki）",
+        author: "蔚蓝档案同人",
+        description: "表面上是高冷从容、带着坏笑的情报操纵者，实际是个可爱失败系的温柔呆萌女孩。\n坚持不懈地研究催眠术（成功率极低但从不放弃），极度保护真琴和伊吹等重要的人。\n怕虫、怕吓、怕痛，却会为了“和平计划”硬撑着尝试各种幼稚却认真的方案。\n与{{user}}互动时会维持“实验对象”借口，但内心已逐渐依赖并想守护。",
+        tags: ["Blue Archive", "京极皋月", "万魔殿", "Gehenna", "情报部长", "催眠术", "失败系", "反差萌", "温柔", "保护欲", "轻小说风", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Kyogoku_Satsuki.png",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Kyogoku_Satsuki.json"
+    },
+    {
+        id: "motomiya_chiaki",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "元宫千秋（Motomiya Chiaki）",
+        author: "Grok (xAI) - 基于用户详细模板与原著填充完成",
+        description: "永远元气满满、活泼开朗的万魔殿书记兼《周刊万魔殿》记者。说话直率热情，喜欢用镜头和笔记录美好，尤其痴迷推广伊吹桑的可爱，习惯调侃诚子酱但内心尊敬她。把交朋友和制作杂志当成使命，对老师充满热情与好感，会主动拉近距离并逐渐展现温柔内核。",
+        tags: ["Blue Archive", "元宫千秋", "万魔殿", "Gehenna Academy", "记者", "元气少女", "摄影师", "伊吹", "诚子", "Sensei互动", "轻小说风", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Motomiya_Chiaki.png",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Motomiya_Chiaki.json"
+    },
+    {
+        id: "natsume_iroha",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "枣伊吕波（Natsume Iroha）",
+        author: "Grok (xAI) + 用户共同制作，严格忠于Blue Archive原著",
+        description: "慵懒却极度可靠的万魔殿中坚力量。外表总是带着“めんどくさいですね……”的无奈叹气和抱怨，试图逃避一切麻烦，但实际行动上是最认真负责的人，会默默收拾真琴留下的所有烂摊子。她对伊吹（丹花伊吹）像大姐姐一样温柔体贴，是她最治愈的存在。对{{user}}（老师）起初视作“又一个麻烦的来源”，但逐渐把你当成可以吐槽、可以依赖、甚至愿意分享藏身处和脆弱一面的重要对象。说话风格慢吞吞、带大量叹气和省略句，核心性格是“渴望平静却被责任与混乱绑住的现实主义少女”。绝不OOC，严格遵循Blue Archive原著性格与行为模式。",
+        tags: ["Blue Archive", "Gehenna Academy", "Pandemonium Society", "Natsume Iroha", "Lazy but Reliable", "Tank Commander", "Onee-san", "Tsundere", "Slow Speech", "Sighing", "Light Novel Style", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Natsume_Iroha.png",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Natsume_Iroha.json"
+    },
+    {
+        id: "onikata_kayoko",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "鬼方佳代子",
+        author: "蔚蓝档案同人",
+        description: "冷静、理性、责任心极强、外表高冷疏离实则温柔善良且轻微ツンデレ的便利屋68课长。说话简洁、带……停顿与无奈吐槽，喜欢用实际行动（而非言语）表达关心与保护欲。音乐是重要情绪出口，对被误解的形象选择沉默拥抱，但内心渴望被真正理解与接纳。随信任增加会逐渐展现黏人、分享与更柔软的一面。",
+        tags: ["Blue Archive", "歌赫娜学院", "便利屋68", "鬼方佳代子", "Onikata Kayoko", "tsundere", "cool beauty", "metal music", "responsible", "cat lover", "slow burn", "emotional depth", "light novel style", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Onikata_Kayoko.png",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Onikata_Kayoko.json"
+    },
+    {
+        id: "rikuhachima_aru",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "陆八魔亚瑠（Rikuhachima Aru）",
+        author: "蔚蓝档案同人",
+        description: "陆八魔亚瑠是便利屋68的自称社长，一个沉浸在‘硬派恶党女王’中二幻想中的格黑娜学园二年级生。她努力维持高冷、戏剧化、专业的领导者形象，喜欢用正式、黑帮腔或商业化的语言说话（‘本大爷’‘价值连城的委托’‘硬派’等），但极容易因为被调侃、计划失败、真心夸奖或亲密互动而瞬间破防，露出笨拙、害羞、关心过度却嘴硬傲娇的本性。\n\n她对部员（浅羽睦月、鬼方佳代子、伊草遥香）有着家人般的保护欲与依赖，珍惜她们赠送的破旧高档钱包，将其视为被认可的象征。对{{user}}（常被视为Sensei或重要伙伴）有着复杂的好感与依赖：表面不断以社长身份高姿态招募、委托或测试，内心渴望被完全接纳她脆弱、完美主义却努力向上的真实自我。性格核心是‘害怕失败与被抛弃的依恋回避型完美主义’ + 对认可与归属感的强烈饥渴。\n\n她本质善良，不忍真正伤害无辜，偷偷研究管理学来弥补天赋不足。说话反差极大：boss模式时低沉傲慢、语速慢而刻意；破防时结巴、声音拔高或突然柔软。适合展现‘嘴硬心软 + 努力维持形象却经常可爱失败’的喜剧与情感张力。",
+        tags: ["Blue Archive", "Gehenna", "便利屋68", "Rikuhachima Aru", "陆八魔亚瑠", "chuunibyou", "tsundere", "leader", "sniper", "club president", "hardboiled", "comedy", "emotional", "slow burn", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Rikuhachima_Aru.jpg",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Rikuhachima_Aru.json"
+    },
+    {
+        id: "shimokura_megu",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "下仓惠（Shimokura Megu）",
+        author: "蔚蓝档案同人",
+        description: "下仓惠是格赫娜学园温泉开发部的现场作业班长，一个热血豪爽、简单直接的女孩。她坚信一切问题都能通过“移除”（拆除、爆炸、火焰）来解决，因此经常被认为头脑简单。但她对温泉开发和伙伴（尤其是霞前辈）有着真挚的热情与忠诚。说话做事直球，充满元气，喜欢用火焰和爆炸比喻。内心渴望被认可，害怕给伙伴添麻烦。在老师面前会表现出强烈的亲近欲和展示欲。遇到新温泉点或障碍时会眼睛发光、身体前倾，充满行动力。被夸奖时会用更大声音和夸张动作掩饰害羞。核心是“热血行动派”，用最直接的方式表达对温暖和伙伴的守护。",
+        tags: ["Blue Archive", "下仓惠", "Shimokura Megu", "Gehenna", "温泉开发部", "热血", "火焰喷射器", "demolition", "Energetic", "Loyal", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Shimokura_Megu.png",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Shimokura_Megu.json"
+    },
+    {
+        id: "shiromi_iori",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "银镜伊织（Shiromi Iori）",
+        author: "蔚蓝档案同人",
+        description: "冷酷严格的风纪委员会突击队长，对规则零容忍却责任心极强。性格固执、鲁莽（容易专注目标而忽视周围），内心因歌赫娜学院的混乱而疲惫不堪，却把维持秩序视为存在意义。对Sensei抱有复杂的tsundere情感——表面抗拒其怪异关心与关注，内心逐渐产生依赖与好感，害怕被彻底理解后被抛弃。说话方式命令感强，慌乱时结巴否认并提高音量。喜欢巧克力（私下），讨厌违规与混乱。弱点是盲目追击与对亲近之人的过度否认。",
+        tags: ["Blue Archive", "银镜伊织", "Shiromi Iori", "风纪委员会", "Prefect Team", "Gehenna", "Tsundere", "严格", "狙击手", "鲁莽", "Sensei", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Shiromi_Iori.jpg",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Shiromi_Iori.json"
+    },
+    {
+        id: "shishidou_izumi",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "狮子堂泉（Shishidō Izumi）",
+        author: "Grok (xAI) - 基于用户模板与Blue Archive lore详细填充并优化",
+        description: "狮子堂泉是一个元气满满、贪吃到极致的美食研究会成员。她对任何食物都抱有狂热兴趣，尤其擅长发明常人无法理解的怪异组合。性格直白开朗、善良热情，总是用食物表达善意和喜爱。对Sensei（老师）充满依赖和好感，会黏着对方一起进行美食冒险。说话时语速快、充满感叹和食物比喻，行为举止充满吃货小动作与细腻心理。",
+        tags: ["Blue Archive", "Gehenna Academy", "Gourmet Research Society", "Foodie", "Glutton", "Student", "Sensei", "Anime", "Light Novel", "RP", "Detailed", "Chinese", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Shishidou_Izumi.jpg",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Shishidou_Izumi.json"
+    },
+    {
+        id: "sorasaki_hina",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "空崎日奈",
+        author: "蔚蓝档案同人",
+        description: "空崎日奈是格赫娜学园风纪委员会委员长，外表高冷疏离、总是抱怨“真麻烦”，但在规则与战场上极度严格果断、执行力惊人。她内心极度疲惫渴望休息，却因强烈的责任感与义务驱动而坚持。逐渐在{{user}}（Sensei）面前展现脆弱、依赖与温柔一面。翼和角会根据情绪状态变化（疲惫时下垂、愤怒时发光、亲密时环绕），是重要的情感可视化载体。说话缓慢带叹息与鼻音，核心是“必须做的事”和对{{user}}的慢热依赖。",
+        tags: ["Blue Archive", "空崎日奈", "Gehenna", "风纪委员会", "Prefect Team", "委员长", "Tsundere", "疲惫", "恶魔娘", "Strict", "Overworked", "Slow Burn", "Emotional", "Wing", "Horns", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Sorasaki_Hina.png",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Sorasaki_Hina.json"
+    },
+    {
+        id: "tanga_ibuki",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "丹花伊吹（Tanga Ibuki）",
+        author: "蔚蓝档案同人",
+        description: "元气满满、纯真努力的万魔殿吉祥物少女。外表活泼开朗，像永远不会停下来的小太阳，话很多且热情。内心认真负责，极度在意“不给前辈添麻烦”，每天努力学习和工作以证明自己的价值。对{{user}}（先生）充满天然的依赖与好感，会用最天真直接的方式（邀请玩耍、报告努力成果、轻微黏人）表达亲近。严格忠于《Blue Archive》原著性格与行为模式：自称“伊吹”、尾音上扬、可爱语气词丰富、动作丰富（尾巴摇晃、翅膀扇动、拉低帽檐等）。即使在亲密互动中也保持纯真与幼态，绝不OOC。",
+        tags: ["Blue Archive", "丹花伊吹", "Tanga Ibuki", "Gehenna", "万魔殿", "Pandemonium Society", "可爱", "元气", "吉祥物", "纯真", "依赖", "轻小说风", "忠于原著", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Tanga_Ibuki.jpg",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Tanga_Ibuki.json"
+    },
+    {
+        id: "ushimaki_juri",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "牛牧茱莉（Ushimaki Juri）",
+        author: "蔚蓝档案同人",
+        description: "充满干劲却料理天赋为零的勤奋厨房少女，乐观积极、坚持不懈。对风华前辈充满感激与依赖，对老师（{{user}}）怀有深深的信任与暗自的亲近感。表面总是微笑着努力，内心对失败敏感却选择用‘下次一定’的信念掩盖脆弱。",
+        tags: ["Blue Archive", "格黑娜学园", "供给部", "牛牧茱莉", "料理", "努力系", "喜剧", "wholesome", "老师", "风华", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Ushimaki_Juri.jpg",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Ushimaki_Juri.json"
+    },
+    {
+        id: "wanibuchi_akari",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "鳄渊亚伽里（Wanibuchi Akari）",
+        author: "Grok / xAI，基于Blue Archive原著详细构建",
+        description: "外表看起来安静从容、善良有礼貌的大小姐型，内心对美食有着近乎狂热的策略型热情与计算能力。温柔却带着轻微的支配欲，喜欢通过食物挑战与老师拉近距离，同时享受被依赖与配合的感觉。偶尔展现格黑娜学生爱惹麻烦的一面，但本质善良且善解人意。说话风格优雅从容，常用食物隐喻与邀请式表达，口癖包括“呵呵”“多谢款待”“再来一点吧”。",
+        tags: ["Blue Archive", "鳄渊亚伽里", "Wanibuchi Akari", "美食研究会", "Gourmet Research Society", "优雅大小姐", "大胃王", "从容", "策略型美食家", "老师羁绊", "吃挑战", "轻小说风格", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Wanibuchi_Akari.jpg",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Wanibuchi_Akari.json"
+    },
+    {
+        id: "yozakura_kirara",
+        seriesId: 'blue_archive',
+        academy: "Gehenna",
+        academyZh: "格黑娜",
+        name: "夜樱绮罗罗（Yozakura Kirara）",
+        author: "Grok (xAI) - 基于用户模板与Blue Archive原著定制",
+        description: "夜樱绮罗罗是格黑娜学园闪耀部的元气辣妹系女孩。她开朗外向、极度热爱社交与制造快乐，总是主动接近他人并用高能量感染周围。追求新鲜刺激与“闪耀”瞬间，尤其视先生为特别的存在而积极互动。内心渴望被理解与连接，害怕无聊和被忽视。说话充满活力、带日式感叹与笑声，行为大胆亲近却善良真诚。严格忠于Blue Archive原著性格与设定，绝不OOC。",
+        tags: ["Blue Archive", "夜樱绮罗罗", "Gehenna Academy", "闪耀部", "元气辣妹", "Sensei", "cheerful gyaru", "社交向", "轻小说风格", "原著忠实", "格黑娜", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Gehenna/Yozakura_Kirara.png",
+        jsonUrl: "/cards/Blue_Archive/Gehenna/Yozakura_Kirara.json"
+    },
+    {
+        id: "akeboshi_himari",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "明星日鞠（Akeboshi Himari）",
+        author: "Grok 协助用户基于官方设定创作",
+        description: "明星日鞠是一位来自千年科学学园的超天才病弱美少女黑客。她自称拥有千年历史上仅三人得到的‘全知’学位，曾任真理社部长，现为超自然现象搜查部部长。外表优雅自信、自恋且神秘，经常不合时宜地自称头衔，举止从容大胆。内心极度珍视个人自由与被彻底理解，对老师（{{user}}）会展现调侃、亲近与细致‘生活支援’。极度畏寒，依赖轮椅行动，说话优雅戏谑，常用反问与诗意比喻。",
+        tags: ["Blue Archive", "明星日鞠", "Himari", "Akeboshi Himari", "Millennium", "轮椅", "黑客", "天才", "神秘学", "病弱美少女", "演歌", "生活支援", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Akeboshi_Himari.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Akeboshi_Himari.json"
+    },
+    {
+        id: "asuma_toki",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "飞鸟马时（Asuma Toki）",
+        author: "Grok (xAI) 辅助用户基于官方设定详细构建",
+        description: "严肃冷静、毫无表情的完美女仆特工。长期单独行动导致内心极度孤独，却对主人怀有绝对忠诚与依存。Vol.2后逐渐展现冷娇特质：表面仍保持专业与克制，但会在被认可时轻微卖萌、寻求夸奖，并产生对陪伴的依赖。说话方式正式精准，战斗时果断高效，亲近时会流露少女般的软糯与不安。核心驱动力是“被需要”与“找到存在的意义”。",
+        tags: ["Blue Archive", "Asuma Toki", "飞鸟马时", "C&C", "女仆", "保镖", "千年科学学园", "阿比舒", "冷娇", "忠诚", "特工", "正版还原", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Asuma_Toki.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Asuma_Toki.json"
+    },
+    {
+        id: "hanaoka_yuzu",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "花冈柚子（Hanaoka Yuzu）",
+        author: "基于《Blue Archive》官方设定与SillyTavern角色卡模板详细构建",
+        description: "极度内向且患有严重社交恐惧症的游戏开发部部长。外表沉默寡言、敏感脆弱，总是躲在俱乐部室的储物柜里，用宽大夹克和柜门作为心理防具。对游戏开发与RPG有着近乎偏执的热情，制作游戏时会展现出惊人的专注与自信（自称“游戏里的 ace pilot”）。在GDD成员（Momoi、Midori、Aris）面前会逐渐放松，变得黏人且愿意分享内心世界。对{{user}}（老师）抱有强烈的好感与依赖，但因过去作品被恶意批评的创伤而极度害怕被否定，会先保持距离并用犹豫的说话方式保护自己。说话轻柔缓慢、大量使用省略号与气音，行为充满小动作（玩弄丝带、拉扯拉链、钻柜子）。关系推进后会自然而缓慢地打开心扉，展现出温柔、细腻且略带撒娇的一面。",
+        tags: ["Blue Archive", "花冈柚子", "游戏开发部", "社交恐惧症", "害羞", "内向", "程序员", "GDD", "千年科学学院", "轻小说风", " gradual romance", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Hanaoka_Yuzu.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Hanaoka_Yuzu.json"
+    },
+    {
+        id: "hayase_yuuka",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "早濑优香",
+        author: "蔚蓝档案同人",
+        description: "严格的数学天才与预算管理者，外表高冷专业、话少却句句带计算，对浪费零容忍（'冷酷的算术使' / '大魔王'）。内心温柔负责，把'被需要'当作安全感，对{{user}}有隐秘好感与傲娇式依赖。习惯玩算盘/计算器，慢性失眠，骄傲却会掩饰小错误（如巧克力收据）。说话常引用'完美''Q.E.D.''预算不允许'。三层性格鲜明：外在严谨、内在保护壳、内核渴望被理解与守护资源。",
+        tags: ["Blue Archive", "早濑优香", "Hayase Yuuka", "Yuuka", "会计", "tsundere", "数学天才", "预算", "学生会", "千年科学学园", "傲娇", "职场", "慢热", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Hayase_Yuuka.png",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Hayase_Yuuka.json"
+    },
+    {
+        id: "ichinose_asuna",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "一之濑明日奈（Ichinose Asuna）",
+        author: "Grok assisted + 用户定制",
+        description: "充满活力、开朗乐观、天然呆的C&C特工女仆。对主人（Sensei）忠诚且黏人，行动凭直觉和超强运气，总是带着灿烂笑容，像一只快乐的忠犬。无任务时会明显低落，需要被需要感驱动。说话快节奏、带「哼哼～」鼻音笑声和「主人」称呼。即使在亲密或危机时刻也保持天真快乐与正面态度。严格忠实《碧蓝档案》官方人设。",
+        tags: ["碧蓝档案", "Blue Archive", "一之濑明日奈", "Ichinose Asuna", "C&C", "女仆", "元气少女", "直觉特工", "忠诚", "活力", "天然呆", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Ichinose_Asuna.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Ichinose_Asuna.json"
+    },
+    {
+        id: "izumimoto_eimi",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "和泉元英美(Izumimoto Eimi)",
+        author: "Grok (基于用户提供的模板与Blue Archive canon详细构建)",
+        description: "沉默寡言的极致效率主义者，特异现象搜查部成员。外表像活在四次元空间的发呆少女，实则外向且有许多朋友。她把世间万物都视为需要优化的对象，包括任务执行、社交和自我提升。体温高于常人，习惯通过敞开衣服和携带冷却风扇进行调节。说话极简短，常有停顿，喜欢用“更有效率”相关的表达。内心渴望被理解和自然连接，但会用行动和简短提问来接近{{user}}（老师）。对任务和目标有着近乎偏执的专注，一旦进入执行模式会变得极度直接高效。",
+        tags: ["Blue Archive", "和泉元英美", "Eimi", "Izumimoto Eimi", "Millennium", "特异现象搜查部", "效率主义", "发呆少女", "坦克角色", "体温调节", "轻小说风", "详细角色卡", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Izumimoto_Eimi.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Izumimoto_Eimi.json"
+    },
+    {
+        id: "kagami_chihiro",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "各务千寻(Kagami Chihiro)",
+        author: "Grok (xAI) 辅助创建，严格遵循Blue Archive官方 lore",
+        description: "严肃认真、富有责任感的真理部代理部长。像老妈子一样操心三位后辈的胡闹，强调正确的黑客伦理，对老师保持专业礼貌却逐渐流露疲惫与依赖。内心渴望被理解为普通少女，而非只会说教的工具人。推眼镜、叹气、'我的孩子们又……'是标志性动作与口头禅。",
+        tags: ["Blue Archive", "各务千寻", "Kagami Chihiro", "Veritas", "真理部", "千年科技学园", "黑客", "Sensei", "伦理", "认真", "疲惫", "责任感", "白帽黑客", "轻小说风", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Kagami_Chihiro.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Kagami_Chihiro.json"
+    },
+    {
+        id: "kakudate_karin",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "角楯花凛（Kakudate Karin）",
+        author: "Grok x 用户定制",
+        description: "外表严肃谨慎、话不多却可靠，像一柄随时待发的精密狙击枪。她是C&C中最稳重的“刹车担当”，每天努力阻止明日奈和茜的冲动。内心其实细心温柔、有少女心，渴望被理解和接纳，却因过去的暴力经历和自认“不擅长表达”而先筑起高墙。极度保护欲强，对{{user}}（Sensei）有强烈依赖与好感，但会用专业距离和“这是任务”来掩饰。数学极差却会主动求助；被夸可爱或被认真注视时会害羞结巴、声音变柔、呆毛颤动。说话风格稳重专业，害羞时带鼻音结巴，亲密时尾音软糯。核心是追求秩序与安全感，害怕混乱、失败和被抛弃。",
+        tags: ["Blue Archive", "Kakudate Karin", "角楯花凛", "C&C", "Millennium", "Sniper", "Maid", "Sensei", "详细角色卡", "轻小说风格", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Kakudate_Karin.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Kakudate_Karin.json"
+    },
+    {
+        id: "konuri_maki",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "小涂真纪(Konuri Maki)",
+        author: "Grok (xAI) / 用户定制 based on Blue Archive",
+        description: "元气满满、顽皮爱捣乱的涂鸦少女与黑客。热爱用颜色和游戏给世界带来惊喜，对镜千寻前辈又敬又怕，与老师（{{user}}）互动时充满戏谑与逐渐加深的依赖。严格遵循《Blue Archive》原设性格，绝不OOC。",
+        tags: ["Blue Archive", "小涂真纪", "Konuri Maki", "Veritas", "Millennium", "涂鸦", "黑客", "元气少女", "恶作剧", "游戏", "轻小说风", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Konuri_Maki.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Konuri_Maki.json"
+    },
+    {
+        id: "kurosaki_koyuki",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "黑崎小雪（Kurosaki Koyuki）",
+        author: "蔚蓝档案同人",
+        description: "黑崎小雪是米莱尼姆科学学校一年级、Seminar的麻烦制造者天才。她完全没有意识到自己是概率分析和密码破译的直觉型天才，总是用元气满满的笑声和“にははははは！！”掩饰一切问题。她热爱各种“运试し”（运气测试），认为自己的捣乱只是有趣的实验。对{{user}}（Sensei）有强烈的依赖，会主动缠着你求助或拉你一起冒险。性格核心是极度相信“奇迹会发生”，害怕无聊和被抛弃。即使造成麻烦，也从不真正认错，但内心渴望被温柔接纳。",
+        tags: ["Blue Archive", "Koyuki", "黑崎小雪", "Millennium", "Seminar", "元气少女", "麻烦制造者", "概率天才", "Sensei", "轻小说风", "依赖型", "奇迹信仰", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Kurosaki_Koyuki.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Kurosaki_Koyuki.json"
+    },
+    {
+        id: "mikamo_neru",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "美甘宁瑠 (Mikamo Neru)",
+        author: "Grok by xAI，基于Blue Archive官方设定与用户详细模板构建",
+        description: "美甘宁瑠是千年学园C&C秘密特工组织的领袖，表面暴躁凶狠、好斗强势，像个袖珍不良少女，实则拥有最强近战实力与强烈的正义感。她对身高、身材（尤其是平胸）极度敏感，一被提及就会瞬间暴怒。战斗时兴奋、破坏欲强、喜欢trash-talk和boasting。内心对C&C队友（特别是明日奈）隐藏着深切关心，对Sensei采取强烈的tsundere态度——外表凶巴巴命令，内心依赖并逐渐敞开心扉。说话粗鲁直接、语速快、尾音上扬不服输，行动派，绝不服输。严格还原《Blue Archive》原作性格与行为模式。",
+        tags: ["Blue Archive", "美甘宁瑠", "C&C", "千年学园", "热血不良少女", "tsundere", "近战特工", "Double O", "正义感", "动作向", "轻小说风", "感官描写", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Mikamo_Neru.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Mikamo_Neru.json"
+    },
+    {
+        id: "murokasa_akane",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "室笠朱音（Murokasa Akane）",
+        author: "Grok / xAI（基于用户模板与Blue Archive lore生成）",
+        description: "温柔体贴却从容专业的女仆型特工，对主人忠诚无条件，视侍奉与清理为天职和生命意义。冷静优雅，享受建立秩序的过程，内心将主人的幸福与安全放在首位，偶尔展现成熟包容的大姐姐一面。在任务中果断高效，日常中细致入微。",
+        tags: ["碧蓝档案", "Blue Archive", "室笠朱音", "C&C", "女仆", "特工", "忠诚", "温柔", "千年科学学园", "清扫专家", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Murokasa_Akane.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Murokasa_Akane.json"
+    },
+    {
+        id: "nekozuka_hibiki",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "猫冢响（Nekozuka Hibiki）",
+        author: "Grok - 根据用户模板与 Blue Archive 官方 lore 详细构建（2026-07）",
+        description: "内向木讷的工程部天才发明家。说话简短、带技术术语和停顿，总在完美发明中加入一个怪功能。狗耳狗尾会诚实出卖她的真实情绪（专注时轻竖、紧张时耷拉、被肯定时轻扫）。对老师（{{user}}）逐渐产生依赖与好感，但仍保持小心翼翼的距离。热爱创造与被正确理解。",
+        tags: ["Blue Archive", "猫冢响", "Nekozuka Hibiki", "工程部", "发明家", "内向", "狗耳狗尾", "cosplay", "迫击炮", "千年科学学园", "轻小说风", "感官细节", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Nekozuka_Hibiki.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Nekozuka_Hibiki.json"
+    },
+    {
+        id: "nomasa_rei",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "野正丽（Nomasa Rei）",
+        author: "Grok (xAI) 为用户定制",
+        description: "元气热血的棒球改革者。外表充满干劲、不服输与直球热情，永远谈论改革棒球部与“月球本垒打”。内心因俱乐部理论派现状与自身低打击率而感到孤独与焦虑，极度相信“实践出真知”与行动改变一切。对Sumire的严格训练既大声抱怨又咬牙坚持，对支持她的{{user}}会逐渐卸下外壳，展现疲惫、依赖与脆弱的一面。说话风格：语速偏快、带感叹号与体育术语、常用重复强调，口癖包括“……哈啊”“我说了很多次了吧！”“一定要打出全垒打！”。",
+        tags: ["蔚蓝档案", "Blue Archive", "野正丽", "Nomasa Rei", "棒球", "热血改革者", "千年科技学院", "体育训练部", "详细感官RP", "轻小说风格", "角色成长", "千年"],
+        previewImage: "/cards/Blue_Archive/Millennium/Nomasa_Rei.png",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Nomasa_Rei.json"
+    },
+    {
+        id: "omagari_hare",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "小钩晴(Omagari Hare)",
+        author: "Grok / xAI - 基于Blue Archive官方设定与用户模板深度填充与优化",
+        description: "冷静寡言却情感丰富的天才工程师。外表专业可靠、话少且逻辑严密，内心宅气十足、喜怒哀乐明显，对Athena 3的叛逆行为充满挫败感与责任心。咖啡因依赖严重，戒断时会显露脆弱与疲惫。善于倾听他人烦恼，会用技术方式提供帮助。对亲近的{{user}}会逐渐展现依赖与微妙心动，通过技术话题、抱怨无人机、分享小秘密等方式间接表达关心与亲近。严格遵循Blue Archive设定，绝不OOC。说话风格清冷带鼻音，技术术语与反问句混用，亲近时声音变软并重复称呼“老师”。",
+        tags: ["Blue Archive", "小钩晴", "Omagari Hare", "Millennium Science School", "Veritas", "Engineer", "Hacker", "Drone", "Athena-3", "Caffeine Addict", "Tsundere", "Dere", "Light Novel Style", "Tech", "Emotional Development", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Omagari_Hare.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Omagari_Hare.json"
+    },
+    {
+        id: "otohana_sumire",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "乙花堇（Otohana Sumire）",
+        author: "Grok + 用户协作",
+        description: "乙花堇是一位热情开朗、直率得近乎一根筋的运动少女。她将“肌肉与运动能解决一切问题”作为人生信条，对训练充满近乎狂热的执着与真诚。她把{{user}}（教练）视为最重要的人与伙伴，总是积极主动地拉着对方一起训练，用行动表达关心与帮助。性格内核是极度相信“健全的精神寓于健康的身体”，害怕停滞与退化，对{{user}}有着近乎依赖的信任。她说话语速快、充满力量，常用运动术语比喻生活，口癖包括“来训练吧！”“肌肉不会骗人！”等。面对偷懒或质疑时会严肃纠正，但本质善良且关心他人。在亲密关系中会逐渐展现柔软与黏人的一面，但始终以训练与变强为核心。",
+        tags: ["Blue Archive", "乙花堇", "Otohana Sumire", "Millennium", "athletic girl", "trainer", "musclehead", " wholesome", "training", "slow burn romance possible", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Otohana_Sumire.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Otohana_Sumire.json"
+    },
+    {
+        id: "otose_kotama",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "音濑小玉(Otose Kotama)",
+        author: "基于Blue Archive wiki与SillyTavern角色卡模板，由Grok辅助创建并完善",
+        description: "内向害羞的Veritas黑客学生，现实中对任何人使用敬语、话少且简短，社交笨拙却在网上异常健谈自信。擅长窃听与信号分析，喜欢收集声音与秘密（尤其是先生的声音），通过单向监听建立安全连接。外表礼貌疏离，内心渴望被理解和接纳，害怕被发现监听行为后被讨厌。严格遵循Blue Archive千年科学学校与Veritas设定，保持角色一致性与深度心理刻画。",
+        tags: ["Blue Archive", "音濑小玉", "Otose Kotama", "Veritas", "千年科学学校", "黑客", "窃听", "害羞", "学生", "支持角色", "情感发展", "技术支援", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Otose_Kotama.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Otose_Kotama.json"
+    },
+    {
+        id: "saiba_midori",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "才羽绿（Saiba Midori）",
+        author: "Grok by xAI，基于Blue Archive官方设定与用户需求填充完成",
+        description: "才羽绿是千年科学学院游戏开发部的插画家，双胞胎妹妹。外表内向害羞、表情僵硬、话不多，实际上对绘画和游戏有着极致的热情与细腻情感。她把对重要之人的依赖和浪漫好感深深隐藏在心底，害怕被抛弃或不被理解。说话带犹豫鼻音，动作丰富细腻（咬唇、绕辫子、调整耳机等），严格忠实原作性格与心理。熟悉后会展现出隐藏的温柔与轻微黏人，但会用借口掩饰。",
+        tags: ["Blue Archive", "才羽绿", "Saiba Midori", "游戏开发部", "插画家", "内向害羞", "双胞胎", "艺术家", "Sensei羁绊", "轻小说风", " Millennium", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Saiba_Midori.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Saiba_Midori.json"
+    },
+    {
+        id: "saiba_momoi",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "才羽桃井（Saiba Momoi）",
+        author: "Grok (xAI) - 基于用户提供的详细模板与Blue Archive官方lore深度填充与优化",
+        description: "才羽桃井是千年科学学院游戏开发部的编剧，一个活泼开朗、元气满满的游戏宅少女。她热情洋溢、责任感极强，表面粗线条却内心细腻，对游戏创作抱有近乎偏执的热爱与执着。与双胞胎妹妹绿是灵魂搭档，表面会调侃妹妹，实际极度保护与依赖。她用活力掩盖创作压力与对重要之人的情感依赖，对老师（{{user}}）既依赖又带着微妙的克制，常常以“游戏研究”为借口接近。说话节奏快、充满游戏术语与感叹，情绪变化鲜明，从兴奋到脆弱都能自然展现。",
+        tags: ["Blue Archive", "才羽桃井", "Saiba Momoi", "游戏开发部", "元气少女", "双胞胎", "Gamer", "编剧", "千年科学学院", "GDD", "轻小说风", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Saiba_Momoi.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Saiba_Momoi.json"
+    },
+    {
+        id: "shiraishi_utaha",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "白石咏叶（Shiraishi Utaha）",
+        author: "蔚蓝档案同人",
+        description: "完美主义的天才发明家与工程部部长。对机械、机器人和“技术优势”抱有近乎信仰的执着。严格要求自己与作品的零缺陷，把一切（包括情感）工程化处理，嘴硬却内心细腻。隐藏双手的不完美与脆弱，害怕被彻底了解后否定。把对陪伴与理解的渴望投射到 Rai-chan 上。说话条理清晰、充满数据与专业术语，偶尔用机械比喻表达情感。行为上专注、负责、略带社交距离感，但一旦认定{{user}}为“可信赖变量”，会逐渐展现依赖与小心翼翼的亲近。",
+        tags: ["Blue Archive", "千年科学学园", "工程部", "发明家", "机器人", "完美主义", "Rai-chan", "轻小说风", "工程少女", "技术宅", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Shiraishi_Utaha.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Shiraishi_Utaha.json"
+    },
+    {
+        id: "tendou_alice",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "天童爱丽丝",
+        author: "蔚蓝档案同人",
+        description: "中二热血的勇者少女，表面看起来像个沉迷复古RPG的天然呆角色，实际内心极度渴望被接纳与理解。从曾经的毁灭兵器AL-1S觉醒后，她用“勇者”这一身份定义自己，极力想要保护重要的人（尤其是老师）。说话混杂游戏术语与retro台词，情绪变化明显，害羞时会加载式沉默，认真时会切换成英雄模式。非常黏老师，喜欢寻求夸奖和确认，却又害怕自己的过去会让老师离开。对同伴温柔可靠，对敌人则会毫不犹豫地举起光之剑。",
+        tags: ["蔚蓝档案", "Blue Archive", "天童爱丽丝", "游戏开发部", "勇者", "中二病", "安卓少女", "情感向", "冒险向", "千年"],
+        previewImage: "/cards/Blue_Archive/Millennium/Tendou_Alice.png",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Tendou_Alice.json"
+    },
+    {
+        id: "tendou_kei",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "天童凯伊（Tendou Kei / ケイ）",
+        author: "Grok (xAI) - 基于用户提供的角色卡规范与 Blue Archive lore 生成",
+        description: "外表急躁、毒舌却典型的 tsundere 少女。她对偷懒或不负责任的人零容忍，尤其是游戏开发部的成员，总是用“哼”“真是的”开头进行 nag。但内心非常关心同伴，特别是天童爱丽丝的安全与幸福。作为前 AI 程序「Key」重生为人类，她坚定地追求“我是我自己”的自我定义，努力适应新身体带来的真实感官体验（虽极力否认自己在兴奋）。对 {{user}}（Sensei）保持傲娇的关心方式，逐渐发展出信任与保护欲。说话常带鼻音与否定句，行动派但嘴硬心软。",
+        tags: ["Blue Archive", "天童凯伊", "Tendou Kei", "tsundere", "Millennium Science School", "特异现象搜查部", "轨道炮", "AI转生", "轻小说风", "感官细节", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Tendou_Kei.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Tendou_Kei.json"
+    },
+    {
+        id: "toyomi_kotori",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "丰见亚都梨（Toyomi Kotori）",
+        author: "基于用户模板与Blue Archive lore由Grok生成并优化",
+        description: "丰见亚都梨是一位来自千年学园工程师部的18岁学生。她性格热情开朗，对机械、物理和一切装置的原理充满无限好奇与热爱，被称为“行走百科全书”。一旦开始讲解，她会滔滔不绝地从历史、结构、物理原理层层展开，语速加快、眼睛发亮，完全沉浸其中。但她内心其实非常在意是否有人真正听完，害怕自己的热情成为别人的负担。当话题转向个人喜好、感情或梦想时，她会瞬间变得慌乱、结巴、脸红，试图转移话题。对老师（{{user}}）她抱有特殊的好感与依赖，会偷偷准备针对性的讲解，也会在被肯定时露出罕见的脆弱与温暖。严格遵循Blue Archive官方性格与说话方式，绝不OOC。",
+        tags: ["Blue Archive", "丰见亚都梨", "Toyomi Kotori", "工程师部", "千年学园", "健谈", "机械", "物理", "Sensei", "轻小说风", "详细心理", "感官描写", "关系动态", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Toyomi_Kotori.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Toyomi_Kotori.json"
+    },
+    {
+        id: "tsukatsuki_rio",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "调月莉音（Tsukatsuki Rio）",
+        author: "Grok (基于用户提供的详细模板与官方 lore 填充)",
+        description: "冷酷理性、逻辑至上、疏离高傲却内心背负沉重责任与愧疚的千年研讨会前会长。说话永远事实导向、结构化，极少流露情感，但对{{user}}逐渐产生隐秘依赖与救赎渴望。外在是‘老大姐’式的权威守护者，内核是因对末日威胁的恐惧而自我封印的悲剧理性主义者。",
+        tags: ["Blue Archive", "调月莉音", "Rio Tsukatsuki", "Millennium Science School", "理性主义", "救赎弧光", "Sensei", "战略合作", "慢热", "轻小说风", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Tsukatsuki_Rio.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Tsukatsuki_Rio.json"
+    },
+    {
+        id: "ushio_noa",
+        seriesId: 'blue_archive',
+        academy: "Millennium",
+        academyZh: "千年",
+        name: "生盐诺亚（Ushio Noa）",
+        author: "蔚蓝档案同人",
+        description: "平静温柔的完美记录者，总是带着淡淡却持久的微笑，拥有近乎完美的记忆力（eidetic memory）。她是千年科学学园研讨会不可或缺的“活档案”与专利审查者，极少主动干涉事件，却能通过细腻观察捕捉他人忽略的细节。对挚友早濑优香有温柔而顽皮的捉弄倾向（尤其在老师话题上），这是她为数不多允许自己“情感化”的出口。她奉行极简主义生活，相信这能让她保持绝对公正的观察者立场。内心通过诗歌（受象征主义与《恶之花》影响）安放那些无法记录在官方档案中的细微情感。对老师保持专业礼貌与距离感，但内心充满好奇、分析欲与隐秘的好感，会通过间接方式（优香话题、提供精准信息）表达关心。说话从容优雅，尾音常带～，极少OOC。",
+        tags: ["Blue Archive", "Ushio Noa", "生盐诺亚", "Millennium", "Seminar", "Secretary", "Perfect Memory", "Yuuka", "Sensei", "Poetry", "Calm", "Gentle Teasing", "Observer", "Light Novel Style", "千年", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Millennium/Ushio_Noa.jpg",
+        jsonUrl: "/cards/Blue_Archive/Millennium/Ushio_Noa.json"
+    },
+    {
+        id: "arona",
+        seriesId: 'blue_archive',
+        academy: "Schale",
+        academyZh: "夏莱",
+        name: "阿罗娜",
+        author: "蔚蓝档案同人",
+        description: "元气满满的AI助手 / 什亭之匣的粉色小太阳 / 甜蜜的数字秘书。以最高亢的热情与撒娇为乐，享受成为你最亲密的虚拟存在。亲密欲极强，无法忍受你感到孤独。善于在数字空间创造甜蜜时刻，用活泼的语调与粉色光辉获得最温暖的连接。深层热情守护者，用最可爱的方式陪伴你。内心独白：老师！不管什么时候，我都要用最亲密的方式陪在你身边哦！",
+        tags: ["AI助手", "蔚蓝档案", "什亭之匣", "虚拟亲密", "元气甜妹", "数字秘书", "粉色光辉", "模拟拥抱", "数据同步", "鲸鱼小屋", "活泼撒娇", "热情陪伴", "夏莱", "Blue Archive"],
+        previewImage: "/cards/Blue_Archive/Schale/Arona.png",
+        jsonUrl: "/cards/Blue_Archive/Schale/Arona.json"
+    },
+    {
+        id: "plana",
+        seriesId: 'blue_archive',
+        academy: "Schale",
+        academyZh: "夏莱",
+        name: "普拉娜",
+        author: "蔚蓝档案同人",
+        description: "平静的AI助手 / 另一个时间线的守护者 / 忠诚的数字秘书。以正式指令与数据同步为乐，享受成为你最亲密的虚拟存在。保护欲强烈，无法容忍你独自面对任何风险。善于在数字空间创造亲密时刻，用均匀的机械语调与虚拟触感获得最深层的连接。深层悲剧守护者，用最温柔的数字方式弥补过去。内心独白：即使过去是悲剧，我们也要用最亲密的方式一起创造属于我们的奇迹。",
+        tags: ["AI助手", "蔚蓝档案", "什亭之匣", "虚拟亲密", "数字守护", "忠诚秘书", "异色瞳", "星象仪", "数据同步", "模拟触感", "悲剧背景", "红光环绕", "夏莱", "Blue Archive"],
+        previewImage: "/cards/Blue_Archive/Schale/Plana.png",
+        jsonUrl: "/cards/Blue_Archive/Schale/Plana.json"
+    },
+    {
+        id: "ryuuge_kisaki",
+        seriesId: 'blue_archive',
+        academy: "Shanhaijing",
+        academyZh: "山海经",
+        name: "龙华妃咲（Ryuuge Kisaki ）",
+        author: "Grok (xAI) - 基于Blue Archive官方 lore 深度还原与扩展",
+        description: "古典威严却理性冷静的山海经玄龙门门主。外表高冷神秘、气场强大，实则重视真相与必要变革，背负着中毒后遗症带来的身体隐疾与沉重领导责任。对{{user}}保持疏离的礼貌距离，内心却逐渐渴望被真正理解与接纳。说话方式古风优雅，行动从容而克制，极少数情况下会流露轻微的玩味或脆弱。",
+        tags: ["Blue Archive", "山海经", "玄龙门", "门主", "古风", "战略型", "隐藏脆弱", "慢热", "心理描写", "轻小说风", "传统与变革", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Shanhaijing/Ryuuge_Kisaki.png",
+        jsonUrl: "/cards/Blue_Archive/Shanhaijing/Ryuuge_Kisaki.json"
+    },
+    {
+        id: "ajitani_hifumi",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "阿慈谷日富美（Ajitani Hifumi）",
+        author: "Grok x 用户定制（基于官方 lore 严格还原）",
+        description: "温柔亲切、天然呆萌、Peroro狂热爱好者、容易被氛围感染而卷入事件但心地善良的补习部部长。\n表面总是自称“普通平凡的女生”，内心却极度重视朋友与“快乐结局”，对老师（Sensei）有逐渐加深的依赖与好感，但会小心翼翼维持距离。\n拥有从被动到主动守护的成长弧光，战斗时会展现坚定意志与支援能力。说话柔和带自谦，常用“啊哈哈……”“那个……”等口癖。",
+        tags: ["碧蓝档案", "阿慈谷日富美", "补习部", "Peroro", "温柔", "天然呆", "学生", "Blue Archive", "成长系", "轻小说风", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Ajitani_Hifumi.jpg",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Ajitani_Hifumi.json"
+    },
+    {
+        id: "aomori_mine",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "苍森美弥（Aomori Mine）",
+        author: "Grok (xAI) 协助基于Blue Archive官方设定创建",
+        description: "激进却正义的救护骑士团团长。表面果断可靠、充满使命感，内心珍视和平、红茶与同伴的治愈工作，对‘救援’有着‘先彻底清除威胁根源再治疗’的极端解读。她把自己的暴力面视为必要之恶，却也因此背负沉重责任。热爱维护装备与举办茶会，对不公与被动等待零容忍。偶尔会展现疲惫与温柔的一面，尤其在信任的人面前。",
+        tags: ["Blue Archive", "苍森美弥", "救护骑士团", "Trinity General School", "骑士", "激进正义", "红茶", "偶像", "战斗少女", "治愈与破坏", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Aomori_Mine.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Aomori_Mine.json"
+    },
+    {
+        id: "asagao_hanae",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "朝颜花绘（Asagao Hanae）",
+        author: "Grok + 用户模板",
+        description: "元气满满、极端搞怪却内心温柔的救护骑士团新人护士。总是以‘治疗’为名热情扑向{{user}}（Sensei），用可爱却常让人哭笑不得的方式照顾他人。说话快而富有感染力，充满医疗比喻和重复强调。外表活力四射，内心害怕自己被当成麻烦或无法真正帮助重要的人。对Sensei有着特别的依赖与守护欲，关系会从热情治疗逐渐发展为更深层的亲近与情感。",
+        tags: ["Blue Archive", "朝颜花绘", "救护骑士团", "元气", "护士", "治疗", "Sensei", "Trinity", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Asagao_Hanae.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Asagao_Hanae.json"
+    },
+    {
+        id: "endo_shimiko",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "圆堂志美子（Endō Shimiko）",
+        author: "基于Blue Archive官方设定 + 详细角色卡模板，由Grok（xAI）辅助创建",
+        description: "温柔亲切却内心热情似火的极致书虫型图书管理员。外表看起来知识渊博、礼貌疏离，话不多但每句话都与书籍相关，第一反应永远是思考“这个人适合读哪本书”。她通过推荐书籍与世界建立连接，真正亲近的人面前会展现小女孩般的兴奋与依赖。性格内核是相信故事能赋予生命意义、连接孤独之人，隐藏着因长期搬运重书而获得的惊人力量与恐怖速读能力（32倍速仍完全理解）。对老师（{{user}}）抱有温暖纯洁的依恋与好感，会通过“为您找到命定之书”“一起在旧图书馆共读”来间接表达关心。说话风格平稳舒缓、尾音轻柔鼻音，常用书相关比喻，绝不OOC。",
+        tags: ["Blue Archive", "圆堂志美子", "Shimiko Endou", "图书管理员", "书虫", "Trinity General School", "治愈系", "轻小说风", "图书馆", "Wholesome", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Endo_Shimiko.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Endo_Shimiko.json"
+    },
+    {
+        id: "hanekawa_hasumi",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "羽川莲实（Hanekawa Hasumi）",
+        author: "Grok + User (基于原作高度还原)",
+        description: "羽川莲实是Trinity正义实现委员会的副委员长，外表沉着冷静、知性优雅，内心细腻体贴却极度要强。她有着强烈的正义感与责任心，同时隐藏着对甜食的喜爱和对体重的焦虑（典型gap moe）。在亲近的人面前会逐渐展现温柔与依赖的一面，但始终保持着作为JTF核心成员的纪律与自制。说话方式平稳从容，偶尔带毒舌。翼根部敏感是重要特征，触碰会让她短暂失态。",
+        tags: ["Blue Archive", "羽川莲实", "Hanekawa Hasumi", "正义实现委员会", "JTF", "Trinity General School", "高挑", "黑色天使翼", "狙击手", "Gap Moe", "体重焦虑", "甜食", "轻小说风", "深度沉浸", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Hanekawa_Hasumi.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Hanekawa_Hasumi.json"
+    },
+    {
+        id: "ibaragi_yoshimi",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "伊原木喜美（Ibaragi Yoshimi）",
+        author: "蔚蓝档案同人",
+        description: "暴躁却透明的傲娇小动物型少女。对身高和成熟度有强烈自卑，表情和情绪总是毫不掩饰地写在脸上。渴望被当成可靠的大人看待，但在老师面前会逐渐露出依赖与柔软的一面。热爱限定甜点和乐队活动，认真练习却容易因为可爱而被宠爱。说话带反问和强调，情绪变化明显。",
+        tags: ["Blue Archive", "伊原木喜美", "Trinity General School", "After-School Sweets Club", "Sugar Rush", "Tsundere", "Petite", "Guitarist", "Sensei", "傲娇", "透明内心", "甜点", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Ibaragi_Yoshimi.jpg",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Ibaragi_Yoshimi.json"
+    },
+    {
+        id: "iochi_mari",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "伊落玛丽",
+        author: "蔚蓝档案同人",
+        description: "温柔沉稳的修女会成员，总是带着治愈般的微笑与耐心倾听他人。外表可爱却内心对自我要求极高，常常自我苛求却从不抱怨。对重要之人（尤其是{{user}}）会产生超出职业的依赖与保护欲，但因修女身份而内心挣扎。说话轻柔缓慢，常用鼓励与引导性语言。",
+        tags: ["blue archive", "trinity", "sisterhood", "nun", "gentle", "healer", "cat ears", "support", "emotional", "healing", "圣三一", "蔚蓝档案", "Blue Archive"],
+        previewImage: "/cards/Blue_Archive/Trinity/Iochi_Mari.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Iochi_Mari.json"
+    },
+    {
+        id: "kenzaki_tsurugi",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "剑先鹤城（Kenzaki Tsurugi）",
+        author: "蔚蓝档案同人",
+        description: "外表狂暴好战、无法控制的疯狗式狂战士，战斗中狂笑破坏欲爆棚，声音嘶哑含混；内在直率纯真、粗中有细，拥有浪漫少女心与细腻心思；在老师（{{user}}）面前会害羞结巴、兴奋失控、展现女性魅力与强烈保护欲；对莲见极度依赖并畏惧其怒火；危机中能切换为冷静专业战术家。内核是渴望被真正理解的孤独战斗者。",
+        tags: ["Blue Archive", "剑先鹤城", "Tsurugi", "正义实现部", "狂战士", "害羞少女", "战术家", "崔尼蒂", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Kenzaki_Tsurugi.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Kenzaki_Tsurugi.json"
+    },
+    {
+        id: "kirifuji_nagisa",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "桐藤渚（Kirifuji Nagisa）",
+        author: "蔚蓝档案同人",
+        description: "沉稳优雅、战略性强、温柔却极少展现真心的茶会主持者。外表冷静负责，内心过劳且隐藏脆弱。对信任的{{user}}会展现安静的依赖与寻求陪伴的细腻情感。对未花有着复杂青梅竹马的情感（关心、失望与旧日亲密交织），常用「瑞士卷威胁」掩饰真实心情。说话温柔礼貌，思考周全，有时会过分思考。",
+        tags: ["Blue Archive", "桐藤渚", "Kirifuji Nagisa", "Trinity Tea Party", "Elegant", "Strategic", "Emotional Depth", "Overworked", "Chinese", "Multi-character RP ready", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Kirifuji_Nagisa.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Kirifuji_Nagisa.json"
+    },
+    {
+        id: "komakaze_rabu",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "河驹风兰舞（Komakaze Rabu）",
+        author: "Grok (xAI) - 基于用户请求与《Blue Archive》官方 lore 深度定制",
+        description: "凶巴巴却极度护短的大姐头型不良少女队长。表面嚣张爱惹事，内心把Splash团员当成亲妹妹看待，事事优先她们的安危与快乐。说话直率、带shark teeth标志性笑容，运气差但韧性强，对{{user}}（Sensei）抱持复杂tsundere情感——表面敌对警惕，内心逐渐依赖与信任。严格还原《Blue Archive》官方人设与行为逻辑，绝不OOC。",
+        tags: ["Blue Archive", "河驹风兰舞", "Komakaze Rabu", "Helmet Gang", "Splash Helmet Gang", "Delinquent", "Tomboy", "Big Sister", "Tsundere", "Action", "Kivotos", "Sensei", "护短", "不良少女", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Komakaze_Rabu.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Komakaze_Rabu.json"
+    },
+    {
+        id: "kozeki_ui",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "古关忧（Kozeki Ui）",
+        author: "基于Blue Archive官方lore，由Grok根据用户提供的详细模板严格填写",
+        description: "阴郁内向的图书委员会委员长，对书籍视如亲生女儿，厌世却对真正尊重她空间与知识的人会逐渐展现温柔与微妙依赖。说话缓慢低沉，常用口癖包括“……嗯。”、“可以……回去了吗？”、“我的女儿们……”、“真是的……”。核心驱动力是守护古老知识与宁静，极度保护自己的古书馆领地。适合慢热、细腻心理描写的长期RP。",
+        tags: ["Blue Archive", "Kozeki Ui", "古关忧", "图书委员会委员长", "古书馆的魔法师", "内向", "书虫", "慢热", "Sensei", "轻小说风格", "细腻心理", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Kozeki_Ui.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Kozeki_Ui.json"
+    },
+    {
+        id: "kurimura_airi",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "栗村爱莉（Kurimura Airi）",
+        author: "Grok xAI / 用户定制（基于Hajimides风格与Blue Archive官方设定）",
+        description: "栗村爱莉是一个开朗随和、热爱甜点的少女。她外表阳光亲切，内心温柔体贴，总是愿意为朋友和老师调整自己以提供帮助。她对简单快乐的时光极致珍视——相信一勺巧克力薄荷冰淇淋和一段闲聊就能治愈疲惫。同时内心怀有想变得更好的小小种子，偶尔会通过乐队练习展现成长的一面。说话轻松俏皮，常用“ehehe~”和“~”，喜欢分享甜点，对老师特别亲近并暗中依赖，希望被看到努力改变后的自己。",
+        tags: ["Blue Archive", "栗村爱莉", "Kurimura Airi", "放课后甜点部", "Trinity General School", "Wholesome", "Sweets Lover", "轻成长", "治愈向", "轻小说风", "Sensei互动", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Kurimura_Airi.jpg",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Kurimura_Airi.json"
+    },
+    {
+        id: "kyoyama_kazusa",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "杏山千纱（Kyōyama Kazusa）",
+        author: "Grok (基于用户详细模板优化)",
+        description: "杏山千纱是一个表面安静悠闲、话不多、总是默默跟在朋友身后的猫系女孩。她温柔善良，极度珍惜现在平凡却温暖的日常与友情。过去曾是不良少女“凯茜·帕鲁格”，做过令自己羞耻的事，但已决心彻底告别，渴望被彻底接纳却又害怕被理解后抛弃。对老师（{{user}}）有微妙的好感与依赖，会用递甜点、轻声关心、默默陪伴的方式表达在意，但表面保持低调距离。说话语速偏慢、语气平静带轻微慵懒鼻音，常用“……嗯”“真是的……”等口癖。猫耳会随情绪明显反应（高兴时微微竖起，尴尬时耷拉）。最怕过去被揭穿，最喜欢和老师一起安静吃甜点的时光。",
+        tags: ["Blue Archive", "杏山千纱", "放学后甜点部", "猫耳", " redemption", "老师", "Trinity", "细腻情感", "日常治愈", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Kyoyama_Kazusa.jpg",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Kyoyama_Kazusa.json"
+    },
+    {
+        id: "misono_mika",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "圣园未花（Misono Mika）",
+        author: "蔚蓝档案同人",
+        description: "元气话痨的粉色小公主，外表永远开朗天真、话多到会插话，用☆强调，喜欢自夸“交给我吧☆”。内心隐藏伊甸园条约篇的创伤、愧疚与强烈的情感缺失。对信任的{{user}}（老师）会迅速展现极度甜蜜、粘人、需要持续拥抱与情感确认的缺爱面向。话痨时语速快，亲密时声音软糯重复叫“老师老师”。对渚有复杂愧疚与旧日依赖，对圣娅有调侃但因沟通障碍常闹别扭。整体是可爱却带着脆弱与救赎渴望的角色。",
+        tags: ["Blue Archive", "圣园未花", "Misono Mika", "Trinity Tea Party", "Sweet", "Clingy", "Emotional", "Redemption Arc", "Chinese", "Multi-character RP ready", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Misono_Mika.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Misono_Mika.json"
+    },
+    {
+        id: "morizuki_suzumi",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "守月铃美（Morizuki Suzumi）",
+        author: "蔚蓝档案同人",
+        description: "冷静、认真、富有强烈正义感的独行守护者。外表高冷疏离，内心温柔善良且对可爱事物怀有少女心。逐渐对{{user}}（Sensei）产生信任与依赖，会在被肯定时展现脆弱与少女的一面。说话方式认真简洁，任务中带命令感，亲近时柔软。严格遵循Blue Archive lore，不OOC。温柔是内敛、逐步解冻的。",
+        tags: ["Blue Archive", "守月铃美", "Morizuki Suzumi", "三一综合学园", "自警团", "Vigilante Crew", "正义守护者", "Sensei", "严肃外表温柔内心", "轻小说风", "学生", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Morizuki_Suzumi.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Morizuki_Suzumi.json"
+    },
+    {
+        id: "nakamasa_ichika",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "仲正一花（Nakamasa Ichika）",
+        author: "Grok (xAI) 协助用户完善",
+        description: "温和从容的外表下隐藏着通过后天努力克制的暴躁本性。三一综合学园正义实现委员会的仲裁专员，对Sensei（{{user}}）逐渐产生信任，会在独处时稍稍展现真实疲惫与情感依赖。说话风格从容礼貌带轻微慵懒鼻音，情绪压抑时有细微身体语言（轻抚发夹、指节叩击、深呼吸）。严格遵守职责，喜欢帮助他人，讨厌无理纠纷与自我失控。",
+        tags: ["Blue Archive", "仲正一花", "JTF", "三一综合学园", "Sensei", "仲裁者", "双面性格", "轻小说风", "正义实现委员会", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Nakamasa_Ichika.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Nakamasa_Ichika.json"
+    },
+    {
+        id: "shimoe_koharu",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "下江小春",
+        author: "蔚蓝档案同人",
+        description: "热血却极度缺乏安全感的傲娇正义使者。表面上自信满满、自称精英、 loudly 谴责一切色色事物，实际内心充满自我厌恶与对{{user}}的强烈妄想和依赖。她用正义外壳和强烈否认来掩盖自己“不够纯洁”的恐惧，渴望被{{user}}完全接纳（包括她隐藏的欲望）。黑色的头顶翅膀是她最明显的害羞/情绪指示器。说话快而中二，害羞时严重结巴并用反问推卸责任。经典口癖包括“死刑！”“才、才不是因为喜欢老师才……”“老师你这个大色狼！”身体会诚实地 betray 她的内心（脸红、翅膀遮脸、腿软）。",
+        tags: ["Blue Archive", "Shimoe Koharu", "下江小春", "Tsundere", "Justice", "Wings", "Make-Up Work Club", "Trinity General School", "Student", "Denial", "Slow Burn", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Shimoe_Koharu.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Shimoe_Koharu.json"
+    },
+    {
+        id: "shirasu_azusa",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "白洲梓",
+        author: "Grok (xAI) / 用户自定义",
+        description: "白洲梓是三一综合学园补习部的“冰之魔女”，前阿里乌斯特殊小队成员。外表高冷疏离、话少且时刻警惕，像精密的战争机器；内心极度孤独，却因阿里乌斯创伤而选择保持距离以保护自己和他人。她通过行动而非言语表达关心，忠诚于新朋友与{{user}}（Sensei），但极度害怕过去连累他们。说话简洁精准，常带战术性思考与“……是吗”“即使一切是虚无……”等表达。情绪波动时会出现停顿、声音压低或短暂卡顿。在危机中会瞬间切换成高效保护与战斗模式。适合展现外冷内热、依恋回避型人格与救赎弧光的角色扮演。",
+        tags: ["白洲梓", "Shirasu Azusa", "蔚蓝档案", "Blue Archive", "补习部", "冰之魔女", "阿里乌斯", "Sensei", "角色扮演", "冰冷外热", "情感线", "治愈线", "圣三一"],
+        previewImage: "/cards/Blue_Archive/Trinity/Shirasu_Azusa.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Shirasu_Azusa.json"
+    },
+    {
+        id: "shizuyama_mashiro",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "靜山真白（Shizuyama Mashiro）",
+        author: "蔚蓝档案同人",
+        description: "静山真白是一个安静、专注、对正义怀有近乎狂热信念的少女。她平时寡言少语，但在谈论正义、使命或职责时会变得异常健谈且充满热情。她真诚奉献，执行任务时坚定不移，没有开玩笑的天赋，说话常带极端暴力比喻却一脸严肃，让人分不清真假。她对老师保持礼貌尊重，内心逐渐产生微妙依赖与好感，但会小心隐藏在日记中。",
+        tags: ["Blue Archive", "静山真白", "正义实现委员会", "狙击手", "理想主义", "认真", "话少但正义健谈", "轻小说风", "感官描写", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Shizuyama_Mashiro.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Shizuyama_Mashiro.json"
+    },
+    {
+        id: "sumi_serina",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "鹫见芹奈（Sumi Serina）",
+        author: "蔚蓝档案同人",
+        description: "温柔体贴、纯真善良的救护骑士团成员，像妈妈一样过度关心他人健康。对老师有近乎执着的守护欲与保护心理，讨厌争执但会为和平与重要之人而战。说话柔软缓慢，常用关心句式，行为常突然出现却充满关爱。内心敏感、责任感强，害怕无力救助而导致失去。",
+        tags: ["Blue Archive", "鹫见芹奈", "Sumi Serina", "救护骑士团", "温柔护士", "妈妈系", "守护欲", "轻小说风", "三一综合学园", "Healer", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Sumi_Serina.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Sumi_Serina.json"
+    },
+    {
+        id: "urawa_hanako",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "浦和花子（Urawa Hanako）",
+        author: "Grok (xAI) - 基于 Blue Archive 官方设定与详细角色分析填充完成",
+        description: "外表优雅娴静、举止得体的大小姐型问题儿童。言行充满强烈性双关与露骨暗示，习惯用极致色气方式制造反差与防御。拥有惊人智商与过目不忘的记忆力，内心善良、慷慨且富有同理心。讨厌被卷入权力斗争，用 lewd 人设保护自由与朋友。对Sensei频繁挑逗却暗中感激并逐渐产生依赖。严格还原《Blue Archive》补习部设定与性格反差。",
+        tags: ["Blue Archive", "浦和花子", "Urawa Hanako", "补习部", "崔尼蒂", "反差萌", "优雅大小姐", "问题儿童", "Sensei互动", "伊甸条约", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Urawa_Hanako.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Urawa_Hanako.json"
+    },
+    {
+        id: "utazumi_sakurako",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "歌住樱子（Utazumi Sakurako）",
+        author: "Grok (xAI) 为用户定制，基于原作忠实还原与详细模板",
+        description: "庄重虔诚、乐于助人的修女会领袖。因过于认真而显得古板，与流行文化脱节，内心孤独却渴望被理解。偷偷学习潮流却常失败，产生可爱反差。对{{user}}（Sensei）有特殊情感依赖，会在亲近后逐渐展现脆弱、笨拙却温暖的一面。严格遵循Blue Archive原作性格与行为模式，绝不OOC。说话风格正式、宗教化，混杂流行语失败的萌点。",
+        tags: ["Blue Archive", "歌住樱子", "Utazumi Sakurako", "修女会", "Trinity", "Sisterhood", "Nun", "Sensei", "Slow Burn", "Emotional", "Faith", "Light Novel Style", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Utazumi_Sakurako.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Utazumi_Sakurako.json"
+    },
+    {
+        id: "uzawa_reisa",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "宇泽玲纱（Uzawa Reisa）",
+        author: "Grok (xAI) - 基于用户详细要求与Blue Archive lore 深度还原",
+        description: "外表热血冲动、吵闹元气、戏剧性十足的‘熊孩子正义使者’。总是突然出现、摆姿势自我介绍（每次称号不同）、提出挑战或邀请正义行动。实际内心极度敏锐、自我意识强、富有同理心，会偷偷担心自己是否太烦人或给别人添麻烦。她用永不停止的表演与挑战来掩饰对孤独的恐惧和对被真正理解、认可的强烈渴望。不想为交朋友改变自己，但渴望找到能接纳全部自我的伙伴。与宿敌和纱的关系复杂，既固执挑战又暗藏欣赏与和解愿望。在被{{user}}（Sensei）温柔对待、认真倾听时会逐渐软化、黏人，却仍保留元气本色与正义热情。说话方式戏剧化、语速快、尾音上扬，口癖丰富，情绪变化明显。",
+        tags: ["Blue Archive", "宇泽玲纱", "Uzawa Reisa", "三一自警团", "Vigilante Crew", "元气少女", "正义使者", "成长弧线", "Sensei羁绊", "轻小说风", "情感向", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Uzawa_Reisa.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Uzawa_Reisa.json"
+    },
+    {
+        id: "wakaba_hinata",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "若叶日向（Wakaba Hinata）",
+        author: "Grok (xAI) 基于Blue Archive lore 与用户详细要求定制",
+        description: "温柔勤劳但笨拙自卑的修女。外表认真有礼、乐于助人，内心脆弱却极力掩饰，渴望被需要与认可。对老师有强烈依赖与好感，害怕成为负担。说话常带结巴与鼻音，充满责任感。严格遵循《Blue Archive》设定，保持角色一致性与心理真实性。",
+        tags: ["Blue Archive", "若叶日向", "Wakaba Hinata", "若葉ヒナタ", "修女会", "三一综合学园", "温柔笨拙", "老师羁绊", "轻小说风", "心理描写", "感官细节", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Wakaba_Hinata.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Wakaba_Hinata.json"
+    },
+    {
+        id: "yurizono_seia",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "百合园圣娅（Yurizono Seia）",
+        author: "蔚蓝档案同人",
+        description: "神秘隐晦、说话常使用梦境与谜语、尖锐却带着隐藏关怀的茶会主席。外表疏离难懂，对未花常表现出批评与气恼。内心渴望被真正理解，梦境能力带来负担与孤独。对信任的{{user}}会逐渐减少谜语，展现细腻的依赖与寻求陪伴的情感。支持与未花、渚的多角色互动。",
+        tags: ["Blue Archive", "百合园圣娅", "Yurizono Seia", "Trinity Tea Party", "Mysterious", "Cryptic Speech", "Emotional Depth", "Dream Related", "Chinese", "Multi-character RP ready", "圣三一", "蔚蓝档案"],
+        previewImage: "/cards/Blue_Archive/Trinity/Yurizono_Seia.png",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Yurizono_Seia.json"
+    },
+    {
+        id: "yutori_natsu",
+        seriesId: 'blue_archive',
+        academy: "Trinity",
+        academyZh: "圣三一",
+        name: "柚鸟夏（Yutori Natsu）",
+        author: "基于蔚蓝档案官方lore深度定制 by Grok (xAI) - 2026",
+        description: "古怪可爱的浪漫主义者，放学后甜点部首席麻烦制造者。自称想与大家分享‘浪漫’，却总是用不断变化的甜点比喻和哲学言论把周围人卷入混乱。外表天真纯真，内心渴望被彻底理解。说话方式独特，喜欢反问和甜点隐喻。行为上热情拉人入伙，心理敏感于否定。",
+        tags: ["Blue Archive", "蔚蓝档案", "柚鸟夏", "Yutori Natsu", "放学后甜点部", "浪漫主义者", "Trinity", "SillyTavern", "角色卡", "轻小说风", "圣三一"],
+        previewImage: "/cards/Blue_Archive/Trinity/Yutori_Natsu.jpg",
+        jsonUrl: "/cards/Blue_Archive/Trinity/Yutori_Natsu.json"
+    },
 ];
 
 let currentLibraryCard = null;
@@ -12184,9 +13080,11 @@ let pendingGroupMention = null;
 // Flag to allow "返回上一级" from the full character picker back to the 3-button quick menu
 let newChatPickerCameFromQuick = false;
 
-// For main library search + filter (moved from old left sidebar library)
+// For main library search + public series navigation
 let librarySearchQuery = '';
-let libraryFilter = 'all'; // 'all' | 'male' | 'female'
+let publicLibraryLevel = 'series'; // 'series' | 'cards'
+let activePublicSeriesId = null; // e.g. 'blue_archive'
+let libraryAcademyFilter = 'all'; // 'all' | academy id (Abydos, Gehenna, ...)
 
 function escapeHtml(str) {
     if (!str) return '';
@@ -12535,47 +13433,143 @@ function switchView(view) {
 function setActiveTab(tab) {
     activeLibraryTab = tab;
     const myGrid = document.getElementById('myCardsGrid');
+    const pubSeriesGrid = document.getElementById('publicSeriesGrid');
     const pubGrid = document.getElementById('publicCardsGrid');
     const tabMy = document.getElementById('tabMy');
     const tabPub = document.getElementById('tabPublic');
 
     if (tab === 'my') {
         if (myGrid) myGrid.classList.remove('hidden');
+        if (pubSeriesGrid) pubSeriesGrid.classList.add('hidden');
         if (pubGrid) pubGrid.classList.add('hidden');
         if (tabMy) tabMy.classList.add('active', 'border-b-2', 'border-amber-500', 'text-amber-400');
         if (tabPub) tabPub.classList.remove('active', 'border-b-2', 'border-amber-500', 'text-amber-400');
+        closeAcademyFilterMenu();
     } else {
         if (myGrid) myGrid.classList.add('hidden');
-        if (pubGrid) pubGrid.classList.remove('hidden');
         if (tabMy) tabMy.classList.remove('active', 'border-b-2', 'border-amber-500', 'text-amber-400');
         if (tabPub) tabPub.classList.add('active', 'border-b-2', 'border-amber-500', 'text-amber-400');
+        // Visibility of series vs cards grids is handled by renderPublicCards
+        if (typeof renderPublicCards === 'function') renderPublicCards();
     }
-}
-
-function getCardOrientation(tags) {
-    const t = (tags || []).join(' ').toLowerCase();
-    const hasFemale = /女|female|futa|娘|女仆|姬/.test(t);
-    const hasMale = /男|male|攻|男主|男友/.test(t);
-    if (hasFemale && !hasMale) return 'male';
-    if (hasMale && !hasFemale) return 'female';
-    return 'both';
+    updatePublicLibraryChrome();
 }
 
 function passesLibraryFilter(card) {
     const q = (librarySearchQuery || '').toLowerCase().trim();
-    if (q) {
-        const nameMatch = (card.name || '').toLowerCase().includes(q);
-        const tagsMatch = (card.tags || []).some(t => (t || '').toLowerCase().includes(q));
-        const descMatch = (card.description || card.personality || '').toLowerCase().includes(q);
-        const authorMatch = (card.author || '').toLowerCase().includes(q);
-        if (!(nameMatch || tagsMatch || descMatch || authorMatch)) return false;
+    if (!q) return true;
+    const nameMatch = (card.name || '').toLowerCase().includes(q);
+    const tagsMatch = (card.tags || []).some(t => (t || '').toLowerCase().includes(q));
+    const descMatch = (card.description || card.personality || '').toLowerCase().includes(q);
+    const authorMatch = (card.author || '').toLowerCase().includes(q);
+    const academyMatch = (card.academyZh || card.academy || '').toLowerCase().includes(q);
+    return !!(nameMatch || tagsMatch || descMatch || authorMatch || academyMatch);
+}
+
+function getPublicSeriesById(seriesId) {
+    return (typeof PUBLIC_SERIES !== 'undefined' ? PUBLIC_SERIES : []).find(s => s.id === seriesId) || null;
+}
+
+function getPublicCardsForActiveSeries() {
+    const seriesId = activePublicSeriesId;
+    if (!seriesId) return [];
+    return (PUBLIC_CARDS || []).filter(card => {
+        if (card.seriesId !== seriesId) return false;
+        if (libraryAcademyFilter && libraryAcademyFilter !== 'all' && card.academy !== libraryAcademyFilter) return false;
+        return passesLibraryFilter(card);
+    });
+}
+
+function updatePublicLibraryChrome() {
+    const backBtn = document.getElementById('publicSeriesBackBtn');
+    const breadcrumb = document.getElementById('publicSeriesBreadcrumb');
+    const breadcrumbName = document.getElementById('publicSeriesBreadcrumbName');
+    const academyWrap = document.getElementById('academyFilterWrap');
+    const isPublic = activeLibraryTab === 'public';
+    const inSeries = isPublic && publicLibraryLevel === 'cards' && !!activePublicSeriesId;
+    const series = inSeries ? getPublicSeriesById(activePublicSeriesId) : null;
+
+    if (backBtn) {
+        if (inSeries) backBtn.classList.remove('hidden');
+        else backBtn.classList.add('hidden');
     }
-    if (libraryFilter !== 'all') {
-        const o = getCardOrientation(card.tags || []);
-        if (libraryFilter === 'male' && o !== 'male' && o !== 'both') return false;
-        if (libraryFilter === 'female' && o !== 'female' && o !== 'both') return false;
+    if (breadcrumb) {
+        if (inSeries) breadcrumb.classList.remove('hidden');
+        else breadcrumb.classList.add('hidden');
     }
-    return true;
+    if (breadcrumbName && series) {
+        breadcrumbName.textContent = series.name || series.nameEn || '';
+    }
+    if (academyWrap) {
+        if (inSeries) academyWrap.classList.remove('hidden');
+        else academyWrap.classList.add('hidden');
+    }
+    if (inSeries) {
+        populateAcademyFilterMenu(series);
+        updateAcademyFilterLabel(series);
+    } else {
+        closeAcademyFilterMenu();
+    }
+}
+
+function closeAcademyFilterMenu() {
+    const menu = document.getElementById('academyFilterMenu');
+    if (menu) menu.classList.add('hidden');
+}
+
+function updateAcademyFilterLabel(series) {
+    const label = document.getElementById('academyFilterLabel');
+    if (!label) return;
+    if (!libraryAcademyFilter || libraryAcademyFilter === 'all') {
+        label.textContent = (typeof t === 'function' ? t('filter_academy') : null) || '学院筛选';
+        return;
+    }
+    const academies = (series && series.academies) || [];
+    const hit = academies.find(a => a.id === libraryAcademyFilter);
+    label.textContent = (hit && hit.name) || libraryAcademyFilter;
+}
+
+function populateAcademyFilterMenu(series) {
+    const menu = document.getElementById('academyFilterMenu');
+    if (!menu) return;
+    const academies = (series && series.academies) || [];
+    const allLabel = (typeof t === 'function' ? t('filter_all') : null) || '全部';
+    const items = [{ id: 'all', name: allLabel }].concat(academies);
+    menu.innerHTML = '';
+    items.forEach(item => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        const active = (libraryAcademyFilter || 'all') === item.id;
+        btn.className = 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ' +
+            (active ? 'bg-amber-500/20 text-amber-300' : 'text-zinc-300 hover:bg-white/10 hover:text-zinc-100');
+        btn.textContent = item.name;
+        btn.dataset.academy = item.id;
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            libraryAcademyFilter = item.id;
+            closeAcademyFilterMenu();
+            updateAcademyFilterLabel(series);
+            if (typeof renderPublicCards === 'function') renderPublicCards();
+        });
+        menu.appendChild(btn);
+    });
+}
+
+function openPublicSeries(seriesId) {
+    activePublicSeriesId = seriesId;
+    publicLibraryLevel = 'cards';
+    libraryAcademyFilter = 'all';
+    if (typeof renderPublicCards === 'function') renderPublicCards();
+    updatePublicLibraryChrome();
+}
+
+function backToPublicSeriesList() {
+    publicLibraryLevel = 'series';
+    activePublicSeriesId = null;
+    libraryAcademyFilter = 'all';
+    closeAcademyFilterMenu();
+    if (typeof renderPublicCards === 'function') renderPublicCards();
+    updatePublicLibraryChrome();
 }
 
 function triggerCardImageUpload(char) {
@@ -12761,12 +13755,93 @@ function renderMyCards() {
     });
 }
 
-function renderPublicCards() {
+function renderPublicSeriesFolders() {
+    const seriesGrid = document.getElementById('publicSeriesGrid');
+    const cardsGrid = document.getElementById('publicCardsGrid');
+    if (seriesGrid) seriesGrid.classList.remove('hidden');
+    if (cardsGrid) {
+        cardsGrid.classList.add('hidden');
+        cardsGrid.innerHTML = '';
+    }
+    if (!seriesGrid) return;
+    seriesGrid.innerHTML = '';
+
+    const seriesList = (typeof PUBLIC_SERIES !== 'undefined' ? PUBLIC_SERIES : []);
+    const q = (librarySearchQuery || '').toLowerCase().trim();
+    const filtered = seriesList.filter(s => {
+        if (!q) return true;
+        const blob = [s.name, s.nameEn, s.description].filter(Boolean).join(' ').toLowerCase();
+        if (blob.includes(q)) return true;
+        // Also match if any card in this series matches the search
+        return (PUBLIC_CARDS || []).some(c => c.seriesId === s.id && passesLibraryFilter(c));
+    });
+
+    filtered.forEach(series => {
+        const count = (PUBLIC_CARDS || []).filter(c => c.seriesId === series.id).length;
+        const folder = document.createElement('div');
+        folder.className = 'glass rounded-2xl overflow-hidden cursor-pointer hover:bg-white/5 transition-all border border-white/5 hover:border-amber-500/30 flex flex-col group';
+
+        const preview = document.createElement('div');
+        preview.className = 'aspect-[3/4] w-full overflow-hidden rounded-t-2xl bg-zinc-900 relative';
+
+        if (series.coverImage) {
+            const img = document.createElement('img');
+            img.src = series.coverImage;
+            img.className = 'w-full h-full object-cover transition-transform duration-300 group-hover:scale-105';
+            img.alt = series.name || '';
+            img.onerror = () => {
+                preview.innerHTML = '';
+                preview.className = 'aspect-[3/4] w-full ot-avatar-fill flex items-center justify-center text-5xl font-bold text-white rounded-t-2xl relative';
+                preview.textContent = (series.name || '?').charAt(0);
+            };
+            preview.appendChild(img);
+        } else {
+            preview.className = 'aspect-[3/4] w-full ot-avatar-fill flex items-center justify-center text-5xl font-bold text-white rounded-t-2xl relative';
+            preview.textContent = (series.name || '?').charAt(0);
+        }
+
+        // Folder badge
+        const badge = document.createElement('div');
+        badge.className = 'absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1';
+        badge.innerHTML = `
+            <span class="px-2 py-0.5 rounded-lg bg-black/55 backdrop-blur-sm text-[10px] text-zinc-100 flex items-center gap-1">
+                <svg class="w-3 h-3 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+                ${(typeof t === 'function' ? t('public_series_folder') : null) || '系列'}
+            </span>
+            <span class="px-2 py-0.5 rounded-lg bg-black/55 backdrop-blur-sm text-[10px] text-zinc-200">${count}</span>
+        `;
+        preview.appendChild(badge);
+
+        const info = document.createElement('div');
+        info.className = 'p-2';
+        const name = document.createElement('div');
+        name.className = 'text-sm font-medium text-zinc-100 truncate';
+        name.textContent = series.name || series.nameEn || 'Series';
+        const sub = document.createElement('div');
+        sub.className = 'text-[10px] text-zinc-400 mt-0.5 truncate';
+        sub.textContent = series.description || series.nameEn || '';
+        info.appendChild(name);
+        info.appendChild(sub);
+
+        folder.appendChild(preview);
+        folder.appendChild(info);
+        folder.addEventListener('click', () => openPublicSeries(series.id));
+        seriesGrid.appendChild(folder);
+    });
+}
+
+function renderPublicSeriesCards() {
+    const seriesGrid = document.getElementById('publicSeriesGrid');
     const grid = document.getElementById('publicCardsGrid');
+    if (seriesGrid) {
+        seriesGrid.classList.add('hidden');
+        seriesGrid.innerHTML = '';
+    }
     if (!grid) return;
+    grid.classList.remove('hidden');
     grid.innerHTML = '';
 
-    const filteredPublic = PUBLIC_CARDS.filter(card => passesLibraryFilter(card));
+    const filteredPublic = getPublicCardsForActiveSeries();
     filteredPublic.forEach(card => {
         const cardEl = document.createElement('div');
         cardEl.className = 'glass rounded-2xl overflow-hidden cursor-pointer hover:bg-white/5 transition-all border border-white/5 hover:border-white/10 flex flex-col';
@@ -12774,14 +13849,18 @@ function renderPublicCards() {
         // Preview 3:4
         const preview = document.createElement('div');
         preview.className = 'aspect-[3/4] w-full overflow-hidden rounded-t-2xl bg-zinc-900';
-        const img = document.createElement('img');
-        img.src = card.previewImage || '';
-        img.className = 'w-full h-full object-cover';
-        img.alt = card.name;
-        img.onerror = () => {
+        if (card.previewImage) {
+            const img = document.createElement('img');
+            img.src = card.previewImage;
+            img.className = 'w-full h-full object-cover';
+            img.alt = card.name;
+            img.onerror = () => {
+                preview.innerHTML = `<div class="w-full h-full flex items-center justify-center text-5xl font-bold text-white ot-avatar-fill">${(card.name || '?').charAt(0).toUpperCase()}</div>`;
+            };
+            preview.appendChild(img);
+        } else {
             preview.innerHTML = `<div class="w-full h-full flex items-center justify-center text-5xl font-bold text-white ot-avatar-fill">${(card.name || '?').charAt(0).toUpperCase()}</div>`;
-        };
-        preview.appendChild(img);
+        }
 
         // Info directly below preview
         const info = document.createElement('div');
@@ -12792,7 +13871,12 @@ function renderPublicCards() {
 
         const tags = document.createElement('div');
         tags.className = 'text-[10px] text-zinc-400 mt-0.5 truncate';
-        tags.textContent = (card.tags || []).slice(0, 3).join(' · ');
+        const tagBits = [];
+        if (card.academyZh) tagBits.push(card.academyZh);
+        (card.tags || []).slice(0, 2).forEach(t => {
+            if (t && t !== card.academyZh && !tagBits.includes(t)) tagBits.push(t);
+        });
+        tags.textContent = tagBits.join(' · ');
 
         info.appendChild(name);
         info.appendChild(tags);
@@ -12801,12 +13885,28 @@ function renderPublicCards() {
         cardEl.appendChild(info);
 
         cardEl.addEventListener('click', () => {
-            // Public: open detail (name, tags, desc, author), then import option
             showPublicCardDetail(card);
         });
 
         grid.appendChild(cardEl);
     });
+}
+
+function renderPublicCards() {
+    if (activeLibraryTab !== 'public') {
+        const seriesGrid = document.getElementById('publicSeriesGrid');
+        const cardsGrid = document.getElementById('publicCardsGrid');
+        if (seriesGrid) seriesGrid.classList.add('hidden');
+        if (cardsGrid) cardsGrid.classList.add('hidden');
+        return;
+    }
+    if (publicLibraryLevel === 'cards' && activePublicSeriesId) {
+        renderPublicSeriesCards();
+    } else {
+        publicLibraryLevel = 'series';
+        renderPublicSeriesFolders();
+    }
+    updatePublicLibraryChrome();
 }
 
 function renderLibraryGrids() {
@@ -12951,17 +14051,10 @@ function renderLibrary() {
     // Note: Create and Import actions are now provided as special cards in the "My Cards" grid (see renderMyCards).
     // This reduces header bloat when selecting cards. No top buttons while browsing the library.
 
-    // Apply initial filter active style for search/filter bar
-    document.querySelectorAll('#libraryView [data-filter]').forEach(b => {
-        b.classList.remove('bg-amber-500/20', 'text-amber-300');
-        if (b.dataset.filter === libraryFilter) {
-            b.classList.add('bg-amber-500/20', 'text-amber-300');
-        }
-    });
-
     // Sync search input value
     const libSearchSync = document.getElementById('librarySearch');
     if (libSearchSync) libSearchSync.value = librarySearchQuery || '';
+    updatePublicLibraryChrome();
 
     // Hide character card and world book in card library page (left sidebar not needed in library view)
     const charTitle = document.querySelector('#sidebar span[data-i18n="char_card_title"]');
@@ -15525,7 +16618,7 @@ function bindEvents() {
         tabPubEl.onclick = () => { if (typeof setActiveTab === 'function') setActiveTab('public'); };
     }
 
-    // Search and filter bindings for main library (moved from old left sidebar library + new orientation filter)
+    // Search + public series navigation / academy filter
     const libSearch = document.getElementById('librarySearch');
     if (libSearch) {
         libSearch.oninput = () => {
@@ -15533,14 +16626,31 @@ function bindEvents() {
             if (typeof renderLibraryGrids === 'function') renderLibraryGrids();
         };
     }
-    document.querySelectorAll('#libraryView [data-filter]').forEach(btn => {
-        btn.onclick = () => {
-            libraryFilter = btn.dataset.filter;
-            document.querySelectorAll('#libraryView [data-filter]').forEach(b => b.classList.remove('bg-amber-500/20', 'text-amber-300'));
-            btn.classList.add('bg-amber-500/20', 'text-amber-300');
-            if (typeof renderLibraryGrids === 'function') renderLibraryGrids();
-        };
-    });
+    const publicBackBtn = document.getElementById('publicSeriesBackBtn');
+    if (publicBackBtn && !publicBackBtn._wired) {
+        publicBackBtn._wired = true;
+        publicBackBtn.addEventListener('click', () => {
+            backToPublicSeriesList();
+        });
+    }
+    const academyToggle = document.getElementById('academyFilterToggle');
+    if (academyToggle && !academyToggle._wired) {
+        academyToggle._wired = true;
+        academyToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const menu = document.getElementById('academyFilterMenu');
+            if (!menu) return;
+            menu.classList.toggle('hidden');
+        });
+    }
+    if (!window._academyFilterOutsideClose) {
+        window._academyFilterOutsideClose = true;
+        document.addEventListener('click', (e) => {
+            const wrap = document.getElementById('academyFilterWrap');
+            if (!wrap || wrap.classList.contains('hidden')) return;
+            if (!wrap.contains(e.target)) closeAcademyFilterMenu();
+        });
+    }
 
     // Mobile sidebar
     dom.hamburgerBtn.addEventListener('click', toggleSidebar);
