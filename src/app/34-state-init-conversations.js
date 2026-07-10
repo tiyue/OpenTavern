@@ -26,8 +26,7 @@ function ensureActiveConversationOnStartup() {
 }
 
 function recoverActiveConversationFromExistingData() {
-    var order = Array.isArray(state.conversationOrder) ? state.conversationOrder : [];
-    var firstId = order.find(id => state.conversations[id]) || Object.keys(state.conversations)[0];
+    var firstId = getFirstAvailableConversationId(state.conversationOrder, state.conversations);
     if (firstId) {
         state.activeConvId = firstId;
         console.log('[Storage] Recovered activeConvId from existing conversations:', firstId);

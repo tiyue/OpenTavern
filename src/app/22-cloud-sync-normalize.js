@@ -22,35 +22,11 @@ function normalizeCloudSyncBoolean(value) {
 }
 
 function normalizeCloudSyncConversationOrder(data) {
-    var conversationIds = Object.keys(data.conversations || {});
-    var knownIds = Object.create(null);
-    var seenIds = Object.create(null);
-    var order = [];
-
-    conversationIds.forEach(function(id) {
-        knownIds[id] = true;
-    });
-
-    if (Array.isArray(data.conversationOrder)) {
-        data.conversationOrder.forEach(function(id) {
-            if (typeof id !== 'string' || !knownIds[id] || seenIds[id]) return;
-            seenIds[id] = true;
-            order.push(id);
-        });
-    }
-
-    conversationIds.forEach(function(id) {
-        if (seenIds[id]) return;
-        seenIds[id] = true;
-        order.push(id);
-    });
-
-    data.conversationOrder = order;
+    data.conversationOrder = getConversationIdsWithMissingFallback(data.conversationOrder, data.conversations);
 }
 
 function normalizeCloudSyncActiveConversation(data) {
-    if (typeof data.activeConvId === 'string' && Object.prototype.hasOwnProperty.call(data.conversations, data.activeConvId)) return;
-    data.activeConvId = data.conversationOrder[0] || null;
+    data.activeConvId = getValidConversationIdOrFallback(data.activeConvId, data.conversationOrder, data.conversations);
 }
 
 function normalizeCloudSyncSnapshot(raw) {

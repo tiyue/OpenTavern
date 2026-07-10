@@ -2193,6 +2193,33 @@ function applyUiTheme(theme) {
         try { if (typeof window.__resumeShader === 'function') window.__resumeShader(); } catch (e) {}
     }
 }
+// ==================== Conversation Order Helpers ====================
+function getConversationIdsWithMissingFallback(order, conversations) {
+    var ids = Array.isArray(order) ? order.slice() : [];
+    var knownConversations = conversations || {};
+    var seen = Object.create(null);
+    ids = ids.filter(function(id) {
+        if (!knownConversations[id] || seen[id]) return false;
+        seen[id] = true;
+        return true;
+    });
+    Object.keys(knownConversations).forEach(function(id) {
+        if (seen[id]) return;
+        ids.push(id);
+        seen[id] = true;
+    });
+    return ids;
+}
+
+function getFirstAvailableConversationId(order, conversations) {
+    return getConversationIdsWithMissingFallback(order, conversations)[0] || null;
+}
+
+function getValidConversationIdOrFallback(activeId, order, conversations) {
+    var knownConversations = conversations || {};
+    if (typeof activeId === 'string' && knownConversations[activeId]) return activeId;
+    return getFirstAvailableConversationId(order, knownConversations);
+}
 // ==================== Storage Engine (简化版：OPFS 主 + localStorage 强快照兜底) ====================
 // 目标：去掉复杂的 IndexedDB + 多级 fallback，只保留 OPFS 主 + LS 强快照兜底。
 // - OPFS 作为主存储（大容量、高性能）
@@ -2748,12 +2775,16 @@ function buildStorageQuotaBackupSnapshot() {
     return {
         settings: state ? getSafeSettingsForPersist() : {},
         conversations: state ? state.conversations : {},
-        conversationOrder: state ? state.conversationOrder : [],
-        activeConvId: state ? state.activeConvId : null,
+        conversationOrder: state ? getStorageQuotaBackupConversationOrder(state.conversationOrder, state.conversations) : [],
+        activeConvId: state ? getValidConversationIdOrFallback(state.activeConvId, state.conversationOrder, state.conversations) : null,
         worldBooks: state ? (state.worldBooks || {}) : {},
         characters: state ? (state.characters || {}) : {},
         lastSaved: Date.now()
     };
+}
+
+function getStorageQuotaBackupConversationOrder(order, conversations) {
+    return getConversationIdsWithMissingFallback(order, conversations);
 }
 
 function exportStorageQuotaBackup(data, filename) {
@@ -3869,13 +3900,21 @@ function buildAppDataSnapshot(options) {
     return {
         settings: getSafeSettingsForCloudSync(),
         conversations: cloneCloudSyncSnapshotValue(state.conversations, {}),
-        conversationOrder: cloneCloudSyncSnapshotValue(state.conversationOrder, []),
-        activeConvId: state.activeConvId || null,
+        conversationOrder: getCloudSyncSnapshotConversationOrder(),
+        activeConvId: getCloudSyncSnapshotActiveConversationId(),
         worldBooks: cloneCloudSyncSnapshotValue(state.worldBooks, {}),
         characters: cloneCloudSyncSnapshotValue(state.characters, {}),
         charactersMigrated: !!state._charactersMigrated,
         lastSaved: Number.isFinite(Number(options.lastSaved)) ? Number(options.lastSaved) : Date.now()
     };
+}
+
+function getCloudSyncSnapshotConversationOrder() {
+    return getConversationIdsWithMissingFallback(state.conversationOrder, state.conversations);
+}
+
+function getCloudSyncSnapshotActiveConversationId() {
+    return getValidConversationIdOrFallback(state.activeConvId, state.conversationOrder, state.conversations);
 }
 
 function syncOpenSettingsFormForCloudSnapshot() {
@@ -4006,10 +4045,12 @@ function getCloudSyncSerializedBytes(value) {
 
 function getCloudSyncConversationSerializedBytes(snapshot) {
     if (!snapshot || typeof snapshot !== 'object') return 0;
+    var conversations = snapshot.conversations || {};
+    var conversationOrder = getConversationIdsWithMissingFallback(snapshot.conversationOrder, conversations);
     return getCloudSyncSerializedBytes({
-        conversations: snapshot.conversations || {},
-        conversationOrder: Array.isArray(snapshot.conversationOrder) ? snapshot.conversationOrder : [],
-        activeConvId: snapshot.activeConvId || null
+        conversations: conversations,
+        conversationOrder: conversationOrder,
+        activeConvId: getValidConversationIdOrFallback(snapshot.activeConvId, conversationOrder, conversations)
     });
 }
 // ==================== Cloud Sync Snapshot Normalization ====================
@@ -4036,35 +4077,11 @@ function normalizeCloudSyncBoolean(value) {
 }
 
 function normalizeCloudSyncConversationOrder(data) {
-    var conversationIds = Object.keys(data.conversations || {});
-    var knownIds = Object.create(null);
-    var seenIds = Object.create(null);
-    var order = [];
-
-    conversationIds.forEach(function(id) {
-        knownIds[id] = true;
-    });
-
-    if (Array.isArray(data.conversationOrder)) {
-        data.conversationOrder.forEach(function(id) {
-            if (typeof id !== 'string' || !knownIds[id] || seenIds[id]) return;
-            seenIds[id] = true;
-            order.push(id);
-        });
-    }
-
-    conversationIds.forEach(function(id) {
-        if (seenIds[id]) return;
-        seenIds[id] = true;
-        order.push(id);
-    });
-
-    data.conversationOrder = order;
+    data.conversationOrder = getConversationIdsWithMissingFallback(data.conversationOrder, data.conversations);
 }
 
 function normalizeCloudSyncActiveConversation(data) {
-    if (typeof data.activeConvId === 'string' && Object.prototype.hasOwnProperty.call(data.conversations, data.activeConvId)) return;
-    data.activeConvId = data.conversationOrder[0] || null;
+    data.activeConvId = getValidConversationIdOrFallback(data.activeConvId, data.conversationOrder, data.conversations);
 }
 
 function normalizeCloudSyncSnapshot(raw) {
@@ -4327,9 +4344,7 @@ function normalizeCloudSyncRestoredConversations() {
 function ensureCloudSyncRestoredActiveConversation() {
     if (state.activeConvId && state.conversations[state.activeConvId]) return;
 
-    var first = (state.conversationOrder || []).find(function(id) {
-        return state.conversations[id];
-    }) || Object.keys(state.conversations || {})[0];
+    var first = getFirstAvailableConversationId(state.conversationOrder, state.conversations);
 
     if (first) {
         state.activeConvId = first;
@@ -4773,10 +4788,10 @@ function applyStorageRecoveryData(data) {
         });
     }
     if (data.conversations) state.conversations = data.conversations;
-    if (data.conversationOrder) state.conversationOrder = data.conversationOrder;
-    if (data.activeConvId && state.conversations[data.activeConvId]) {
-        state.activeConvId = data.activeConvId;
+    if (data.conversationOrder || data.conversations) {
+        state.conversationOrder = getStorageRecoveryConversationOrder(data.conversationOrder, state.conversations);
     }
+    state.activeConvId = getStorageRecoveryActiveConversationId(data.activeConvId);
     if (data.worldBooks) state.worldBooks = data.worldBooks;
     if (data.characters) state.characters = data.characters;
     if (typeof data.charactersMigrated !== 'undefined') {
@@ -4788,13 +4803,21 @@ function buildStorageRecoverySaveSnapshot() {
     return {
         settings: getSafeSettingsForPersist(),
         conversations: state.conversations,
-        conversationOrder: state.conversationOrder,
+        conversationOrder: getStorageRecoveryConversationOrder(state.conversationOrder, state.conversations),
         activeConvId: state.activeConvId,
         worldBooks: state.worldBooks || {},
         characters: state.characters || {},
         charactersMigrated: !!state._charactersMigrated,
         lastSaved: Date.now()
     };
+}
+
+function getStorageRecoveryConversationOrder(order, conversations) {
+    return getConversationIdsWithMissingFallback(order, conversations);
+}
+
+function getStorageRecoveryActiveConversationId(activeId) {
+    return getValidConversationIdOrFallback(activeId, state.conversationOrder, state.conversations);
 }
 
 async function restoreFromStorageCandidate(candidate) {
@@ -5829,30 +5852,7 @@ function isSavedStateObjectMap(value) {
 }
 
 function normalizeSavedStateConversationOrder(order, conversations) {
-    var conversationIds = Object.keys(conversations || {});
-    var knownIds = Object.create(null);
-    var seenIds = Object.create(null);
-    var result = [];
-
-    conversationIds.forEach(function(id) {
-        knownIds[id] = true;
-    });
-
-    if (Array.isArray(order)) {
-        order.forEach(function(id) {
-            if (typeof id !== 'string' || !knownIds[id] || seenIds[id]) return;
-            seenIds[id] = true;
-            result.push(id);
-        });
-    }
-
-    conversationIds.forEach(function(id) {
-        if (seenIds[id]) return;
-        seenIds[id] = true;
-        result.push(id);
-    });
-
-    return result;
+    return getConversationIdsWithMissingFallback(order, conversations);
 }
 
 function normalizeSavedStateBoolean(value) {
@@ -6021,8 +6021,7 @@ function ensureActiveConversationOnStartup() {
 }
 
 function recoverActiveConversationFromExistingData() {
-    var order = Array.isArray(state.conversationOrder) ? state.conversationOrder : [];
-    var firstId = order.find(id => state.conversations[id]) || Object.keys(state.conversations)[0];
+    var firstId = getFirstAvailableConversationId(state.conversationOrder, state.conversations);
     if (firstId) {
         state.activeConvId = firstId;
         console.log('[Storage] Recovered activeConvId from existing conversations:', firstId);
@@ -6060,6 +6059,17 @@ async function initState() {
 // ==================== Debounced Persist ====================
 var _persistTimeout = null;
 var _cloudSyncConversationSignature = null;
+const CLOUD_SYNC_CONVERSATION_TRANSIENT_KEYS = {
+    _forcedSpeaker: true,
+    _historyScrollHandler: true,
+    _historyWindow: true,
+    _lastRenderedVisibleCount: true,
+    _nextGroupSpeaker: true,
+    _showAllMessages: true,
+    _wiBudgetWarning: true,
+    _wiCache: true,
+    _wiTimedEffects: true
+};
 
 function persistState(immediate, options) {
     options = options || {};
@@ -6072,8 +6082,8 @@ function persistState(immediate, options) {
     const dataToSave = {
         settings: getSafeSettingsForPersist(),
         conversations: state.conversations,
-        conversationOrder: state.conversationOrder,
-        activeConvId: state.activeConvId,
+        conversationOrder: getPersistableConversationOrder(state.conversationOrder, state.conversations),
+        activeConvId: getPersistableActiveConversationId(state.activeConvId, state.conversationOrder, state.conversations),
         worldBooks: state.worldBooks || {},
         characters: state.characters || {},
         charactersMigrated: !!state._charactersMigrated,
@@ -6159,21 +6169,57 @@ function shouldScheduleCloudSyncUploadForPersist(snapshot, options, previousSign
 function rememberCloudSyncConversationBaseline(snapshot) {
     _cloudSyncConversationSignature = buildCloudSyncConversationSignature(snapshot || {
         conversations: state.conversations,
-        conversationOrder: state.conversationOrder,
-        activeConvId: state.activeConvId
+        conversationOrder: getPersistableConversationOrder(state.conversationOrder, state.conversations),
+        activeConvId: getPersistableActiveConversationId(state.activeConvId, state.conversationOrder, state.conversations)
     });
 }
 
 function buildCloudSyncConversationSignature(snapshot) {
     try {
+        const conversations = snapshot && snapshot.conversations || {};
         return JSON.stringify({
-            conversations: snapshot && snapshot.conversations || {},
-            conversationOrder: Array.isArray(snapshot && snapshot.conversationOrder) ? snapshot.conversationOrder : [],
-            activeConvId: snapshot && snapshot.activeConvId || null
+            conversations: getCloudSyncSignatureConversations(conversations),
+            conversationOrder: getPersistableConversationOrder(
+                snapshot && snapshot.conversationOrder,
+                conversations
+            ),
+            activeConvId: getPersistableActiveConversationId(
+                snapshot && snapshot.activeConvId,
+                snapshot && snapshot.conversationOrder,
+                conversations
+            )
         });
     } catch (_) {
         return '';
     }
+}
+
+function getCloudSyncSignatureConversations(conversations) {
+    const result = {};
+    Object.keys(conversations || {}).sort().forEach(function(id) {
+        result[id] = sanitizeCloudSyncSignatureConversation(conversations[id]);
+    });
+    return result;
+}
+
+function sanitizeCloudSyncSignatureConversation(conv) {
+    if (!conv || typeof conv !== 'object' || Array.isArray(conv)) return conv;
+    const clean = {};
+    Object.keys(conv).sort().forEach(function(key) {
+        if (CLOUD_SYNC_CONVERSATION_TRANSIENT_KEYS[key]) return;
+        var value = conv[key];
+        if (typeof value === 'function') return;
+        clean[key] = value;
+    });
+    return clean;
+}
+
+function getPersistableConversationOrder(order, conversations) {
+    return getConversationIdsWithMissingFallback(order, conversations);
+}
+
+function getPersistableActiveConversationId(activeId, order, conversations) {
+    return getValidConversationIdOrFallback(activeId, order, conversations);
 }
 // ==================== Translation DOM Updates ====================
 function applyTranslations() {
@@ -10871,6 +10917,71 @@ function showQuickNewChatModal() {
     wireQuickNewChatModal(elements);
     elements.modal.classList.remove('hidden');
 }
+// ==================== Conversation Timestamp Helpers ====================
+function getConversationActivityTimestamp(conv) {
+    if (!conv) return 0;
+    return Math.max(
+        normalizeConversationActivityTimestamp(conv.updated),
+        getLastMessageActivityTimestamp(conv),
+        normalizeConversationActivityTimestamp(conv.created),
+        0
+    );
+}
+
+function getMostRecentConversationIdFromOrder(order, conversations) {
+    var ids = Array.isArray(order) ? order : [];
+    var bestId = null;
+    var bestTime = -1;
+    ids.forEach(function(id) {
+        var conv = conversations && conversations[id];
+        if (!conv) return;
+        var timestamp = getConversationActivityTimestamp(conv);
+        if (!bestId || timestamp > bestTime) {
+            bestId = id;
+            bestTime = timestamp;
+        }
+    });
+    return bestId;
+}
+
+function getLastMessageActivityTimestamp(conv) {
+    var messages = Array.isArray(conv && conv.messages) ? conv.messages : [];
+    var latest = 0;
+    for (var i = 0; i < messages.length; i++) {
+        latest = Math.max(latest, getMessageActivityTimestamp(messages[i]));
+    }
+    return latest;
+}
+
+function getMessageActivityTimestamp(msg) {
+    if (!msg) return 0;
+    return Math.max(
+        normalizeConversationActivityTimestamp(msg.updated),
+        normalizeConversationActivityTimestamp(msg.updatedAt),
+        normalizeConversationActivityTimestamp(msg.modified),
+        normalizeConversationActivityTimestamp(msg.modifiedAt),
+        normalizeConversationActivityTimestamp(msg.created),
+        normalizeConversationActivityTimestamp(msg.createdAt),
+        normalizeConversationActivityTimestamp(msg.timestamp),
+        normalizeConversationActivityTimestamp(msg.time),
+        normalizeConversationActivityTimestamp(msg.date),
+        normalizeConversationActivityTimestamp(msg.sendDate),
+        normalizeConversationActivityTimestamp(msg.send_date),
+        0
+    );
+}
+
+function normalizeConversationActivityTimestamp(value) {
+    var timestamp = Number(value);
+    if (Number.isFinite(timestamp) && timestamp > 0) {
+        return timestamp >= 1000000000 && timestamp < 1000000000000 ? timestamp * 1000 : timestamp;
+    }
+    if (typeof value === 'string' && value.trim()) {
+        var parsed = Date.parse(value);
+        if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    }
+    return 0;
+}
 // ==================== Public Card Library (static cards/ + preview images) ====================
 const PUBLIC_CARDS = [
     {
@@ -11508,18 +11619,20 @@ function renderLibrary() {
 function findMostRecentConversationForCharacter(characterName) {
     if (!characterName) return null;
 
-    var recentConv = null;
+    var recentId = null;
     var recentTime = 0;
-    Object.values(state.conversations || {}).forEach(function(conv) {
+    var order = getConversationIdsWithMissingFallback(state.conversationOrder, state.conversations);
+    order.forEach(function(id) {
+        var conv = state.conversations && state.conversations[id];
         if (conv && conv.character && conv.character.name === characterName) {
-            var t = conv.updated || conv.created || 0;
-            if (t > recentTime) {
+            var t = getConversationActivityTimestamp(conv);
+            if (!recentId || t > recentTime) {
                 recentTime = t;
-                recentConv = conv;
+                recentId = id;
             }
         }
     });
-    return recentConv;
+    return recentId ? state.conversations[recentId] : null;
 }
 
 function getConversationDisplayCharacterName(conv) {
@@ -11554,8 +11667,12 @@ function createDefaultLibraryConversation() {
 
 function ensureLibraryActiveConversationAfterDelete(deletedId) {
     if (state.activeConvId !== deletedId) return;
-    if (state.conversationOrder.length > 0) {
-        state.activeConvId = state.conversationOrder[0];
+    var nextId = getMostRecentConversationIdFromOrder(
+        getConversationIdsWithMissingFallback(state.conversationOrder, state.conversations),
+        state.conversations
+    );
+    if (nextId) {
+        state.activeConvId = nextId;
         return;
     }
     state.activeConvId = createDefaultLibraryConversation().id;
@@ -13628,9 +13745,13 @@ function buildSillyTavernPresetMessageBuckets(charName, userName) {
 }
 // ==================== Conversation Export Helpers ====================
 function getConversationExportRecords() {
-    return state.conversationOrder.map(function(id) {
+    return getConversationIdsWithMissingFallback(state.conversationOrder, state.conversations).map(function(id) {
         return state.conversations[id];
     }).filter(Boolean);
+}
+
+function getConversationExportOrder() {
+    return getConversationIdsWithMissingFallback(state.conversationOrder, state.conversations);
 }
 
 function buildSingleConversationExportData(conversation, exportedAt) {
@@ -13653,7 +13774,7 @@ function buildAllConversationsExportData(conversations, exportedAt) {
         exported_at: exportedAt,
         settings: getSafeSettingsForPersist(),
         conversations: conversations,
-        conversationOrder: state.conversationOrder || [],
+        conversationOrder: getConversationExportOrder(),
         characters: state.characters || {},
         worldBooks: state.worldBooks || {},
         charactersMigrated: !!state._charactersMigrated
@@ -13756,7 +13877,10 @@ function applySuccessfulConversationImport(data, importResult) {
     if (typeof renderMyCards === 'function') renderMyCards();
 
     if (!state.activeConvId && state.conversationOrder.length > 0) {
-        state.activeConvId = state.conversationOrder[0];
+        var importedOrder = (importResult.conversations || []).map(function(conv) { return conv.id; });
+        state.activeConvId =
+            getMostRecentConversationIdFromOrder(importedOrder, state.conversations) ||
+            getMostRecentConversationIdFromOrder(state.conversationOrder, state.conversations);
     }
     persistState(true);
     requestRender('activeConvId');
@@ -13845,7 +13969,7 @@ function conversationMatchesCurrentCharacterFilter(id, conv, activeId, character
 }
 
 function getVisibleConversationListOrder() {
-    var order = getConversationListTimestampOrder((state.conversationOrder || []).slice());
+    var order = getConversationListTimestampOrder(getConversationIdsWithMissingFallback(state.conversationOrder, state.conversations));
     if (currentView === 'chat' && currentCharacterName) {
         var activeId = state.activeConvId;
         order = order.filter(function(id) {
@@ -13872,33 +13996,7 @@ function getConversationListTimestampOrder(order) {
 }
 
 function getConversationListTimestamp(conv) {
-    if (!conv) return 0;
-    return normalizeConversationListTimestamp(conv.updated) ||
-        getLastMessageTimestampForConversationList(conv) ||
-        normalizeConversationListTimestamp(conv.created) ||
-        0;
-}
-
-function getLastMessageTimestampForConversationList(conv) {
-    var messages = Array.isArray(conv && conv.messages) ? conv.messages : [];
-    for (var i = messages.length - 1; i >= 0; i--) {
-        var msg = messages[i];
-        var timestamp = normalizeConversationListTimestamp(
-            msg && (msg.updated || msg.updatedAt || msg.createdAt || msg.timestamp || msg.time)
-        );
-        if (timestamp) return timestamp;
-    }
-    return 0;
-}
-
-function normalizeConversationListTimestamp(value) {
-    var timestamp = Number(value);
-    if (Number.isFinite(timestamp) && timestamp > 0) return timestamp;
-    if (typeof value === 'string' && value.trim()) {
-        var parsed = Date.parse(value);
-        if (Number.isFinite(parsed) && parsed > 0) return parsed;
-    }
-    return 0;
+    return getConversationActivityTimestamp(conv);
 }
 
 function buildConversationListEmptyHtml() {
@@ -14086,8 +14184,8 @@ function deleteCharacterFromLibrary(nameOrKey) {
         const directData = {
             settings: (typeof getSafeSettingsForPersist === 'function' ? getSafeSettingsForPersist() : (state.settings || {})),
             conversations: state.conversations || {},
-            conversationOrder: state.conversationOrder || [],
-            activeConvId: state.activeConvId || null,
+            conversationOrder: getCharacterLibraryPersistConversationOrder(state.conversationOrder, state.conversations),
+            activeConvId: getValidConversationIdOrFallback(state.activeConvId, state.conversationOrder, state.conversations),
             worldBooks: state.worldBooks || {},
             characters: state.characters || {},
             charactersMigrated: !!state._charactersMigrated,
@@ -14113,6 +14211,10 @@ function deleteCharacterFromLibrary(nameOrKey) {
     if (pickerList && !document.getElementById('newChatPickerModal').classList.contains('hidden')) {
         showNewChatCharacterPicker();
     }
+}
+
+function getCharacterLibraryPersistConversationOrder(order, conversations) {
+    return getConversationIdsWithMissingFallback(order, conversations);
 }
 // ==================== Character Editor Helpers ====================
 function hydrateCharacterEditorForm(character) {

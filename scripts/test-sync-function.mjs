@@ -83,6 +83,7 @@ function assertThrows(fn, message) {
 
 async function assertFrontendCloudSnapshot() {
   const compatSource = await readFile(new URL('../src/app/24-storage-compat.js', import.meta.url), 'utf8');
+  const orderSource = await readFile(new URL('../src/app/19-conversation-order-helpers.js', import.meta.url), 'utf8');
   const cloudSource = await readFile(new URL('../src/app/22-cloud-sync.js', import.meta.url), 'utf8');
   const context = {
     state: {
@@ -104,6 +105,7 @@ async function assertFrontendCloudSnapshot() {
       },
       conversations: {
         c1: { id: 'c1', messages: [{ role: 'user', content: 'frontend hello' }] },
+        c2: { id: 'c2', messages: [{ role: 'assistant', content: 'missing from order' }] },
       },
       conversationOrder: ['c1'],
       activeConvId: 'c1',
@@ -129,7 +131,7 @@ async function assertFrontendCloudSnapshot() {
     JSON,
   };
 
-  vm.runInNewContext(`${compatSource}\n${cloudSource}\nthis.__freshness = getCloudSyncFreshness;\nthis.__prepareLocal = prepareCloudSyncLocalSnapshotForComparison;\nthis.__bytes = getCloudSyncSerializedBytes;\nthis.__conversationBytes = getCloudSyncConversationSerializedBytes;`, context);
+  vm.runInNewContext(`${compatSource}\n${orderSource}\n${cloudSource}\nthis.__freshness = getCloudSyncFreshness;\nthis.__prepareLocal = prepareCloudSyncLocalSnapshotForComparison;\nthis.__bytes = getCloudSyncSerializedBytes;\nthis.__conversationBytes = getCloudSyncConversationSerializedBytes;`, context);
   const snapshot = context.buildAppDataSnapshot();
 
   assert(snapshot.settings.model === 'frontend-model', 'Frontend cloud snapshot did not include settings.');
@@ -145,18 +147,22 @@ async function assertFrontendCloudSnapshot() {
   assert(snapshot.settings.twoStagePostHistoryInstructions === 'cloud second-stage post prompt', 'Frontend cloud snapshot should include non-empty second-stage post-history prompts from the visible settings form.');
   assert(snapshot.settings.summaryPrompt === 'cloud summary prompt', 'Frontend cloud snapshot should include non-empty summary prompts from the visible settings form.');
   assert(snapshot.conversations.c1.messages[0].content === 'frontend hello', 'Frontend cloud snapshot did not include chat history.');
-  assert(snapshot.conversationOrder[0] === 'c1', 'Frontend cloud snapshot did not include conversation order.');
+  assert(snapshot.conversationOrder.join(',') === 'c1,c2', 'Frontend cloud snapshot should include conversations missing from conversation order.');
   assert(snapshot.activeConvId === 'c1', 'Frontend cloud snapshot did not include active conversation id.');
   assert(snapshot.characters.arona.first_mes === 'Sensei!', 'Frontend cloud snapshot did not include character cards.');
   assert(snapshot.worldBooks.wb1.entries[0].content === 'Kivotos', 'Frontend cloud snapshot did not include world books.');
   assert(snapshot.charactersMigrated === true, 'Frontend cloud snapshot did not include character migration state.');
   assert(Number.isFinite(snapshot.lastSaved), 'Frontend cloud snapshot did not include a timestamp.');
+  context.state.activeConvId = 'missing';
+  const activeFallbackSnapshot = context.buildAppDataSnapshot();
+  assert(activeFallbackSnapshot.activeConvId === 'c1', 'Frontend cloud snapshot should recover invalid active conversation ids.');
+  context.state.activeConvId = 'c1';
   context.state.conversations.c1.messages[0].content = 'mutated after snapshot';
   context.state.conversationOrder.push('later');
   context.state.characters.arona.first_mes = 'Changed!';
   context.state.worldBooks.wb1.entries[0].content = 'Changed world';
   assert(snapshot.conversations.c1.messages[0].content === 'frontend hello', 'Frontend cloud snapshot should not retain live conversation references.');
-  assert(snapshot.conversationOrder.length === 1 && snapshot.conversationOrder[0] === 'c1', 'Frontend cloud snapshot should not retain the live conversation order array.');
+  assert(snapshot.conversationOrder.length === 2 && snapshot.conversationOrder[0] === 'c1' && snapshot.conversationOrder[1] === 'c2', 'Frontend cloud snapshot should not retain the live conversation order array.');
   assert(snapshot.characters.arona.first_mes === 'Sensei!', 'Frontend cloud snapshot should not retain live character card references.');
   assert(snapshot.worldBooks.wb1.entries[0].content === 'Kivotos', 'Frontend cloud snapshot should not retain live world book references.');
   assert(context.__freshness({ lastSaved: 1000 }) === 'newer', 'Cloud freshness should treat a timestamped remote snapshot as newer when no local snapshot is known.');
@@ -168,10 +174,14 @@ async function assertFrontendCloudSnapshot() {
   assert(comparableLocal.settings.apiKey === '' && comparableLocal.settings.cloudSyncToken === '', 'Cloud comparison snapshot should use cloud-safe settings.');
   const localBytes = context.__conversationBytes(comparableLocal);
   assert(localBytes > 0, 'Cloud freshness should be able to measure local conversation bytes.');
+  const dirtyComparableLocal = JSON.parse(JSON.stringify(comparableLocal));
+  dirtyComparableLocal.conversationOrder = ['missing', 'c1', 'c1', 'c2'];
+  dirtyComparableLocal.activeConvId = 'missing';
+  assert(context.__conversationBytes(dirtyComparableLocal) === localBytes, 'Cloud freshness byte comparison should normalize dirty conversation order and active ids.');
   const remoteLarger = JSON.parse(JSON.stringify(comparableLocal));
   remoteLarger.lastSaved = 1000;
-  remoteLarger.conversations.c2 = { id: 'c2', messages: [{ role: 'user', content: 'larger remote conversation payload'.repeat(10) }] };
-  remoteLarger.conversationOrder.push('c2');
+  remoteLarger.conversations.c3 = { id: 'c3', messages: [{ role: 'user', content: 'larger remote conversation payload'.repeat(10) }] };
+  remoteLarger.conversationOrder.push('c3');
   assert(context.__freshness(remoteLarger, comparableLocal) === 'newer-by-size', 'Cloud freshness should use remote conversation byte size before timestamps.');
   const remoteSmaller = { lastSaved: 4000, conversations: {}, conversationOrder: [], activeConvId: null };
   assert(context.__freshness(remoteSmaller, comparableLocal) === 'older-by-size', 'Cloud freshness should use local conversation byte size before timestamps.');
@@ -305,6 +315,7 @@ async function assertFrontendStateStoreDefaults() {
 }
 
 async function assertFrontendStatePersistenceHelpers() {
+  const orderSource = await readFile(new URL('../src/app/19-conversation-order-helpers.js', import.meta.url), 'utf8');
   const source = await readFile(new URL('../src/app/35-state-persistence.js', import.meta.url), 'utf8');
 
   const saved = [];
@@ -315,7 +326,10 @@ async function assertFrontendStatePersistenceHelpers() {
   const context = {
     state: {
       settings: { model: 'raw-model' },
-      conversations: { c1: { id: 'c1', messages: [{ content: 'hello' }] } },
+      conversations: {
+        c1: { id: 'c1', messages: [{ content: 'hello' }] },
+        orphan: { id: 'orphan', messages: [{ content: 'missing order' }] },
+      },
       conversationOrder: ['c1'],
       activeConvId: 'c1',
       worldBooks: { wb1: { id: 'wb1' } },
@@ -342,13 +356,14 @@ async function assertFrontendStatePersistenceHelpers() {
     Promise,
   };
 
-  vm.runInNewContext(`${source}\nthis.__persist = persistState;\nthis.__active = getActiveConv;`, context);
+  vm.runInNewContext(`${orderSource}\n${source}\nthis.__persist = persistState;\nthis.__active = getActiveConv;`, context);
 
   assert(context.__active().id === 'c1', 'Active conversation helper should return the current active conversation.');
 
   await context.__persist(true);
   assert(saved.length === 1 && saved[0].settings.model === 'safe-model', 'Immediate persist should save sanitized settings.');
   assert(saved[0].conversations.c1.messages[0].content === 'hello', 'Immediate persist should include conversations.');
+  assert(saved[0].conversationOrder.join(',') === 'c1,orphan', 'Immediate persist should include conversations missing from conversation order.');
   assert(saved[0].worldBooks.wb1.id === 'wb1' && saved[0].characters.arona.name === 'Arona', 'Immediate persist should include world books and character cards.');
   assert(saved[0].charactersMigrated === true && saved[0].lastSaved === 123456, 'Immediate persist should include migration and timestamp metadata.');
   assert(context.StorageService._lastSaveSnapshot.activeConvId === 'c1', 'Persist should cache the latest snapshot before async storage completes.');
@@ -385,6 +400,21 @@ async function assertFrontendStatePersistenceHelpers() {
   for (let i = 0; i < 3; i++) await Promise.resolve();
   assert(saved.length === 6, 'Debounced persist handler should eventually save the snapshot.');
   assert(events.includes('cloud-upload'), 'Debounced conversation changes should still schedule automatic cloud upload.');
+
+  events.length = 0;
+  context.state.activeConvId = 'missing';
+  await context.__persist(true, { skipCloudSyncAutoUpload: true });
+  assert(saved.length === 7 && saved[6].activeConvId === 'c1', 'Persist should recover invalid active conversation ids before saving.');
+  assert(!events.includes('cloud-upload'), 'Explicitly skipped active-id recovery persists should not schedule automatic cloud upload.');
+
+  events.length = 0;
+  context.state.activeConvId = 'c1';
+  context.state.conversations.c1._historyWindow = 999;
+  context.state.conversations.c1._lastRenderedVisibleCount = 42;
+  context.state.conversations.c1._wiCache = { key: 'runtime-only' };
+  context.state.conversations.c1._nextGroupSpeaker = { name: 'Runtime Speaker' };
+  await context.__persist(true);
+  assert(saved.length === 8 && !events.includes('cloud-upload'), 'Runtime-only conversation fields should not schedule automatic cloud upload.');
 }
 
 async function assertFrontendWebGLBackgroundHelpers() {
@@ -494,6 +524,7 @@ async function assertFrontendWebGLBackgroundHelpers() {
 
 async function assertFrontendCloudSnapshotApply() {
   const cloudSource = await readFile(new URL('../src/app/22-cloud-sync.js', import.meta.url), 'utf8');
+  const orderSource = await readFile(new URL('../src/app/19-conversation-order-helpers.js', import.meta.url), 'utf8');
   const normalizeSource = await readFile(new URL('../src/app/22-cloud-sync-normalize.js', import.meta.url), 'utf8');
   const applySources = await Promise.all([
     '../src/app/22-cloud-sync-apply-settings.js',
@@ -592,7 +623,7 @@ async function assertFrontendCloudSnapshotApply() {
     String,
   };
 
-  vm.runInNewContext(`${cloudSource}\n${normalizeSource}\n${applySources.join('\n')}\nthis.__apply = applyCloudSyncSnapshot;`, context);
+  vm.runInNewContext(`${cloudSource}\n${orderSource}\n${normalizeSource}\n${applySources.join('\n')}\nthis.__apply = applyCloudSyncSnapshot;`, context);
   const applied = context.__apply({
     settings: {
       model: 'remote-model',
@@ -696,6 +727,7 @@ async function assertFrontendCloudSnapshotApply() {
 async function assertFrontendCloudSyncCrypto() {
   const sources = await Promise.all([
     '../src/app/22-cloud-sync.js',
+    '../src/app/19-conversation-order-helpers.js',
     '../src/app/22-cloud-sync-normalize.js',
     '../src/app/22-cloud-sync-crypto-envelope.js',
     '../src/app/22-cloud-sync-base64.js',
@@ -797,6 +829,7 @@ async function assertFrontendCloudSyncCrypto() {
 async function assertFrontendCloudSyncTransport() {
   const sources = await Promise.all([
     '../src/app/22-cloud-sync.js',
+    '../src/app/19-conversation-order-helpers.js',
     '../src/app/22-cloud-sync-normalize.js',
     '../src/app/22-cloud-sync-transport.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
@@ -4309,15 +4342,24 @@ async function assertFrontendComfyUIHelpers() {
 }
 
 async function assertFrontendLibraryConversationHelpers() {
-  const source = await readFile(new URL('../src/app/60-library-conversation-helpers.js', import.meta.url), 'utf8');
+  const sources = await Promise.all([
+    '../src/app/19-conversation-order-helpers.js',
+    '../src/app/59-conversation-timestamp-helpers.js',
+    '../src/app/60-library-conversation-helpers.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const context = {
     state: {
       conversations: {
         old: { id: 'old', character: { name: 'Arona' }, updated: 100 },
         recent: { id: 'recent', character: { name: 'Arona' }, created: 200 },
-        other: { id: 'other', character: { name: 'Mika' }, updated: 300 },
+        tieObjectFirst: { id: 'tieObjectFirst', character: { name: 'Arona' }, updated: 700 },
+        tieOrderFirst: { id: 'tieOrderFirst', character: { name: 'Arona' }, updated: 700 },
+        messageRecent: { id: 'messageRecent', character: { name: 'Arona' }, messages: [{ createdAt: 500, content: 'newer imported chat' }] },
+        staleUpdated: { id: 'staleUpdated', character: { name: 'Arona' }, updated: 300, messages: [{ createdAt: 950, content: 'message newer than updated' }] },
+        orphan: { id: 'orphan', character: { name: 'Arona' }, updated: 900 },
+        other: { id: 'other', character: { name: 'Mika' }, updated: 800 },
       },
-      conversationOrder: ['old', 'recent', 'other'],
+      conversationOrder: ['old', 'recent', 'tieOrderFirst', 'tieObjectFirst', 'messageRecent', 'staleUpdated', 'other'],
       activeConvId: 'recent',
     },
     isGroupChat(conv) { return !!(conv && conv.group); },
@@ -4328,9 +4370,11 @@ async function assertFrontendLibraryConversationHelpers() {
     Object,
   };
 
-  vm.runInNewContext(`${source}\nthis.__recent = findMostRecentConversationForCharacter;\nthis.__name = getConversationDisplayCharacterName;\nthis.__reset = resetConversationRuntimeState;\nthis.__deleteState = deleteConversationFromLibraryState;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__activity = getConversationActivityTimestamp;\nthis.__messageActivity = getMessageActivityTimestamp;\nthis.__recent = findMostRecentConversationForCharacter;\nthis.__name = getConversationDisplayCharacterName;\nthis.__reset = resetConversationRuntimeState;\nthis.__deleteState = deleteConversationFromLibraryState;`, context);
 
-  assert(context.__recent('Arona').id === 'recent', 'Library conversation helper should pick the newest matching character conversation.');
+  assert(context.__activity({ updated: 300, messages: [{ created: 950 }] }) === 950, 'Conversation activity timestamp should use newer message created timestamps.');
+  assert(context.__messageActivity({ timestamp: 1700000000 }) === 1700000000000, 'Message activity timestamp should normalize Unix seconds to milliseconds.');
+  assert(context.__recent('Arona').id === 'staleUpdated', 'Library conversation helper should use the newest message timestamp when it is newer than the conversation updated timestamp.');
   assert(context.__recent('Missing') === null, 'Library conversation helper should return null when no matching conversation exists.');
   assert(context.__name({ character: { name: 'Yuuka' } }) === 'Yuuka', 'Library conversation helper should read single-character conversation names.');
   assert(context.__name({ group: { members: [{ character: { name: 'Nagisa' } }] } }) === 'Nagisa', 'Library conversation helper should read the first group member name.');
@@ -4346,12 +4390,27 @@ async function assertFrontendLibraryConversationHelpers() {
   assert(conv._showAllMessages === false && conv._lastRenderedVisibleCount === 0 && conv._historyWindow === 150 && conv._historyScrollHandler === null && conv._wiCache === null, 'Library conversation helper should reset transient render state.');
 
   context.__deleteState('old');
-  assert(!context.state.conversations.old && context.state.conversationOrder.join(',') === 'recent,other' && context.state.activeConvId === 'recent', 'Library conversation helper should remove inactive conversations without changing the active conversation.');
+  assert(!context.state.conversations.old && context.state.conversationOrder.join(',') === 'recent,tieOrderFirst,tieObjectFirst,messageRecent,staleUpdated,other' && context.state.activeConvId === 'recent', 'Library conversation helper should remove inactive conversations without changing the active conversation.');
 
   context.__deleteState('recent');
-  assert(!context.state.conversations.recent && context.state.activeConvId === 'other', 'Library conversation helper should select the next conversation after deleting the active conversation.');
+  assert(!context.state.conversations.recent && context.state.activeConvId === 'staleUpdated', 'Library conversation helper should prefer the newest message timestamp after deleting the active conversation.');
+
+  context.__deleteState('messageRecent');
+  assert(!context.state.conversations.messageRecent && context.state.activeConvId === 'staleUpdated', 'Library conversation helper should preserve the active conversation when deleting another row.');
 
   context.__deleteState('other');
+  assert(!context.state.conversations.other && context.state.activeConvId === 'staleUpdated', 'Library conversation helper should preserve the active stale-updated conversation when deleting another row.');
+
+  context.__deleteState('staleUpdated');
+  assert(!context.state.conversations.staleUpdated && context.state.activeConvId === 'orphan', 'Library conversation helper should fall back to the newest orphan conversation after deleting the stale-updated active row.');
+
+  context.__deleteState('orphan');
+  assert(!context.state.conversations.orphan && context.state.activeConvId === 'tieOrderFirst', 'Library conversation helper should fall back to the stable newest ordered conversation after deleting the orphan row.');
+
+  context.__deleteState('tieObjectFirst');
+  assert(!context.state.conversations.tieObjectFirst && context.state.activeConvId === 'tieOrderFirst', 'Library conversation helper should preserve the active stable newest conversation.');
+
+  context.__deleteState('tieOrderFirst');
   assert(context.state.activeConvId === 'default' && context.state.conversations.default && context.state.conversationOrder.join(',') === 'default', 'Library conversation helper should create a default conversation when the last active conversation is deleted.');
 }
 
@@ -4515,6 +4574,8 @@ async function assertFrontendMobileSidebarUI() {
 
 async function assertFrontendConversationListUI() {
   const sources = await Promise.all([
+    '../src/app/19-conversation-order-helpers.js',
+    '../src/app/59-conversation-timestamp-helpers.js',
     '../src/app/64-conversation-list-helpers.js',
     '../src/app/64-conversation-list-ui.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
@@ -4545,12 +4606,15 @@ async function assertFrontendConversationListUI() {
     dom: { convList },
     state: {
       activeConvId: 'c2',
-      conversationOrder: ['c1', 'c2', 'g1', 'legacy', 'other', 'missing'],
+      conversationOrder: ['c1', 'c2', 'g1', 'legacy', 'staleUpdated', 'sendDateChat', 'other', 'missing'],
       conversations: {
         c1: { title: 'Arona chat', character: { name: 'Arona' }, created: 1000, updated: 1000 },
         c2: { title: 'Active Plana chat', character: { name: 'Plana' }, created: 2000, updated: 2000 },
         g1: { title: 'Group chat', group: { members: [{ character: { name: 'Arona' } }] }, created: 3000, updated: 3000 },
         legacy: { title: 'Legacy chat', character: { name: 'Arona' }, messages: [{ createdAt: 5000, content: 'latest legacy' }] },
+        staleUpdated: { title: 'Stale updated chat', character: { name: 'Arona' }, updated: 1500, messages: [{ createdAt: 7000, content: 'newest activity' }] },
+        sendDateChat: { title: 'Send date chat', character: { name: 'Arona' }, messages: [{ send_date: '1970-01-01T00:00:06.500Z', content: 'send date activity' }] },
+        orphan: { title: 'Orphan chat', character: { name: 'Arona' }, updated: 6000 },
         other: { title: 'Other chat', character: { name: 'Other' }, created: 4000, updated: 4000 },
       },
     },
@@ -4577,13 +4641,13 @@ async function assertFrontendConversationListUI() {
   vm.runInNewContext(`${sources.join('\n')}\nthis.__visible = getVisibleConversationListOrder;\nthis.__empty = buildConversationListEmptyHtml;\nthis.__item = buildConversationListItemHtml;\nthis.__render = renderConversationList;`, context);
 
   const visibleOrder = context.__visible();
-  assert(visibleOrder.join(',') === 'legacy,g1,c2,c1', 'Conversation list helper should sort matching conversations by timestamp descending.');
+  assert(visibleOrder.join(',') === 'staleUpdated,sendDateChat,orphan,legacy,g1,c2,c1', 'Conversation list helper should use the newest activity timestamp across conversation and message metadata.');
   assert(context.__item('c1', context.state.conversations.c1, false).includes('data-exp-id="c1"'), 'Conversation list helper should render export actions for rows.');
   context.__render();
-  assert(convList.innerHTML.indexOf('data-conv-id="legacy"') < convList.innerHTML.indexOf('data-conv-id="g1"'), 'Conversation list should render newer timestamped conversations first.');
+  assert(convList.innerHTML.indexOf('data-conv-id="staleUpdated"') < convList.innerHTML.indexOf('data-conv-id="orphan"'), 'Conversation list should render message-newer conversations before stale updated rows.');
   assert(convList.innerHTML.includes('data-conv-id="c1"') && convList.innerHTML.includes('data-conv-id="c2"') && convList.innerHTML.includes('data-conv-id="g1"'), 'Conversation list should include matching character, active, and group conversations in chat view.');
   assert(!convList.innerHTML.includes('Other chat'), 'Conversation list should filter unrelated conversations in chat view.');
-  assert(context.state.conversationOrder.join(',') === 'c1,c2,g1,legacy,other,missing', 'Conversation list render should not mutate conversation order.');
+  assert(context.state.conversationOrder.join(',') === 'c1,c2,g1,legacy,staleUpdated,sendDateChat,other,missing', 'Conversation list render should not mutate conversation order.');
 
   convRows[0].listeners.click({});
   deleteRows[0].listeners.click({ stopPropagation() { events.push('stop-delete'); } });
@@ -4595,6 +4659,7 @@ async function assertFrontendConversationListUI() {
   assert(convList.innerHTML.includes('Other chat'), 'Conversation list should show all conversations in library view.');
 
   context.state.conversationOrder = [];
+  context.state.conversations = {};
   context.__render();
   assert(convList.innerHTML.includes('No conversations'), 'Conversation list should render the empty state.');
   assert(context.__empty().includes('No conversations'), 'Conversation list empty helper should render localized empty text.');
@@ -5815,6 +5880,7 @@ async function assertFrontendStorageServiceSaveHelpers() {
 
 async function assertFrontendStorageServiceQuotaBackupHelpers() {
   const sources = await Promise.all([
+    '../src/app/19-conversation-order-helpers.js',
     '../src/app/20-storage-service-quota-backup.js',
     '../src/app/20-storage-service-maintenance.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
@@ -5823,7 +5889,10 @@ async function assertFrontendStorageServiceQuotaBackupHelpers() {
   const context = {
     state: {
       settings: { model: 'quota-model', apiKey: 'secret' },
-      conversations: { c1: { messages: [{ content: 'quota chat' }] } },
+      conversations: {
+        c1: { messages: [{ content: 'quota chat' }] },
+        orphan: { messages: [{ content: 'missing order' }] },
+      },
       conversationOrder: ['c1'],
       activeConvId: 'c1',
       worldBooks: { wb1: { entries: [] } },
@@ -5849,13 +5918,69 @@ async function assertFrontendStorageServiceQuotaBackupHelpers() {
 
   const snapshot = context.__snapshot();
   assert(snapshot.settings.apiKey === '' && snapshot.conversations.c1.messages[0].content === 'quota chat', 'Storage quota backup helper should include safe settings and chats.');
+  assert(snapshot.conversationOrder.join(',') === 'c1,orphan', 'Storage quota backup helper should include conversations missing from conversation order.');
+  assert(snapshot.activeConvId === 'c1', 'Storage quota backup helper should preserve valid active conversation ids.');
   assert(snapshot.characters.arona.first_mes === 'Sensei!' && snapshot.worldBooks.wb1, 'Storage quota backup helper should include character cards and world books.');
+
+  context.state.activeConvId = 'missing';
+  assert(context.__snapshot().activeConvId === 'c1', 'Storage quota backup helper should recover invalid active conversation ids.');
 
   const service = { _lastQuotaAlert: 0 };
   context.__handle(service, new Error('quota'), null);
   context.__handle(service, new Error('quota'), null);
   assert(exports.length === 1 && exports[0].filename.startsWith('opentavern-backup-quota-'), 'Storage quota handler should export one backup and throttle repeated alerts.');
   assert(exports[0].data.characters.arona.name === 'Arona' && alerts.length === 1, 'Storage quota handler should export character cards and alert once.');
+}
+
+async function assertFrontendStorageRecoveryRestoreHelpers() {
+  const orderSource = await readFile(new URL('../src/app/19-conversation-order-helpers.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../src/app/23-storage-recovery-restore.js', import.meta.url), 'utf8');
+  const context = {
+    state: {
+      settings: {},
+      conversations: {},
+      conversationOrder: [],
+      activeConvId: null,
+      worldBooks: {},
+      characters: {},
+    },
+    getSafeSettingsForPersist() {
+      return { model: 'safe-model' };
+    },
+    Date: { now: () => 777 },
+    Object,
+    Array,
+  };
+
+  vm.runInNewContext(`${orderSource}\n${source}\nthis.__apply = applyStorageRecoveryData;\nthis.__snapshot = buildStorageRecoverySaveSnapshot;`, context);
+
+  context.__apply({
+    conversations: {
+      c1: { id: 'c1', messages: [{ content: 'first' }] },
+      orphan: { id: 'orphan', messages: [{ content: 'missing order' }] },
+    },
+    conversationOrder: ['missing', 'c1', 'c1'],
+    activeConvId: 'orphan',
+    worldBooks: { wb1: { id: 'wb1' } },
+    characters: { arona: { name: 'Arona' } },
+    charactersMigrated: true,
+  });
+
+  assert(context.state.conversationOrder.join(',') === 'c1,orphan', 'Storage recovery should normalize restored conversation order.');
+  assert(context.state.activeConvId === 'orphan', 'Storage recovery should preserve a valid restored active conversation.');
+
+  const snapshot = context.__snapshot();
+  assert(snapshot.conversationOrder.join(',') === 'c1,orphan' && snapshot.lastSaved === 777, 'Storage recovery save snapshot should include complete conversation order.');
+
+  context.__apply({
+    conversations: {
+      c3: { id: 'c3', messages: [{ content: 'third' }] },
+      c4: { id: 'c4', messages: [{ content: 'fourth' }] },
+    },
+    conversationOrder: ['missing', 'c4'],
+    activeConvId: 'missing',
+  });
+  assert(context.state.conversationOrder.join(',') === 'c4,c3' && context.state.activeConvId === 'c4', 'Storage recovery should recover invalid active conversation ids.');
 }
 
 async function assertFrontendStorageServicePageLifecycleHelpers() {
@@ -6059,6 +6184,7 @@ async function assertFrontendStorageServiceInfoHelpers() {
 
 async function assertFrontendStorageServicePipeline() {
   const sources = await Promise.all([
+    '../src/app/19-conversation-order-helpers.js',
     '../src/app/20-storage-service-helpers.js',
     '../src/app/20-storage-service-quota-backup.js',
     '../src/app/20-storage-service-maintenance.js',
@@ -6415,6 +6541,7 @@ async function assertFrontendIDBStorageHelpers() {
 
 async function assertFrontendStorageServiceFileProtocolStatus() {
   const sources = await Promise.all([
+    '../src/app/19-conversation-order-helpers.js',
     '../src/app/20-storage-service-helpers.js',
     '../src/app/20-storage-service-quota-backup.js',
     '../src/app/20-storage-service-maintenance.js',
@@ -6642,6 +6769,7 @@ async function assertFrontendStorageStatusRenderHelpers() {
 
 async function assertFrontendStateInitialization() {
   const sources = await Promise.all([
+    '../src/app/19-conversation-order-helpers.js',
     '../src/app/34-state-init-helpers.js',
     '../src/app/34-state-init-normalize.js',
     '../src/app/34-state-init-load.js',
@@ -6825,6 +6953,8 @@ async function assertFrontendAppInitHelpers() {
 
 async function assertFrontendConversationImportHelpers() {
   const sources = await Promise.all([
+    '../src/app/19-conversation-order-helpers.js',
+    '../src/app/59-conversation-timestamp-helpers.js',
     '../src/app/63-conversation-export-helpers.js',
     '../src/app/63-conversation-import-records.js',
     '../src/app/63-conversation-import-merge.js',
@@ -6835,7 +6965,8 @@ async function assertFrontendConversationImportHelpers() {
   const context = {
     state: {
       conversations: {
-        existing: { id: 'existing', messages: [{ role: 'user', content: 'old' }] },
+        existing: { id: 'existing', messages: [{ role: 'user', content: 'old' }], updated: 5000 },
+        orphan: { id: 'orphan', messages: [{ role: 'user', content: 'missing order' }], updated: 6000 },
       },
       conversationOrder: ['existing'],
       activeConvId: null,
@@ -6864,10 +6995,10 @@ async function assertFrontendConversationImportHelpers() {
 
   const data = {
     conversations: [
-      { id: 'existing', messages: [{ role: 'user', content: 'new' }], character: { name: 'Arona' } },
+      { id: 'existing', messages: [{ role: 'user', content: 'new' }], character: { name: 'Arona' }, updated: 900 },
       {
         id: 'group',
-        messages: [{ role: 'assistant', content: 'group' }],
+        messages: [{ role: 'assistant', content: 'group', createdAt: 500 }],
         group: { members: [{ character: { name: 'Plana' } }] },
       },
     ],
@@ -6888,7 +7019,7 @@ async function assertFrontendConversationImportHelpers() {
   assert(context.state.characters.arona.name === 'Arona', 'Single-chat character was not registered.');
   assert(context.state.characters.plana.name === 'Plana', 'Group member character was not registered.');
   assert(context.state.worldBooks.wb1.entries[0].content === 'Kivotos', 'World book was not imported.');
-  assert(context.state.activeConvId === 'group', 'Import should select the first imported conversation when no active conversation exists.');
+  assert(context.state.activeConvId === 'new-id', 'Import should select the newest imported conversation when no active conversation exists.');
   assert(persistCount === 2, 'Successful import should persist before and after active conversation update.');
   assert(renderRequested === 'activeConvId', 'Successful import should request active conversation render.');
   assert(context.__message(2, 1).includes('duplicates'), 'Import success message should include duplicate count.');
@@ -6898,10 +7029,11 @@ async function assertFrontendConversationImportHelpers() {
   assert(context.__singleFilename({ title: 'Chat/Name:*' }) === 'Chat_Name__.json', 'Single conversation export should sanitize filenames.');
 
   const orderedExports = context.__exportRecords();
-  assert(orderedExports.map((conv) => conv.id).join(',') === 'group,new-id,existing', 'Conversation export records should follow conversation order.');
+  assert(orderedExports.map((conv) => conv.id).join(',') === 'group,new-id,existing,orphan', 'Conversation export records should include conversations missing from conversation order.');
 
   const fullExport = context.__fullExport(orderedExports, '2026-07-08T12:00:00.000Z');
   assert(fullExport.version === 2 && fullExport.type === 'opentavern-full-export', 'Full conversation export should use the complete export format.');
+  assert(fullExport.conversationOrder.join(',') === 'group,new-id,existing,orphan', 'Full conversation export should preserve the complete export order.');
   assert(fullExport.settings.theme === 'dark' && fullExport.charactersMigrated === true, 'Full conversation export should include safe settings and migration state.');
   assert(fullExport.characters.arona.name === 'Arona' && fullExport.worldBooks.wb1.id === 'wb1', 'Full conversation export should include character cards and world books.');
   assert(context.__fullFilename('2026-07-08T12:00:00.000Z') === 'opentavern_all_2026-07-08.json', 'Full conversation export filename should use the export date.');
@@ -6991,6 +7123,7 @@ async function main() {
   await assertFrontendStorageServiceLoadHelpers();
   await assertFrontendStorageServiceSaveHelpers();
   await assertFrontendStorageServiceQuotaBackupHelpers();
+  await assertFrontendStorageRecoveryRestoreHelpers();
   await assertFrontendStorageServicePageLifecycleHelpers();
   await assertFrontendStorageServiceClearBackendHelpers();
   await assertFrontendStorageServiceInfoHelpers();

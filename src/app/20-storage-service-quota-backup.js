@@ -8,12 +8,16 @@ function buildStorageQuotaBackupSnapshot() {
     return {
         settings: state ? getSafeSettingsForPersist() : {},
         conversations: state ? state.conversations : {},
-        conversationOrder: state ? state.conversationOrder : [],
-        activeConvId: state ? state.activeConvId : null,
+        conversationOrder: state ? getStorageQuotaBackupConversationOrder(state.conversationOrder, state.conversations) : [],
+        activeConvId: state ? getValidConversationIdOrFallback(state.activeConvId, state.conversationOrder, state.conversations) : null,
         worldBooks: state ? (state.worldBooks || {}) : {},
         characters: state ? (state.characters || {}) : {},
         lastSaved: Date.now()
     };
+}
+
+function getStorageQuotaBackupConversationOrder(order, conversations) {
+    return getConversationIdsWithMissingFallback(order, conversations);
 }
 
 function exportStorageQuotaBackup(data, filename) {

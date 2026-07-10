@@ -28,8 +28,8 @@ function deleteCharacterFromLibrary(nameOrKey) {
         const directData = {
             settings: (typeof getSafeSettingsForPersist === 'function' ? getSafeSettingsForPersist() : (state.settings || {})),
             conversations: state.conversations || {},
-            conversationOrder: state.conversationOrder || [],
-            activeConvId: state.activeConvId || null,
+            conversationOrder: getCharacterLibraryPersistConversationOrder(state.conversationOrder, state.conversations),
+            activeConvId: getValidConversationIdOrFallback(state.activeConvId, state.conversationOrder, state.conversations),
             worldBooks: state.worldBooks || {},
             characters: state.characters || {},
             charactersMigrated: !!state._charactersMigrated,
@@ -55,4 +55,8 @@ function deleteCharacterFromLibrary(nameOrKey) {
     if (pickerList && !document.getElementById('newChatPickerModal').classList.contains('hidden')) {
         showNewChatCharacterPicker();
     }
+}
+
+function getCharacterLibraryPersistConversationOrder(order, conversations) {
+    return getConversationIdsWithMissingFallback(order, conversations);
 }

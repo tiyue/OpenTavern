@@ -8,9 +8,7 @@ function normalizeCloudSyncRestoredConversations() {
 function ensureCloudSyncRestoredActiveConversation() {
     if (state.activeConvId && state.conversations[state.activeConvId]) return;
 
-    var first = (state.conversationOrder || []).find(function(id) {
-        return state.conversations[id];
-    }) || Object.keys(state.conversations || {})[0];
+    var first = getFirstAvailableConversationId(state.conversationOrder, state.conversations);
 
     if (first) {
         state.activeConvId = first;

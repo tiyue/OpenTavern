@@ -2,18 +2,20 @@
 function findMostRecentConversationForCharacter(characterName) {
     if (!characterName) return null;
 
-    var recentConv = null;
+    var recentId = null;
     var recentTime = 0;
-    Object.values(state.conversations || {}).forEach(function(conv) {
+    var order = getConversationIdsWithMissingFallback(state.conversationOrder, state.conversations);
+    order.forEach(function(id) {
+        var conv = state.conversations && state.conversations[id];
         if (conv && conv.character && conv.character.name === characterName) {
-            var t = conv.updated || conv.created || 0;
-            if (t > recentTime) {
+            var t = getConversationActivityTimestamp(conv);
+            if (!recentId || t > recentTime) {
                 recentTime = t;
-                recentConv = conv;
+                recentId = id;
             }
         }
     });
-    return recentConv;
+    return recentId ? state.conversations[recentId] : null;
 }
 
 function getConversationDisplayCharacterName(conv) {
@@ -48,8 +50,12 @@ function createDefaultLibraryConversation() {
 
 function ensureLibraryActiveConversationAfterDelete(deletedId) {
     if (state.activeConvId !== deletedId) return;
-    if (state.conversationOrder.length > 0) {
-        state.activeConvId = state.conversationOrder[0];
+    var nextId = getMostRecentConversationIdFromOrder(
+        getConversationIdsWithMissingFallback(state.conversationOrder, state.conversations),
+        state.conversations
+    );
+    if (nextId) {
+        state.activeConvId = nextId;
         return;
     }
     state.activeConvId = createDefaultLibraryConversation().id;

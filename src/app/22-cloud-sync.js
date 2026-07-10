@@ -37,13 +37,21 @@ function buildAppDataSnapshot(options) {
     return {
         settings: getSafeSettingsForCloudSync(),
         conversations: cloneCloudSyncSnapshotValue(state.conversations, {}),
-        conversationOrder: cloneCloudSyncSnapshotValue(state.conversationOrder, []),
-        activeConvId: state.activeConvId || null,
+        conversationOrder: getCloudSyncSnapshotConversationOrder(),
+        activeConvId: getCloudSyncSnapshotActiveConversationId(),
         worldBooks: cloneCloudSyncSnapshotValue(state.worldBooks, {}),
         characters: cloneCloudSyncSnapshotValue(state.characters, {}),
         charactersMigrated: !!state._charactersMigrated,
         lastSaved: Number.isFinite(Number(options.lastSaved)) ? Number(options.lastSaved) : Date.now()
     };
+}
+
+function getCloudSyncSnapshotConversationOrder() {
+    return getConversationIdsWithMissingFallback(state.conversationOrder, state.conversations);
+}
+
+function getCloudSyncSnapshotActiveConversationId() {
+    return getValidConversationIdOrFallback(state.activeConvId, state.conversationOrder, state.conversations);
 }
 
 function syncOpenSettingsFormForCloudSnapshot() {
@@ -174,9 +182,11 @@ function getCloudSyncSerializedBytes(value) {
 
 function getCloudSyncConversationSerializedBytes(snapshot) {
     if (!snapshot || typeof snapshot !== 'object') return 0;
+    var conversations = snapshot.conversations || {};
+    var conversationOrder = getConversationIdsWithMissingFallback(snapshot.conversationOrder, conversations);
     return getCloudSyncSerializedBytes({
-        conversations: snapshot.conversations || {},
-        conversationOrder: Array.isArray(snapshot.conversationOrder) ? snapshot.conversationOrder : [],
-        activeConvId: snapshot.activeConvId || null
+        conversations: conversations,
+        conversationOrder: conversationOrder,
+        activeConvId: getValidConversationIdOrFallback(snapshot.activeConvId, conversationOrder, conversations)
     });
 }

@@ -12,7 +12,7 @@ function conversationMatchesCurrentCharacterFilter(id, conv, activeId, character
 }
 
 function getVisibleConversationListOrder() {
-    var order = getConversationListTimestampOrder((state.conversationOrder || []).slice());
+    var order = getConversationListTimestampOrder(getConversationIdsWithMissingFallback(state.conversationOrder, state.conversations));
     if (currentView === 'chat' && currentCharacterName) {
         var activeId = state.activeConvId;
         order = order.filter(function(id) {
@@ -39,33 +39,7 @@ function getConversationListTimestampOrder(order) {
 }
 
 function getConversationListTimestamp(conv) {
-    if (!conv) return 0;
-    return normalizeConversationListTimestamp(conv.updated) ||
-        getLastMessageTimestampForConversationList(conv) ||
-        normalizeConversationListTimestamp(conv.created) ||
-        0;
-}
-
-function getLastMessageTimestampForConversationList(conv) {
-    var messages = Array.isArray(conv && conv.messages) ? conv.messages : [];
-    for (var i = messages.length - 1; i >= 0; i--) {
-        var msg = messages[i];
-        var timestamp = normalizeConversationListTimestamp(
-            msg && (msg.updated || msg.updatedAt || msg.createdAt || msg.timestamp || msg.time)
-        );
-        if (timestamp) return timestamp;
-    }
-    return 0;
-}
-
-function normalizeConversationListTimestamp(value) {
-    var timestamp = Number(value);
-    if (Number.isFinite(timestamp) && timestamp > 0) return timestamp;
-    if (typeof value === 'string' && value.trim()) {
-        var parsed = Date.parse(value);
-        if (Number.isFinite(parsed) && parsed > 0) return parsed;
-    }
-    return 0;
+    return getConversationActivityTimestamp(conv);
 }
 
 function buildConversationListEmptyHtml() {

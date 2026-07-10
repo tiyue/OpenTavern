@@ -1,6 +1,17 @@
 // ==================== Debounced Persist ====================
 var _persistTimeout = null;
 var _cloudSyncConversationSignature = null;
+const CLOUD_SYNC_CONVERSATION_TRANSIENT_KEYS = {
+    _forcedSpeaker: true,
+    _historyScrollHandler: true,
+    _historyWindow: true,
+    _lastRenderedVisibleCount: true,
+    _nextGroupSpeaker: true,
+    _showAllMessages: true,
+    _wiBudgetWarning: true,
+    _wiCache: true,
+    _wiTimedEffects: true
+};
 
 function persistState(immediate, options) {
     options = options || {};
@@ -13,8 +24,8 @@ function persistState(immediate, options) {
     const dataToSave = {
         settings: getSafeSettingsForPersist(),
         conversations: state.conversations,
-        conversationOrder: state.conversationOrder,
-        activeConvId: state.activeConvId,
+        conversationOrder: getPersistableConversationOrder(state.conversationOrder, state.conversations),
+        activeConvId: getPersistableActiveConversationId(state.activeConvId, state.conversationOrder, state.conversations),
         worldBooks: state.worldBooks || {},
         characters: state.characters || {},
         charactersMigrated: !!state._charactersMigrated,
@@ -100,19 +111,55 @@ function shouldScheduleCloudSyncUploadForPersist(snapshot, options, previousSign
 function rememberCloudSyncConversationBaseline(snapshot) {
     _cloudSyncConversationSignature = buildCloudSyncConversationSignature(snapshot || {
         conversations: state.conversations,
-        conversationOrder: state.conversationOrder,
-        activeConvId: state.activeConvId
+        conversationOrder: getPersistableConversationOrder(state.conversationOrder, state.conversations),
+        activeConvId: getPersistableActiveConversationId(state.activeConvId, state.conversationOrder, state.conversations)
     });
 }
 
 function buildCloudSyncConversationSignature(snapshot) {
     try {
+        const conversations = snapshot && snapshot.conversations || {};
         return JSON.stringify({
-            conversations: snapshot && snapshot.conversations || {},
-            conversationOrder: Array.isArray(snapshot && snapshot.conversationOrder) ? snapshot.conversationOrder : [],
-            activeConvId: snapshot && snapshot.activeConvId || null
+            conversations: getCloudSyncSignatureConversations(conversations),
+            conversationOrder: getPersistableConversationOrder(
+                snapshot && snapshot.conversationOrder,
+                conversations
+            ),
+            activeConvId: getPersistableActiveConversationId(
+                snapshot && snapshot.activeConvId,
+                snapshot && snapshot.conversationOrder,
+                conversations
+            )
         });
     } catch (_) {
         return '';
     }
+}
+
+function getCloudSyncSignatureConversations(conversations) {
+    const result = {};
+    Object.keys(conversations || {}).sort().forEach(function(id) {
+        result[id] = sanitizeCloudSyncSignatureConversation(conversations[id]);
+    });
+    return result;
+}
+
+function sanitizeCloudSyncSignatureConversation(conv) {
+    if (!conv || typeof conv !== 'object' || Array.isArray(conv)) return conv;
+    const clean = {};
+    Object.keys(conv).sort().forEach(function(key) {
+        if (CLOUD_SYNC_CONVERSATION_TRANSIENT_KEYS[key]) return;
+        var value = conv[key];
+        if (typeof value === 'function') return;
+        clean[key] = value;
+    });
+    return clean;
+}
+
+function getPersistableConversationOrder(order, conversations) {
+    return getConversationIdsWithMissingFallback(order, conversations);
+}
+
+function getPersistableActiveConversationId(activeId, order, conversations) {
+    return getValidConversationIdOrFallback(activeId, order, conversations);
 }

@@ -6,10 +6,10 @@ function applyStorageRecoveryData(data) {
         });
     }
     if (data.conversations) state.conversations = data.conversations;
-    if (data.conversationOrder) state.conversationOrder = data.conversationOrder;
-    if (data.activeConvId && state.conversations[data.activeConvId]) {
-        state.activeConvId = data.activeConvId;
+    if (data.conversationOrder || data.conversations) {
+        state.conversationOrder = getStorageRecoveryConversationOrder(data.conversationOrder, state.conversations);
     }
+    state.activeConvId = getStorageRecoveryActiveConversationId(data.activeConvId);
     if (data.worldBooks) state.worldBooks = data.worldBooks;
     if (data.characters) state.characters = data.characters;
     if (typeof data.charactersMigrated !== 'undefined') {
@@ -21,13 +21,21 @@ function buildStorageRecoverySaveSnapshot() {
     return {
         settings: getSafeSettingsForPersist(),
         conversations: state.conversations,
-        conversationOrder: state.conversationOrder,
+        conversationOrder: getStorageRecoveryConversationOrder(state.conversationOrder, state.conversations),
         activeConvId: state.activeConvId,
         worldBooks: state.worldBooks || {},
         characters: state.characters || {},
         charactersMigrated: !!state._charactersMigrated,
         lastSaved: Date.now()
     };
+}
+
+function getStorageRecoveryConversationOrder(order, conversations) {
+    return getConversationIdsWithMissingFallback(order, conversations);
+}
+
+function getStorageRecoveryActiveConversationId(activeId) {
+    return getValidConversationIdOrFallback(activeId, state.conversationOrder, state.conversations);
 }
 
 async function restoreFromStorageCandidate(candidate) {

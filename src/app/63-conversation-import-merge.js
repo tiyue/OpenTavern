@@ -58,7 +58,10 @@ function applySuccessfulConversationImport(data, importResult) {
     if (typeof renderMyCards === 'function') renderMyCards();
 
     if (!state.activeConvId && state.conversationOrder.length > 0) {
-        state.activeConvId = state.conversationOrder[0];
+        var importedOrder = (importResult.conversations || []).map(function(conv) { return conv.id; });
+        state.activeConvId =
+            getMostRecentConversationIdFromOrder(importedOrder, state.conversations) ||
+            getMostRecentConversationIdFromOrder(state.conversationOrder, state.conversations);
     }
     persistState(true);
     requestRender('activeConvId');

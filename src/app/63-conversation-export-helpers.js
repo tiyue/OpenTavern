@@ -1,8 +1,12 @@
 // ==================== Conversation Export Helpers ====================
 function getConversationExportRecords() {
-    return state.conversationOrder.map(function(id) {
+    return getConversationIdsWithMissingFallback(state.conversationOrder, state.conversations).map(function(id) {
         return state.conversations[id];
     }).filter(Boolean);
+}
+
+function getConversationExportOrder() {
+    return getConversationIdsWithMissingFallback(state.conversationOrder, state.conversations);
 }
 
 function buildSingleConversationExportData(conversation, exportedAt) {
@@ -25,7 +29,7 @@ function buildAllConversationsExportData(conversations, exportedAt) {
         exported_at: exportedAt,
         settings: getSafeSettingsForPersist(),
         conversations: conversations,
-        conversationOrder: state.conversationOrder || [],
+        conversationOrder: getConversationExportOrder(),
         characters: state.characters || {},
         worldBooks: state.worldBooks || {},
         charactersMigrated: !!state._charactersMigrated
