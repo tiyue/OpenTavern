@@ -4970,6 +4970,73 @@ async function assertFrontendMessageContentHelpers() {
 
   const optionsHtml = context.__options('<options><option><title>Go</title><description>选择“前进”</description></option></options>');
   assert(optionsHtml.includes('Go') && optionsHtml.includes('dialogue-highlight'), 'Options XML renderer should render option cards and highlight dialogue.');
+  assert(optionsHtml.includes('class="message-option-choice') && optionsHtml.includes('data-option-send-text="Go"') && optionsHtml.includes('aria-pressed="false"'), 'Options XML renderer should expose selectable option buttons with the title as send text.');
+  assert(optionsHtml.includes('message-option-selected-hint'), 'Options XML renderer should include the selected click-again hint.');
+}
+
+async function assertFrontendMessageOptionInteractions() {
+  const source = await readFile(new URL('../src/app/71-event-message-option-bindings.js', import.meta.url), 'utf8');
+  const events = [];
+  let clickHandler = null;
+
+  function createOption(text) {
+    const attributes = {
+      'data-option-send-text': text,
+      'aria-pressed': 'false',
+    };
+    return {
+      getAttribute(name) { return attributes[name] || null; },
+      setAttribute(name, value) { attributes[name] = String(value); },
+    };
+  }
+
+  const first = createOption('继续深入');
+  const second = createOption('拥入怀中');
+  const options = [first, second];
+  const container = {
+    querySelectorAll(selector) {
+      assert(selector === '.message-option-choice[aria-pressed="true"]', 'Message option selection should query only selected option cards.');
+      return options.filter((option) => option.getAttribute('aria-pressed') === 'true');
+    },
+    addEventListener(type, handler) {
+      assert(type === 'click', 'Message option binding should use delegated click handling.');
+      clickHandler = handler;
+    },
+  };
+  const messageInput = {
+    value: '',
+    disabled: false,
+    dispatchEvent(event) { events.push(`input:${event.type}`); },
+  };
+  const context = {
+    state: { isGenerating: false },
+    dom: { messagesContainer: container, messageInput },
+    sendMessage() { events.push(`send:${messageInput.value}`); },
+    Event: function Event(type) { this.type = type; },
+    Array,
+    String,
+  };
+
+  vm.runInNewContext(`${source}\nthis.__activate = activateMessageOption;\nthis.__bind = bindMessageOptionEvents;`, context);
+
+  assert(context.__activate(first, container) === 'selected', 'First message option click should select without sending.');
+  assert(first.getAttribute('aria-pressed') === 'true' && messageInput.value === '继续深入', 'First message option click should highlight the card and fill the composer with its title.');
+  assert(!events.some((event) => event.startsWith('send:')), 'First message option click must not send a message.');
+
+  assert(context.__activate(second, container) === 'selected', 'Clicking another message option should switch the selection.');
+  assert(first.getAttribute('aria-pressed') === 'false' && second.getAttribute('aria-pressed') === 'true' && messageInput.value === '拥入怀中', 'Switching message options should clear the previous selection and replace composer text.');
+
+  assert(context.__activate(second, container) === 'sent', 'Clicking the selected message option again should send it.');
+  assert(events.includes('send:拥入怀中'), 'Second click should send the selected option title through the normal composer flow.');
+
+  context.__bind();
+  assert(typeof clickHandler === 'function', 'Message option click delegation should be bound to the message container.');
+  first.setAttribute('aria-pressed', 'false');
+  clickHandler({ target: { closest: () => first } });
+  assert(first.getAttribute('aria-pressed') === 'true', 'Delegated message option clicks should activate the matching option card.');
+
+  context.state.isGenerating = true;
+  assert(context.__activate(first, container) === 'blocked', 'Message options should not send while generation is active.');
 }
 
 async function assertFrontendMessageEditHelpers() {
@@ -7105,6 +7172,7 @@ async function main() {
   await assertFrontendCharacterEditorUI();
   await assertFrontendStateLifecycleHelpers();
   await assertFrontendMessageContentHelpers();
+  await assertFrontendMessageOptionInteractions();
   await assertFrontendMessageEditHelpers();
   await assertFrontendMessageActionHelpers();
   await assertFrontendSendMessageHelpers();

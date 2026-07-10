@@ -780,6 +780,8 @@ i18n['zh-CN'] = {
         prompt_stage_main: '主生成',
         prompt_stage_second: '第二阶段',
         two_stage_sender: '第二阶段',
+        message_option_activation_hint: '单击选中，再次点击发送',
+        message_option_selected_hint: '已选中 · 再次点击发送',
         settings_st_preset_title: 'SillyTavern 预设提示词',
         settings_st_preset_hint: '仅导入提示词文本，并插入到系统提示词之后。',
         settings_st_preset_import: '导入 JSON',
@@ -1223,6 +1225,8 @@ i18n['zh-TW'] = {
         prompt_stage_main: '主生成',
         prompt_stage_second: '第二階段',
         two_stage_sender: '第二階段',
+        message_option_activation_hint: '點擊選取，再次點擊即可傳送',
+        message_option_selected_hint: '已選取 · 再次點擊傳送',
         settings_st_preset_title: 'SillyTavern 預設提示詞',
         settings_st_preset_hint: '僅匯入提示詞文字，並插入到系統提示詞之後。',
         settings_st_preset_import: '匯入 JSON',
@@ -1619,6 +1623,8 @@ i18n['en'] = {
         prompt_stage_main: 'Main',
         prompt_stage_second: 'Stage Two',
         two_stage_sender: 'Stage Two',
+        message_option_activation_hint: 'Click to select; click again to send',
+        message_option_selected_hint: 'Selected · Click again to send',
         settings_st_preset_title: 'SillyTavern Preset Prompts',
         settings_st_preset_hint: 'Only prompt text is imported and inserted after the system prompt.',
         settings_st_preset_import: 'Import JSON',
@@ -12894,10 +12900,15 @@ function renderOptionsXml(raw) {
             var descNode = node.getElementsByTagName('description')[0];
             var title = titleNode ? titleNode.textContent.trim() : '';
             var desc = descNode ? descNode.textContent.trim() : '';
-            html += '<div class="glass rounded-xl border border-white/10 px-3 py-2">';
+            var sendText = title || desc;
+            var activationHint = t('message_option_activation_hint') || '单击选中，再次点击发送';
+            var selectedHint = t('message_option_selected_hint') || '已选中 · 再次点击发送';
+            html += '<button type="button" class="message-option-choice glass rounded-xl border border-white/10 px-3 py-2"' +
+                ' data-option-send-text="' + escapeHtml(sendText) + '" aria-pressed="false" title="' + escapeHtml(activationHint) + '">';
             if (title) html += '<div class="text-sm font-semibold text-amber-300 mb-1">' + escapeHtml(title) + '</div>';
             if (desc) html += '<div class="text-sm text-zinc-300 leading-relaxed">' + highlightDialogue(desc) + '</div>';
-            html += '</div>';
+            html += '<span class="message-option-selected-hint" aria-hidden="true">' + escapeHtml(selectedHint) + '</span>';
+            html += '</button>';
         });
         html += '</div>';
         return html;
@@ -15860,6 +15871,53 @@ function bindMessageActionEvents() {
         }
     });
 }
+// ==================== Message Option Event Bindings ====================
+function getMessageOptionSendText(optionEl) {
+    return optionEl ? String(optionEl.getAttribute('data-option-send-text') || '').trim() : '';
+}
+
+function clearSelectedMessageOptions(container, exceptEl) {
+    if (!container || typeof container.querySelectorAll !== 'function') return;
+    var selected = container.querySelectorAll('.message-option-choice[aria-pressed="true"]');
+    Array.prototype.forEach.call(selected, function(optionEl) {
+        if (optionEl !== exceptEl) optionEl.setAttribute('aria-pressed', 'false');
+    });
+}
+
+function putMessageOptionInComposer(text) {
+    if (!dom.messageInput) return;
+    dom.messageInput.value = text;
+    if (typeof dom.messageInput.dispatchEvent === 'function' && typeof Event === 'function') {
+        dom.messageInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
+function activateMessageOption(optionEl, container) {
+    if (!optionEl || state.isGenerating) return 'blocked';
+    var text = getMessageOptionSendText(optionEl);
+    if (!text) return 'ignored';
+
+    if (optionEl.getAttribute('aria-pressed') !== 'true') {
+        clearSelectedMessageOptions(container, optionEl);
+        optionEl.setAttribute('aria-pressed', 'true');
+        putMessageOptionInComposer(text);
+        return 'selected';
+    }
+
+    if (!dom.messageInput || dom.messageInput.disabled) return 'blocked';
+    putMessageOptionInComposer(text);
+    sendMessage();
+    return 'sent';
+}
+
+function bindMessageOptionEvents() {
+    if (!dom.messagesContainer) return;
+    dom.messagesContainer.addEventListener('click', function(e) {
+        var optionEl = e.target && e.target.closest ? e.target.closest('.message-option-choice') : null;
+        if (!optionEl) return;
+        activateMessageOption(optionEl, dom.messagesContainer);
+    });
+}
 // ==================== Chat Event Bindings Facade ====================
 // Chat composer and message action bindings live in:
 // - 71-event-chat-composer-bindings.js
@@ -16107,6 +16165,7 @@ function bindEvents() {
     bindLibraryEvents();
     bindSidebarEvents();
     bindMessageActionEvents();
+    bindMessageOptionEvents();
     bindLanguageEvents();
     bindCloudSyncShortcutEvents();
     bindCharacterAndDataEvents();

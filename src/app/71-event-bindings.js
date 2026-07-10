@@ -4,6 +4,7 @@ function bindEvents() {
     bindLibraryEvents();
     bindSidebarEvents();
     bindMessageActionEvents();
+    bindMessageOptionEvents();
     bindLanguageEvents();
     bindCloudSyncShortcutEvents();
     bindCharacterAndDataEvents();

@@ -96,6 +96,8 @@ i18n['en'] = {
         prompt_stage_main: 'Main',
         prompt_stage_second: 'Stage Two',
         two_stage_sender: 'Stage Two',
+        message_option_activation_hint: 'Click to select; click again to send',
+        message_option_selected_hint: 'Selected · Click again to send',
         settings_st_preset_title: 'SillyTavern Preset Prompts',
         settings_st_preset_hint: 'Only prompt text is imported and inserted after the system prompt.',
         settings_st_preset_import: 'Import JSON',

@@ -96,6 +96,8 @@ i18n['zh-TW'] = {
         prompt_stage_main: '主生成',
         prompt_stage_second: '第二階段',
         two_stage_sender: '第二階段',
+        message_option_activation_hint: '點擊選取，再次點擊即可傳送',
+        message_option_selected_hint: '已選取 · 再次點擊傳送',
         settings_st_preset_title: 'SillyTavern 預設提示詞',
         settings_st_preset_hint: '僅匯入提示詞文字，並插入到系統提示詞之後。',
         settings_st_preset_import: '匯入 JSON',
