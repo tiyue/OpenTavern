@@ -6734,6 +6734,18 @@ function buildPromptSummaryMessage(summaries, lang) {
         content: getPromptSummaryHeader(lang) + summaryText
     };
 }
+// ==================== Second Stage Content Isolation ====================
+function stripSecondStageOptionBlocks(content) {
+    return String(content || '')
+        .replace(/(?:\r?\n)*<options\b[^>]*>[\s\S]*?<\/options>/gi, '')
+        .trim();
+}
+
+function isolatePrimaryStageContent(content) {
+    var text = String(content || '');
+    if (!state || !state.settings || !state.settings.twoStageEnabled) return text;
+    return stripSecondStageOptionBlocks(text);
+}
 function getMaxPromptSummaryCoveredEnd(summaries) {
     var lastCovered = -1;
     if (summaries && summaries.length > 0) {
@@ -6753,13 +6765,20 @@ function getRegularPromptMessages(conv, maxMsgs) {
         regularMsgs = regularMsgs.slice(lastCovered + 1);
     }
 
+    regularMsgs = regularMsgs.filter(function(m) {
+        return m.stage !== 'second';
+    }).map(function(m) {
+        var content = m.role === 'assistant' ? isolatePrimaryStageContent(m.content) : m.content;
+        return { role: m.role, content: content };
+    }).filter(function(m) {
+        return String(m.content || '').trim();
+    });
+
     if (regularMsgs.length > maxMsgs) {
         regularMsgs = regularMsgs.slice(regularMsgs.length - maxMsgs);
     }
 
-    return regularMsgs.map(function(m) {
-        return { role: m.role, content: m.content };
-    });
+    return regularMsgs;
 }
 function resolvePromptOutletPlaceholders(apiMessages, outlets, charName, userName) {
     outlets = outlets || {};
@@ -9417,6 +9436,27 @@ async function testComfyConnection() {
 }
 // ==================== ComfyUI txt2img ====================
 // Split into state, error, output message, generation, and workflow UI chunks.
+// ==================== Generation Streaming Isolation ====================
+function getGenerationStreamingIds(stage) {
+    if (stage === 'second') {
+        return {
+            message: 'secondStageStreamingMsg',
+            content: 'secondStageStreamingContent',
+            cot: 'secondStageStreamingCot'
+        };
+    }
+    return {
+        message: 'streamingMsg',
+        content: 'streamingContent',
+        cot: 'streamingCot'
+    };
+}
+
+function removeGenerationStreamingBubble(stage) {
+    var ids = getGenerationStreamingIds(stage);
+    var streamingEl = document.getElementById(ids.message);
+    if (streamingEl) streamingEl.remove();
+}
 // ==================== Generation Turn Runtime ====================
 function completeGenerationTurn(conv) {
     if (!conv) return;
@@ -9436,8 +9476,8 @@ function completeGenerationTurn(conv) {
 }
 
 function handlePrimaryAssistantComplete(fullContent, fullCot) {
-    var streamingEl = document.getElementById('streamingMsg');
-    if (streamingEl) streamingEl.remove();
+    removeGenerationStreamingBubble('main');
+    fullContent = isolatePrimaryStageContent(fullContent);
     var conv = getActiveConv();
     if (!conv || !fullContent) {
         state.isGenerating = false;
@@ -9573,20 +9613,22 @@ function removeLinkedSecondStageMessages(conv, parentMsg) {
     }
 }
 
-function updateStreamingBubble(fullContent, conv, label, fullCot) {
-    var streamingEl = document.getElementById('streamingContent');
+function updateStreamingBubble(fullContent, conv, label, fullCot, stage) {
+    var ids = getGenerationStreamingIds(stage);
+    var displayContent = stage === 'second' ? String(fullContent || '') : isolatePrimaryStageContent(fullContent);
+    var streamingEl = document.getElementById(ids.content);
     if (streamingEl) {
-        streamingEl.innerHTML = renderAssistantContent(fullContent);
-        var cotEl = document.getElementById('streamingCot');
+        streamingEl.innerHTML = renderAssistantContent(displayContent);
+        var cotEl = document.getElementById(ids.cot);
         if (cotEl) cotEl.innerHTML = renderCotBlock(fullCot, true);
     } else {
         var div = document.createElement('div');
-        div.id = 'streamingMsg';
+        div.id = ids.message;
         div.className = 'msg-assistant flex justify-start msg-enter';
         div.innerHTML = '<div class="max-w-[80%]"><p class="text-[10px] text-zinc-500 mb-1 ml-1 font-medium">' +
             escapeHtml(label || getCurrentGeneratingSpeakerName(conv)) +
-            '</p><div id="streamingCot">' + renderCotBlock(fullCot, true) + '</div><div class="msg-bubble typing-cursor" id="streamingContent">' +
-            renderAssistantContent(fullContent) + '</div></div>';
+            '</p><div id="' + ids.cot + '">' + renderCotBlock(fullCot, true) + '</div><div class="msg-bubble typing-cursor" id="' + ids.content + '">' +
+            renderAssistantContent(displayContent) + '</div></div>';
         dom.messagesContainer.appendChild(div);
     }
     dom.messagesContainer.scrollTop = dom.messagesContainer.scrollHeight;
@@ -9616,6 +9658,7 @@ function runSecondStageGeneration(firstStageMessage, onDone) {
     ensureMessageIdentity(firstStageMessage, 'main');
 
     function startSecondStage() {
+        removeGenerationStreamingBubble('main');
         var messages;
         try {
             messages = buildMessagesForSecondStage(firstStageMessage);
@@ -9629,11 +9672,10 @@ function runSecondStageGeneration(firstStageMessage, onDone) {
         streamChatWithMessages(
             messages,
             function onToken(token, fullContent, fullCot) {
-                updateStreamingBubble(fullContent, conv, t('two_stage_sender') || '第二阶段', fullCot);
+                updateStreamingBubble(fullContent, conv, t('two_stage_sender') || '第二阶段', fullCot, 'second');
             },
             function onComplete(fullContent, fullCot) {
-                var streamingEl = document.getElementById('streamingMsg');
-                if (streamingEl) streamingEl.remove();
+                removeGenerationStreamingBubble('second');
                 var c = getActiveConv();
                 if (c && fullContent) {
                     var speaker = firstStageMessage.speaker || null;
@@ -9644,8 +9686,7 @@ function runSecondStageGeneration(firstStageMessage, onDone) {
                 if (onDone) onDone(null);
             },
             function onError(err) {
-                var streamingEl = document.getElementById('streamingMsg');
-                if (streamingEl) streamingEl.remove();
+                removeGenerationStreamingBubble('second');
                 state.isGenerating = false;
                 appStore.notify('isGenerating');
                 renderMessagesOnly();
@@ -12985,7 +13026,11 @@ function renderMessageAttachments(msg) {
 }
 
 function renderMessageBubbleContent(msg, isUser) {
-    var content = isUser ? escapeHtml(msg && msg.content) : renderAssistantContent(msg && msg.content);
+    var rawContent = msg && msg.content;
+    if (!isUser && msg && msg.stage !== 'second') {
+        rawContent = isolatePrimaryStageContent(rawContent);
+    }
+    var content = isUser ? escapeHtml(rawContent) : renderAssistantContent(rawContent);
     return content + renderMessageAttachments(msg);
 }
 // ==================== Chat Message HTML Helpers ====================

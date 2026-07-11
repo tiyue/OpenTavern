@@ -39,20 +39,22 @@ function removeLinkedSecondStageMessages(conv, parentMsg) {
     }
 }
 
-function updateStreamingBubble(fullContent, conv, label, fullCot) {
-    var streamingEl = document.getElementById('streamingContent');
+function updateStreamingBubble(fullContent, conv, label, fullCot, stage) {
+    var ids = getGenerationStreamingIds(stage);
+    var displayContent = stage === 'second' ? String(fullContent || '') : isolatePrimaryStageContent(fullContent);
+    var streamingEl = document.getElementById(ids.content);
     if (streamingEl) {
-        streamingEl.innerHTML = renderAssistantContent(fullContent);
-        var cotEl = document.getElementById('streamingCot');
+        streamingEl.innerHTML = renderAssistantContent(displayContent);
+        var cotEl = document.getElementById(ids.cot);
         if (cotEl) cotEl.innerHTML = renderCotBlock(fullCot, true);
     } else {
         var div = document.createElement('div');
-        div.id = 'streamingMsg';
+        div.id = ids.message;
         div.className = 'msg-assistant flex justify-start msg-enter';
         div.innerHTML = '<div class="max-w-[80%]"><p class="text-[10px] text-zinc-500 mb-1 ml-1 font-medium">' +
             escapeHtml(label || getCurrentGeneratingSpeakerName(conv)) +
-            '</p><div id="streamingCot">' + renderCotBlock(fullCot, true) + '</div><div class="msg-bubble typing-cursor" id="streamingContent">' +
-            renderAssistantContent(fullContent) + '</div></div>';
+            '</p><div id="' + ids.cot + '">' + renderCotBlock(fullCot, true) + '</div><div class="msg-bubble typing-cursor" id="' + ids.content + '">' +
+            renderAssistantContent(displayContent) + '</div></div>';
         dom.messagesContainer.appendChild(div);
     }
     dom.messagesContainer.scrollTop = dom.messagesContainer.scrollHeight;

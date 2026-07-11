@@ -17,8 +17,8 @@ function completeGenerationTurn(conv) {
 }
 
 function handlePrimaryAssistantComplete(fullContent, fullCot) {
-    var streamingEl = document.getElementById('streamingMsg');
-    if (streamingEl) streamingEl.remove();
+    removeGenerationStreamingBubble('main');
+    fullContent = isolatePrimaryStageContent(fullContent);
     var conv = getActiveConv();
     if (!conv || !fullContent) {
         state.isGenerating = false;

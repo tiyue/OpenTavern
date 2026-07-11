@@ -43,6 +43,10 @@ function renderMessageAttachments(msg) {
 }
 
 function renderMessageBubbleContent(msg, isUser) {
-    var content = isUser ? escapeHtml(msg && msg.content) : renderAssistantContent(msg && msg.content);
+    var rawContent = msg && msg.content;
+    if (!isUser && msg && msg.stage !== 'second') {
+        rawContent = isolatePrimaryStageContent(rawContent);
+    }
+    var content = isUser ? escapeHtml(rawContent) : renderAssistantContent(rawContent);
     return content + renderMessageAttachments(msg);
 }

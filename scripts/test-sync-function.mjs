@@ -2002,14 +2002,89 @@ async function assertFrontendGenerationHelpers() {
   assert(notifications.join(',') === 'isGenerating,isGenerating', 'Streaming success should notify begin and finish state changes.');
 }
 
+async function assertFrontendGenerationStageIsolation() {
+  const streamingSources = await Promise.all([
+    '../src/app/41-second-stage-content-isolation.js',
+    '../src/app/52-generation-streaming-isolation.js',
+    '../src/app/52-generation-message-lifecycle.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+  const mainStreamingContent = { innerHTML: 'main-before' };
+  const mainStreamingCot = { innerHTML: 'cot-before' };
+  const elements = {
+    streamingContent: mainStreamingContent,
+    streamingCot: mainStreamingCot,
+  };
+  const appended = [];
+  const streamingContext = {
+    state: { settings: { twoStageEnabled: true } },
+    document: {
+      getElementById(id) { return elements[id] || null; },
+      createElement() { return { id: '', className: '', innerHTML: '' }; },
+    },
+    dom: {
+      messagesContainer: {
+        scrollTop: 0,
+        scrollHeight: 100,
+        appendChild(node) { appended.push(node); },
+      },
+    },
+    renderAssistantContent: (content) => `render:${content}`,
+    renderCotBlock: (content) => `cot:${content || ''}`,
+    escapeHtml: (content) => String(content || ''),
+    getCurrentGeneratingSpeakerName: () => 'Arona',
+    makeId: () => 'id',
+    persistState() {},
+    appendFinalAssistantMessage() {},
+    renderTokenBar() {},
+    Date,
+    Array,
+    String,
+  };
+
+  vm.runInNewContext(`${streamingSources.join('\n')}\nthis.__strip = stripSecondStageOptionBlocks;\nthis.__update = updateStreamingBubble;`, streamingContext);
+
+  const leaked = '正文内容\n<options><option><title>不应混入正文</title></option></options>';
+  assert(streamingContext.__strip(leaked) === '正文内容', 'Primary content isolation should strip option XML blocks.');
+
+  streamingContext.__update('<options><option><title>独立选项</title></option></options>', {}, '第二阶段', '', 'second');
+  assert(mainStreamingContent.innerHTML === 'main-before', 'Second-stage streaming must not overwrite the primary streaming content node.');
+  assert(appended.length === 1 && appended[0].id === 'secondStageStreamingMsg' && appended[0].innerHTML.includes('secondStageStreamingContent'), 'Second-stage streaming should create a dedicated DOM bubble and content id.');
+
+  streamingContext.__update(leaked, {}, 'Arona', '', 'main');
+  assert(mainStreamingContent.innerHTML === 'render:正文内容', 'Primary streaming should hide option XML that leaked from the model.');
+
+  const runtimeSource = await readFile(new URL('../src/app/52-generation-runtime.js', import.meta.url), 'utf8');
+  const runtimeEvents = [];
+  const conv = { id: 'conv', messages: [] };
+  const runtimeContext = {
+    state: { isGenerating: true, settings: { twoStageEnabled: true } },
+    getActiveConv: () => conv,
+    removeGenerationStreamingBubble(stage) { runtimeEvents.push(`remove:${stage}`); },
+    isolatePrimaryStageContent: streamingContext.isolatePrimaryStageContent,
+    isGroupChat: () => false,
+    finishAssistantMessage(target, content) {
+      runtimeEvents.push(`finish:${content}`);
+      return { id: 'main-id', content };
+    },
+    runSecondStageGeneration(message) { runtimeEvents.push(`second:${message.content}`); },
+    completeGenerationTurn() { runtimeEvents.push('complete'); },
+    appStore: { notify(key) { runtimeEvents.push(`notify:${key}`); } },
+  };
+  vm.runInNewContext(`${runtimeSource}\nthis.__completePrimary = handlePrimaryAssistantComplete;`, runtimeContext);
+  runtimeContext.__completePrimary(leaked, '');
+  assert(runtimeEvents.includes('finish:正文内容') && runtimeEvents.includes('second:正文内容'), 'Completed primary messages should save only narrative content before starting stage two.');
+}
+
 async function assertFrontendPromptMessageHelpers() {
   const sources = await Promise.all([
     '../src/app/41-prompt-depth-insert.js',
     '../src/app/41-prompt-summary-messages.js',
+    '../src/app/41-second-stage-content-isolation.js',
     '../src/app/41-prompt-history-messages.js',
     '../src/app/41-prompt-outlet-resolution.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const context = {
+    state: { settings: { twoStageEnabled: true } },
     normalizePromptRole(role) {
       const r = String(role || '').toLowerCase();
       return r === 'user' || r === 'assistant' ? r : 'system';
@@ -2048,16 +2123,18 @@ async function assertFrontendPromptMessageHelpers() {
       { role: 'system', content: 'hidden' },
       { role: 'user', content: 'old user' },
       { role: 'assistant', content: 'old assistant' },
+      { role: 'assistant', stage: 'second', content: '<options><option><title>old leak</title></option></options>' },
       { role: 'user', content: 'visible one' },
-      { role: 'assistant', content: 'visible two' },
+      { role: 'assistant', content: 'visible two\n<options><option><title>main leak</title></option></options>' },
       { role: 'user', content: 'visible three' },
       { role: 'assistant', content: '' },
     ],
   };
   const regular = context.__regular(conv, 2);
   assert(regular.map((m) => m.content).join(',') === 'visible two,visible three', 'Prompt regular history should skip summarized messages and respect context length.');
+  assert(regular.every((m) => !m.content.includes('<options>')), 'Primary prompt history should exclude second-stage messages and strip leaked option blocks from main replies.');
   regular[0].content = 'mutated';
-  assert(conv.messages[4].content === 'visible two', 'Prompt regular history should clone messages before outlet mutation.');
+  assert(conv.messages[5].content.startsWith('visible two'), 'Prompt regular history should clone messages before outlet mutation.');
 
   const outletMessages = [{ role: 'system', content: 'A {{outlet::Lore}} B {{outlet::Missing}} C {{char}}' }];
   context.__outlets(outletMessages, {
@@ -4899,6 +4976,7 @@ async function assertFrontendStateLifecycleHelpers() {
 
 async function assertFrontendMessageContentHelpers() {
   const sources = await Promise.all([
+    '../src/app/41-second-stage-content-isolation.js',
     '../src/app/61-message-text-format.js',
     '../src/app/61-message-status-bar-render.js',
     '../src/app/61-message-options-render.js',
@@ -4929,7 +5007,7 @@ async function assertFrontendMessageContentHelpers() {
   }
 
   const context = {
-    state: { settings: { showCotEnabled: true } },
+    state: { settings: { showCotEnabled: true, twoStageEnabled: true } },
     window: { DOMPurify: true },
     DOMPurify: { sanitize: (html) => html.replace(/\sonclick="[^"]*"/g, '') },
     DOMParser: FakeDOMParser,
@@ -4962,6 +5040,11 @@ async function assertFrontendMessageContentHelpers() {
 
   const bubble = context.__bubble({ role: 'user', content: '<hello>', attachments: [] }, true);
   assert(bubble === '&lt;hello&gt;', 'User message bubble should render escaped plain text.');
+
+  const isolatedMainBubble = context.__bubble({ role: 'assistant', stage: 'main', content: '正文\n<options><option><title>泄漏选项</title></option></options>', attachments: [] }, false);
+  assert(isolatedMainBubble === '正文', 'Main assistant bubbles should hide option XML that leaked from primary generation.');
+  const secondStageBubble = context.__bubble({ role: 'assistant', stage: 'second', content: '<options><option><title>独立选项</title><description>描述</description></option></options>', attachments: [] }, false);
+  assert(secondStageBubble.includes('message-option-choice') && secondStageBubble.includes('独立选项'), 'Dedicated second-stage bubbles should still render selectable option cards.');
 
   const cot = context.__cot('<think>', true);
   assert(cot.includes('msg-cot streaming') && cot.includes('&lt;think&gt;'), 'CoT renderer should escape and mark streaming blocks.');
@@ -7127,6 +7210,7 @@ async function main() {
   await assertFrontendApiConnectionHelpers();
   await assertFrontendApiCompatibilityHelpers();
   await assertFrontendGenerationHelpers();
+  await assertFrontendGenerationStageIsolation();
   await assertFrontendPromptMessageHelpers();
   await assertFrontendSecondStagePromptBuilder();
   await assertFrontendPromptBuilderContexts();

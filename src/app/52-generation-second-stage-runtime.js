@@ -8,6 +8,7 @@ function runSecondStageGeneration(firstStageMessage, onDone) {
     ensureMessageIdentity(firstStageMessage, 'main');
 
     function startSecondStage() {
+        removeGenerationStreamingBubble('main');
         var messages;
         try {
             messages = buildMessagesForSecondStage(firstStageMessage);
@@ -21,11 +22,10 @@ function runSecondStageGeneration(firstStageMessage, onDone) {
         streamChatWithMessages(
             messages,
             function onToken(token, fullContent, fullCot) {
-                updateStreamingBubble(fullContent, conv, t('two_stage_sender') || '第二阶段', fullCot);
+                updateStreamingBubble(fullContent, conv, t('two_stage_sender') || '第二阶段', fullCot, 'second');
             },
             function onComplete(fullContent, fullCot) {
-                var streamingEl = document.getElementById('streamingMsg');
-                if (streamingEl) streamingEl.remove();
+                removeGenerationStreamingBubble('second');
                 var c = getActiveConv();
                 if (c && fullContent) {
                     var speaker = firstStageMessage.speaker || null;
@@ -36,8 +36,7 @@ function runSecondStageGeneration(firstStageMessage, onDone) {
                 if (onDone) onDone(null);
             },
             function onError(err) {
-                var streamingEl = document.getElementById('streamingMsg');
-                if (streamingEl) streamingEl.remove();
+                removeGenerationStreamingBubble('second');
                 state.isGenerating = false;
                 appStore.notify('isGenerating');
                 renderMessagesOnly();
