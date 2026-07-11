@@ -1,6 +1,10 @@
 // ==================== Message Option Event Bindings ====================
 function getMessageOptionSendText(optionEl) {
-    return optionEl ? String(optionEl.getAttribute('data-option-send-text') || '').trim() : '';
+    if (!optionEl) return '';
+    var title = String(optionEl.getAttribute('data-option-title') || '').trim();
+    var description = String(optionEl.getAttribute('data-option-description') || '').trim();
+    if (title || description) return [title, description].filter(Boolean).join('\n\n');
+    return String(optionEl.getAttribute('data-option-send-text') || '').trim();
 }
 
 function clearSelectedMessageOptions(container, exceptEl) {

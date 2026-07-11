@@ -12900,11 +12900,11 @@ function renderOptionsXml(raw) {
             var descNode = node.getElementsByTagName('description')[0];
             var title = titleNode ? titleNode.textContent.trim() : '';
             var desc = descNode ? descNode.textContent.trim() : '';
-            var sendText = title || desc;
             var activationHint = t('message_option_activation_hint') || '单击选中，再次点击发送';
             var selectedHint = t('message_option_selected_hint') || '已选中 · 再次点击发送';
             html += '<button type="button" class="message-option-choice glass rounded-xl border border-white/10 px-3 py-2"' +
-                ' data-option-send-text="' + escapeHtml(sendText) + '" aria-pressed="false" title="' + escapeHtml(activationHint) + '">';
+                ' data-option-title="' + escapeHtml(title) + '" data-option-description="' + escapeHtml(desc) + '"' +
+                ' aria-pressed="false" title="' + escapeHtml(activationHint) + '">';
             if (title) html += '<div class="text-sm font-semibold text-amber-300 mb-1">' + escapeHtml(title) + '</div>';
             if (desc) html += '<div class="text-sm text-zinc-300 leading-relaxed">' + highlightDialogue(desc) + '</div>';
             html += '<span class="message-option-selected-hint" aria-hidden="true">' + escapeHtml(selectedHint) + '</span>';
@@ -15873,7 +15873,11 @@ function bindMessageActionEvents() {
 }
 // ==================== Message Option Event Bindings ====================
 function getMessageOptionSendText(optionEl) {
-    return optionEl ? String(optionEl.getAttribute('data-option-send-text') || '').trim() : '';
+    if (!optionEl) return '';
+    var title = String(optionEl.getAttribute('data-option-title') || '').trim();
+    var description = String(optionEl.getAttribute('data-option-description') || '').trim();
+    if (title || description) return [title, description].filter(Boolean).join('\n\n');
+    return String(optionEl.getAttribute('data-option-send-text') || '').trim();
 }
 
 function clearSelectedMessageOptions(container, exceptEl) {

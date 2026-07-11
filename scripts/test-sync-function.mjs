@@ -4970,7 +4970,7 @@ async function assertFrontendMessageContentHelpers() {
 
   const optionsHtml = context.__options('<options><option><title>Go</title><description>选择“前进”</description></option></options>');
   assert(optionsHtml.includes('Go') && optionsHtml.includes('dialogue-highlight'), 'Options XML renderer should render option cards and highlight dialogue.');
-  assert(optionsHtml.includes('class="message-option-choice') && optionsHtml.includes('data-option-send-text="Go"') && optionsHtml.includes('aria-pressed="false"'), 'Options XML renderer should expose selectable option buttons with the title as send text.');
+  assert(optionsHtml.includes('class="message-option-choice') && optionsHtml.includes('data-option-title="Go"') && optionsHtml.includes('data-option-description="选择') && optionsHtml.includes('aria-pressed="false"'), 'Options XML renderer should expose selectable option buttons with separate title and description text.');
   assert(optionsHtml.includes('message-option-selected-hint'), 'Options XML renderer should include the selected click-again hint.');
 }
 
@@ -4979,9 +4979,10 @@ async function assertFrontendMessageOptionInteractions() {
   const events = [];
   let clickHandler = null;
 
-  function createOption(text) {
+  function createOption(title, description) {
     const attributes = {
-      'data-option-send-text': text,
+      'data-option-title': title,
+      'data-option-description': description,
       'aria-pressed': 'false',
     };
     return {
@@ -4990,8 +4991,8 @@ async function assertFrontendMessageOptionInteractions() {
     };
   }
 
-  const first = createOption('继续深入');
-  const second = createOption('拥入怀中');
+  const first = createOption('继续深入', '继续探索当前剧情。');
+  const second = createOption('拥入怀中', '用拥抱回应角色。');
   const options = [first, second];
   const container = {
     querySelectorAll(selector) {
@@ -5020,14 +5021,14 @@ async function assertFrontendMessageOptionInteractions() {
   vm.runInNewContext(`${source}\nthis.__activate = activateMessageOption;\nthis.__bind = bindMessageOptionEvents;`, context);
 
   assert(context.__activate(first, container) === 'selected', 'First message option click should select without sending.');
-  assert(first.getAttribute('aria-pressed') === 'true' && messageInput.value === '继续深入', 'First message option click should highlight the card and fill the composer with its title.');
+  assert(first.getAttribute('aria-pressed') === 'true' && messageInput.value === '继续深入\n\n继续探索当前剧情。', 'First message option click should fill the composer with both the title and description.');
   assert(!events.some((event) => event.startsWith('send:')), 'First message option click must not send a message.');
 
   assert(context.__activate(second, container) === 'selected', 'Clicking another message option should switch the selection.');
-  assert(first.getAttribute('aria-pressed') === 'false' && second.getAttribute('aria-pressed') === 'true' && messageInput.value === '拥入怀中', 'Switching message options should clear the previous selection and replace composer text.');
+  assert(first.getAttribute('aria-pressed') === 'false' && second.getAttribute('aria-pressed') === 'true' && messageInput.value === '拥入怀中\n\n用拥抱回应角色。', 'Switching message options should replace the composer with the selected title and description.');
 
   assert(context.__activate(second, container) === 'sent', 'Clicking the selected message option again should send it.');
-  assert(events.includes('send:拥入怀中'), 'Second click should send the selected option title through the normal composer flow.');
+  assert(events.includes('send:拥入怀中\n\n用拥抱回应角色。'), 'Second click should send the selected option title and description through the normal composer flow.');
 
   context.__bind();
   assert(typeof clickHandler === 'function', 'Message option click delegation should be bound to the message container.');
