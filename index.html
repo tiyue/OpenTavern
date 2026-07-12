@@ -162,6 +162,9 @@ body {
 .msg-action-btn.speak-btn:hover,
 .msg-action-btn.speak-btn.speaking { color: #34d399; border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.08); }
 .msg-action-btn.retry-btn:hover { color: #f59e0b; border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.08); }
+.msg-action-btn.history-btn { width: auto; min-width: 28px; padding: 0 7px; gap: 4px; }
+.msg-action-btn.history-btn:hover { color: #38bdf8; border-color: rgba(56,189,248,0.3); background: rgba(56,189,248,0.08); }
+.msg-history-count { font-size: 10px; line-height: 1; font-variant-numeric: tabular-nums; }
 .msg-action-btn.del-btn:hover { color: #f87171; border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.08); }
 .msg-action-btn.edit-btn:hover { color: #a78bfa; border-color: rgba(167,139,250,0.3); background: rgba(167,139,250,0.08); }
 .msg-action-btn.edit-btn { font-size: 13px; line-height: 1; }
@@ -1262,6 +1265,12 @@ body.theme-new-dark ::-webkit-scrollbar-thumb:hover { background: rgba(40, 35, 3
 /* Settings workspace: one focused category at a time. */
 #settingsDialog {
     max-height: 90vh;
+}
+body.theme-new-light .msg-action-btn.history-btn:hover,
+body.theme-new-dark .msg-action-btn.history-btn:hover {
+    color: #0284c7 !important;
+    border-color: rgba(2,132,199,0.3) !important;
+    background: rgba(2,132,199,0.08) !important;
 }
 #settingsHeader {
     flex-shrink: 0;
@@ -2624,6 +2633,21 @@ body.theme-new-dark .settings-tab-btn.active::after { background: #D56C4E !impor
     </div>
 </div>
 
+<!-- ===== 回复生成历史 ===== -->
+<div id="replyHistoryModal" class="modal-overlay fixed inset-0 z-[170] flex items-end sm:items-center justify-center hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-md" id="replyHistoryBackdrop"></div>
+    <div class="relative glass rounded-t-3xl sm:rounded-3xl w-full sm:w-[92%] sm:max-w-3xl p-4 sm:p-6 shadow-2xl animate-fade-in max-h-[88vh] flex flex-col">
+        <div class="flex items-start justify-between gap-4 mb-4 px-1">
+            <div class="min-w-0">
+                <h2 class="text-base sm:text-lg font-bold text-zinc-100" data-i18n="reply_history_title">回复生成历史</h2>
+                <p id="replyHistorySubtitle" class="text-xs text-zinc-500 mt-1"></p>
+            </div>
+            <button id="replyHistoryCloseBtn" class="w-8 h-8 rounded-full glass flex items-center justify-center text-xl leading-none text-zinc-400 hover:text-zinc-200 active:bg-white/10 transition-colors" aria-label="Close">&times;</button>
+        </div>
+        <div id="replyHistoryList" class="flex-1 overflow-y-auto pr-1 custom-scroll space-y-3"></div>
+    </div>
+</div>
+
 <!-- ===== Main Layout ===== -->
 <div id="main-layout" class="flex h-[100dvh] min-h-[100dvh] relative z-10">
     <!-- Left Sidebar -->
@@ -3655,6 +3679,13 @@ var i18n = {
         delete_msg: '删除消息',
         regenerate: '重新生成',
         edit_msg: '编辑消息',
+        reply_history: '历史回复',
+        reply_history_title: '回复生成历史',
+        reply_history_count: '共 {count} 个版本',
+        reply_history_version: '版本 {number}',
+        reply_history_current: '当前使用',
+        reply_history_use: '使用此版本',
+        reply_history_empty: '暂无历史回复记录',
         import_title: '导入角色卡',
         import_desc: '支持 SillyTavern',
         import_desc2: '格式的 JSON 文件。',
@@ -4127,6 +4158,13 @@ var i18n = {
         delete_msg: '刪除訊息',
         regenerate: '重新生成',
         edit_msg: '編輯訊息',
+        reply_history: '歷史回覆',
+        reply_history_title: '回覆生成歷史',
+        reply_history_count: '共 {count} 個版本',
+        reply_history_version: '版本 {number}',
+        reply_history_current: '目前使用',
+        reply_history_use: '使用此版本',
+        reply_history_empty: '暫無歷史回覆記錄',
         import_title: '匯入角色卡',
         import_desc: '支援 SillyTavern',
         import_desc2: '格式的 JSON 檔案。',
@@ -4552,6 +4590,13 @@ var i18n = {
         delete_msg: 'Delete message',
         regenerate: 'Regenerate',
         edit_msg: 'Edit message',
+        reply_history: 'Reply history',
+        reply_history_title: 'Reply generation history',
+        reply_history_count: '{count} versions',
+        reply_history_version: 'Version {number}',
+        reply_history_current: 'Currently used',
+        reply_history_use: 'Use this version',
+        reply_history_empty: 'No reply history yet',
         import_title: 'Import Character Card',
         import_desc: 'Supports SillyTavern',
         import_desc2: 'format JSON files.',
@@ -7061,8 +7106,112 @@ function getGroupMembers(conv) {
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
-function normalizeConversation(conv) {
+function cloneJsonData(value) {
+    if (typeof structuredClone === 'function') {
+        try { return structuredClone(value); } catch (e) {}
+    }
+    return JSON.parse(JSON.stringify(value));
+}
+
+function createResponseMessageSnapshot(msg) {
+    var snapshot = {};
+    Object.keys(msg || {}).forEach(function(key) {
+        if (key === 'responseVersions' || key === 'activeResponseVersion' || key.charAt(0) === '_') return;
+        if (typeof msg[key] === 'undefined') return;
+        snapshot[key] = cloneJsonData(msg[key]);
+    });
+    return snapshot;
+}
+
+function createLinkedResponseMessageSnapshot(msg) {
+    var snapshot = createResponseMessageSnapshot(msg);
+    if (Array.isArray(msg && msg.responseVersions)) snapshot.responseVersions = cloneJsonData(msg.responseVersions);
+    if (Number.isInteger(msg && msg.activeResponseVersion)) snapshot.activeResponseVersion = msg.activeResponseVersion;
+    return snapshot;
+}
+
+function getLinkedSecondStageMessages(conv, parentMsg) {
+    if (!conv || !parentMsg || !Array.isArray(conv.messages)) return [];
+    ensureMessageIdentity(parentMsg, 'main');
+    return conv.messages.filter(function(msg) {
+        return msg && msg.role === 'assistant' && msg.stage === 'second' && msg.parentId === parentMsg.id;
+    });
+}
+
+function createResponseVersionRecord(conv, msg, createdAt) {
+    return {
+        id: makeId(),
+        createdAt: createdAt || Date.now(),
+        message: createResponseMessageSnapshot(msg),
+        linkedMessages: msg && msg.stage === 'second'
+            ? []
+            : getLinkedSecondStageMessages(conv, msg).map(function(linked) { return createLinkedResponseMessageSnapshot(linked); })
+    };
+}
+
+function normalizeResponseVersionRecord(record, conv, msg) {
+    if (typeof record === 'string') {
+        var legacySnapshot = createResponseMessageSnapshot(msg);
+        legacySnapshot.content = record;
+        return { id: makeId(), createdAt: Date.now(), message: legacySnapshot, linkedMessages: [] };
+    }
+    record = record && typeof record === 'object' ? record : {};
+    var messageSnapshot = record.message && typeof record.message === 'object'
+        ? createResponseMessageSnapshot(record.message)
+        : createResponseMessageSnapshot(msg);
+    return {
+        id: record.id || makeId(),
+        createdAt: Number(record.createdAt || record.created || Date.now()),
+        message: messageSnapshot,
+        linkedMessages: Array.isArray(record.linkedMessages)
+            ? record.linkedMessages.map(function(linked) { return createLinkedResponseMessageSnapshot(linked); })
+            : []
+    };
+}
+
+function ensureResponseVersions(conv, msg) {
+    if (!msg || msg.role !== 'assistant') return [];
+    ensureMessageIdentity(msg, msg.stage || 'main');
+    if (!Array.isArray(msg.responseVersions) || msg.responseVersions.length === 0) {
+        msg.responseVersions = [createResponseVersionRecord(conv, msg, msg.createdAt || conv.updated || conv.created)];
+        msg.activeResponseVersion = 0;
+    } else {
+        msg.responseVersions = msg.responseVersions.map(function(record) {
+            return normalizeResponseVersionRecord(record, conv, msg);
+        });
+        var active = Number(msg.activeResponseVersion);
+        if (!Number.isInteger(active) || active < 0 || active >= msg.responseVersions.length) {
+            active = msg.responseVersions.length - 1;
+        }
+        msg.activeResponseVersion = active;
+    }
+    return msg.responseVersions;
+}
+
+function syncActiveResponseVersion(conv, msg) {
+    var versions = ensureResponseVersions(conv, msg);
+    if (!versions.length) return;
+    var active = msg.activeResponseVersion;
+    versions[active].message = createResponseMessageSnapshot(msg);
+    versions[active].linkedMessages = msg.stage === 'second'
+        ? []
+        : getLinkedSecondStageMessages(conv, msg).map(function(linked) { return createLinkedResponseMessageSnapshot(linked); });
+}
+
+function restorePendingResponseRegeneration(conv) {
+    var pending = conv && conv._pendingResponseRegeneration;
+    if (!pending || !Array.isArray(pending.messages) || !Array.isArray(conv.messages)) return;
+    var insertAt = Math.max(0, Math.min(Number(pending.insertIndex) || 0, conv.messages.length));
+    var restored = pending.messages.map(function(msg) { return cloneJsonData(msg); });
+    conv.messages.splice.apply(conv.messages, [insertAt, 0].concat(restored));
+    delete conv._pendingResponseRegeneration;
+}
+
+function normalizeConversation(conv, options) {
     if (!conv) return conv;
+
+    if (!Array.isArray(conv.messages)) conv.messages = [];
+    if (options && options.recoverPendingRegeneration) restorePendingResponseRegeneration(conv);
 
     // 确保群组字段存在（兼容旧数据）
     if (typeof conv.group === 'undefined') {
@@ -7076,6 +7225,10 @@ function normalizeConversation(conv) {
             if (typeof m.muted !== 'boolean') m.muted = false;
         });
     }
+
+    conv.messages.forEach(function(msg) {
+        if (msg && msg.role === 'assistant') ensureResponseVersions(conv, msg);
+    });
 
     return conv;
 }
@@ -7454,6 +7607,14 @@ function renderMessagesOnly() {
     if (dom.messagesContainer) renderMessages();
 }
 
+function renderResponseHistoryButton(conv, msg, actualIdx) {
+    var versions = ensureResponseVersions(conv, msg);
+    var label = t('reply_history');
+    return '<button class="msg-action-btn history-btn" data-action="history" data-msg-idx="' + actualIdx + '" title="' + escapeHtml(label) + '" aria-label="' + escapeHtml(label) + '">' +
+        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>' +
+        '<span class="msg-history-count">' + versions.length + '</span></button>';
+}
+
 // 流式完成后增量追加最终消息（避免全量重绘导致滚动跳到底部）
 function appendFinalAssistantMessage(conv, fullContent, fullCot) {
     if (!conv || !dom.messagesContainer || !fullContent) return;
@@ -7487,6 +7648,7 @@ function appendFinalAssistantMessage(conv, fullContent, fullCot) {
                 <button class="msg-action-btn retry-btn" data-action="retry" data-msg-idx="${actualIdx}" title="${t('regenerate')}">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                 </button>
+                ${renderResponseHistoryButton(conv, lastMsg, actualIdx)}
                 <button class="msg-action-btn del-btn" data-action="delete" data-msg-idx="${actualIdx}" title="${t('delete_msg')}">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
@@ -7565,6 +7727,10 @@ async function initState() {
     } else {
         console.log('[Storage] No previous data found, starting fresh');
     }
+
+    Object.values(state.conversations || {}).forEach(function(conv) {
+        normalizeConversation(conv, { recoverPendingRegeneration: true });
+    });
 
     // 调试辅助：记录最终加载结果
     console.log('[Storage] Final load state after init:', {
@@ -10869,6 +11035,39 @@ function ensureMessageIdentity(msg, stage) {
     return msg;
 }
 
+function prepareResponseRegeneration(conv, msg) {
+    if (!conv || !msg || !Array.isArray(conv.messages)) return null;
+    syncActiveResponseVersion(conv, msg);
+    var insertIndex = conv.messages.indexOf(msg);
+    if (insertIndex < 0) return null;
+    var linked = msg.stage === 'second' ? [] : getLinkedSecondStageMessages(conv, msg);
+    var originalMessages = [msg].concat(linked).map(function(item) { return cloneJsonData(item); });
+    var pending = {
+        targetId: msg.id,
+        stage: msg.stage === 'second' ? 'second' : 'main',
+        insertIndex: insertIndex,
+        responseVersions: cloneJsonData(msg.responseVersions),
+        activeResponseVersion: msg.activeResponseVersion,
+        messages: originalMessages
+    };
+    conv._pendingResponseRegeneration = cloneJsonData(pending);
+    if (msg.stage !== 'second') removeLinkedSecondStageMessages(conv, msg);
+    var currentIndex = conv.messages.indexOf(msg);
+    if (currentIndex >= 0) conv.messages.splice(currentIndex, 1);
+    return pending;
+}
+
+function restoreFailedResponseRegeneration(conv) {
+    if (!conv || !conv._pendingResponseRegeneration) return;
+    restorePendingResponseRegeneration(conv);
+    conv.updated = Date.now();
+    conv._wiCache = null;
+    conv._lastRenderedVisibleCount = 0;
+    persistState();
+    renderMessagesOnly();
+    renderConversationListOnly();
+}
+
 function getLinkedSecondStageIndexes(conv, parentMsg) {
     if (!conv || !parentMsg) return [];
     ensureMessageIdentity(parentMsg, 'main');
@@ -10936,12 +11135,27 @@ function updateStreamingBubble(fullContent, conv, label, fullCot) {
 }
 function finishAssistantMessage(conv, fullContent, speakerForMsg, stage, parentId, fullCot) {
     if (!conv || !fullContent) return null;
-    var pushObj = { role: 'assistant', content: fullContent, id: makeId() };
+    var pending = conv._pendingResponseRegeneration;
+    var expectedStage = stage === 'second' ? 'second' : 'main';
+    if (pending && pending.stage !== expectedStage) pending = null;
+    var pushObj = { role: 'assistant', content: fullContent, id: pending ? pending.targetId : makeId(), createdAt: Date.now() };
     if (fullCot) pushObj.cot = fullCot;
     if (speakerForMsg) pushObj.speaker = speakerForMsg;
     if (stage) pushObj.stage = stage;
     if (parentId) pushObj.parentId = parentId;
     conv.messages.push(pushObj);
+    if (pending) {
+        pushObj.responseVersions = Array.isArray(pending.responseVersions) ? cloneJsonData(pending.responseVersions) : [];
+        pushObj.activeResponseVersion = pushObj.responseVersions.length;
+        pushObj.responseVersions.push(createResponseVersionRecord(conv, pushObj, Date.now()));
+        delete conv._pendingResponseRegeneration;
+    } else {
+        ensureResponseVersions(conv, pushObj);
+    }
+    if (parentId) {
+        var parent = conv.messages.find(function(msg) { return msg && msg.id === parentId; });
+        if (parent) syncActiveResponseVersion(conv, parent);
+    }
     conv.updated = Date.now();
     persistState();
     appendFinalAssistantMessage(conv, fullContent, fullCot);
@@ -10963,6 +11177,7 @@ function runSecondStageGeneration(firstStageMessage, onDone) {
             messages = buildMessagesForSecondStage(firstStageMessage);
         } catch (err) {
             console.error('buildMessagesForSecondStage failed:', err);
+            restoreFailedResponseRegeneration(conv);
             alert('构建第二阶段提示词时出错：' + (err.message || err));
             if (onDone) onDone(err);
             return;
@@ -10980,6 +11195,8 @@ function runSecondStageGeneration(firstStageMessage, onDone) {
                 if (c && fullContent) {
                     var speaker = firstStageMessage.speaker || null;
                     finishAssistantMessage(c, fullContent, speaker, 'second', firstStageMessage.id, fullCot);
+                } else if (c) {
+                    restoreFailedResponseRegeneration(c);
                 }
                 state.isGenerating = false;
                 appStore.notify('isGenerating');
@@ -10990,6 +11207,7 @@ function runSecondStageGeneration(firstStageMessage, onDone) {
                 if (streamingEl) streamingEl.remove();
                 state.isGenerating = false;
                 appStore.notify('isGenerating');
+                restoreFailedResponseRegeneration(getActiveConv());
                 renderMessagesOnly();
                 alert('第二阶段生成失败：' + (err.message || err));
                 if (onDone) onDone(err);
@@ -11007,6 +11225,7 @@ function runSecondStageGeneration(firstStageMessage, onDone) {
             var msg = (e && e.message === 'NO_WEBGPU') ? (t('webllm_init_no_webgpu') || '需要 WebGPU 支持') : (e && e.message) || String(e);
             alert('本地模型错误: ' + msg);
             if (state && state.settings) state.settings.inferenceBackend = 'remote-api';
+            restoreFailedResponseRegeneration(getActiveConv());
             persistState();
             if (onDone) onDone(e);
         });
@@ -11037,6 +11256,7 @@ function handlePrimaryAssistantComplete(fullContent, fullCot) {
     if (streamingEl) streamingEl.remove();
     var conv = getActiveConv();
     if (!conv || !fullContent) {
+        if (conv) restoreFailedResponseRegeneration(conv);
         state.isGenerating = false;
         appStore.notify('isGenerating');
         return;
@@ -14291,6 +14511,7 @@ function cacheDom() {
     var ids = [
         'sidebar','convList','noConvHint','chatTopBar','charAvatar','chatTitle','chatSubtitle',
         'messagesContainer','emptyState','messageInput','sendBtn','stopBtn','mentionBtn','mentionPill','mentionPillName','mentionPillClear','comfyGenerateBtn',
+        'replyHistoryModal','replyHistoryBackdrop','replyHistoryCloseBtn','replyHistorySubtitle','replyHistoryList',
         'settingsModal','settingsBackdrop','settingsCloseBtn',
         'apiEndpoint','apiKey','saveApiKey','ollamaCompatMode','modelName',
         'ttsEnabled','ttsProvider','ttsApiEndpoint','ttsApiKey','saveTtsApiKey','ttsApiTestResult','downloadTtsWorkerBtn','ttsModel','ttsVoice','ttsSpeed','ttsSpeedVal','ttsStream','ttsBrowserFallbackEnabled','ttsResponseFormat',
@@ -14855,8 +15076,12 @@ function buildSillyTavernPresetMessageBuckets(charName, userName) {
 function exportConversation(id) {
     var conv = state.conversations[id];
     if (!conv) return;
+    normalizeConversation(conv);
+    (conv.messages || []).forEach(function(msg) {
+        if (msg && msg.role === 'assistant') syncActiveResponseVersion(conv, msg);
+    });
     downloadJsonFile(
-        { version: 1, type: 'opentavern-export', exported_at: new Date().toISOString(), conversations: [conv] },
+        { version: 3, type: 'opentavern-export', messageHistoryVersion: 1, exported_at: new Date().toISOString(), conversations: [conv] },
         (conv.title || 'conversation').replace(/[^a-zA-Z0-9一-鿿]/g, '_') + '.json'
     );
 }
@@ -14864,12 +15089,19 @@ function exportConversation(id) {
 function exportAllConversations() {
     var convs = state.conversationOrder.map(function(id) { return state.conversations[id]; }).filter(Boolean);
     if (convs.length === 0) { alert(t('nothing_to_archive')); return; }
+    convs.forEach(function(conv) {
+        normalizeConversation(conv);
+        (conv.messages || []).forEach(function(msg) {
+            if (msg && msg.role === 'assistant') syncActiveResponseVersion(conv, msg);
+        });
+    });
 
     // 【Export Fix】导出完整备份：包含全局角色卡库、WorldBook、对话等
     // 旧格式仍兼容（只导 conversations），新格式带完整数据
     var exportData = {
-        version: 2,
+        version: 3,
         type: 'opentavern-full-export',
+        messageHistoryVersion: 1,
         exported_at: new Date().toISOString(),
         settings: getSafeSettingsForPersist(),
         conversations: convs,
@@ -14924,6 +15156,7 @@ function importConversations(file) {
 
             convsToImport.forEach(function(conv) {
                 if (!conv.id || !Array.isArray(conv.messages)) return;
+                normalizeConversation(conv, { recoverPendingRegeneration: true });
 
                 // If a conversation with this ID already exists, generate a new ID
                 if (state.conversations[conv.id]) {
@@ -15282,7 +15515,8 @@ function renderMessages() {
                         ${!isUser ? `
                         <button class="msg-action-btn retry-btn" data-action="retry" data-msg-idx="${actualIdx}" title="${t('regenerate')}">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-                        </button>` : ''}
+                        </button>
+                        ${renderResponseHistoryButton(conv, msg, actualIdx)}` : ''}
                         <button class="msg-action-btn del-btn" data-action="delete" data-msg-idx="${actualIdx}" title="${t('delete_msg')}">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
@@ -15329,6 +15563,7 @@ function renderMessages() {
         html += '<button class="msg-action-btn edit-btn" data-action="edit" data-msg-idx="' + actualIdx + '" title="' + t('edit_msg') + '"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
         if (!isUser) {
             html += '<button class="msg-action-btn retry-btn" data-action="retry" data-msg-idx="' + actualIdx + '" title="' + t('regenerate') + '"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></button>';
+            html += renderResponseHistoryButton(conv, msg, actualIdx);
         }
         html += '<button class="msg-action-btn del-btn" data-action="delete" data-msg-idx="' + actualIdx + '" title="' + t('delete_msg') + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>';
         html += '</div>';
@@ -15389,6 +15624,7 @@ function renderMessagesFullHistory(conv) {
         html += '<button class="msg-action-btn edit-btn" data-action="edit" data-msg-idx="' + actualIdx + '" title="' + t('edit_msg') + '"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
         if (!isUser) {
             html += '<button class="msg-action-btn retry-btn" data-action="retry" data-msg-idx="' + actualIdx + '" title="' + t('regenerate') + '"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></button>';
+            html += renderResponseHistoryButton(conv, msg, actualIdx);
         }
         html += '<button class="msg-action-btn del-btn" data-action="delete" data-msg-idx="' + actualIdx + '" title="' + t('delete_msg') + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>';
         html += '</div>';
@@ -16004,6 +16240,88 @@ function renderOptionsXml(raw) {
 }
 
 // ==================== Message Actions ====================
+function closeReplyHistory() {
+    if (dom.replyHistoryModal) dom.replyHistoryModal.classList.add('hidden');
+}
+
+function openReplyHistory(actualIdx) {
+    var conv = getActiveConv();
+    if (!conv) return;
+    var msg = conv.messages[actualIdx];
+    if (!msg || msg.role !== 'assistant') return;
+    syncActiveResponseVersion(conv, msg);
+    var versions = ensureResponseVersions(conv, msg);
+    dom.replyHistoryModal.setAttribute('data-msg-idx', String(actualIdx));
+    dom.replyHistorySubtitle.textContent = t('reply_history_count').replace('{count}', versions.length);
+
+    if (!versions.length) {
+        dom.replyHistoryList.innerHTML = '<p class="text-sm text-zinc-500 text-center py-10">' + escapeHtml(t('reply_history_empty')) + '</p>';
+    } else {
+        dom.replyHistoryList.innerHTML = versions.map(function(version, index) {
+            var isCurrent = index === msg.activeResponseVersion;
+            var date = version.createdAt ? new Date(version.createdAt).toLocaleString() : '';
+            var snapshot = version.message || {};
+            return '<article class="rounded-2xl border ' + (isCurrent ? 'border-amber-500/50 bg-amber-500/10' : 'border-white/10 bg-white/5') + ' p-3 sm:p-4">' +
+                '<div class="flex items-center justify-between gap-3 mb-3">' +
+                    '<div class="min-w-0"><span class="text-xs font-semibold text-zinc-200">' + escapeHtml(t('reply_history_version').replace('{number}', index + 1)) + '</span>' +
+                    (date ? '<span class="text-[10px] text-zinc-500 ml-2">' + escapeHtml(date) + '</span>' : '') + '</div>' +
+                    (isCurrent
+                        ? '<span class="flex-shrink-0 text-[10px] font-semibold text-amber-300">' + escapeHtml(t('reply_history_current')) + '</span>'
+                        : '<button class="reply-history-use px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/15 text-zinc-200 transition-colors" data-version-idx="' + index + '">' + escapeHtml(t('reply_history_use')) + '</button>') +
+                '</div>' +
+                (snapshot.cot ? renderCotBlock(snapshot.cot) : '') +
+                '<div class="msg-bubble max-w-none">' + renderMessageBubbleContent(snapshot, false) + '</div>' +
+            '</article>';
+        }).join('');
+    }
+    dom.replyHistoryModal.classList.remove('hidden');
+    persistState();
+}
+
+function switchResponseVersion(actualIdx, versionIdx) {
+    if (state.isGenerating) return;
+    var conv = getActiveConv();
+    if (!conv) return;
+    var msg = conv.messages[actualIdx];
+    if (!msg || msg.role !== 'assistant') return;
+    syncActiveResponseVersion(conv, msg);
+    var versions = ensureResponseVersions(conv, msg);
+    if (versionIdx < 0 || versionIdx >= versions.length || versionIdx === msg.activeResponseVersion) return;
+
+    var stableId = msg.id;
+    var selected = versions[versionIdx];
+    if (msg.stage !== 'second') removeLinkedSecondStageMessages(conv, msg);
+
+    Object.keys(msg).forEach(function(key) { delete msg[key]; });
+    Object.assign(msg, cloneJsonData(selected.message || {}));
+    msg.role = 'assistant';
+    msg.id = stableId;
+    msg.responseVersions = versions;
+    msg.activeResponseVersion = versionIdx;
+
+    if (msg.stage !== 'second' && Array.isArray(selected.linkedMessages) && selected.linkedMessages.length) {
+        var parentIdx = conv.messages.indexOf(msg);
+        var restoredLinked = selected.linkedMessages.map(function(linked) {
+            var restored = cloneJsonData(linked);
+            restored.role = 'assistant';
+            restored.stage = 'second';
+            restored.parentId = stableId;
+            ensureMessageIdentity(restored, 'second');
+            ensureResponseVersions(conv, restored);
+            return restored;
+        });
+        conv.messages.splice.apply(conv.messages, [parentIdx + 1, 0].concat(restoredLinked));
+    }
+
+    conv.updated = Date.now();
+    conv._wiCache = null;
+    conv._lastRenderedVisibleCount = 0;
+    persistState();
+    renderMessagesOnly();
+    renderConversationListOnly();
+    openReplyHistory(conv.messages.indexOf(msg));
+}
+
 function deleteMessage(actualIdx) {
     var conv = getActiveConv();
     if (!conv) return;
@@ -16044,7 +16362,7 @@ function regenerateMessage(actualIdx) {
 
     if (msg.stage === 'second') {
         var parent = conv.messages.find(function(m) { return m && m.id && m.id === msg.parentId; });
-        conv.messages.splice(actualIdx, 1);
+        if (!prepareResponseRegeneration(conv, msg)) return;
         conv.updated = Date.now();
         conv._wiCache = null;
         conv._lastRenderedVisibleCount = 0;
@@ -16054,9 +16372,7 @@ function regenerateMessage(actualIdx) {
         return;
     }
 
-    removeLinkedSecondStageMessages(conv, msg);
-    actualIdx = conv.messages.indexOf(msg);
-    if (actualIdx >= 0) conv.messages.splice(actualIdx, 1);
+    if (!prepareResponseRegeneration(conv, msg)) return;
     conv.updated = Date.now();
     conv._wiCache = null;
     conv._lastRenderedVisibleCount = 0;
@@ -16065,7 +16381,10 @@ function regenerateMessage(actualIdx) {
     renderConversationListOnly();
 
     var lastMsg = conv.messages[conv.messages.length - 1];
-    if (!lastMsg || lastMsg.role !== 'user') return;
+    if (!lastMsg || lastMsg.role !== 'user') {
+        restoreFailedResponseRegeneration(conv);
+        return;
+    }
 
     if (isGroupChat(conv)) {
         const mentioned = parseGroupMention(lastMsg.content || '', conv);
@@ -16083,6 +16402,7 @@ function regenerateMessage(actualIdx) {
                 if (streamingEl) streamingEl.remove();
                 state.isGenerating = false;
                 appStore.notify('isGenerating');
+                restoreFailedResponseRegeneration(conv);
                 renderMessagesOnly();
                 alert('Error: ' + (err.message || err));
             }
@@ -16094,6 +16414,7 @@ function regenerateMessage(actualIdx) {
         ensureWebLLMEngine(getWebLLMModelId()).then(start).catch(function(e) {
             state.isGenerating = false;
             appStore.notify('isGenerating');
+            restoreFailedResponseRegeneration(conv);
             renderMessagesOnly();
             alert('Error: ' + (e.message || e));
         });
@@ -16821,10 +17142,24 @@ function bindEvents() {
         } else if (action === 'retry') {
             if (state.isGenerating) return;
             regenerateMessage(idx);
+        } else if (action === 'history') {
+            openReplyHistory(idx);
         } else if (action === 'edit') {
             editMessage(idx, btn);
         }
     });
+
+    if (dom.replyHistoryCloseBtn) dom.replyHistoryCloseBtn.addEventListener('click', closeReplyHistory);
+    if (dom.replyHistoryBackdrop) dom.replyHistoryBackdrop.addEventListener('click', closeReplyHistory);
+    if (dom.replyHistoryList) {
+        dom.replyHistoryList.addEventListener('click', function(e) {
+            var btn = e.target.closest('.reply-history-use');
+            if (!btn) return;
+            var msgIdx = parseInt(dom.replyHistoryModal.getAttribute('data-msg-idx'));
+            var versionIdx = parseInt(btn.getAttribute('data-version-idx'));
+            if (!isNaN(msgIdx) && !isNaN(versionIdx)) switchResponseVersion(msgIdx, versionIdx);
+        });
+    }
 
     // Language switcher
     document.querySelectorAll('.lang-btn').forEach(function(btn) {
