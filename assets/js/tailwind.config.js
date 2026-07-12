@@ -1,3 +1,13 @@
+/**
+ * 新手导读：这是 Tailwind CSS 的运行时配置，不是聊天业务代码。
+ *
+ * index.html 先加载 Tailwind CDN，再加载本文件。本文件向 Tailwind 补充项目专用的
+ * 字体和动画名称，因此 HTML 中的 animate-fade-in 等类名才能工作。keyframes 描述
+ * 动画从开始到结束的样子，animation 则为动画指定时长和速度。
+ *
+ * 修改或新增名称时，要同时搜索 index.html 和 src/app 中的使用位置；如果只改这里，
+ * 旧类名会失效。这个对象由浏览器直接读取，所以不要改成 Node.js 模块写法。
+ */
 tailwind.config = {
     darkMode: 'class',
     theme: {

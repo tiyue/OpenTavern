@@ -1,3 +1,13 @@
+/**
+ * 新手导读（文件：24-storage-compat.js）
+ *
+ * 负责什么：这是“存储兼容层”中的“存储、兼容处理”部分。
+ * 在程序中的位置：它为旧调用方式提供过渡入口，再把工作交给新的存储服务。
+ * 从哪里开始看：主要从 `loadAll(无参数)`、`saveAll(data)`、`getSafeSettingsForPersist(无参数)`、`getSafeSettingsForCloudSync(无参数)`、`makeId(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：兼容接口可能仍被旧快照或旧页面调用，不能只因看似重复就删除。
+ */
 // ==================== 兼容层（同步 API） ====================
 // 历史同步入口，内部已委托给 StorageService（OPFS + LS 兜底）
 

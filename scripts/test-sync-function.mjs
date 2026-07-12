@@ -1,3 +1,13 @@
+/**
+ * 新手导读：这是项目的自动检查脚本，用假数据验证关键功能没有被改坏。
+ *
+ * 测试不会连接真实 Cloudflare：createMockD1() 用内存 Map 模拟数据库，随后构造 GET、
+ * POST、HEAD、DELETE 等请求并直接调用同步接口。脚本还读取前端源码和生成后的 bundle，
+ * 检查文件拆分顺序、关键函数与安全约束是否仍然存在。
+ *
+ * assert(condition, message) 表示“这个条件必须成立”；不成立就抛错并让 npm run check
+ * 失败。新增重要行为时应增加对应断言，而不是为了让测试通过而删掉旧断言。
+ */
 import { onRequest } from '../functions/api/sync.js';
 import { readFile } from 'node:fs/promises';
 import { webcrypto } from 'node:crypto';
@@ -356,7 +366,7 @@ async function assertFrontendStatePersistenceHelpers() {
     Promise,
   };
 
-  vm.runInNewContext(`${orderSource}\n${source}\nthis.__persist = persistState;\nthis.__active = getActiveConv;`, context);
+  vm.runInNewContext(`${orderSource}\n${source}\nthis.__persist = persistState;\nthis.__active = getActiveConv;\nthis.__signature = buildCloudSyncConversationSignature;`, context);
 
   assert(context.__active().id === 'c1', 'Active conversation helper should return the current active conversation.');
 
@@ -368,6 +378,12 @@ async function assertFrontendStatePersistenceHelpers() {
   assert(saved[0].charactersMigrated === true && saved[0].lastSaved === 123456, 'Immediate persist should include migration and timestamp metadata.');
   assert(context.StorageService._lastSaveSnapshot.activeConvId === 'c1', 'Persist should cache the latest snapshot before async storage completes.');
   assert(events.includes('storage-info') && !events.includes('cloud-upload'), 'Initial persist should refresh storage status without auto uploading unchanged conversations.');
+  const activeC1Signature = context.__signature(context.StorageService._lastSaveSnapshot);
+  const activeOrphanSignature = context.__signature({
+    ...context.StorageService._lastSaveSnapshot,
+    activeConvId: 'orphan',
+  });
+  assert(activeC1Signature === activeOrphanSignature, 'Switching the active conversation alone should not trigger automatic cloud upload.');
 
   events.length = 0;
   now = 222222;
@@ -785,12 +801,14 @@ async function assertFrontendCloudSyncCrypto() {
     atob(text) { return Buffer.from(text, 'base64').toString('binary'); },
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__encrypt = encryptCloudSyncSnapshot;\nthis.__decrypt = decryptCloudSyncSnapshot;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__encrypt = encryptCloudSyncSnapshot;\nthis.__decrypt = decryptCloudSyncSnapshot;\nthis.__freshness = getCloudSyncFreshness;\nthis.__conversationBytes = getCloudSyncConversationSerializedBytes;`, context);
 
   const encrypted = await context.__encrypt(snapshot);
   const encryptedText = JSON.stringify(encrypted);
   assert(encrypted.encrypted === true && encrypted.payload && encrypted.iv && encrypted.salt, 'Cloud sync encryption should return an encrypted envelope.');
   assert(encrypted.lastSaved === snapshot.lastSaved, 'Encrypted cloud snapshot should preserve freshness metadata.');
+  assert(encrypted.conversationBytes === context.__conversationBytes(snapshot), 'Encrypted cloud snapshots should preserve comparable conversation byte metadata.');
+  assert(context.__freshness({ ...encrypted, conversationBytes: encrypted.conversationBytes + 100, lastSaved: 1 }, snapshot) === 'newer-by-size', 'Encrypted cloud freshness should still prioritize conversation byte size.');
   assert(!encryptedText.includes('secret-model-unique-9241'), 'Encrypted cloud snapshot should not expose settings content.');
   assert(!encryptedText.includes('secret-chat-message-9241'), 'Encrypted cloud snapshot should not expose chat content.');
   assert(!encryptedText.includes('secret-card-name-9241'), 'Encrypted cloud snapshot should not expose character card content.');
@@ -880,10 +898,25 @@ async function assertFrontendCloudSyncTransport() {
   assert(requests[0].options.headers.Authorization === 'Bearer valid-token', 'Cloud sync transport should send the bearer token.');
   assert(requests[0].options.headers['X-OpenTavern-Token'] === 'valid-token', 'Cloud sync transport should send the compatibility token header.');
 
+  await context.__request('POST', { data: {} }, { expectedUpdatedAt: 1234 });
+  assert(requests[1].options.headers['If-Match'] === '1234', 'Cloud sync transport should send an If-Match precondition for protected uploads.');
+  assert(requests[1].options.headers['X-OpenTavern-If-Match-Updated-At'] === '1234', 'Cloud sync transport should send the compatibility precondition header.');
+
   context.fetch = async function() {
     return new Response(JSON.stringify({ success: false, error: 'bad token' }), { status: 200 });
   };
   await assertRejects(context.__request('GET'), 'Cloud sync API error responses should reject.');
+
+  context.fetch = async function() {
+    return new Response(JSON.stringify({ success: false, error: 'conflict', currentUpdatedAt: 5678 }), { status: 409 });
+  };
+  let conflictError = null;
+  try {
+    await context.__request('POST', { data: {} }, { expectedUpdatedAt: 1234 });
+  } catch (error) {
+    conflictError = error;
+  }
+  assert(conflictError && conflictError.status === 409 && conflictError.currentUpdatedAt === 5678, 'Cloud sync transport should expose remote write conflicts to the caller.');
 }
 
 async function assertFrontendCloudSyncOperations() {
@@ -927,13 +960,17 @@ async function assertFrontendCloudSyncOperations() {
       return context.remoteSnapshot;
     },
     getCloudSyncFreshness(remote, local) { events.push(`fresh:${remote && remote.freshness || 'same'}:${local ? 'local' : 'none'}`); return (remote && remote.freshness) || 'same'; },
+    getCloudSyncRemoteUpdatedAt(remote) {
+      const updatedAt = Number(remote && remote.__cloudSyncUpdatedAt);
+      return Number.isFinite(updatedAt) && updatedAt >= 0 ? updatedAt : null;
+    },
     async encryptCloudSyncSnapshot(snapshot) {
       events.push('encrypt');
       return Object.assign({ encrypted: !!context.encryptAsEncrypted }, snapshot);
     },
-    async requestCloudSync(method, payload) {
+    async requestCloudSync(method, payload, requestOptions) {
       events.push(`request:${method}`);
-      capturedRequest = { method, payload };
+      capturedRequest = { method, payload, requestOptions };
       return { success: true, updatedAt: 2000 };
     },
     async decryptCloudSyncSnapshot(raw) { events.push('decrypt'); return raw.data || raw; },
@@ -994,6 +1031,12 @@ async function assertFrontendCloudSyncOperations() {
   assert(skippedBySize.skipped === true && skippedBySize.reason === 'remote-newer' && capturedRequest === null, 'Protected cloud upload should skip when the remote snapshot wins by byte size.');
 
   events.length = 0;
+  capturedRequest = null;
+  context.remoteSnapshot = { freshness: 'same', lastSaved: 1000, __cloudSyncUpdatedAt: 3456 };
+  await context.__upload(explicitStatus, { force: false });
+  assert(capturedRequest.requestOptions.expectedUpdatedAt === 3456, 'Automatic cloud uploads should use the remote version from their preflight check.');
+
+  events.length = 0;
   context.remoteSnapshot = { freshness: 'same', lastSaved: 1000 };
   const synced = await context.__sync(null);
   assert(synced.upToDate === true && events.includes('persist:true:true'), 'Cloud sync should persist status when local and remote snapshots are already in sync.');
@@ -1021,9 +1064,16 @@ async function assertFrontendCloudSyncOperations() {
 
   events.length = 0;
   capturedRequest = null;
-  context.remoteSnapshot = { freshness: 'older-by-size', lastSaved: 1000 };
+  context.remoteSnapshot = { freshness: 'older-by-size', lastSaved: 1000, __cloudSyncUpdatedAt: 4321 };
   const syncUploadedBySize = await context.__sync(explicitStatus);
   assert(syncUploadedBySize.success === true && capturedRequest.method === 'POST', 'Cloud sync should upload when the local snapshot wins by byte size.');
+  assert(capturedRequest.requestOptions.expectedUpdatedAt === 4321, 'Cloud sync should protect comparison-based uploads with the remote version it inspected.');
+
+  events.length = 0;
+  capturedRequest = null;
+  context.remoteSnapshot = null;
+  const syncCreated = await context.__sync(explicitStatus);
+  assert(syncCreated.success === true && capturedRequest.requestOptions.expectedUpdatedAt === 0, 'First cloud sync upload should fail safely if another device creates the snapshot concurrently.');
 
   events.length = 0;
   appliedSnapshot = null;
@@ -7521,6 +7571,7 @@ async function main() {
     salt: 'c2FsdA==',
     iv: 'aXY=',
     payload: 'Y2lwaGVydGV4dA==',
+    conversationBytes: 1234,
     lastSaved: 456,
   };
   const postEncrypted = await onRequest({
@@ -7534,6 +7585,7 @@ async function main() {
   const getEncryptedJson = await readJson(getEncrypted);
   assert(getEncryptedJson.data.encrypted === true, 'Encrypted envelope flag was not preserved.');
   assert(getEncryptedJson.data.payload === encryptedEnvelope.payload, 'Encrypted payload was not preserved.');
+  assert(getEncryptedJson.data.conversationBytes === encryptedEnvelope.conversationBytes, 'Encrypted conversation byte metadata was not preserved.');
 
   console.log('frontend and sync function tests passed');
 }

@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
-"""Standalone OpenTavern cloud sync backend.
+"""OpenTavern 的独立云同步后端，新手可以先把它理解成“保存云端快照的小服务器”。
 
-This mirrors the Cloudflare Pages Function protocol with Python stdlib only,
-so a small VPS can host `/api/sync` without Node.js or external packages.
+浏览器把设置、角色和聊天记录整理成 JSON 快照，再通过 HTTP 请求交给本程序。本程序
+验证同步令牌和数据大小，使用 SQLite 文件保存快照，并按照 GET、HEAD、POST、DELETE
+分别完成读取元数据、读取正文、保存和删除。它与 Cloudflare Pages Function 版本使用
+同一套协议，因此前端不需要知道部署的是哪一种后端。
+
+程序只使用 Python 标准库，适合资源较少的 VPS。通常由 systemd 启动并监听
+127.0.0.1:8787，再由 Nginx 提供公网 HTTPS 入口。修改时要特别保护令牌和用户快照，
+不要把它们写进日志；数据库写入和并发条件检查也不能为了简化代码而绕过。
 """
 
 import argparse
@@ -253,6 +259,13 @@ def metadata_headers(row, data=None, extra=None):
 
 
 class SyncHandler(BaseHTTPRequestHandler):
+    """处理单个 HTTP 请求的控制器。
+
+    Python 的 HTTPServer 会根据请求方法自动调用 do_GET、do_POST 等方法；这些短方法再统一
+    进入 handle_sync，避免认证、路径检查和响应格式在多个地方重复实现。一个 Handler 实例
+    只服务一次请求，请求头、请求正文和输出流分别位于 self.headers、self.rfile、self.wfile。
+    """
+
     server_version = "OpenTavernSync/1.0"
 
     def cors_headers(self):
@@ -301,6 +314,13 @@ class SyncHandler(BaseHTTPRequestHandler):
         self.handle_sync()
 
     def handle_sync(self, head_only=False):
+        """验证公共条件，再把请求分派给查询、保存或删除分支。
+
+        处理顺序是路径检查、健康检查、令牌验证、令牌哈希、数据库初始化，最后才按照 HTTP
+        方法操作数据。数据库只保存令牌的 SHA-256 哈希，不保存用户提交的原始令牌。
+        head_only 由 HEAD 请求传入；HEAD 只需要响应头，所以不会返回 JSON 正文。
+        """
+
         parsed = urlparse(self.path)
         if parsed.path not in SYNC_PATHS:
             self.send_json(404, {"success": False, "error": "Not found."})
@@ -372,6 +392,13 @@ class SyncHandler(BaseHTTPRequestHandler):
             return None
 
     def handle_post(self, db_path, token_hash):
+        """验证并保存一份新快照。
+
+        请求正文先经过大小限制与 JSON 解析，再规范化成内部快照。随后检查客户端提供的
+        updated_at 前置条件，确保它仍基于最新云端版本；不匹配时返回冲突而不是覆盖数据。
+        写入成功后返回新的更新时间和 ETag，供客户端下一次条件更新使用。
+        """
+
         try:
             body = self.read_json_body()
             snapshot = extract_snapshot(body)
@@ -455,6 +482,12 @@ def parse_args():
 
 
 def main():
+    """读取启动参数、准备 SQLite 表，然后持续监听 HTTP 请求。
+
+    serve_forever 会一直阻塞运行，这是服务器程序的正常状态；systemd 负责在进程异常退出时
+    重启它。ThreadingHTTPServer 允许多个设备并发连接，每个请求在线程中独立处理。
+    """
+
     args = parse_args()
     os.makedirs(os.path.dirname(args.db), exist_ok=True)
     ensure_table(args.db)

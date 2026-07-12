@@ -1,3 +1,14 @@
+/**
+ * 新手导读：这是运行在 Cloudflare Pages 上的“公共角色卡查询接口”。
+ *
+ * 浏览器访问 /api/cards 时，本文件从 D1 数据库读取已审核的角色卡列表；访问
+ * /api/cards/:id 时返回某张卡的完整资料。onRequest 是 Cloudflare 规定的入口函数，
+ * context.request 表示本次网络请求，context.env.DB 是部署时绑定的 D1 数据库。
+ *
+ * 数据流：检查请求方法和地址 -> 拼装带占位符的 SQL -> 用 bind 绑定用户参数 ->
+ * 查询数据库 -> 返回 JSON。用户输入绝不能直接拼进 SQL，否则会产生 SQL 注入风险。
+ * OPTIONS 分支用于浏览器的跨域预检，也不能随意删除。
+ */
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);

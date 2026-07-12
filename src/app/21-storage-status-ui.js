@@ -1,3 +1,13 @@
+/**
+ * 新手导读（文件：21-storage-status-ui.js）
+ *
+ * 负责什么：这是“存储状态与缓存工具”中的“存储、状态、界面”部分。
+ * 在程序中的位置：它把容量、后端状态和缓存操作转换成用户能看到的界面信息。
+ * 从哪里开始看：主要从 `updateStorageInfo(无参数)`、`showOrHideStorageWarning(percent)`、`updateStorageStatusUI(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：清理操作不可撤销，必须保留确认步骤和错误提示。
+ */
 // ==================== Storage Status UI ====================
 function updateStorageInfo() {
     if (typeof updateStorageStatusUI === 'function') {

@@ -1,5 +1,26 @@
+/**
+ * 新手导读（文件：00-shell-start.js）
+ *
+ * 负责什么：这是“应用打包外壳”中的“程序外壳、开始”部分。
+ * 在程序中的位置：它最先运行，为后面的所有源码分片建立同一个私有作用域。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这里的括号必须与 99-shell-end.js 成对，删错会让整个前端无法启动。
+ */
+// 应用 bundle 外壳起点：用 IIFE 包裹全部按 manifest 拼接的前端模块。
 (function() {
 'use strict';
+/**
+ * 新手导读（文件：10-prompts-webllm-i18n.js）
+ *
+ * 负责什么：这是“提示词与本地模型文案”中的“提示词、浏览器本地大模型、多语言”部分。
+ * 在程序中的位置：它提供后续模块读取的默认文案或配置，本身通常不直接改变页面。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：修改文案时要保留占位符名称，否则角色名和用户名无法被替换。
+ */
 
 // 基础系统提示（隐藏注入，总是作为第一条 system 消息）
 // 已移除所有jailbreak相关指令，保留风格、角色一致性、沉浸感、字数指导与合法输出规则。
@@ -47,6 +68,16 @@ const DEFAULT_FIRST_STAGE_POST_HISTORY_INSTRUCTIONS = [
     '- 保持角色卡所定义的说话风格与口癖。',
     '-完全沉浸在正文，严禁输出除正文以外的结构，包括但不限于：可选项、剧情走向、状态栏、好感度等等，输出正文以外的内容是严重错误'
 ].join('\n');
+/**
+ * 新手导读（文件：11-webllm-local-backend.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“浏览器本地大模型、本地、存储后端”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ==================== WebLLM Local Backend State ====================
 // Keep this chunk side-effect light. The WebLLM engine is created only after user confirmation.
 let webllmEngine = null;
@@ -56,6 +87,16 @@ const WEBLLM_MODEL_INFO = {
     'Llama-3.2-1B-Instruct-q4f16_1-MLC': { label: 'Llama-3.2-1B', sizeMB: 850 },
     'Llama-3.2-3B-Instruct-q4f16_1-MLC': { label: 'Llama-3.2-3B', sizeMB: 2100 }
 };
+/**
+ * 新手导读（文件：11-app-dialog-native.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“应用、对话框、浏览器原生能力”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：主要从 `resolveNativeAppDialogFallback(options)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ==================== App Dialog Native Fallback ====================
 const nativeAlert = window.alert ? window.alert.bind(window) : null;
 const nativeConfirm = window.confirm ? window.confirm.bind(window) : null;
@@ -65,6 +106,16 @@ function resolveNativeAppDialogFallback(options) {
     if (nativeAlert) nativeAlert(String(options.message || ''));
     return true;
 }
+/**
+ * 新手导读（文件：11-app-dialog-dom.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“应用、对话框、页面元素”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：主要从 `getAppDialogElements(无参数)`、`applyAppDialogOptions(elements, options)`、`focusAppDialogDefaultButton(elements, showCancel)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ==================== App Dialog DOM Helpers ====================
 function getAppDialogElements() {
     return {
@@ -104,6 +155,16 @@ function focusAppDialogDefaultButton(elements, showCancel) {
         try { (showCancel && elements.cancelBtn ? elements.cancelBtn : elements.okBtn).focus(); } catch (_) {}
     }, 0);
 }
+/**
+ * 新手导读（文件：11-app-dialog-events.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“应用、对话框、事件”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：主要从 `bindAppDialogControls(elements, showCancel, cleanup)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ==================== App Dialog Event Helpers ====================
 function bindAppDialogControls(elements, showCancel, cleanup) {
     function onKeyDown(ev) {
@@ -122,6 +183,16 @@ function bindAppDialogControls(elements, showCancel, cleanup) {
         document.removeEventListener('keydown', onKeyDown, true);
     };
 }
+/**
+ * 新手导读（文件：11-app-dialog.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“应用、对话框”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：主要从 `showGlassDialog(options)`、`showGlassAlert(message, options)`、`showGlassConfirm(message, options)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ==================== App Dialog Helpers ====================
 let _appDialogQueue = Promise.resolve();
 
@@ -168,8 +239,28 @@ function showGlassConfirm(message, options) {
 window.showGlassAlert = showGlassAlert;
 window.showGlassConfirm = showGlassConfirm;
 window.alert = function(message) { showGlassAlert(message); };
+/**
+ * 新手导读（文件：11-webgpu-device-state.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“WebGPU 设备、状态”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ==================== WebGPU Device State ====================
 let webgpuLastDeviceReport = null;
+/**
+ * 新手导读（文件：11-webgpu-device-info.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“WebGPU 设备、信息”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：主要从 `getPlainAdapterInfo(info)`、`readWebGPUAdapterInfo(adapter)`、`formatWebGPUDeviceReport(report)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ==================== WebGPU Device Info Helpers ====================
 function getPlainAdapterInfo(info) {
     if (!info) return {};
@@ -205,6 +296,16 @@ function formatWebGPUDeviceReport(report) {
     if (report.maxBufferSize) parts.push('Max buffer: ' + Math.round(report.maxBufferSize / 1024 / 1024) + ' MB');
     return parts.length ? parts.join('\n') : '\u5df2\u83b7\u53d6 WebGPU \u8bbe\u5907\uff0c\u4f46\u6d4f\u89c8\u5668\u672a\u66b4\u9732\u663e\u5361\u540d\u79f0\u3002';
 }
+/**
+ * 新手导读（文件：11-webgpu-adapter.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“WebGPU 设备、适配器”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：主要从 `requestHighPerformanceWebGPUAdapter(无参数)`、`withHighPerformanceWebGPUAdapterRequest(fn)`、`restoreWebGPURequestAdapter(gpu, original, proto, protoDesc, patchTarget)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ==================== WebGPU Adapter Helpers ====================
 async function requestHighPerformanceWebGPUAdapter() {
     if (!navigator.gpu) throw new Error('NO_WEBGPU');
@@ -272,6 +373,16 @@ function restoreWebGPURequestAdapter(gpu, original, proto, protoDesc, patchTarge
         }
     }
 }
+/**
+ * 新手导读（文件：11-webgpu-device-detection.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“WebGPU 设备、检测”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：主要从 `detectCurrentWebGPUDevice(options)`、`setWebGPUDeviceStatus(statusEl, text, color)`、`getWebGPUDetectionErrorMessage(e)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ==================== WebGPU Device Detection ====================
 async function detectCurrentWebGPUDevice(options) {
     options = options || {};
@@ -319,8 +430,29 @@ function getWebGPUDetectionErrorMessage(e) {
 }
 
 window.detectCurrentWebGPUDevice = detectCurrentWebGPUDevice;
+/**
+ * 新手导读（文件：11-webgpu-device.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“WebGPU 设备”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ==================== WebGPU Device Helpers ====================
 // Split into state, info formatting, adapter request, and detection chunks.
+/**
+ * 新手导读（文件：11-webllm-engine.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“浏览器本地大模型、引擎”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：主要从 `isWebLLMBackend(无参数)`、`getWebLLMModelId(无参数)`、`ensureWebLLMEngine(modelId, onProgress)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
+// WebLLM 引擎门面：判断本地推理模式并协调模型初始化、缓存和生成状态。
 function isWebLLMBackend() {
     return !!(state && state.settings && state.settings.inferenceBackend === 'webllm');
 }
@@ -386,6 +518,16 @@ async function ensureWebLLMEngine(modelId, onProgress) {
         throw e;
     }
 }
+/**
+ * 新手导读（文件：11-webllm-confirm-helpers.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“浏览器本地大模型、确认、辅助函数”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：主要从 `getWebLLMConfirmModelId(targetModelId)`、`getWebLLMModelInfo(modelId)`、`formatWebLLMModelSize(sizeMB)`、`buildWebLLMFallbackConfirmMessage(sizeText)`、`buildWebLLMConfirmHtml(modelId, isModelSwitch)`、`cleanupWebLLMConfirmModal(modal, cancelBtn, continueBtn, backdrop)`，以及另外 3 个内部步骤 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ===== WebLLM Confirmation Helpers =====
 const DEFAULT_WEBLLM_MODEL_ID = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
 
@@ -461,6 +603,16 @@ function wireWebLLMChoiceButtons(cleanup, onContinue) {
     if (btn1B) btn1B.onclick = function() { choose('Llama-3.2-1B-Instruct-q4f16_1-MLC'); };
     if (btn3B) btn3B.onclick = function() { choose('Llama-3.2-3B-Instruct-q4f16_1-MLC'); };
 }
+/**
+ * 新手导读（文件：11-webllm-confirm-modal.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“浏览器本地大模型、确认、弹窗”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：主要从 `getWebLLMConfirmModalElements(无参数)`、`renderWebLLMConfirmModal(elements, modelId, isModelSwitch)`、`bindWebLLMConfirmModalHandlers(elements, cleanup, modelId, onContinue, onCancel)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ===== WebLLM Confirmation Modal Flow =====
 function getWebLLMConfirmModalElements() {
     return {
@@ -515,6 +667,16 @@ function bindWebLLMConfirmModalHandlers(elements, cleanup, modelId, onContinue, 
         };
     }
 }
+/**
+ * 新手导读（文件：11-webllm-download-ui.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“浏览器本地大模型、下载、界面”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：主要从 `showWebLLMConfirmDialog(onContinue, onCancel)`、`showWebLLMConfirmForModel(targetModelId, isModelSwitch, onContinue, onCancel)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ===== WebLLM confirmation dialog flow =====
 var _prevWebLLMSelectValueForConfirm = 'remote-api';
 
@@ -551,6 +713,16 @@ function showWebLLMConfirmForModel(targetModelId, isModelSwitch, onContinue, onC
         wireWebLLMChoiceButtons(cleanup, onContinue);
     }
 }
+/**
+ * 新手导读（文件：11-webllm-storage-preflight.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“浏览器本地大模型、存储、使用前检查”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：主要从 `preflightWebLLMStorageQuota(info)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ==================== WebLLM Storage Preflight ====================
 async function preflightWebLLMStorageQuota(info) {
     try {
@@ -573,6 +745,16 @@ async function preflightWebLLMStorageQuota(info) {
     } catch (_) {}
     return true;
 }
+/**
+ * 新手导读（文件：11-webllm-progress-ui-helpers.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“浏览器本地大模型、进度、界面、辅助函数”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：主要从 `getWebLLMProgressElements(无参数)`、`updateWebLLMInitializationProgress(elements, info, report)`、`cleanupWebLLMProgressHandlers(elements)`、`resetWebLLMProgressUI(elements)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ==================== WebLLM Progress UI Helpers ====================
 function getWebLLMProgressElements() {
     return {
@@ -609,6 +791,16 @@ function resetWebLLMProgressUI(elements) {
     if (elements.status) elements.status.textContent = '\u6b63\u5728\u51c6\u5907\u4e0b\u8f7d...';
     elements.modal.classList.remove('hidden');
 }
+/**
+ * 新手导读（文件：11-webllm-initialization-helpers.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“浏览器本地大模型、初始化、辅助函数”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：主要从 `finishWebLLMInitialization(elements, info, success, errMsg)`、`cancelWebLLMInitialization(elements)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ==================== WebLLM Initialization State Helpers ====================
 function finishWebLLMInitialization(elements, info, success, errMsg) {
     if (elements.modal) elements.modal.classList.add('hidden');
@@ -636,6 +828,16 @@ function cancelWebLLMInitialization(elements) {
     webllmCurrentModel = null;
     cleanupWebLLMProgressHandlers(elements);
 }
+/**
+ * 新手导读（文件：11-webllm-initialization-ui.js）
+ *
+ * 负责什么：这是“浏览器能力与本地模型”中的“浏览器本地大模型、初始化、界面”部分。
+ * 在程序中的位置：它在设置或生成流程中检测设备、准备 WebLLM，并把状态交给界面层。
+ * 从哪里开始看：主要从 `startWebLLMInitialization(forcedModelId)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：设备能力是异步获得的；修改时要同时考虑成功、失败和用户取消。
+ */
 // ==================== WebLLM Initialization Progress UI ====================
 function startWebLLMInitialization(forcedModelId) {
     var progress = getWebLLMProgressElements();
@@ -680,8 +882,28 @@ function startWebLLMInitialization(forcedModelId) {
         });
     })();
 }
+/**
+ * 新手导读（文件：12-i18n-core.js）
+ *
+ * 负责什么：这是“多语言系统”中的“多语言、核心逻辑”部分。
+ * 在程序中的位置：它把界面使用的语言键映射成中文、英文等显示文本。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新增语言键时应在各语言文件保持一致，缺失键会退回原始键名。
+ */
 // ==================== i18n Core ====================
 var i18n = {};
+/**
+ * 新手导读（文件：12-i18n-zh-cn.js）
+ *
+ * 负责什么：这是“多语言系统”中的“多语言、简体中文”部分。
+ * 在程序中的位置：它把界面使用的语言键映射成中文、英文等显示文本。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新增语言键时应在各语言文件保持一致，缺失键会退回原始键名。
+ */
 // ==================== i18n zh-CN ====================
 i18n['zh-CN'] = {
         app_subtitle: 'AI 角色聊天',
@@ -1127,6 +1349,16 @@ i18n['zh-CN'] = {
         group_mention_no_group: '当前不是群组聊天',
         group_mention_insert: '指定 @'
 };
+/**
+ * 新手导读（文件：12-i18n-zh-tw.js）
+ *
+ * 负责什么：这是“多语言系统”中的“多语言、繁体中文”部分。
+ * 在程序中的位置：它把界面使用的语言键映射成中文、英文等显示文本。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新增语言键时应在各语言文件保持一致，缺失键会退回原始键名。
+ */
 // ==================== i18n zh-TW ====================
 i18n['zh-TW'] = {
         app_subtitle: 'AI 角色聊天',
@@ -1525,6 +1757,16 @@ i18n['zh-TW'] = {
         filter_male: '男性向',
         filter_female: '女性向',
 };
+/**
+ * 新手导读（文件：12-i18n-en.js）
+ *
+ * 负责什么：这是“多语言系统”中的“多语言、英文”部分。
+ * 在程序中的位置：它把界面使用的语言键映射成中文、英文等显示文本。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新增语言键时应在各语言文件保持一致，缺失键会退回原始键名。
+ */
 // ==================== i18n en ====================
 i18n['en'] = {
         app_subtitle: 'AI Character Chat',
@@ -1949,7 +2191,27 @@ i18n['en'] = {
         filter_male: 'Male-oriented',
         filter_female: 'Female-oriented',
 };
+/**
+ * 新手导读（文件：12-i18n.js）
+ *
+ * 负责什么：这是“多语言系统”中的“多语言”部分。
+ * 在程序中的位置：它把界面使用的语言键映射成中文、英文等显示文本。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新增语言键时应在各语言文件保持一致，缺失键会退回原始键名。
+ */
 // i18n dictionaries are split across 12-i18n-core.js and 12-i18n-*.js.
+/**
+ * 新手导读（文件：12-i18n-runtime.js）
+ *
+ * 负责什么：这是“多语言系统”中的“多语言、运行流程”部分。
+ * 在程序中的位置：它把界面使用的语言键映射成中文、英文等显示文本。
+ * 从哪里开始看：主要从 `t(key)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新增语言键时应在各语言文件保持一致，缺失键会退回原始键名。
+ */
 // ==================== i18n Runtime Helpers ====================
 function t(key) {
     var lang = state.settings.lang || 'zh-CN';
@@ -1957,6 +2219,16 @@ function t(key) {
     if (!dict) dict = i18n['en'];
     return dict[key] !== undefined ? dict[key] : (i18n['en'][key] || key);
 }
+/**
+ * 新手导读（文件：13-webgl-shader-sources.js）
+ *
+ * 负责什么：这是“WebGL 动态背景”中的“WebGL 背景、着色器、源码”部分。
+ * 在程序中的位置：它初始化绘图程序，并根据窗口大小和主题持续刷新背景。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：着色器代码运行在 GPU 上；语法错误可能只表现为背景消失。
+ */
 // ==================== WebGL Shader Sources ====================
 var WEBGL_VERTEX_SHADER_SOURCE = [
     'attribute vec2 a_position;',
@@ -2033,6 +2305,16 @@ var WEBGL_FRAGMENT_SHADER_SOURCE = [
     '  gl_FragColor = color;',
     '}'
 ].join('\n');
+/**
+ * 新手导读（文件：13-webgl-program.js）
+ *
+ * 负责什么：这是“WebGL 动态背景”中的“WebGL 背景、绘图程序”部分。
+ * 在程序中的位置：它初始化绘图程序，并根据窗口大小和主题持续刷新背景。
+ * 从哪里开始看：主要从 `createWebGLShader(glContext, type, source)`、`createWebGLProgram(glContext, vertexShader, fragmentShader)`、`setupWebGLFullscreenQuad(glContext, program)`、`getWebGLBackgroundUniforms(glContext, program)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：着色器代码运行在 GPU 上；语法错误可能只表现为背景消失。
+ */
 // ==================== WebGL Program Helpers ====================
 function createWebGLShader(glContext, type, source) {
     var shader = glContext.createShader(type);
@@ -2075,6 +2357,16 @@ function getWebGLBackgroundUniforms(glContext, program) {
         time: glContext.getUniformLocation(program, 'u_time')
     };
 }
+/**
+ * 新手导读（文件：13-webgl-layout.js）
+ *
+ * 负责什么：这是“WebGL 动态背景”中的“WebGL 背景、画布布局”部分。
+ * 在程序中的位置：它初始化绘图程序，并根据窗口大小和主题持续刷新背景。
+ * 从哪里开始看：主要从 `resizeShaderCanvas(canvas, glContext, resolutionLocation)`、`updateAppHeight(无参数)`、`isShaderPausedByTheme(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：着色器代码运行在 GPU 上；语法错误可能只表现为背景消失。
+ */
 // ==================== WebGL Layout Helpers ====================
 function resizeShaderCanvas(canvas, glContext, resolutionLocation) {
     canvas.width = window.innerWidth;
@@ -2094,6 +2386,16 @@ function isShaderPausedByTheme() {
         document.body.classList.contains('theme-new-dark')
     );
 }
+/**
+ * 新手导读（文件：13-webgl-background.js）
+ *
+ * 负责什么：这是“WebGL 动态背景”中的“WebGL 背景”部分。
+ * 在程序中的位置：它初始化绘图程序，并根据窗口大小和主题持续刷新背景。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：着色器代码运行在 GPU 上；语法错误可能只表现为背景消失。
+ */
 // ==================== WebGL Background ====================
 var shaderCanvas = document.getElementById('shaderCanvas');
 var gl = shaderCanvas ? (shaderCanvas.getContext('webgl') || shaderCanvas.getContext('experimental-webgl')) : null;
@@ -2170,6 +2472,16 @@ if (gl) {
         window.__resumeShader = resumeShader;
     }
 }
+/**
+ * 新手导读（文件：13-webgl-theme.js）
+ *
+ * 负责什么：这是“WebGL 动态背景”中的“WebGL 背景、主题”部分。
+ * 在程序中的位置：它初始化绘图程序，并根据窗口大小和主题持续刷新背景。
+ * 从哪里开始看：主要从 `applyPerformanceMode(enabled)`、`applyUiTheme(theme)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：着色器代码运行在 GPU 上；语法错误可能只表现为背景消失。
+ */
 // ==================== Theme and Performance Mode ====================
 function applyPerformanceMode(enabled) {
     var isLow = !!enabled;
@@ -2199,6 +2511,16 @@ function applyUiTheme(theme) {
         try { if (typeof window.__resumeShader === 'function') window.__resumeShader(); } catch (e) {}
     }
 }
+/**
+ * 新手导读（文件：19-conversation-order-helpers.js）
+ *
+ * 负责什么：这是“会话排序辅助”中的“会话、顺序、辅助函数”部分。
+ * 在程序中的位置：它计算会话显示顺序，供资料库和聊天列表共同使用。
+ * 从哪里开始看：主要从 `getConversationIdsWithMissingFallback(order, conversations)`、`getFirstAvailableConversationId(order, conversations)`、`getValidConversationIdOrFallback(activeId, order, conversations)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：排序字段可能来自旧数据，比较前必须保留兼容和默认值处理。
+ */
 // ==================== Conversation Order Helpers ====================
 function getConversationIdsWithMissingFallback(order, conversations) {
     var ids = Array.isArray(order) ? order.slice() : [];
@@ -2226,6 +2548,16 @@ function getValidConversationIdOrFallback(activeId, order, conversations) {
     if (typeof activeId === 'string' && knownConversations[activeId]) return activeId;
     return getFirstAvailableConversationId(order, knownConversations);
 }
+/**
+ * 新手导读（文件：20-storage.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `normalizeUiTheme(theme)`、`cacheUiTheme(theme)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== Storage Engine (简化版：OPFS 主 + localStorage 强快照兜底) ====================
 // 目标：去掉复杂的 IndexedDB + 多级 fallback，只保留 OPFS 主 + LS 强快照兜底。
 // - OPFS 作为主存储（大容量、高性能）
@@ -2251,6 +2583,16 @@ function cacheUiTheme(theme) {
 // 加载时 OPFS 优先，失败或无数据则用 LS。
 // 保存时优先 OPFS，成功后顺便写 LS；OPFS 跳过时直接写 LS。
 // 所有记录带 lastSaved。
+/**
+ * 新手导读（文件：20-storage-opfs-location.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、OPFS 文件存储、位置”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `getOPFSLocationProtocol(无参数)`、`opfsStorageIsFileProtocol(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== OPFS Location Helpers ====================
 function getOPFSLocationProtocol() {
     try {
@@ -2263,6 +2605,16 @@ function getOPFSLocationProtocol() {
 function opfsStorageIsFileProtocol() {
     return getOPFSLocationProtocol() === 'file:';
 }
+/**
+ * 新手导读（文件：20-storage-opfs-unsupported.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、OPFS 文件存储、不支持时的处理”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `isKnownOPFSUnsupportedError(e)`、`warnOPFSUnsupportedOnce(storage)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== OPFS Unsupported Environment Helpers ====================
 function isKnownOPFSUnsupportedError(e) {
     return !!(e && (
@@ -2278,6 +2630,16 @@ function warnOPFSUnsupportedOnce(storage) {
         storage._warnedUnsupported = true;
     }
 }
+/**
+ * 新手导读（文件：20-storage-opfs-root.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、OPFS 文件存储、根目录”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `getOPFSStorageRoot(storage)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== OPFS Root Access ====================
 async function getOPFSStorageRoot(storage) {
     if (storage._root) return storage._root;
@@ -2295,6 +2657,16 @@ async function getOPFSStorageRoot(storage) {
     storage._root = await navigator.storage.getDirectory();
     return storage._root;
 }
+/**
+ * 新手导读（文件：20-storage-opfs-probe.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、OPFS 文件存储、连通性测试”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `probeOPFSStorageWritable(storage)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== OPFS Writable Probe ====================
 async function probeOPFSStorageWritable(storage) {
     if (storage._probeResult) return storage._probeResult;
@@ -2330,12 +2702,32 @@ async function probeOPFSStorageWritable(storage) {
 
     return storage._probePromise;
 }
+/**
+ * 新手导读（文件：20-storage-opfs-environment.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、OPFS 文件存储、运行环境”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== OPFS Environment Facade ====================
 // OPFS environment helpers live in:
 // - 20-storage-opfs-location.js
 // - 20-storage-opfs-unsupported.js
 // - 20-storage-opfs-root.js
 // - 20-storage-opfs-probe.js
+/**
+ * 新手导读（文件：20-storage-opfs-read-write-helpers.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、OPFS 文件存储、读取、写入、辅助函数”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `readOPFSStorageText(storage)`、`parseOPFSStorageData(text)`、`queueOPFSStorageWrite(storage, writeOperation)`、`writeOPFSStorageData(storage, data)`、`handleOPFSStorageIOError(storage, e, operationName)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== OPFS Storage Read/Write Helpers ====================
 async function readOPFSStorageText(storage) {
     const root = await storage._getRoot();
@@ -2377,6 +2769,16 @@ function handleOPFSStorageIOError(storage, e, operationName) {
         console.error(`[OPFS] ${operationName} failed:`, e);
     }
 }
+/**
+ * 新手导读（文件：20-storage-opfs-read-write.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、OPFS 文件存储、读取、写入”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `loadAllOPFSStorage(storage)`、`saveAllOPFSStorage(storage, data)`、`doSaveAllOPFSStorage(storage, data)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== OPFS Storage Read/Write ====================
 async function loadAllOPFSStorage(storage) {
     if (storage._isFileProtocol()) return null;
@@ -2403,6 +2805,16 @@ async function doSaveAllOPFSStorage(storage, data) {
         throw e;
     }
 }
+/**
+ * 新手导读（文件：20-storage-opfs-info.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、OPFS 文件存储、信息”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `getOPFSStorageInfo(storage)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== OPFS Storage Info ====================
 async function getOPFSStorageInfo(storage) {
     if (storage._isFileProtocol()) {
@@ -2435,6 +2847,16 @@ async function getOPFSStorageInfo(storage) {
     } catch (e) {}
     return { backend: 'opfs', used: 0, quota: null };
 }
+/**
+ * 新手导读（文件：20-storage-opfs-clear.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、OPFS 文件存储、清理”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `createEmptyOPFSSnapshot(无参数)`、`resetOPFSStorageFile(root, fileName)`、`clearOPFSStorage(storage)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== OPFS Storage Clear ====================
 function createEmptyOPFSSnapshot() {
     return {
@@ -2472,10 +2894,30 @@ async function clearOPFSStorage(storage) {
         storage._root = null;
     } catch (e) {}
 }
+/**
+ * 新手导读（文件：20-storage-opfs-io.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、OPFS 文件存储、输入输出”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // OPFS IO implementations are split across:
 // - 20-storage-opfs-read-write.js
 // - 20-storage-opfs-info.js
 // - 20-storage-opfs-clear.js
+/**
+ * 新手导读（文件：20-storage-opfs.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、OPFS 文件存储”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== OPFS Storage ====================
 const OPFSStorage = {
     _root: null,
@@ -2516,6 +2958,16 @@ const OPFSStorage = {
         return clearOPFSStorage(this);
     }
 };
+/**
+ * 新手导读（文件：20-storage-idb-open-helpers.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、IndexedDB 数据库、打开、辅助函数”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `getIDBStorageUnsupportedError(无参数)`、`ensureIDBStorageObjectStore(db, storeName)`、`attachIDBStorageConnectionHandlers(storage, db)`、`createIDBStorageOpenPromise(storage)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== IndexedDB Storage Open Helpers ====================
 function getIDBStorageUnsupportedError() {
     if (typeof window === 'undefined' || !('indexedDB' in window)) return new Error('IndexedDB not supported');
@@ -2558,6 +3010,16 @@ function createIDBStorageOpenPromise(storage) {
         throw err;
     });
 }
+/**
+ * 新手导读（文件：20-storage-idb-connection.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、IndexedDB 数据库、连接”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `resetIDBStorageConnection(storage)`、`openIDBStorage(storage, options)`、`delayIDBStorage(ms)`、`withRetryIDBStorage(storage, operation, options)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== IndexedDB Storage Connection Helpers ====================
 function resetIDBStorageConnection(storage) {
     try { if (storage._db) storage._db.close(); } catch (_) {}
@@ -2597,6 +3059,16 @@ async function withRetryIDBStorage(storage, operation, options) {
     }
     throw lastError || new Error('IndexedDB operation failed');
 }
+/**
+ * 新手导读（文件：20-storage-idb-helpers.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、IndexedDB 数据库、辅助函数”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `normalizeIDBStorageData(data)`、`getIDBStorageInfo(storage)`、`runIDBStorageTransaction(db, storage, mode, action, messages)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== IndexedDB Storage Helpers ====================
 function normalizeIDBStorageData(data) {
     const value = data && data.data ? data.data : data;
@@ -2627,6 +3099,16 @@ function runIDBStorageTransaction(db, storage, mode, action, messages) {
         }
     });
 }
+/**
+ * 新手导读（文件：20-storage-idb-operations.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、IndexedDB 数据库、操作”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `loadAllIDBStorage(storage, options)`、`saveAllIDBStorage(storage, data, options)`、`clearIDBStorage(storage)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== IndexedDB Storage Operations ====================
 async function loadAllIDBStorage(storage, options) {
     options = options || {};
@@ -2670,6 +3152,16 @@ async function clearIDBStorage(storage) {
         console.warn('[IDB] clear failed:', e && e.message);
     }
 }
+/**
+ * 新手导读（文件：20-storage-idb.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、IndexedDB 数据库”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== IndexedDB Snapshot Storage (Safari-safe reconnectable backend) ====================
 const IDBStorage = {
     _dbName: 'OpenTavernSnapshotDB',
@@ -2714,6 +3206,16 @@ const IDBStorage = {
         return getIDBStorageInfo(this);
     }
 };
+/**
+ * 新手导读（文件：20-storage-service-helpers.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、辅助函数”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `storageIsQuotaError(e)`、`storageDetectSafari(无参数)`、`storageGetLocationProtocol(无参数)`、`storageIsFileProtocol(无参数)`、`storageHasUserData(data)`、`storageIsValidSnapshot(data)`，以及另外 2 个内部步骤 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Helpers ====================
 function storageIsQuotaError(e) {
     if (!e) return false;
@@ -2771,6 +3273,16 @@ function storageSnapshotTime(data) {
 function storageCloneForPersist(data) {
     return data ? JSON.parse(JSON.stringify(data)) : data;
 }
+/**
+ * 新手导读（文件：20-storage-service-quota-backup.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、容量配额、备份”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `buildStorageQuotaBackupName(date)`、`buildStorageQuotaBackupSnapshot(无参数)`、`getStorageQuotaBackupConversationOrder(order, conversations)`、`exportStorageQuotaBackup(data, filename)`、`downloadStorageQuotaBackupBlob(data, filename)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Quota Backup Helpers ====================
 function buildStorageQuotaBackupName(date) {
     const ts = (date || new Date()).toISOString().replace(/[:.]/g, '-');
@@ -2810,6 +3322,16 @@ function downloadStorageQuotaBackupBlob(data, filename) {
     a.click();
     a.remove();
 }
+/**
+ * 新手导读（文件：20-storage-service-maintenance.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、维护”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `handleStorageQuotaExceeded(service, err, dataSnapshot)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Maintenance Helpers ====================
 function handleStorageQuotaExceeded(service, err, dataSnapshot) {
     const now = Date.now();
@@ -2825,6 +3347,16 @@ function handleStorageQuotaExceeded(service, err, dataSnapshot) {
     }
     try { alert('Storage quota is full. OpenTavern tried to export a backup. Save the backup file, then clear browser storage space.'); } catch(_) {}
 }
+/**
+ * 新手导读（文件：20-storage-service-info-readers.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、信息、读取器”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `readStorageServiceWebLLMUsage(无参数)`、`readStorageServiceAppUsage(service)`、`readStorageServiceBrowserQuota(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Info Readers ====================
 async function readStorageServiceWebLLMUsage() {
     try {
@@ -2863,6 +3395,16 @@ async function readStorageServiceBrowserQuota() {
 
     return { quota, originUsed, persisted };
 }
+/**
+ * 新手导读（文件：20-storage-service-info-fallback.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、信息、回退处理”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `getStorageServiceFallbackInfo(service)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Info Fallback ====================
 function getStorageServiceFallbackInfo(service) {
     const isFileMode = storageIsFileProtocol();
@@ -2885,6 +3427,16 @@ function getStorageServiceFallbackInfo(service) {
         safariOpfsReadOnly: false
     };
 }
+/**
+ * 新手导读（文件：20-storage-service-info.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、信息”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `getStorageServiceInfo(service)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Info ====================
 async function getStorageServiceInfo(service) {
     try {
@@ -2913,6 +3465,16 @@ async function getStorageServiceInfo(service) {
     } catch (e) {}
     return getStorageServiceFallbackInfo(service);
 }
+/**
+ * 新手导读（文件：20-storage-service-clear-local.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、清理、本地”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `isStorageServiceLocalClearKey(key)`、`removeStorageServiceLocalClearKeys(无参数)`、`writeStorageServiceLocalEmptySnapshot(emptyData)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Local Clear Helpers ====================
 function isStorageServiceLocalClearKey(key) {
     return key === STORAGE_KEY || key === STORAGE_CLEAR_KEY || key === 'opentavern-last-backup' || String(key).startsWith('opentavern');
@@ -2930,6 +3492,16 @@ function writeStorageServiceLocalEmptySnapshot(emptyData) {
     localStorage.setItem(STORAGE_CLEAR_KEY, String(emptyData.lastSaved));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(emptyData));
 }
+/**
+ * 新手导读（文件：20-storage-service-clear-backend-helpers.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、清理、存储后端、辅助函数”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `hasStorageServiceBackendMethod(backend, methodName)`、`runStorageServiceBackendClear(operation)`、`canResetStorageServiceOPFSBeforeClear(service)`、`markStorageServiceBackendCleared(cleared, key)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Backend Clear Utility Helpers ====================
 function hasStorageServiceBackendMethod(backend, methodName) {
     return typeof backend !== 'undefined' && typeof backend[methodName] === 'function';
@@ -2951,6 +3523,16 @@ function canResetStorageServiceOPFSBeforeClear(service) {
 function markStorageServiceBackendCleared(cleared, key) {
     cleared[key] = true;
 }
+/**
+ * 新手导读（文件：20-storage-service-clear-backends.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、清理、多个存储后端”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `clearStorageServiceOPFS(service, emptyData, cleared)`、`clearStorageServiceIDB(cleared)`、`clearStorageServiceLocalSnapshot(emptyData, cleared)`、`clearStorageServiceLegacyIDB(cleared)`、`clearStorageServiceWebLLMCache(cleared)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Backend Clear Helpers ====================
 async function clearStorageServiceOPFS(service, emptyData, cleared) {
     try {
@@ -3007,6 +3589,16 @@ async function clearStorageServiceWebLLMCache(cleared) {
         }
     } catch (e) {}
 }
+/**
+ * 新手导读（文件：20-storage-service-clear.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、清理”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `clearStorageServiceData(service)`、`createEmptyStorageServiceSnapshot(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Clear Helpers ====================
 async function clearStorageServiceData(service) {
     let cleared = { opfs: false, idb: false, ls: false };
@@ -3035,6 +3627,16 @@ function createEmptyStorageServiceSnapshot() {
         charactersMigrated: true
     };
 }
+/**
+ * 新手导读（文件：20-storage-service-backend-sync.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、存储后端、同步”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `syncStorageServiceSnapshotToAvailableBackends(service, data, source)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Backend Sync ====================
 async function syncStorageServiceSnapshotToAvailableBackends(service, data, source) {
     if (!service._isValidSnapshot(data)) return;
@@ -3061,6 +3663,16 @@ async function syncStorageServiceSnapshotToAvailableBackends(service, data, sour
 
     if (jobs.length) await Promise.all(jobs);
 }
+/**
+ * 新手导读（文件：20-storage-service-load-readers.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、读取、读取器”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `canReadStorageServiceOPFSCandidate(service)`、`collectStorageServiceOPFSCandidate(service, options, candidates)`、`collectStorageServiceIDBCandidate(service, options, candidates)`、`collectStorageServiceLocalCandidate(service, candidates)`、`collectStorageServiceLegacyIDBCandidate(service, candidates)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Load Candidate Readers ====================
 function canReadStorageServiceOPFSCandidate(service) {
     return !storageIsFileProtocol() && (service._opfsReadableAvailable || (navigator.storage && navigator.storage.getDirectory));
@@ -3102,6 +3714,16 @@ async function collectStorageServiceLegacyIDBCandidate(service, candidates) {
         if (service._isValidSnapshot(legacy)) candidates.push({ backend: 'legacy-idb', data: legacy });
     } catch (_) {}
 }
+/**
+ * 新手导读（文件：20-storage-service-load-candidates.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、读取、候选数据”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `collectStorageServiceSnapshotCandidates(service, options)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Load Candidates ====================
 async function collectStorageServiceSnapshotCandidates(service, options) {
     options = options || {};
@@ -3115,6 +3737,16 @@ async function collectStorageServiceSnapshotCandidates(service, options) {
 
     return candidates;
 }
+/**
+ * 新手导读（文件：20-storage-service-load.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、读取”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `readNewestStorageServiceSnapshotNoSync(service)`、`loadStorageServiceData(service, options)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Load Pipeline ====================
 async function readNewestStorageServiceSnapshotNoSync(service) {
     const candidates = await collectStorageServiceSnapshotCandidates(service, {
@@ -3139,6 +3771,16 @@ async function loadStorageServiceData(service, options) {
     if (shouldSync) await service._syncSnapshotToAvailableBackends(picked.data, picked.backend);
     return picked.data;
 }
+/**
+ * 新手导读（文件：20-storage-service-save-helpers.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、保存、辅助函数”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `isDangerouslyEmptyStorageSnapshot(data)`、`saveStorageServiceLocalHistorySnapshot(service, data)`、`mirrorStorageServiceSnapshotToOPFS(service, data)`、`scheduleStorageServiceInfoRefresh(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Save Helpers ====================
 function isDangerouslyEmptyStorageSnapshot(data) {
     const convs = Object.values((data && data.conversations) || {});
@@ -3180,6 +3822,16 @@ function mirrorStorageServiceSnapshotToOPFS(service, data) {
 function scheduleStorageServiceInfoRefresh() {
     setTimeout(() => { try { if (typeof updateStorageInfo === 'function') updateStorageInfo(); } catch(_) {} }, 60);
 }
+/**
+ * 新手导读（文件：20-storage-service-save-canonical.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、保存、标准副本”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `trySaveStorageServiceIDBCanonical(service, data)`、`markStorageServiceLocalStorageCanonical(service, saved)`、`throwStorageServiceCanonicalSaveFailure(service, lastError, data)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Canonical Save Helpers ====================
 async function trySaveStorageServiceIDBCanonical(service, data) {
     if (!service._idbAvailable) return { saved: false, error: null };
@@ -3213,6 +3865,16 @@ function throwStorageServiceCanonicalSaveFailure(service, lastError, data) {
     console.error('[Storage] All canonical save backends failed:', err);
     throw err;
 }
+/**
+ * 新手导读（文件：20-storage-service-save.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、保存”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `saveStorageServiceData(service, data)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Save Pipeline ====================
 async function saveStorageServiceData(service, data) {
     data = service._cloneForPersist(data);
@@ -3240,6 +3902,16 @@ async function saveStorageServiceData(service, data) {
     if (savedCanonical) return;
     throwStorageServiceCanonicalSaveFailure(service, idbResult.error, data);
 }
+/**
+ * 新手导读（文件：20-storage-service-opfs-init-helpers.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、OPFS 文件存储、初始化、辅助函数”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `resetStorageServiceOPFSState(service)`、`markStorageServiceOPFSSkipped(service, reason)`、`markStorageServiceOPFSFailed(service, reason)`、`getStorageServiceOPFSSkipReason(service)`、`assertStorageServiceOPFSSupported(无参数)`、`isStorageServiceOPFSFileProtocolError(message)`，以及另外 2 个内部步骤 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService OPFS Initialization Helpers ====================
 function resetStorageServiceOPFSState(service) {
     service._opfsReadableAvailable = false;
@@ -3291,6 +3963,16 @@ function applyStorageServiceOPFSProbeResult(service, probe) {
     markStorageServiceOPFSFailed(service, (probe && probe.reason) || 'OPFS write probe failed');
     console.warn('[Storage] OPFS write probe failed; keeping IndexedDB/localStorage canonical:', service._opfsFailureReason);
 }
+/**
+ * 新手导读（文件：20-storage-service-opfs-init.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、OPFS 文件存储、初始化”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `initStorageServiceOPFS(service)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService OPFS Initialization ====================
 async function initStorageServiceOPFS(service) {
     try {
@@ -3321,6 +4003,16 @@ async function initStorageServiceOPFS(service) {
         console.info('[Storage] OPFS unavailable; IndexedDB/localStorage remain canonical:', msg);
     }
 }
+/**
+ * 新手导读（文件：20-storage-service-page-lifecycle.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、页面、生命周期”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `flushStorageServiceSnapshotToLocal(service)`、`persistStorageServicePageHide(service)`、`persistStorageServiceVisibilityState(无参数)`、`bindStorageServicePageLifecycleHandlers(service)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Page Lifecycle Helpers ====================
 function flushStorageServiceSnapshotToLocal(service) {
     const snapshot = service._lastSaveSnapshot;
@@ -3350,6 +4042,16 @@ function bindStorageServicePageLifecycleHandlers(service) {
 
     console.log('[Storage] pagehide/visibilitychange snapshot handlers installed');
 }
+/**
+ * 新手导读（文件：20-storage-service-init.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、初始化”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `installStorageServicePageHideHandler(service)`、`initStorageService(service)`、`initStorageServiceIDB(service)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Initialization ====================
 function installStorageServicePageHideHandler(service) {
     if (service._pageHideInstalled) return;
@@ -3386,6 +4088,16 @@ async function initStorageServiceIDB(service) {
         console.warn('[Storage] IndexedDB unavailable; localStorage is the emergency primary:', e && e.message);
     }
 }
+/**
+ * 新手导读（文件：20-storage-service-state.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、状态”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `createStorageServiceRuntimeState(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Runtime State ====================
 function createStorageServiceRuntimeState() {
     return {
@@ -3409,6 +4121,16 @@ function createStorageServiceRuntimeState() {
         _isSafariBrowser: null
     };
 }
+/**
+ * 新手导读（文件：20-storage-service-helper-api.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、辅助函数、模型接口”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `createStorageServiceHelperAPI(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Helper API ====================
 function createStorageServiceHelperAPI() {
     return {
@@ -3439,6 +4161,16 @@ function createStorageServiceHelperAPI() {
         }
     };
 }
+/**
+ * 新手导读（文件：20-storage-service-local-api.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、本地、模型接口”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `createStorageServiceLocalSnapshotAPI(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Local Snapshot API ====================
 function createStorageServiceLocalSnapshotAPI() {
     return {
@@ -3478,6 +4210,16 @@ function createStorageServiceLocalSnapshotAPI() {
         }
     };
 }
+/**
+ * 新手导读（文件：20-storage-service-operations-api.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、操作、模型接口”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `createStorageServiceOperationsAPI(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService Operations API ====================
 function createStorageServiceOperationsAPI() {
     return {
@@ -3531,6 +4273,16 @@ function createStorageServiceOperationsAPI() {
         }
     };
 }
+/**
+ * 新手导读（文件：20-storage-service-api.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务、模型接口”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：主要从 `createStorageServiceAPI(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService API Delegates ====================
 function createStorageServiceAPI() {
     return Object.assign(
@@ -3540,11 +4292,31 @@ function createStorageServiceAPI() {
         createStorageServiceOperationsAPI()
     );
 }
+/**
+ * 新手导读（文件：20-storage-service.js）
+ *
+ * 负责什么：这是“本地存储系统”中的“存储、存储服务”部分。
+ * 在程序中的位置：它在 OPFS、IndexedDB 和 localStorage 之间读写同一份应用快照。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
+ */
 // ==================== StorageService (IndexedDB primary + localStorage snapshot + optional OPFS mirror) ====================
 var StorageService = Object.assign(
     createStorageServiceRuntimeState(),
     createStorageServiceAPI()
 );
+/**
+ * 新手导读（文件：21-storage-backup-reminder.js）
+ *
+ * 负责什么：这是“存储状态与缓存工具”中的“存储、备份、提醒”部分。
+ * 在程序中的位置：它把容量、后端状态和缓存操作转换成用户能看到的界面信息。
+ * 从哪里开始看：主要从 `shouldShowBackupReminder(无参数)`、`recordBackupMade(无参数)`、`showBackupReminderIfNeeded(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：清理操作不可撤销，必须保留确认步骤和错误提示。
+ */
 // ==================== Backup Reminder ====================
 const BACKUP_REMINDER_DAYS = 7;
 
@@ -3597,6 +4369,16 @@ function showBackupReminderIfNeeded() {
         };
     }, 4500);
 }
+/**
+ * 新手导读（文件：21-storage-opfs-status-text.js）
+ *
+ * 负责什么：这是“存储状态与缓存工具”中的“存储、OPFS 文件存储、状态、文本”部分。
+ * 在程序中的位置：它把容量、后端状态和缓存操作转换成用户能看到的界面信息。
+ * 从哪里开始看：主要从 `getStorageBackendLabel(backend)`、`formatStorageMB(bytes)`、`isStorageInfoFileProtocolMode(info)`、`getOPFSStatusText(info)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：清理操作不可撤销，必须保留确认步骤和错误提示。
+ */
 // ==================== Storage OPFS Status Text ====================
 function getStorageBackendLabel(backend) {
     if (backend === 'opfs') return 'OPFS';
@@ -3631,6 +4413,16 @@ function getOPFSStatusText(info) {
     if (info.safariOpfsReadOnly) return 'OPFS: Safari \u4ec5\u4f5c\u6062\u590d\u6765\u6e90';
     return 'OPFS: \u4ec5\u4f5c\u6062\u590d\u6765\u6e90';
 }
+/**
+ * 新手导读（文件：21-storage-usage-format.js）
+ *
+ * 负责什么：这是“存储状态与缓存工具”中的“存储、用量、格式”部分。
+ * 在程序中的位置：它把容量、后端状态和缓存操作转换成用户能看到的界面信息。
+ * 从哪里开始看：主要从 `buildStorageUsageText(info)`、`buildStorageHintText(info, fallbackBackend)`、`getStoragePressurePercent(info)`、`styleStorageBackendBadge(el, backend)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：清理操作不可撤销，必须保留确认步骤和错误提示。
+ */
 // ==================== Storage Usage Formatting ====================
 function buildStorageUsageText(info) {
     info = info || {};
@@ -3691,6 +4483,16 @@ function styleStorageBackendBadge(el, backend) {
         el.style.color = '#fbbf24';
     }
 }
+/**
+ * 新手导读（文件：21-storage-status-render.js）
+ *
+ * 负责什么：这是“存储状态与缓存工具”中的“存储、状态、渲染”部分。
+ * 在程序中的位置：它把容量、后端状态和缓存操作转换成用户能看到的界面信息。
+ * 从哪里开始看：主要从 `applyStoragePressureStyles(usageEl, bar, percent)`、`applyStorageUsageElements(info, backend, usageEl, bar)`、`buildStorageStatusTitle(info, backend)`、`applyStorageStatusInfo(el, info, backend)`、`bindStorageStatusClick(el)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：清理操作不可撤销，必须保留确认步骤和错误提示。
+ */
 // ==================== Storage Status Render Helpers ====================
 function applyStoragePressureStyles(usageEl, bar, percent) {
     if (percent > 85) {
@@ -3752,6 +4554,16 @@ function bindStorageStatusClick(el) {
         if (modal) modal.classList.remove('hidden');
     });
 }
+/**
+ * 新手导读（文件：21-storage-status-ui.js）
+ *
+ * 负责什么：这是“存储状态与缓存工具”中的“存储、状态、界面”部分。
+ * 在程序中的位置：它把容量、后端状态和缓存操作转换成用户能看到的界面信息。
+ * 从哪里开始看：主要从 `updateStorageInfo(无参数)`、`showOrHideStorageWarning(percent)`、`updateStorageStatusUI(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：清理操作不可撤销，必须保留确认步骤和错误提示。
+ */
 // ==================== Storage Status UI ====================
 function updateStorageInfo() {
     if (typeof updateStorageStatusUI === 'function') {
@@ -3813,6 +4625,16 @@ function updateStorageStatusUI() {
 
     bindStorageStatusClick(el);
 }
+/**
+ * 新手导读（文件：21-webllm-cache-tools.js）
+ *
+ * 负责什么：这是“存储状态与缓存工具”中的“浏览器本地大模型、缓存、工具”部分。
+ * 在程序中的位置：它把容量、后端状态和缓存操作转换成用户能看到的界面信息。
+ * 从哪里开始看：主要从 `clearWebLLMCache(options = {})`、`getWebLLMUsedSize(options = {})` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：清理操作不可撤销，必须保留确认步骤和错误提示。
+ */
 // ==================== WebLLM Cache Tools ====================
 async function clearWebLLMCache(options = {}) {
     const { silent = false } = options;
@@ -3867,6 +4689,16 @@ async function getWebLLMUsedSize(options = {}) {
     window._webllmCacheSizeMemo = { size: total, time: now };
     return total;
 }
+/**
+ * 新手导读（文件：22-cloud-sync.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `ensureCloudSyncSettings(无参数)`、`buildAppDataSnapshot(options)`、`getCloudSyncSnapshotConversationOrder(无参数)`、`getCloudSyncSnapshotActiveConversationId(无参数)`、`syncOpenSettingsFormForCloudSnapshot(无参数)`、`syncNonEmptyPromptSettingsForCloudSnapshot(无参数)`，以及另外 14 个内部步骤 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Settings & Snapshot ====================
 var _cloudSyncSavingStatus = false;
 var CLOUD_SYNC_TIME_TOLERANCE_MS = 1000;
@@ -4018,22 +4850,39 @@ function getCloudSyncFreshness(remote) {
 }
 
 function canCompareCloudSyncSnapshotBytes(remote) {
-    if (remote && remote.encrypted === true) return false;
-    return !(state && state.settings && state.settings.cloudSyncEncrypted);
+    if (!remote || typeof remote !== 'object') return false;
+    if (remote.encrypted === true) {
+        return getCloudSyncSnapshotConversationBytes(remote) > 0;
+    }
+    return true;
 }
 
 function getCloudSyncConversationSizeFreshness(remote, localSnapshot) {
     if (!canCompareCloudSyncSnapshotBytes(remote)) return '';
-    var remoteBytes = getCloudSyncConversationSerializedBytes(remote);
-    var localBytes = getCloudSyncConversationSerializedBytes(localSnapshot);
+    var remoteBytes = getCloudSyncSnapshotConversationBytes(remote);
+    var localBytes = getCloudSyncSnapshotConversationBytes(localSnapshot);
     if (remoteBytes <= 0 || localBytes <= 0) return '';
     var byteDiff = remoteBytes - localBytes;
     if (Math.abs(byteDiff) <= CLOUD_SYNC_SIZE_TOLERANCE_BYTES) return '';
     return byteDiff > 0 ? 'newer-by-size' : 'older-by-size';
 }
 
+function getCloudSyncSnapshotConversationBytes(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return 0;
+    if (snapshot.encrypted === true) {
+        var encryptedBytes = Number(snapshot.conversationBytes);
+        return Number.isFinite(encryptedBytes) && encryptedBytes > 0 ? Math.floor(encryptedBytes) : 0;
+    }
+    return getCloudSyncConversationSerializedBytes(snapshot);
+}
+
 function getCloudSyncRemoteBytes(remote) {
     return Number(remote && remote.__cloudSyncBytes || 0) || 0;
+}
+
+function getCloudSyncRemoteUpdatedAt(remote) {
+    var updatedAt = Number(remote && remote.__cloudSyncUpdatedAt);
+    return Number.isFinite(updatedAt) && updatedAt >= 0 ? Math.floor(updatedAt) : null;
 }
 
 function getCloudSyncSerializedBytes(value) {
@@ -4059,6 +4908,16 @@ function getCloudSyncConversationSerializedBytes(snapshot) {
         activeConvId: getValidConversationIdOrFallback(snapshot.activeConvId, conversationOrder, conversations)
     });
 }
+/**
+ * 新手导读（文件：22-cloud-sync-normalize.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、规范化”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `isCloudSyncObjectMap(value)`、`normalizeCloudSyncObjectMap(value)`、`normalizeCloudSyncTimestamp(value)`、`normalizeCloudSyncBoolean(value)`、`normalizeCloudSyncConversationOrder(data)`、`normalizeCloudSyncActiveConversation(data)`，以及另外 1 个内部步骤 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Snapshot Normalization ====================
 function isCloudSyncObjectMap(value) {
     return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -4106,6 +4965,16 @@ function normalizeCloudSyncSnapshot(raw) {
     data.lastSaved = normalizeCloudSyncTimestamp(data.lastSaved);
     return data;
 }
+/**
+ * 新手导读（文件：22-cloud-sync-crypto-envelope.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、加密、加密数据封装”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `isCloudSyncNonEmptyString(value)`、`getCloudSyncEnvelopeIterations(envelope)`、`validateCloudSyncEncryptedEnvelope(envelope)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Encryption Envelope Helpers ====================
 function isCloudSyncNonEmptyString(value) {
     return typeof value === 'string' && value.trim() !== '';
@@ -4133,6 +5002,16 @@ function validateCloudSyncEncryptedEnvelope(envelope) {
     }
     getCloudSyncEnvelopeIterations(envelope);
 }
+/**
+ * 新手导读（文件：22-cloud-sync-base64.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、Base64 编码”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `bytesToBase64(bytes)`、`base64ToBytes(text)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Base64 Helpers ====================
 function bytesToBase64(bytes) {
     var binary = '';
@@ -4149,6 +5028,16 @@ function base64ToBytes(text) {
     for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     return bytes;
 }
+/**
+ * 新手导读（文件：22-cloud-sync-key-derivation.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、关键词、密钥派生”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `getCloudSyncWebCryptoApi(无参数)`、`isCloudSyncWebCryptoAvailable(无参数)`、`getCloudSyncWebCryptoUnavailableMessage(无参数)`、`deriveCloudSyncKey(passphrase, salt, iterations)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Key Derivation ====================
 function getCloudSyncWebCryptoApi() {
     if (typeof crypto !== 'undefined' && crypto && crypto.subtle && crypto.getRandomValues) {
@@ -4187,6 +5076,16 @@ async function deriveCloudSyncKey(passphrase, salt, iterations) {
         ['encrypt', 'decrypt']
     );
 }
+/**
+ * 新手导读（文件：22-cloud-sync-encrypt.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、加密”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `encryptCloudSyncSnapshot(snapshot)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Encrypt Snapshot ====================
 async function encryptCloudSyncSnapshot(snapshot) {
     var s = ensureCloudSyncSettings();
@@ -4214,10 +5113,21 @@ async function encryptCloudSyncSnapshot(snapshot) {
         salt: bytesToBase64(salt),
         iv: bytesToBase64(iv),
         payload: bytesToBase64(cipher),
+        conversationBytes: getCloudSyncConversationSerializedBytes(snapshot),
         lastSaved: snapshot.lastSaved,
         createdAt: Date.now()
     };
 }
+/**
+ * 新手导读（文件：22-cloud-sync-decrypt.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、解密”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `decryptCloudSyncSnapshot(envelope)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Decrypt Snapshot ====================
 async function decryptCloudSyncSnapshot(envelope) {
     if (!envelope || envelope.encrypted !== true) return envelope;
@@ -4238,15 +5148,36 @@ async function decryptCloudSyncSnapshot(envelope) {
     var text = new TextDecoder().decode(new Uint8Array(plain));
     return normalizeCloudSyncSnapshot(JSON.parse(text));
 }
+/**
+ * 新手导读（文件：22-cloud-sync-crypto.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、加密”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Crypto Facade ====================
 // Base64, key derivation, encryption, and decryption helpers live in:
 // - 22-cloud-sync-base64.js
 // - 22-cloud-sync-key-derivation.js
 // - 22-cloud-sync-encrypt.js
 // - 22-cloud-sync-decrypt.js
+/**
+ * 新手导读（文件：22-cloud-sync-transport.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、网络传输”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `requestCloudSync(method, payload)`、`readCloudSyncRemoteSnapshot(无参数)`、`attachCloudSyncRemoteMetadata(snapshot, result)`、`setCloudSyncStatus(message, isError)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Transport & Status ====================
-async function requestCloudSync(method, payload) {
+async function requestCloudSync(method, payload, requestOptions) {
     var s = ensureCloudSyncSettings();
+    requestOptions = requestOptions || {};
     var endpoint = getCloudSyncEndpoint();
     if (!endpoint) throw new Error('请填写云同步端点。');
     if (!s.cloudSyncToken) throw new Error('请填写云同步令牌。');
@@ -4257,6 +5188,12 @@ async function requestCloudSync(method, payload) {
         'Authorization': 'Bearer ' + s.cloudSyncToken,
         'X-OpenTavern-Token': s.cloudSyncToken
     };
+    var expectedUpdatedAt = Number(requestOptions.expectedUpdatedAt);
+    if (Number.isFinite(expectedUpdatedAt) && expectedUpdatedAt >= 0) {
+        expectedUpdatedAt = Math.floor(expectedUpdatedAt);
+        headers['If-Match'] = String(expectedUpdatedAt);
+        headers['X-OpenTavern-If-Match-Updated-At'] = String(expectedUpdatedAt);
+    }
     var options = { method: method, headers: headers };
     if (payload !== undefined) {
         headers['Content-Type'] = 'application/json';
@@ -4271,7 +5208,13 @@ async function requestCloudSync(method, payload) {
     }
     if (!resp.ok || (json && json.success === false)) {
         var msg = (json && (json.error || json.message)) || text || ('HTTP ' + resp.status);
-        throw new Error(msg);
+        var error = new Error(msg);
+        error.status = resp.status;
+        var currentUpdatedAt = Number(json && json.currentUpdatedAt);
+        if (Number.isFinite(currentUpdatedAt) && currentUpdatedAt >= 0) {
+            error.currentUpdatedAt = Math.floor(currentUpdatedAt);
+        }
+        throw error;
     }
     return json || {};
 }
@@ -4312,6 +5255,16 @@ function setCloudSyncStatus(message, isError) {
         el.className = 'text-[10px] leading-relaxed ' + (isError ? 'text-red-400' : 'text-zinc-500');
     }
 }
+/**
+ * 新手导读（文件：22-cloud-sync-apply-settings.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、应用数据、设置”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `getCloudSyncLocalSettingsForRestore(无参数)`、`copyCloudSyncLocalSetting(target, key)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Apply Local Settings ====================
 function getCloudSyncLocalSettingsForRestore() {
     var local = {
@@ -4340,6 +5293,16 @@ function copyCloudSyncLocalSetting(target, key) {
     if (value === undefined || value === null) return;
     target[key] = value;
 }
+/**
+ * 新手导读（文件：22-cloud-sync-apply-conversations.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、应用数据、多个会话”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `normalizeCloudSyncRestoredConversations(无参数)`、`ensureCloudSyncRestoredActiveConversation(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Apply Conversations ====================
 function normalizeCloudSyncRestoredConversations() {
     Object.values(state.conversations || {}).forEach(function(conv) {
@@ -4362,6 +5325,16 @@ function ensureCloudSyncRestoredActiveConversation() {
     state.conversationOrder = [conv.id];
     state.activeConvId = conv.id;
 }
+/**
+ * 新手导读（文件：22-cloud-sync-apply-effects.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、应用数据、联动效果”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `persistCloudSyncAppliedSnapshot(data)`、`notifyCloudSyncSnapshotApplied(无参数)`、`refreshOpenSettingsControlsAfterCloudSyncApply(无参数)`、`isSettingsModalOpenForCloudSyncRefresh(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Apply Effects ====================
 function persistCloudSyncAppliedSnapshot(data) {
     _cloudSyncSavingStatus = true;
@@ -4399,6 +5372,16 @@ function isSettingsModalOpenForCloudSyncRefresh() {
         !dom.settingsModal.classList.contains('hidden')
     );
 }
+/**
+ * 新手导读（文件：22-cloud-sync-apply.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、应用数据”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `applyCloudSyncSnapshot(snapshot)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Apply Snapshot ====================
 function applyCloudSyncSnapshot(snapshot) {
     var data = normalizeCloudSyncSnapshot(snapshot);
@@ -4418,6 +5401,16 @@ function applyCloudSyncSnapshot(snapshot) {
     notifyCloudSyncSnapshotApplied();
     return data;
 }
+/**
+ * 新手导读（文件：22-cloud-sync-operation-helpers.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、操作、辅助函数”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `setCloudSyncPendingStatus(statusEl, message)`、`formatCloudSyncTimestamp(timestamp)`、`formatCloudSyncFreshnessLabel(freshness)`、`disableCloudSyncEncryptionWhenUnavailable(statusEl)`、`persistCloudSyncOperationState(无参数)`、`persistCloudSyncStatusSilently(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Operation Helpers ====================
 function setCloudSyncPendingStatus(statusEl, message) {
     var target = statusEl || document.getElementById('cloudSyncStatus');
@@ -4470,6 +5463,16 @@ function persistCloudSyncStatusSilently() {
         console.warn('[CloudSync] 持久化同步状态失败:', err && err.message);
     });
 }
+/**
+ * 新手导读（文件：22-cloud-sync-upload.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、上传”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `uploadCloudSyncSnapshot(statusEl, options)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Upload ====================
 async function uploadCloudSyncSnapshot(statusEl, options) {
     ensureCloudSyncSettings();
@@ -4478,6 +5481,10 @@ async function uploadCloudSyncSnapshot(statusEl, options) {
     setCloudSyncPendingStatus(statusEl, '正在上传...');
     var comparisonSnapshot = options.force ? null : prepareCloudSyncLocalSnapshotForComparison();
     var snapshot = buildAppDataSnapshot({ skipSettingsFormSync: !options.force });
+    var expectedRemoteUpdatedAt = Number(options.expectedRemoteUpdatedAt);
+    expectedRemoteUpdatedAt = Number.isFinite(expectedRemoteUpdatedAt) && expectedRemoteUpdatedAt >= 0
+        ? Math.floor(expectedRemoteUpdatedAt)
+        : null;
 
     if (!options.force) {
         var remote = null;
@@ -4497,22 +5504,49 @@ async function uploadCloudSyncSnapshot(statusEl, options) {
             await persistCloudSyncOperationState();
             return { success: false, skipped: true, reason: 'remote-newer' };
         }
+        if (!remote) {
+            expectedRemoteUpdatedAt = 0;
+        } else {
+            var remoteUpdatedAt = getCloudSyncRemoteUpdatedAt(remote);
+            if (remoteUpdatedAt !== null) expectedRemoteUpdatedAt = remoteUpdatedAt;
+        }
     }
 
     var payload = await encryptCloudSyncSnapshot(snapshot);
-    var result = await requestCloudSync('POST', {
-        version: 1,
-        app: 'OpenTavern',
-        updatedAt: snapshot.lastSaved,
-        encrypted: payload && payload.encrypted === true,
-        data: payload
-    });
+    var result;
+    try {
+        result = await requestCloudSync('POST', {
+            version: 1,
+            app: 'OpenTavern',
+            updatedAt: snapshot.lastSaved,
+            encrypted: payload && payload.encrypted === true,
+            data: payload
+        }, expectedRemoteUpdatedAt === null ? undefined : { expectedUpdatedAt: expectedRemoteUpdatedAt });
+    } catch (err) {
+        if (err && (err.status === 409 || err.status === 412)) {
+            var conflictMsg = '云端快照刚被另一设备更新，已停止覆盖。请再次点击“立即同步”重新判断。';
+            setCloudSyncStatus(conflictMsg, true);
+            await persistCloudSyncOperationState();
+            throw new Error(conflictMsg);
+        }
+        throw err;
+    }
     var when = formatCloudSyncTimestamp(result.updatedAt);
     var msg = '云端上传完成：' + when + (payload && payload.encrypted ? '（已加密）' : '');
     setCloudSyncStatus(msg, false);
     await persistCloudSyncOperationState();
     return result;
 }
+/**
+ * 新手导读（文件：22-cloud-sync-download.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、下载”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `downloadCloudSyncSnapshot(statusEl, rawData)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Download ====================
 async function downloadCloudSyncSnapshot(statusEl, rawData) {
     ensureCloudSyncSettings();
@@ -4533,7 +5567,27 @@ async function downloadCloudSyncSnapshot(statusEl, rawData) {
     await persistCloudSyncOperationState();
     return data;
 }
+/**
+ * 新手导读（文件：22-cloud-sync-sync.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `syncCloudSyncSnapshot(statusEl)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Compare And Sync ====================
+/**
+ * 比较本地与云端快照的新旧，并自动选择上传、下载或什么都不做。
+ *
+ * @param {HTMLElement|null} statusEl - 可选状态元素，用于向用户显示同步进度。
+ * @returns {Promise<*>} 上传或下载操作的异步结果；已经最新时仅完成状态保存。
+ *
+ * 判断依据优先使用时间戳，必要时再比较大小。云端不存在就首次上传；云端较新就下载；
+ * 本地较新就强制上传；完全一致只更新“已是最新”提示。这里的 force 不是忽略安全校验，
+ * 而是表示比较已经完成，可以执行预定方向的同步。
+ */
 async function syncCloudSyncSnapshot(statusEl) {
     ensureCloudSyncSettings();
     disableCloudSyncEncryptionWhenUnavailable(statusEl);
@@ -4542,8 +5596,8 @@ async function syncCloudSyncSnapshot(statusEl) {
 
     var remote = await readCloudSyncRemoteSnapshot();
     if (!remote) {
-        setCloudSyncStatus('未找到云端快照，正在上传本地快照...', false);
-        return uploadCloudSyncSnapshot(statusEl, { force: true });
+        setCloudSyncPendingStatus(statusEl, '未找到云端快照，正在上传本地快照...');
+        return uploadCloudSyncSnapshot(statusEl, { force: true, expectedRemoteUpdatedAt: 0 });
     }
 
     var freshness = getCloudSyncFreshness(remote, localSnapshot);
@@ -4551,19 +5605,43 @@ async function syncCloudSyncSnapshot(statusEl) {
         return downloadCloudSyncSnapshot(statusEl, remote);
     }
     if (freshness === 'older' || freshness === 'older-by-size') {
-        setCloudSyncStatus('本地快照较新，正在上传到云端...', false);
-        return uploadCloudSyncSnapshot(statusEl, { force: true });
+        setCloudSyncPendingStatus(statusEl, '本地快照较新，正在上传到云端...');
+        var remoteUpdatedAt = getCloudSyncRemoteUpdatedAt(remote);
+        return uploadCloudSyncSnapshot(statusEl, {
+            force: true,
+            expectedRemoteUpdatedAt: remoteUpdatedAt === null ? undefined : remoteUpdatedAt
+        });
     }
     var msg = '云同步已是最新。';
     setCloudSyncStatus(msg, false);
     await persistCloudSyncOperationState();
     return { success: true, upToDate: true };
 }
+/**
+ * 新手导读（文件：22-cloud-sync-operations.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、操作”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Operations Facade ====================
 // Upload, download, and compare/sync workflows live in:
 // - 22-cloud-sync-upload.js
 // - 22-cloud-sync-download.js
 // - 22-cloud-sync-sync.js
+/**
+ * 新手导读（文件：22-cloud-sync-scheduler.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步、定时调度”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `scheduleCloudSyncUpload(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Auto Upload ====================
 var _cloudSyncUploadTimer = null;
 
@@ -4581,6 +5659,16 @@ function scheduleCloudSyncUpload() {
         });
     }, 2500);
 }
+/**
+ * 新手导读（文件：23-storage-legacy-idb-requests.js）
+ *
+ * 负责什么：这是“旧存储恢复”中的“存储、旧版兼容、IndexedDB 数据库、请求”部分。
+ * 在程序中的位置：它扫描旧版数据库和备份候选，帮助用户找回历史数据。
+ * 从哪里开始看：主要从 `legacyIDBHasStore(storeNames, storeName)`、`closeLegacyIndexedDB(db)`、`getLegacyIDBStoreValue(tx, storeNames, storeName, key)`、`getAllLegacyIDBStoreValues(tx, storeNames, storeName)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：恢复前应先预览候选，不能在尚未确认时删除现有数据。
+ */
 // ==================== Legacy IndexedDB Request Helpers ====================
 function legacyIDBHasStore(storeNames, storeName) {
     return !!(storeNames && storeNames.contains && storeNames.contains(storeName));
@@ -4621,6 +5709,16 @@ function getAllLegacyIDBStoreValues(tx, storeNames, storeName) {
         }
     });
 }
+/**
+ * 新手导读（文件：23-storage-legacy-idb-snapshot.js）
+ *
+ * 负责什么：这是“旧存储恢复”中的“存储、旧版兼容、IndexedDB 数据库、快照”部分。
+ * 在程序中的位置：它扫描旧版数据库和备份候选，帮助用户找回历史数据。
+ * 从哪里开始看：主要从 `mapLegacyIDBRecordsById(records)`、`buildLegacyIDBRecoverySnapshot(settings, conversationsRaw, worldBooksRaw, meta)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：恢复前应先预览候选，不能在尚未确认时删除现有数据。
+ */
 // ==================== Legacy IndexedDB Snapshot Builder ====================
 function mapLegacyIDBRecordsById(records) {
     const out = {};
@@ -4643,6 +5741,16 @@ function buildLegacyIDBRecoverySnapshot(settings, conversationsRaw, worldBooksRa
         _loadedFrom: 'legacy-idb'
     };
 }
+/**
+ * 新手导读（文件：23-storage-legacy-idb.js）
+ *
+ * 负责什么：这是“旧存储恢复”中的“存储、旧版兼容、IndexedDB 数据库”部分。
+ * 在程序中的位置：它扫描旧版数据库和备份候选，帮助用户找回历史数据。
+ * 从哪里开始看：主要从 `readLegacyIndexedDB(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：恢复前应先预览候选，不能在尚未确认时删除现有数据。
+ */
 // ==================== Legacy IndexedDB Recovery Reader ====================
 async function readLegacyIndexedDB() {
     return new Promise((resolve) => {
@@ -4685,6 +5793,16 @@ async function readLegacyIndexedDB() {
         }
     });
 }
+/**
+ * 新手导读（文件：23-storage-recovery-candidates.js）
+ *
+ * 负责什么：这是“旧存储恢复”中的“存储、恢复、候选数据”部分。
+ * 在程序中的位置：它扫描旧版数据库和备份候选，帮助用户找回历史数据。
+ * 从哪里开始看：主要从 `createStorageRecoveryCandidate(backend, data)`、`hasRecoverableStorageData(data)`、`sortStorageRecoveryCandidates(candidates)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：恢复前应先预览候选，不能在尚未确认时删除现有数据。
+ */
 // ==================== Storage Recovery Candidates ====================
 function createStorageRecoveryCandidate(backend, data) {
     return {
@@ -4716,6 +5834,16 @@ function sortStorageRecoveryCandidates(candidates) {
     });
     return candidates;
 }
+/**
+ * 新手导读（文件：23-storage-recovery-backends.js）
+ *
+ * 负责什么：这是“旧存储恢复”中的“存储、恢复、多个存储后端”部分。
+ * 在程序中的位置：它扫描旧版数据库和备份候选，帮助用户找回历史数据。
+ * 从哪里开始看：主要从 `scanOPFSStorageRecoveryCandidate(candidates)`、`scanIDBStorageRecoveryCandidate(candidates)`、`scanLocalStorageCurrentRecoveryCandidate(candidates)`、`scanLocalStorageBackupRecoveryCandidates(candidates)`、`scanLegacyIDBStorageRecoveryCandidate(candidates)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：恢复前应先预览候选，不能在尚未确认时删除现有数据。
+ */
 // ==================== Storage Recovery Backend Scanners ====================
 async function scanOPFSStorageRecoveryCandidate(candidates) {
     try {
@@ -4774,6 +5902,16 @@ async function scanLegacyIDBStorageRecoveryCandidate(candidates) {
         }
     } catch (e) {}
 }
+/**
+ * 新手导读（文件：23-storage-recovery-scan.js）
+ *
+ * 负责什么：这是“旧存储恢复”中的“存储、恢复、扫描”部分。
+ * 在程序中的位置：它扫描旧版数据库和备份候选，帮助用户找回历史数据。
+ * 从哪里开始看：主要从 `scanAllStorageBackends(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：恢复前应先预览候选，不能在尚未确认时删除现有数据。
+ */
 // ==================== Storage Backend Recovery Scanner ====================
 async function scanAllStorageBackends() {
     const candidates = [];
@@ -4786,6 +5924,16 @@ async function scanAllStorageBackends() {
 
     return sortStorageRecoveryCandidates(candidates);
 }
+/**
+ * 新手导读（文件：23-storage-recovery-restore.js）
+ *
+ * 负责什么：这是“旧存储恢复”中的“存储、恢复”部分。
+ * 在程序中的位置：它扫描旧版数据库和备份候选，帮助用户找回历史数据。
+ * 从哪里开始看：主要从 `applyStorageRecoveryData(data)`、`buildStorageRecoverySaveSnapshot(无参数)`、`getStorageRecoveryConversationOrder(order, conversations)`、`getStorageRecoveryActiveConversationId(activeId)`、`restoreFromStorageCandidate(candidate)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：恢复前应先预览候选，不能在尚未确认时删除现有数据。
+ */
 // ==================== Storage Candidate Restore ====================
 function applyStorageRecoveryData(data) {
     if (data.settings) {
@@ -4854,9 +6002,29 @@ async function restoreFromStorageCandidate(candidate) {
         alert('恢复失败：' + (err.message || err));
     }
 }
+/**
+ * 新手导读（文件：23-storage-recovery.js）
+ *
+ * 负责什么：这是“旧存储恢复”中的“存储、恢复”部分。
+ * 在程序中的位置：它扫描旧版数据库和备份候选，帮助用户找回历史数据。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：恢复前应先预览候选，不能在尚未确认时删除现有数据。
+ */
 // ==================== Storage Recovery Public Hooks ====================
 window.scanAllStorageBackends = scanAllStorageBackends;
 window.restoreFromStorageCandidate = restoreFromStorageCandidate;
+/**
+ * 新手导读（文件：24-storage-compat.js）
+ *
+ * 负责什么：这是“存储兼容层”中的“存储、兼容处理”部分。
+ * 在程序中的位置：它为旧调用方式提供过渡入口，再把工作交给新的存储服务。
+ * 从哪里开始看：主要从 `loadAll(无参数)`、`saveAll(data)`、`getSafeSettingsForPersist(无参数)`、`getSafeSettingsForCloudSync(无参数)`、`makeId(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：兼容接口可能仍被旧快照或旧页面调用，不能只因看似重复就删除。
+ */
 // ==================== 兼容层（同步 API） ====================
 // 历史同步入口，内部已委托给 StorageService（OPFS + LS 兜底）
 
@@ -4931,6 +6099,16 @@ var DEFAULT_TWO_STAGE_PROMPT = [
     '- 选项之间应有明显差异，避免机械重复。',
     '- 只输出 XML，不要 Markdown。'
 ].join('\n');
+/**
+ * 新手导读（文件：30-state-store.js）
+ *
+ * 负责什么：这是“应用状态核心”中的“状态、状态仓库”部分。
+ * 在程序中的位置：它定义全局状态、默认设置以及会话增删改查入口。
+ * 从哪里开始看：主要从 `createReactiveStore(initialState)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：状态字段会被持久化；新增字段时要同时考虑默认值和旧快照规范化。
+ */
 // ==================== State Store ====================
 function createReactiveStore(initialState) {
     var state = JSON.parse(JSON.stringify(initialState || {}));
@@ -4983,6 +6161,16 @@ function createReactiveStore(initialState) {
         }
     };
 }
+/**
+ * 新手导读（文件：30-state-default-settings.js）
+ *
+ * 负责什么：这是“应用状态核心”中的“状态、默认值、设置”部分。
+ * 在程序中的位置：它定义全局状态、默认设置以及会话增删改查入口。
+ * 从哪里开始看：主要从 `defaultSettings(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：状态字段会被持久化；新增字段时要同时考虑默认值和旧快照规范化。
+ */
 // ==================== Default Settings ====================
 function defaultSettings() {
     return {
@@ -5045,6 +6233,16 @@ function defaultSettings() {
         myCardOrder: []
     };
 }
+/**
+ * 新手导读（文件：30-state-api-conversation.js）
+ *
+ * 负责什么：这是“应用状态核心”中的“状态、模型接口、会话”部分。
+ * 在程序中的位置：它定义全局状态、默认设置以及会话增删改查入口。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：状态字段会被持久化；新增字段时要同时考虑默认值和旧快照规范化。
+ */
 // ==================== App State ====================
 var appStore = createReactiveStore({
     settings: defaultSettings(),
@@ -5058,6 +6256,16 @@ var appStore = createReactiveStore({
 });
 
 var state = appStore.state;
+/**
+ * 新手导读（文件：31-api-presets.js）
+ *
+ * 负责什么：这是“模型 API 连接”中的“模型接口、预设”部分。
+ * 在程序中的位置：它整理接口地址、探测模型列表，并向用户报告连接测试结果。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不同服务的接口格式不完全相同，修改时要保留 OpenAI 与 Ollama 兼容分支。
+ */
 // ==================== API Presets (常用接口地址) ====================
 (function() {
     var MAIN_PRESETS = {
@@ -5093,6 +6301,16 @@ var state = appStore.state;
         }
     };
 })();
+/**
+ * 新手导读（文件：31-api-endpoint-normalizer.js）
+ *
+ * 负责什么：这是“模型 API 连接”中的“模型接口地址、规范化”部分。
+ * 在程序中的位置：它整理接口地址、探测模型列表，并向用户报告连接测试结果。
+ * 从哪里开始看：主要从 `normalizeApiEndpoint(raw)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不同服务的接口格式不完全相同，修改时要保留 OpenAI 与 Ollama 兼容分支。
+ */
 // ==================== API Endpoint Normalizer ====================
 function normalizeApiEndpoint(raw) {
     if (!raw) return raw;
@@ -5117,6 +6335,16 @@ function normalizeApiEndpoint(raw) {
     }
     return url + '/chat/completions';
 }
+/**
+ * 新手导读（文件：31-api-ollama-compat.js）
+ *
+ * 负责什么：这是“模型 API 连接”中的“模型接口、Ollama 接口、兼容处理”部分。
+ * 在程序中的位置：它整理接口地址、探测模型列表，并向用户报告连接测试结果。
+ * 从哪里开始看：主要从 `isLikelyOllamaEndpoint(raw)`、`shouldUseOllamaCompat(endpoint)`、`normalizeMessagesForOllamaCompatibility(messages)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不同服务的接口格式不完全相同，修改时要保留 OpenAI 与 Ollama 兼容分支。
+ */
 // ==================== Ollama API Compatibility ====================
 function isLikelyOllamaEndpoint(raw) {
     if (!raw) return false;
@@ -5174,12 +6402,42 @@ function normalizeMessagesForOllamaCompatibility(messages) {
         return acc;
     }, []);
 }
+/**
+ * 新手导读（文件：31-api-compat.js）
+ *
+ * 负责什么：这是“模型 API 连接”中的“模型接口、兼容处理”部分。
+ * 在程序中的位置：它整理接口地址、探测模型列表，并向用户报告连接测试结果。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不同服务的接口格式不完全相同，修改时要保留 OpenAI 与 Ollama 兼容分支。
+ */
 // ==================== API Compatibility Facade ====================
 // Endpoint normalization and provider-specific message compatibility live in:
 // - 31-api-endpoint-normalizer.js
 // - 31-api-ollama-compat.js
+/**
+ * 新手导读（文件：31-api-connection-test-config.js）
+ *
+ * 负责什么：这是“模型 API 连接”中的“模型接口、连接、测试、配置”部分。
+ * 在程序中的位置：它整理接口地址、探测模型列表，并向用户报告连接测试结果。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不同服务的接口格式不完全相同，修改时要保留 OpenAI 与 Ollama 兼容分支。
+ */
 // ==================== API Connection Test Config ====================
 const API_CONNECTION_TEST_TIMEOUT_MS = 15000;
+/**
+ * 新手导读（文件：31-api-connection-endpoints.js）
+ *
+ * 负责什么：这是“模型 API 连接”中的“模型接口、连接、多个接口地址”部分。
+ * 在程序中的位置：它整理接口地址、探测模型列表，并向用户报告连接测试结果。
+ * 从哪里开始看：主要从 `deriveApiModelsEndpoint(raw)`、`fetchApiTestWithTimeout(url, options)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不同服务的接口格式不完全相同，修改时要保留 OpenAI 与 Ollama 兼容分支。
+ */
 // ==================== API Connection Test Endpoints ====================
 function deriveApiModelsEndpoint(raw) {
     var url = String(raw || '').trim().replace(/\/+$/, '');
@@ -5205,6 +6463,16 @@ async function fetchApiTestWithTimeout(url, options) {
         throw e;
     }
 }
+/**
+ * 新手导读（文件：31-api-connection-result-ui.js）
+ *
+ * 负责什么：这是“模型 API 连接”中的“模型接口、连接、结果、界面”部分。
+ * 在程序中的位置：它整理接口地址、探测模型列表，并向用户报告连接测试结果。
+ * 从哪里开始看：主要从 `buildApiTestErrorHtml(title, details, suggestions, testedUrls)`、`buildApiTestSuccessHtml(models)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不同服务的接口格式不完全相同，修改时要保留 OpenAI 与 Ollama 兼容分支。
+ */
 // ==================== API Connection Test Result UI ====================
 function buildApiTestErrorHtml(title, details, suggestions, testedUrls) {
     var html = '<div class="bg-red-500/10 border border-red-500/30 rounded-lg p-2 text-red-300">';
@@ -5243,6 +6511,16 @@ function buildApiTestSuccessHtml(models) {
     html += '</div>';
     return html;
 }
+/**
+ * 新手导读（文件：31-api-connection-response-helpers.js）
+ *
+ * 负责什么：这是“模型 API 连接”中的“模型接口、连接、响应、辅助函数”部分。
+ * 在程序中的位置：它整理接口地址、探测模型列表，并向用户报告连接测试结果。
+ * 从哪里开始看：主要从 `collectApiTestModelNames(data)`、`readApiTestHttpError(resp)`、`describeApiTestFetchError(error)`、`buildApiTestSuggestions(rawEndpoint)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不同服务的接口格式不完全相同，修改时要保留 OpenAI 与 Ollama 兼容分支。
+ */
 // ==================== API Connection Test Response Helpers ====================
 function collectApiTestModelNames(data) {
     if (data && Array.isArray(data.data)) {
@@ -5291,6 +6569,16 @@ function buildApiTestSuggestions(rawEndpoint) {
     suggestions.push(t('api_test_suggest_gateway'));
     return suggestions;
 }
+/**
+ * 新手导读（文件：31-api-connection-models-probe.js）
+ *
+ * 负责什么：这是“模型 API 连接”中的“模型接口、连接、模型列表、连通性测试”部分。
+ * 在程序中的位置：它整理接口地址、探测模型列表，并向用户报告连接测试结果。
+ * 从哪里开始看：主要从 `runApiModelsEndpointTest(modelsUrl, apiKey, tested)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不同服务的接口格式不完全相同，修改时要保留 OpenAI 与 Ollama 兼容分支。
+ */
 // ==================== API Connection Models Probe ====================
 async function runApiModelsEndpointTest(modelsUrl, apiKey, tested) {
     tested.push('GET ' + modelsUrl);
@@ -5311,6 +6599,16 @@ async function runApiModelsEndpointTest(modelsUrl, apiKey, tested) {
         error: await readApiTestHttpError(resp)
     };
 }
+/**
+ * 新手导读（文件：31-api-connection-chat-probe.js）
+ *
+ * 负责什么：这是“模型 API 连接”中的“模型接口、连接、聊天、连通性测试”部分。
+ * 在程序中的位置：它整理接口地址、探测模型列表，并向用户报告连接测试结果。
+ * 从哪里开始看：主要从 `runApiChatCompletionFallbackTest(chatUrl, apiKey, model, tested)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不同服务的接口格式不完全相同，修改时要保留 OpenAI 与 Ollama 兼容分支。
+ */
 // ==================== API Connection Chat Probe ====================
 async function runApiChatCompletionFallbackTest(chatUrl, apiKey, model, tested) {
     try {
@@ -5343,11 +6641,31 @@ async function runApiChatCompletionFallbackTest(chatUrl, apiKey, model, tested) 
         return t('api_test_fallback_failed_prefix') + (e.message || String(e));
     }
 }
+/**
+ * 新手导读（文件：31-api-connection-test-helpers.js）
+ *
+ * 负责什么：这是“模型 API 连接”中的“模型接口、连接、测试、辅助函数”部分。
+ * 在程序中的位置：它整理接口地址、探测模型列表，并向用户报告连接测试结果。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不同服务的接口格式不完全相同，修改时要保留 OpenAI 与 Ollama 兼容分支。
+ */
 // API connection test helpers are split across:
 // - 31-api-connection-test-config.js
 // - 31-api-connection-endpoints.js
 // - 31-api-connection-result-ui.js
 // - 31-api-connection-response-helpers.js
+/**
+ * 新手导读（文件：31-api-connection-test.js）
+ *
+ * 负责什么：这是“模型 API 连接”中的“模型接口、连接、测试”部分。
+ * 在程序中的位置：它整理接口地址、探测模型列表，并向用户报告连接测试结果。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不同服务的接口格式不完全相同，修改时要保留 OpenAI 与 Ollama 兼容分支。
+ */
 // ==================== API Connection Test ====================
 window.testMainApiConnection = function() {
     var epEl = document.getElementById('apiEndpoint');
@@ -5394,6 +6712,17 @@ window.testMainApiConnection = function() {
         resultEl.innerHTML = buildApiTestErrorHtml(t('api_test_failed_title'), detail, buildApiTestSuggestions(rawEndpoint), tested);
     })();
 };
+/**
+ * 新手导读（文件：32-conversation-model.js）
+ *
+ * 负责什么：这是“会话与群聊模型”中的“会话、数据模型”部分。
+ * 在程序中的位置：它描述单聊、群聊、成员和发言人，并生成模型所需的群聊上下文。
+ * 从哪里开始看：主要从 `defaultConversation(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息中的角色、speaker 和成员标识各有用途，不能互相替代。
+ */
+// 会话数据模型：创建新聊天所需的默认字段和运行时初始状态。
 function defaultConversation() {
     return {
         id: makeId(),
@@ -5413,6 +6742,16 @@ function defaultConversation() {
         updated: Date.now()
     };
 }
+/**
+ * 新手导读（文件：32-group-chat-members.js）
+ *
+ * 负责什么：这是“会话与群聊模型”中的“群聊、成员”部分。
+ * 在程序中的位置：它描述单聊、群聊、成员和发言人，并生成模型所需的群聊上下文。
+ * 从哪里开始看：主要从 `isGroupChat(conv)`、`getGroupMembers(conv)`、`normalizeConversation(conv)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息中的角色、speaker 和成员标识各有用途，不能互相替代。
+ */
 // ==================== Group Chat Members ====================
 function isGroupChat(conv) {
     return !!(conv && conv.group && Array.isArray(conv.group.members) && conv.group.members.length >= 2);
@@ -5441,6 +6780,16 @@ function normalizeConversation(conv) {
 
     return conv;
 }
+/**
+ * 新手导读（文件：32-group-chat-speakers.js）
+ *
+ * 负责什么：这是“会话与群聊模型”中的“群聊、发言人”部分。
+ * 在程序中的位置：它描述单聊、群聊、成员和发言人，并生成模型所需的群聊上下文。
+ * 从哪里开始看：主要从 `getNextGroupSpeaker(conv)`、`getCurrentSpeakerCharacter(conv)`、`getCurrentGeneratingSpeakerName(conv)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息中的角色、speaker 和成员标识各有用途，不能互相替代。
+ */
 // ==================== Group Chat Speaker Helpers ====================
 function getNextGroupSpeaker(conv) {
     if (!isGroupChat(conv)) return null;
@@ -5488,6 +6837,16 @@ function getCurrentGeneratingSpeakerName(conv) {
     var speakerChar = getNextGroupSpeaker(conv);
     return speakerChar ? speakerChar.name : 'Assistant';
 }
+/**
+ * 新手导读（文件：32-group-system-prompt.js）
+ *
+ * 负责什么：这是“会话与群聊模型”中的“群聊、系统提示词”部分。
+ * 在程序中的位置：它描述单聊、群聊、成员和发言人，并生成模型所需的群聊上下文。
+ * 从哪里开始看：主要从 `buildGroupSystemPrompt(conv, wiByPos)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息中的角色、speaker 和成员标识各有用途，不能互相替代。
+ */
 // ==================== Group System Prompt ====================
 function buildGroupSystemPrompt(conv, wiByPos) {
     if (!isGroupChat(conv)) {
@@ -5575,6 +6934,16 @@ function buildGroupSystemPrompt(conv, wiByPos) {
 
     return parts.join('\n\n').trim();
 }
+/**
+ * 新手导读（文件：32-group-chat-message-helpers.js）
+ *
+ * 负责什么：这是“会话与群聊模型”中的“群聊、消息、辅助函数”部分。
+ * 在程序中的位置：它描述单聊、群聊、成员和发言人，并生成模型所需的群聊上下文。
+ * 从哪里开始看：主要从 `getMessageSenderName(msg, conv)`、`parseGroupMention(text, conv)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息中的角色、speaker 和成员标识各有用途，不能互相替代。
+ */
 // ==================== Group Chat Message Helpers ====================
 function getMessageSenderName(msg, conv) {
     if (!msg) return t('sender_assistant');
@@ -5615,8 +6984,28 @@ function parseGroupMention(text, conv) {
 
     return found ? found.character : null;
 }
+/**
+ * 新手导读（文件：32-group-chat-core.js）
+ *
+ * 负责什么：这是“会话与群聊模型”中的“群聊、核心逻辑”部分。
+ * 在程序中的位置：它描述单聊、群聊、成员和发言人，并生成模型所需的群聊上下文。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息中的角色、speaker 和成员标识各有用途，不能互相替代。
+ */
 // ==================== Group Chat Core Helpers ====================
 // Split into members, speaker selection, and message/mention helper chunks.
+/**
+ * 新手导读（文件：32-group-mention-render.js）
+ *
+ * 负责什么：这是“会话与群聊模型”中的“群聊、点名、渲染”部分。
+ * 在程序中的位置：它描述单聊、群聊、成员和发言人，并生成模型所需的群聊上下文。
+ * 从哪里开始看：主要从 `getGroupMentionDisplayName(char)`、`buildGroupMentionAvatarHtml(char)`、`buildGroupMentionMemberHtml(char, isMuted)`、`createGroupMentionMemberElement(member, onSelect)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息中的角色、speaker 和成员标识各有用途，不能互相替代。
+ */
 // ==================== Group Mention Render Helpers ====================
 function getGroupMentionDisplayName(char) {
     let display = (char && char.name) || '角色';
@@ -5667,6 +7056,16 @@ function createGroupMentionMemberElement(member, onSelect) {
 
     return item;
 }
+/**
+ * 新手导读（文件：32-group-mention-pill.js）
+ *
+ * 负责什么：这是“会话与群聊模型”中的“群聊、点名、提示标签”部分。
+ * 在程序中的位置：它描述单聊、群聊、成员和发言人，并生成模型所需的群聊上下文。
+ * 从哪里开始看：主要从 `renderPendingGroupMentionPill(char)`、`cleanGroupMentionInputText(无参数)`、`hidePendingGroupMentionPill(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息中的角色、speaker 和成员标识各有用途，不能互相替代。
+ */
 // ==================== Group Mention Pill ====================
 function renderPendingGroupMentionPill(char) {
     if (!dom.mentionPill || !dom.mentionPillName) return;
@@ -5690,6 +7089,16 @@ function hidePendingGroupMentionPill() {
         dom.mentionPill.title = '';
     }
 }
+/**
+ * 新手导读（文件：32-group-mention-ui.js）
+ *
+ * 负责什么：这是“会话与群聊模型”中的“群聊、点名、界面”部分。
+ * 在程序中的位置：它描述单聊、群聊、成员和发言人，并生成模型所需的群聊上下文。
+ * 从哪里开始看：主要从 `showGroupMentionPanel(conv)`、`setPendingGroupMention(char)`、`clearPendingGroupMention(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息中的角色、speaker 和成员标识各有用途，不能互相替代。
+ */
 // ==================== Group Mention UI Helpers ====================
 function showGroupMentionPanel(conv) {
     const modal = dom.groupMentionModal;
@@ -5734,6 +7143,16 @@ function clearPendingGroupMention() {
     pendingGroupMention = null;
     hidePendingGroupMentionPill();
 }
+/**
+ * 新手导读（文件：33-render-shortcuts.js）
+ *
+ * 负责什么：这是“消息完成与界面刷新”中的“渲染、快捷渲染”部分。
+ * 在程序中的位置：它在回复完成后更新消息区域，并用订阅把状态变化传给各界面。
+ * 从哪里开始看：主要从 `requestFullRender(无参数)`、`requestRender(key)`、`renderMessagesOnly(无参数)`、`renderConversationListOnly(无参数)`、`renderCharacterUI(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：持久化状态与刷新页面的先后顺序会影响用户是否看到最新消息。
+ */
 // ==================== Render Shortcut Helpers ====================
 function requestFullRender() {
     renderAll();
@@ -5759,6 +7178,16 @@ function renderCharacterUI() {
     renderCharacterCard();
     renderTopBar();
 }
+/**
+ * 新手导读（文件：33-final-assistant-message-ui.js）
+ *
+ * 负责什么：这是“消息完成与界面刷新”中的“最终助手消息、界面”部分。
+ * 在程序中的位置：它在回复完成后更新消息区域，并用订阅把状态变化传给各界面。
+ * 从哪里开始看：主要从 `appendFinalAssistantMessage(conv, fullContent, fullCot)`、`buildFinalAssistantMessageHtml(conv, fullContent, fullCot, actualIdx)`、`incrementConversationVisibleCount(conv)`、`scrollFinalAssistantMessageIfNearBottom(container)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：持久化状态与刷新页面的先后顺序会影响用户是否看到最新消息。
+ */
 // ==================== Final Assistant Message UI ====================
 function appendFinalAssistantMessage(conv, fullContent, fullCot) {
     if (!conv || !dom.messagesContainer || !fullContent) return;
@@ -5815,6 +7244,16 @@ function scrollFinalAssistantMessageIfNearBottom(container) {
         container.scrollTop = container.scrollHeight;
     }
 }
+/**
+ * 新手导读（文件：33-render-subscriptions.js）
+ *
+ * 负责什么：这是“消息完成与界面刷新”中的“渲染、订阅”部分。
+ * 在程序中的位置：它在回复完成后更新消息区域，并用订阅把状态变化传给各界面。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：持久化状态与刷新页面的先后顺序会影响用户是否看到最新消息。
+ */
 // ==================== Render Subscriptions ====================
 var renderSubscriptions = {
     'conversations': renderConversationList,
@@ -5848,10 +7287,40 @@ appStore.subscribe(function(changedKeys) {
         }
     });
 });
+/**
+ * 新手导读（文件：33-state-lifecycle.js）
+ *
+ * 负责什么：这是“消息完成与界面刷新”中的“状态、生命周期”部分。
+ * 在程序中的位置：它在回复完成后更新消息区域，并用订阅把状态变化传给各界面。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：持久化状态与刷新页面的先后顺序会影响用户是否看到最新消息。
+ */
 // ==================== State Lifecycle ====================
 // Split into render shortcuts, final message append UI, and render subscriptions.
+/**
+ * 新手导读（文件：34-state-init-helpers.js）
+ *
+ * 负责什么：这是“应用状态初始化”中的“状态、初始化、辅助函数”部分。
+ * 在程序中的位置：它读取保存的数据、修复旧格式，并保证至少有一个可用会话。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：初始化发生在界面可用之前，异常必须转成安全默认状态而不是中断启动。
+ */
 // ==================== State Initialization Helpers ====================
 // Split into load, settings, and conversation startup helper chunks.
+/**
+ * 新手导读（文件：34-state-init-normalize.js）
+ *
+ * 负责什么：这是“应用状态初始化”中的“状态、初始化、规范化”部分。
+ * 在程序中的位置：它读取保存的数据、修复旧格式，并保证至少有一个可用会话。
+ * 从哪里开始看：主要从 `isSavedStateObjectMap(value)`、`normalizeSavedStateConversationOrder(order, conversations)`、`normalizeSavedStateBoolean(value)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：初始化发生在界面可用之前，异常必须转成安全默认状态而不是中断启动。
+ */
 // ==================== State Initialization Normalization Helpers ====================
 function isSavedStateObjectMap(value) {
     return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -5869,6 +7338,16 @@ function normalizeSavedStateBoolean(value) {
     }
     return false;
 }
+/**
+ * 新手导读（文件：34-state-init-load.js）
+ *
+ * 负责什么：这是“应用状态初始化”中的“状态、初始化、读取”部分。
+ * 在程序中的位置：它读取保存的数据、修复旧格式，并保证至少有一个可用会话。
+ * 从哪里开始看：主要从 `loadInitialStateSnapshot(无参数)`、`applySavedStateSnapshot(saved)`、`logInitialStateLoadResult(saved, migrationResult)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：初始化发生在界面可用之前，异常必须转成安全默认状态而不是中断启动。
+ */
 // ==================== State Initialization Load Helpers ====================
 async function loadInitialStateSnapshot() {
     var saved = null;
@@ -5925,6 +7404,16 @@ function logInitialStateLoadResult(saved, migrationResult) {
         migrationResult
     });
 }
+/**
+ * 新手导读（文件：34-state-init-settings.js）
+ *
+ * 负责什么：这是“应用状态初始化”中的“状态、初始化、设置”部分。
+ * 在程序中的位置：它读取保存的数据、修复旧格式，并保证至少有一个可用会话。
+ * 从哪里开始看：主要从 `ensureStateSettingDefaults(无参数)`、`applyStartupUiPreferences(无参数)`、`applyApiKeyPersistencePolicy(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：初始化发生在界面可用之前，异常必须转成安全默认状态而不是中断启动。
+ */
 // ==================== State Initialization Settings Helpers ====================
 function ensureStateSettingDefaults() {
     if (!state.settings.lang) state.settings.lang = 'zh-CN';
@@ -5999,6 +7488,16 @@ function applyApiKeyPersistencePolicy() {
         state.settings.summarizeApiKey = '';
     }
 }
+/**
+ * 新手导读（文件：34-state-init-conversations.js）
+ *
+ * 负责什么：这是“应用状态初始化”中的“状态、初始化、多个会话”部分。
+ * 在程序中的位置：它读取保存的数据、修复旧格式，并保证至少有一个可用会话。
+ * 从哪里开始看：主要从 `migrateCharacterRegistryOnStartup(无参数)`、`ensureActiveConversationOnStartup(无参数)`、`recoverActiveConversationFromExistingData(无参数)`、`createStartupDefaultConversation(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：初始化发生在界面可用之前，异常必须转成安全默认状态而不是中断启动。
+ */
 // ==================== State Initialization Conversation Helpers ====================
 function migrateCharacterRegistryOnStartup() {
     if (!state.characters) state.characters = {};
@@ -6043,6 +7542,31 @@ function createStartupDefaultConversation() {
     state.conversationOrder.unshift(conv.id);
     state.activeConvId = conv.id;
 }
+/**
+ * 新手导读（文件：34-state-init.js）
+ *
+ * 负责什么：这是“应用状态初始化”中的“状态、初始化”部分。
+ * 在程序中的位置：它读取保存的数据、修复旧格式，并保证至少有一个可用会话。
+ * 从哪里开始看：主要从 `initState(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：初始化发生在界面可用之前，异常必须转成安全默认状态而不是中断启动。
+ */
+// 状态初始化入口：加载持久化数据、规范化旧快照并建立首个可用会话。
+/**
+ * 启动时把“硬盘中的旧数据”恢复成“程序现在可以使用的内存状态”。
+ *
+ * 输入：无。数据由 StorageService 从浏览器存储中读取。
+ * 返回：Promise<void>。因为读取存储是异步操作，调用者必须等待它完成再渲染界面。
+ *
+ * 执行顺序：
+ * 1. 读取最合适的已保存快照，并记录是否发生过存储迁移。
+ * 2. 把快照字段复制进全局 state，同时记录实际使用的存储后端。
+ * 3. 为旧版本缺失的设置补默认值，并应用主题、API Key 保存策略等启动选项。
+ * 4. 迁移角色注册表，确保当前会话有效，最后记录云同步比较基线。
+ *
+ * 这个顺序不能随意交换：例如还没恢复会话就计算云同步基线，会把空状态误认为最新数据。
+ */
 async function initState() {
     var migrationResult = { backend: 'opfs', attempted: false, success: false };
     var saved = await loadInitialStateSnapshot();
@@ -6062,6 +7586,16 @@ async function initState() {
         rememberCloudSyncConversationBaseline();
     }
 }
+/**
+ * 新手导读（文件：35-state-persistence.js）
+ *
+ * 负责什么：这是“状态持久化”中的“状态、持久化”部分。
+ * 在程序中的位置：它把内存中的应用状态整理成可保存快照，并安排实际写入。
+ * 从哪里开始看：主要从 `persistState(immediate, options)`、`getActiveConv(无参数)`、`getCloudSyncConversationSignatureBeforePersist(无参数)`、`shouldScheduleCloudSyncUploadForPersist(snapshot, options, previousSignature)`、`rememberCloudSyncConversationBaseline(snapshot)`、`buildCloudSyncConversationSignature(snapshot)`，以及另外 4 个内部步骤 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：要避免高频重复写盘，同时不能漏掉用户刚刚完成的修改。
+ */
 // ==================== Debounced Persist ====================
 var _persistTimeout = null;
 var _cloudSyncConversationSignature = null;
@@ -6077,6 +7611,17 @@ const CLOUD_SYNC_CONVERSATION_TRANSIENT_KEYS = {
     _wiTimedEffects: true
 };
 
+/**
+ * 把当前全局 state 保存到浏览器存储，并在确有会话变化时安排自动云同步。
+ *
+ * @param {boolean} immediate - true 表示立即写入；false 表示等待 450 毫秒，把连续修改合并成一次写入。
+ * @param {Object} options - 保存细节，例如保留旧时间戳、跳过自动上传或指定 lastSaved。
+ * @returns {Promise<void>} 写入已完成或已成功加入延迟队列时结束的 Promise。
+ *
+ * 为什么要延迟：用户输入或拖动控件时可能在一秒内触发很多次保存，逐次写盘既慢又磨损资源。
+ * 为什么仍保留 immediate：发送消息、导入数据等关键节点需要确保最新状态尽快落盘。
+ * finally 中的云同步判断即使本地保存报错也会执行状态刷新，但只有会话签名真正变化才上传。
+ */
 function persistState(immediate, options) {
     options = options || {};
     const previousLastSaved = Number(StorageService && StorageService._lastSaveSnapshot && StorageService._lastSaveSnapshot.lastSaved || 0) || 0;
@@ -6180,17 +7725,18 @@ function rememberCloudSyncConversationBaseline(snapshot) {
     });
 }
 
+/**
+ * 为会话相关数据生成可比较的字符串“指纹”。
+ *
+ * 它不是安全哈希，而是稳定排序后的 JSON 字符串；用途只是判断两次保存之间会话是否变化。
+ * 临时界面字段和函数会先被移除，否则滚动位置等无关变化也会触发云上传。
+ */
 function buildCloudSyncConversationSignature(snapshot) {
     try {
         const conversations = snapshot && snapshot.conversations || {};
         return JSON.stringify({
             conversations: getCloudSyncSignatureConversations(conversations),
             conversationOrder: getPersistableConversationOrder(
-                snapshot && snapshot.conversationOrder,
-                conversations
-            ),
-            activeConvId: getPersistableActiveConversationId(
-                snapshot && snapshot.activeConvId,
                 snapshot && snapshot.conversationOrder,
                 conversations
             )
@@ -6227,6 +7773,16 @@ function getPersistableConversationOrder(order, conversations) {
 function getPersistableActiveConversationId(activeId, order, conversations) {
     return getValidConversationIdOrFallback(activeId, order, conversations);
 }
+/**
+ * 新手导读（文件：35-state-persistence-i18n.js）
+ *
+ * 负责什么：这是“状态持久化”中的“状态、持久化、多语言”部分。
+ * 在程序中的位置：它把内存中的应用状态整理成可保存快照，并安排实际写入。
+ * 从哪里开始看：主要从 `applyTranslations(无参数)`、`setLanguage(lang)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：要避免高频重复写盘，同时不能漏掉用户刚刚完成的修改。
+ */
 // ==================== Translation DOM Updates ====================
 function applyTranslations() {
     // data-i18n — text content
@@ -6275,8 +7831,28 @@ function setLanguage(lang) {
     requestFullRender();
     if (typeof updateSidebarCloseButton === 'function') updateSidebarCloseButton();
 }
+/**
+ * 新手导读（文件：40-character-prompt-worldbook.js）
+ *
+ * 负责什么：这是“角色卡导入”中的“角色、提示词、世界书”部分。
+ * 在程序中的位置：它解析 PNG 或 JSON 角色卡，把角色设定和角色世界书转换成内部格式。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：外部文件不可信；读取字段时要允许缺失值并避免直接执行其中的内容。
+ */
 // ==================== Character Prompt / World Book Helpers ====================
 // Split into card import, embedded book import, PNG extraction, and prompt helper chunks.
+/**
+ * 新手导读（文件：40-character-card-import.js）
+ *
+ * 负责什么：这是“角色卡导入”中的“角色、角色卡、导入”部分。
+ * 在程序中的位置：它解析 PNG 或 JSON 角色卡，把角色设定和角色世界书转换成内部格式。
+ * 从哪里开始看：主要从 `getCharacterCardPayload(jsonData)`、`detectCharacterCardVersion(jsonData)`、`normalizeImportedCharacterCardData(data)`、`importCharacterCard(jsonData)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：外部文件不可信；读取字段时要允许缺失值并避免直接执行其中的内容。
+ */
 // ==================== Character Card Import ====================
 function getCharacterCardPayload(jsonData) {
     if (!jsonData) return null;
@@ -6331,6 +7907,16 @@ function importCharacterCard(jsonData) {
     console.log('[Import] Detected character card version', detectedVersion, 'name:', character.name);
     return character;
 }
+/**
+ * 新手导读（文件：40-character-book-import.js）
+ *
+ * 负责什么：这是“角色卡导入”中的“角色、资料库、导入”部分。
+ * 在程序中的位置：它解析 PNG 或 JSON 角色卡，把角色设定和角色世界书转换成内部格式。
+ * 从哪里开始看：主要从 `getEmbeddedCharacterBook(jsonData)`、`getImportedCharacterBookName(characterBook, characterName)`、`importCharacterBookFromCard(jsonData, characterName)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：外部文件不可信；读取字段时要允许缺失值并避免直接执行其中的内容。
+ */
 // ==================== Character Book Import ====================
 function getEmbeddedCharacterBook(jsonData) {
     if (!jsonData) return null;
@@ -6362,6 +7948,16 @@ function importCharacterBookFromCard(jsonData, characterName) {
 
     return book;
 }
+/**
+ * 新手导读（文件：40-character-png-extract.js）
+ *
+ * 负责什么：这是“角色卡导入”中的“角色、PNG 图片、提取”部分。
+ * 在程序中的位置：它解析 PNG 或 JSON 角色卡，把角色设定和角色世界书转换成内部格式。
+ * 从哪里开始看：主要从 `assertSillyTavernPngSignature(bytes)`、`decodeBase64Utf8Json(b64)`、`readPngTextChunk(chunkData)`、`extractCharaFromPng(file)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：外部文件不可信；读取字段时要允许缺失值并避免直接执行其中的内容。
+ */
 // ==================== SillyTavern PNG Character Extraction ====================
 function assertSillyTavernPngSignature(bytes) {
     const sig = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
@@ -6414,6 +8010,16 @@ async function extractCharaFromPng(file) {
 
     throw new Error('No SillyTavern character data found in PNG (missing chara/ccv3 chunk)');
 }
+/**
+ * 新手导读（文件：40-character-prompt-helpers.js）
+ *
+ * 负责什么：这是“角色卡导入”中的“角色、提示词、辅助函数”部分。
+ * 在程序中的位置：它解析 PNG 或 JSON 角色卡，把角色设定和角色世界书转换成内部格式。
+ * 从哪里开始看：主要从 `replacePlaceholders(text, charName, userName)`、`getEffectivePostHistoryInstructions(character, stage)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：外部文件不可信；读取字段时要允许缺失值并避免直接执行其中的内容。
+ */
 // ==================== Character Prompt Helpers ====================
 function replacePlaceholders(text, charName, userName) {
     text = String(text || '');
@@ -6431,6 +8037,16 @@ function getEffectivePostHistoryInstructions(character, stage) {
     if (customPostHistory) return customPostHistory;
     return character ? String(character.post_history_instructions || '') : '';
 }
+/**
+ * 新手导读（文件：41-world-info-constants.js）
+ *
+ * 负责什么：这是“提示词与世界书注入”中的“世界书、信息、常量”部分。
+ * 在程序中的位置：它把角色设定、聊天历史、总结、世界书和二段生成要求组装成模型消息。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息顺序会直接改变模型回复；修改前先确认每段内容应位于 system、user 还是 assistant。
+ */
 // ==================== World Info Constants ====================
 var WI_POS = {
     BEFORE_CHAR: 0, AFTER_CHAR: 1,
@@ -6439,6 +8055,16 @@ var WI_POS = {
     AT_DEPTH: 6, OUTLET: 7
 };
 var WI_ROLE = { SYSTEM: 0, USER: 1, ASSISTANT: 2 };
+/**
+ * 新手导读（文件：41-world-info-position.js）
+ *
+ * 负责什么：这是“提示词与世界书注入”中的“世界书、信息、位置”部分。
+ * 在程序中的位置：它把角色设定、聊天历史、总结、世界书和二段生成要求组装成模型消息。
+ * 从哪里开始看：主要从 `normalizeWorldInfoPositionValue(position)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息顺序会直接改变模型回复；修改前先确认每段内容应位于 system、user 还是 assistant。
+ */
 // ==================== World Info Position Normalization ====================
 function normalizeWorldInfoPositionValue(position) {
     if (typeof position === 'string') {
@@ -6463,6 +8089,16 @@ function normalizeWorldInfoPositionValue(position) {
     }
     return parseInt(position, 10);
 }
+/**
+ * 新手导读（文件：41-world-info-extension-fields.js）
+ *
+ * 负责什么：这是“提示词与世界书注入”中的“世界书、信息、扩展字段、字段”部分。
+ * 在程序中的位置：它把角色设定、聊天历史、总结、世界书和二段生成要求组装成模型消息。
+ * 从哪里开始看：主要从 `promoteWorldInfoExtensionFields(e)`、`ensureWorldInfoEntryShape(e)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息顺序会直接改变模型回复；修改前先确认每段内容应位于 system、user 还是 assistant。
+ */
 // ==================== World Info Extension Field Helpers ====================
 function promoteWorldInfoExtensionFields(e) {
     if (!e.extensions || typeof e.extensions !== 'object') return e;
@@ -6518,6 +8154,16 @@ function ensureWorldInfoEntryShape(e) {
 
     return e;
 }
+/**
+ * 新手导读（文件：41-world-info-normalizer.js）
+ *
+ * 负责什么：这是“提示词与世界书注入”中的“世界书、信息、规范化”部分。
+ * 在程序中的位置：它把角色设定、聊天历史、总结、世界书和二段生成要求组装成模型消息。
+ * 从哪里开始看：主要从 `normalizeWIEntry(raw)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息顺序会直接改变模型回复；修改前先确认每段内容应位于 system、user 还是 assistant。
+ */
 // ==================== World Info Normalizer ====================
 function normalizeWIEntry(raw) {
     if (!raw || typeof raw !== 'object') return null;
@@ -6547,6 +8193,16 @@ function normalizeWIEntry(raw) {
     promoteWorldInfoExtensionFields(e);
     return ensureWorldInfoEntryShape(e);
 }
+/**
+ * 新手导读（文件：41-world-info-injection.js）
+ *
+ * 负责什么：这是“提示词与世界书注入”中的“世界书、信息、注入”部分。
+ * 在程序中的位置：它把角色设定、聊天历史、总结、世界书和二段生成要求组装成模型消息。
+ * 从哪里开始看：主要从 `injectWorldInfoIntoSystem(systemParts, wiByPos, charName, userName)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息顺序会直接改变模型回复；修改前先确认每段内容应位于 system、user 还是 assistant。
+ */
 // ==================== World Info Prompt Injection ====================
 function injectWorldInfoIntoSystem(systemParts, wiByPos, charName, userName) {
     if (!wiByPos) return systemParts;
@@ -6580,6 +8236,16 @@ function injectWorldInfoIntoSystem(systemParts, wiByPos, charName, userName) {
 
     return systemParts;
 }
+/**
+ * 新手导读（文件：41-prompt-builder.js）
+ *
+ * 负责什么：这是“提示词与世界书注入”中的“提示词、构建器”部分。
+ * 在程序中的位置：它把角色设定、聊天历史、总结、世界书和二段生成要求组装成模型消息。
+ * 从哪里开始看：主要从 `buildSystemPrompt(character, worldInfoByPos)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息顺序会直接改变模型回复；修改前先确认每段内容应位于 system、user 还是 assistant。
+ */
 // ==================== Prompt Builder ====================
 function buildSystemPrompt(character, worldInfoByPos) {
     var parts = [];
@@ -6624,6 +8290,16 @@ function buildSystemPrompt(character, worldInfoByPos) {
 
     return parts.join('\n\n').trim();
 }
+/**
+ * 新手导读（文件：41-prompt-second-stage-context.js）
+ *
+ * 负责什么：这是“提示词与世界书注入”中的“提示词、第二阶段、上下文”部分。
+ * 在程序中的位置：它把角色设定、聊天历史、总结、世界书和二段生成要求组装成模型消息。
+ * 从哪里开始看：主要从 `buildSecondStageContextPrompt(conv, worldInfoByPos, focusSpeakerName)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息顺序会直接改变模型回复；修改前先确认每段内容应位于 system、user 还是 assistant。
+ */
 // ==================== Second Stage Context Prompt ====================
 function buildSecondStageContextPrompt(conv, worldInfoByPos, focusSpeakerName) {
     var parts = [];
@@ -6690,6 +8366,17 @@ function buildSecondStageContextPrompt(conv, worldInfoByPos, focusSpeakerName) {
 
     return parts.join('\n\n').trim();
 }
+/**
+ * 新手导读（文件：41-prompt-depth-insert.js）
+ *
+ * 负责什么：这是“提示词与世界书注入”中的“提示词、插入深度、插入”部分。
+ * 在程序中的位置：它把角色设定、聊天历史、总结、世界书和二段生成要求组装成模型消息。
+ * 从哪里开始看：主要从 `insertMessagesAtDepth(apiMessages, entries, charName, userName)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息顺序会直接改变模型回复；修改前先确认每段内容应位于 system、user 还是 assistant。
+ */
+// 深度插入处理：按配置深度把世界书或预设消息插入 API 上下文。
 function insertMessagesAtDepth(apiMessages, entries, charName, userName) {
     if (!entries || entries.length === 0) return apiMessages;
     entries.forEach(function(e) {
@@ -6716,6 +8403,17 @@ function insertMessagesAtDepth(apiMessages, entries, charName, userName) {
     });
     return apiMessages;
 }
+/**
+ * 新手导读（文件：41-prompt-summary-messages.js）
+ *
+ * 负责什么：这是“提示词与世界书注入”中的“提示词、总结、消息”部分。
+ * 在程序中的位置：它把角色设定、聊天历史、总结、世界书和二段生成要求组装成模型消息。
+ * 从哪里开始看：主要从 `getPromptSummaryHeader(lang)`、`buildPromptSummaryMessage(summaries, lang)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息顺序会直接改变模型回复；修改前先确认每段内容应位于 system、user 还是 assistant。
+ */
+// 摘要提示词消息：把会话摘要转换为适合注入模型上下文的消息块。
 function getPromptSummaryHeader(lang) {
     if (lang === 'zh-TW') {
         return '[以下是先前對話的自動摘要，供上下文參考]\n';
@@ -6734,6 +8432,16 @@ function buildPromptSummaryMessage(summaries, lang) {
         content: getPromptSummaryHeader(lang) + summaryText
     };
 }
+/**
+ * 新手导读（文件：41-second-stage-content-isolation.js）
+ *
+ * 负责什么：这是“提示词与世界书注入”中的“第二阶段、内容、隔离”部分。
+ * 在程序中的位置：它把角色设定、聊天历史、总结、世界书和二段生成要求组装成模型消息。
+ * 从哪里开始看：主要从 `stripSecondStageOptionBlocks(content)`、`isolatePrimaryStageContent(content)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息顺序会直接改变模型回复；修改前先确认每段内容应位于 system、user 还是 assistant。
+ */
 // ==================== Second Stage Content Isolation ====================
 function stripSecondStageOptionBlocks(content) {
     return String(content || '')
@@ -6746,6 +8454,17 @@ function isolatePrimaryStageContent(content) {
     if (!state || !state.settings || !state.settings.twoStageEnabled) return text;
     return stripSecondStageOptionBlocks(text);
 }
+/**
+ * 新手导读（文件：41-prompt-history-messages.js）
+ *
+ * 负责什么：这是“提示词与世界书注入”中的“提示词、历史记录、消息”部分。
+ * 在程序中的位置：它把角色设定、聊天历史、总结、世界书和二段生成要求组装成模型消息。
+ * 从哪里开始看：主要从 `getMaxPromptSummaryCoveredEnd(summaries)`、`getRegularPromptMessages(conv, maxMsgs)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息顺序会直接改变模型回复；修改前先确认每段内容应位于 system、user 还是 assistant。
+ */
+// 历史消息裁剪：按摘要覆盖范围与上下文限制选择需要发送的聊天记录。
 function getMaxPromptSummaryCoveredEnd(summaries) {
     var lastCovered = -1;
     if (summaries && summaries.length > 0) {
@@ -6761,6 +8480,7 @@ function getRegularPromptMessages(conv, maxMsgs) {
         return m.role !== 'system' && String(m.content || '').trim();
     });
     var lastCovered = getMaxPromptSummaryCoveredEnd((conv && conv.summaries) || []);
+    // coveredEnd 使用完整历史中的旧下标，因此必须先按摘要裁剪，再排除二段消息。
     if (lastCovered >= 0 && lastCovered < regularMsgs.length - 1) {
         regularMsgs = regularMsgs.slice(lastCovered + 1);
     }
@@ -6780,6 +8500,17 @@ function getRegularPromptMessages(conv, maxMsgs) {
 
     return regularMsgs;
 }
+/**
+ * 新手导读（文件：41-prompt-outlet-resolution.js）
+ *
+ * 负责什么：这是“提示词与世界书注入”中的“提示词、提示词出口、解析”部分。
+ * 在程序中的位置：它把角色设定、聊天历史、总结、世界书和二段生成要求组装成模型消息。
+ * 从哪里开始看：主要从 `resolvePromptOutletPlaceholders(apiMessages, outlets, charName, userName)`、`replacePromptMessagePlaceholders(apiMessages, charName, userName)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息顺序会直接改变模型回复；修改前先确认每段内容应位于 system、user 还是 assistant。
+ */
+// Prompt outlet 解析：将预设占位消息替换并插入最终 API 消息序列。
 function resolvePromptOutletPlaceholders(apiMessages, outlets, charName, userName) {
     outlets = outlets || {};
     if (Object.keys(outlets).length === 0) return apiMessages;
@@ -6803,6 +8534,32 @@ function replacePromptMessagePlaceholders(apiMessages, charName, userName) {
         return { role: m.role, content: replacePlaceholders(m.content, charName, userName) };
     });
 }
+/**
+ * 新手导读（文件：41-prompt-message-builder.js）
+ *
+ * 负责什么：这是“提示词与世界书注入”中的“提示词、消息、构建器”部分。
+ * 在程序中的位置：它把角色设定、聊天历史、总结、世界书和二段生成要求组装成模型消息。
+ * 从哪里开始看：主要从 `buildMessagesForAPI(无参数)`、`formatPromptMessages(messages)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息顺序会直接改变模型回复；修改前先确认每段内容应位于 system、user 还是 assistant。
+ */
+// API 消息构建主流程：合并角色、摘要、世界书、历史记录和预设提示词。
+/**
+ * 生成最终发送给大模型的 messages 数组。
+ *
+ * 输入：无。它从当前会话、全局设置、角色资料、世界书和预设中读取数据。
+ * 返回：形如 [{ role: 'system', content: '...' }, ...] 的新数组，不直接修改聊天历史。
+ *
+ * 组装顺序非常重要：
+ * 1. 先确定单聊/群聊身份，并激活当前应生效的世界书条目。
+ * 2. 创建 system 提示词，再插入预设中要求位于聊天历史之前的消息。
+ * 3. 加入历史总结与尚未被总结覆盖的真实聊天记录。
+ * 4. 加入历史之后的预设，并按“深度”插入世界书或预设消息。
+ * 5. 解析 outlet 占位符，最后统一替换角色名和用户名占位符。
+ *
+ * 调试模型行为时，formatPromptMessages() 可以把数组转换为便于人阅读的分段文本。
+ */
 function buildMessagesForAPI() {
     var conv = getActiveConv();
     normalizeConversation(conv);
@@ -6864,6 +8621,17 @@ function formatPromptMessages(messages) {
     }
     return text;
 }
+/**
+ * 新手导读（文件：41-second-stage-message-lookup.js）
+ *
+ * 负责什么：这是“提示词与世界书注入”中的“第二阶段、消息、查找”部分。
+ * 在程序中的位置：它把角色设定、聊天历史、总结、世界书和二段生成要求组装成模型消息。
+ * 从哪里开始看：主要从 `findLinkedSecondStageMessage(conv, parentMsg)`、`findPreviousMainAssistantMessage(conv, currentMainMsg)`、`findLatestUserMessageBefore(conv, targetMsg)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息顺序会直接改变模型回复；修改前先确认每段内容应位于 system、user 还是 assistant。
+ */
+// 二段消息关联查询：定位主回复对应的二段输出及相邻上下文消息。
 function findLinkedSecondStageMessage(conv, parentMsg) {
     if (!conv || !parentMsg || !Array.isArray(conv.messages)) return null;
     ensureMessageIdentity(parentMsg, 'main');
@@ -6899,6 +8667,17 @@ function findLatestUserMessageBefore(conv, targetMsg) {
     }
     return null;
 }
+/**
+ * 新手导读（文件：41-second-stage-prompt-builder.js）
+ *
+ * 负责什么：这是“提示词与世界书注入”中的“第二阶段、提示词、构建器”部分。
+ * 在程序中的位置：它把角色设定、聊天历史、总结、世界书和二段生成要求组装成模型消息。
+ * 从哪里开始看：主要从 `buildSecondStageRecentContextMessages(conv, firstStageMessage, charName, userName)`、`buildMessagesForSecondStage(firstStageMessage)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：消息顺序会直接改变模型回复；修改前先确认每段内容应位于 system、user 还是 assistant。
+ */
+// 二段生成提示词：整理上一轮、本轮正文和角色上下文供第二阶段使用。
 function buildSecondStageRecentContextMessages(conv, firstStageMessage, charName, userName) {
     var messages = [];
     var previousMain = findPreviousMainAssistantMessage(conv, firstStageMessage);
@@ -6961,6 +8740,16 @@ function buildMessagesForSecondStage(firstStageMessage) {
 
     return apiMessages;
 }
+/**
+ * 新手导读（文件：42-worldbook-entry-defaults.js）
+ *
+ * 负责什么：这是“角色与世界书数据模型”中的“世界书、条目、默认值”部分。
+ * 在程序中的位置：它负责世界书的创建、导入、导出、格式转换和注册。
+ * 从哪里开始看：主要从 `createDefaultWIEntryExtensions(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：内部格式与 SillyTavern 格式字段不同，转换时不能丢失扩展字段。
+ */
 // ==================== World Info Entry Extension Defaults ====================
 function createDefaultWIEntryExtensions() {
     return {
@@ -6995,6 +8784,16 @@ function createDefaultWIEntryExtensions() {
         ignore_budget: false
     };
 }
+/**
+ * 新手导读（文件：42-worldbook.js）
+ *
+ * 负责什么：这是“角色与世界书数据模型”中的“世界书”部分。
+ * 在程序中的位置：它负责世界书的创建、导入、导出、格式转换和注册。
+ * 从哪里开始看：主要从 `createDefaultWIEntry(uid)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：内部格式与 SillyTavern 格式字段不同，转换时不能丢失扩展字段。
+ */
 // ==================== World Info (World Book) Entry Defaults ====================
 // Full SillyTavern-compatible implementation (all documented fields supported in UI + core activation)
 
@@ -7044,6 +8843,16 @@ function createDefaultWIEntry(uid) {
         extensions: createDefaultWIEntryExtensions()
     };
 }
+/**
+ * 新手导读（文件：42-worldbook-model.js）
+ *
+ * 负责什么：这是“角色与世界书数据模型”中的“世界书、数据模型”部分。
+ * 在程序中的位置：它负责世界书的创建、导入、导出、格式转换和注册。
+ * 从哪里开始看：主要从 `getWorldInfo(conv)`、`getMergedWorldInfoForConv(conv)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：内部格式与 SillyTavern 格式字段不同，转换时不能丢失扩展字段。
+ */
 // ==================== World Info Active Model ====================
 function getWorldInfo(conv) {
     if (!conv) return null;
@@ -7065,6 +8874,16 @@ function getMergedWorldInfoForConv(conv) {
     }
     return conv.worldInfo;
 }
+/**
+ * 新手导读（文件：42-worldbook-import-format.js）
+ *
+ * 负责什么：这是“角色与世界书数据模型”中的“世界书、导入、格式”部分。
+ * 在程序中的位置：它负责世界书的创建、导入、导出、格式转换和注册。
+ * 从哪里开始看：主要从 `normalizeImportedWorldInfo(raw)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：内部格式与 SillyTavern 格式字段不同，转换时不能丢失扩展字段。
+ */
 // ==================== World Book Import Format ====================
 function normalizeImportedWorldInfo(raw) {
     var wi = { name: '', entries: {} };
@@ -7091,6 +8910,16 @@ function normalizeImportedWorldInfo(raw) {
     if (raw.name) wi.name = raw.name;
     return wi;
 }
+/**
+ * 新手导读（文件：42-worldbook-st-export-format.js）
+ *
+ * 负责什么：这是“角色与世界书数据模型”中的“世界书、SillyTavern 格式、导出、格式”部分。
+ * 在程序中的位置：它负责世界书的创建、导入、导出、格式转换和注册。
+ * 从哪里开始看：主要从 `entriesToSTFormat(worldInfo)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：内部格式与 SillyTavern 格式字段不同，转换时不能丢失扩展字段。
+ */
 // ==================== World Book SillyTavern Export Format ====================
 function entriesToSTFormat(worldInfo) {
     var out = { entries: {} };
@@ -7123,6 +8952,16 @@ function entriesToSTFormat(worldInfo) {
     }
     return out;
 }
+/**
+ * 新手导读（文件：42-worldbook-character-book-export.js）
+ *
+ * 负责什么：这是“角色与世界书数据模型”中的“世界书、角色、资料库、导出”部分。
+ * 在程序中的位置：它负责世界书的创建、导入、导出、格式转换和注册。
+ * 从哪里开始看：主要从 `getCharacterBookForExport(conv)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：内部格式与 SillyTavern 格式字段不同，转换时不能丢失扩展字段。
+ */
 // ==================== Character Book Export ====================
 function getCharacterBookForExport(conv) {
     if (!conv) return null;
@@ -7174,13 +9013,43 @@ function getCharacterBookForExport(conv) {
 
     return characterBook;
 }
+/**
+ * 新手导读（文件：42-worldbook-export-format.js）
+ *
+ * 负责什么：这是“角色与世界书数据模型”中的“世界书、导出、格式”部分。
+ * 在程序中的位置：它负责世界书的创建、导入、导出、格式转换和注册。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：内部格式与 SillyTavern 格式字段不同，转换时不能丢失扩展字段。
+ */
 // ==================== World Book Export Format Facade ====================
 // SillyTavern entry mapping and character_book export live in:
 // - 42-worldbook-st-export-format.js
 // - 42-worldbook-character-book-export.js
+/**
+ * 新手导读（文件：42-worldbook-format.js）
+ *
+ * 负责什么：这是“角色与世界书数据模型”中的“世界书、格式”部分。
+ * 在程序中的位置：它负责世界书的创建、导入、导出、格式转换和注册。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：内部格式与 SillyTavern 格式字段不同，转换时不能丢失扩展字段。
+ */
 // World book import/export format helpers are split across:
 // - 42-worldbook-import-format.js
 // - 42-worldbook-export-format.js
+/**
+ * 新手导读（文件：42-worldbook-registry.js）
+ *
+ * 负责什么：这是“角色与世界书数据模型”中的“世界书、注册表”部分。
+ * 在程序中的位置：它负责世界书的创建、导入、导出、格式转换和注册。
+ * 从哪里开始看：主要从 `updateWIDirtyIndicator(无参数)`、`getActiveWI(无参数)`、`getWorldBook(wbId)`、`createNewWorldBook(name)`、`getConversationWorldBooks(conv)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：内部格式与 SillyTavern 格式字段不同，转换时不能丢失扩展字段。
+ */
 // ==================== Global World Book Registry ====================
 var wiState = {
     modalOpen: false,
@@ -7238,6 +9107,16 @@ function getConversationWorldBooks(conv) {
         .map(function(id) { return state.worldBooks && state.worldBooks[id]; })
         .filter(Boolean);
 }
+/**
+ * 新手导读（文件：42-character-registry.js）
+ *
+ * 负责什么：这是“角色与世界书数据模型”中的“角色、注册表”部分。
+ * 在程序中的位置：它负责世界书的创建、导入、导出、格式转换和注册。
+ * 从哪里开始看：主要从 `migrateCharactersToRegistry(conversations)`、`getAllAvailableCharacters(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：内部格式与 SillyTavern 格式字段不同，转换时不能丢失扩展字段。
+ */
 // ==================== Character Registry Helpers ====================
 function migrateCharactersToRegistry(conversations) {
     if (!state.characters) state.characters = {};
@@ -7295,6 +9174,16 @@ function getAllAvailableCharacters() {
     });
     return chars;
 }
+/**
+ * 新手导读（文件：43-worldbook-editor-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、编辑器、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `openWorldBookModal(无参数)`、`closeWorldBookModal(无参数)`、`wireWorldBookListeners(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Editor Modal ====================
 function openWorldBookModal() {
     var conv = getActiveConv();
@@ -7354,6 +9243,16 @@ function wireWorldBookListeners() {
     bindWorldBookEntryTriggerControls();
     bindWorldBookCharacterFilterControls();
 }
+/**
+ * 新手导读（文件：43-worldbook-modal-controls.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、弹窗、控件”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `bindWorldBookModalControls(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Modal Controls ====================
 function bindWorldBookModalControls() {
     dom.wiSearch.addEventListener('input', function() {
@@ -7402,6 +9301,16 @@ function bindWorldBookModalControls() {
         console.warn('wiImportFile not cached, import will not work');
     }
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-live-core.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、即时编辑、核心逻辑”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `getSelectedWorldBookEntry(无参数)`、`setWorldBookEntryPathValue(entry, path, value)`、`syncWorldBookEntryExtensionField(entry, prop, value)`、`markWorldBookEntryDirtyAndRenderList(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Live Binding Core ====================
 function getSelectedWorldBookEntry() {
     if (!wiState.selectedUid) return null;
@@ -7431,6 +9340,16 @@ function markWorldBookEntryDirtyAndRenderList() {
     wiState.dirty = true;
     renderWIEntryList(dom.wiSearch.value.trim());
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-live-scalar.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、即时编辑、普通字段”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `bindWIEntryLiveInput(id, prop, isNum)`、`bindWorldBookEntryScalarFields(无参数)`、`bindWorldBookEntryContentField(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Scalar Field Bindings ====================
 function bindWIEntryLiveInput(id, prop, isNum) {
     var el = dom[id];
@@ -7470,6 +9389,16 @@ function bindWorldBookEntryContentField() {
         });
     }
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-live-checkboxes.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、即时编辑、复选框”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `bindWorldBookEntryCheckboxes(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Checkbox Bindings ====================
 function bindWorldBookEntryCheckboxes() {
     var checkboxes = [
@@ -7496,6 +9425,16 @@ function bindWorldBookEntryCheckboxes() {
         });
     });
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-live-strategy.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、即时编辑、策略”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `bindWorldBookEntryStrategyControls(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Strategy Bindings ====================
 function bindWorldBookEntryStrategyControls() {
     dom.wiStratConstant.addEventListener('click', function() {
@@ -7517,6 +9456,16 @@ function bindWorldBookEntryStrategyControls() {
         renderWIEntryList(dom.wiSearch.value.trim());
     });
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-live-position.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、即时编辑、位置”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `bindWorldBookEntryPositionControls(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Position Bindings ====================
 function bindWorldBookEntryPositionControls() {
     dom.wiPosition.addEventListener('change', function() {
@@ -7553,6 +9502,16 @@ function bindWorldBookEntryPositionControls() {
         wiState.dirty = true;
     });
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-live-match.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、即时编辑、匹配”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `getWorldBookMatchExtensionKey(prop)`、`bindWorldBookEntryMatchControls(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Match Source Bindings ====================
 function getWorldBookMatchExtensionKey(prop) {
     return prop.replace(/([A-Z])/g, '_$1').toLowerCase();
@@ -7573,6 +9532,16 @@ function bindWorldBookEntryMatchControls() {
         });
     });
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-live-bindings.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、即时编辑、事件绑定”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `bindWorldBookEntryLiveFields(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Field Bindings ====================
 function bindWorldBookEntryLiveFields() {
     bindWorldBookEntryScalarFields();
@@ -7582,6 +9551,16 @@ function bindWorldBookEntryLiveFields() {
     bindWorldBookEntryPositionControls();
     bindWorldBookEntryMatchControls();
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-trigger-bindings.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、触发条件、事件绑定”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `bindWorldBookEntryKeywordControls(无参数)`、`bindWorldBookEntryTriggerControls(无参数)`、`bindWorldBookCharacterFilterControls(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Keyword & Trigger Bindings ====================
 function bindWorldBookEntryKeywordControls() {
     dom.wiAddKeyBtn.addEventListener('click', function() {
@@ -7642,6 +9621,16 @@ function bindWorldBookCharacterFilterControls() {
         });
     }
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-key-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、关键词、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `addWIKeyFromInput(isPrimary)`、`removeWIKey(key, isPrimary)`、`renderChips(isPrimary)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Key UI ====================
 function addWIKeyFromInput(isPrimary) {
     var input = isPrimary ? dom.wiKeyInput : dom.wiSecInput;
@@ -7698,6 +9687,16 @@ function renderChips(isPrimary) {
         container.appendChild(empty);
     }
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-editor-strategy-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、编辑器、策略、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `updateStrategyButtons(entry)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Strategy UI ====================
 function updateStrategyButtons(entry) {
     if (!entry) return;
@@ -7715,6 +9714,16 @@ function updateStrategyButtons(entry) {
         c.style.borderColor = '';
     }
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-editor-position-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、编辑器、位置、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `updatePositionConditionalRows(pos)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Position UI ====================
 function updatePositionConditionalRows(pos) {
     pos = parseInt(pos, 10);
@@ -7724,6 +9733,16 @@ function updatePositionConditionalRows(pos) {
     depthRow.classList.toggle('hidden', pos !== WI_POS.AT_DEPTH);
     outletRow.classList.toggle('hidden', pos !== WI_POS.OUTLET);
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-editor-form-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、编辑器、表单、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `fillEditorFromEntry(entry)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Editor Form UI ====================
 function fillEditorFromEntry(entry) {
     if (!entry) return showNoSelection();
@@ -7795,6 +9814,16 @@ function fillEditorFromEntry(entry) {
     renderChips(true);
     renderChips(false);
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-editor-state.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、编辑器、状态”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `showNoSelection(无参数)`、`updateEntryFromForm(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Editor State ====================
 function showNoSelection() {
     dom.wiNoSelection.classList.remove('hidden');
@@ -7815,6 +9844,16 @@ function updateEntryFromForm() {
 
     wiState.dirty = true;
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-editor-header-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、编辑器、标题区域、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `updateWorldBookModalHeader(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Editor Header UI ====================
 function updateWorldBookModalHeader() {
     const titleEl = document.querySelector('#worldBookModal .font-bold.text-lg');
@@ -7827,8 +9866,28 @@ function updateWorldBookModalHeader() {
         titleEl.textContent = '世界书管理器（全局）';
     }
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-editor-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、编辑器、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Editor UI ====================
 // Split into strategy, position, form, state, and header helper chunks.
+/**
+ * 新手导读（文件：43-worldbook-entry-action-helpers.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、操作、辅助函数”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `getWIEntryActionFilter(无参数)`、`markWIEntryActionDirtyAndRender(filter)`、`createDuplicateWIEntry(src, uid)`、`unlinkWorldBookFromConversations(wbId)`、`resetWorldBookSelectionAfterDelete(wbId)`、`refreshWorldBookDeleteViews(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Action Helpers ====================
 function getWIEntryActionFilter() {
     return (dom.wiSearch && dom.wiSearch.value) ? dom.wiSearch.value.trim() : '';
@@ -7872,6 +9931,16 @@ function refreshWorldBookDeleteViews() {
     renderWorldBookList(getWIEntryActionFilter());
     updateWorldBookModalHeader();
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-actions.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、操作”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `addNewWIEntry(无参数)`、`duplicateCurrentEntry(无参数)`、`deleteCurrentEntry(无参数)`、`deleteAllWIEntries(无参数)`、`deleteWorldBook(wbId)`、`selectWIEntry(uid)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry Actions ====================
 function addNewWIEntry() {
     var wi = getActiveWI();
@@ -7929,6 +9998,16 @@ function selectWIEntry(uid) {
     var entry = getActiveWI().entries[wiState.selectedUid];
     fillEditorFromEntry(entry);
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-list-filter.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、列表、筛选”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `getCurrentWorldBookFilter(无参数)`、`getFilteredWorldInfoEntries(wi, filter)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry List Filtering ====================
 function getCurrentWorldBookFilter() {
     return dom.wiSearch ? dom.wiSearch.value.trim() : '';
@@ -7952,6 +10031,16 @@ function getFilteredWorldInfoEntries(wi, filter) {
     entries.sort(function(a, b) { return (b.order || 0) - (a.order || 0); });
     return entries;
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-list-navigation-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、列表、导航、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `appendBackToWorldBookListRow(container)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry List Navigation UI ====================
 function appendBackToWorldBookListRow(container) {
     var backRow = document.createElement('div');
@@ -7966,6 +10055,16 @@ function appendBackToWorldBookListRow(container) {
     });
     container.appendChild(backRow);
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-list-association-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、列表、关联、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `refreshWorldBookEntryAssociationViews(无参数)`、`appendWorldBookAssociationRow(container)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry List Association UI ====================
 function refreshWorldBookEntryAssociationViews() {
     wiState.dirty = true;
@@ -8008,6 +10107,16 @@ function appendWorldBookAssociationRow(container) {
 
     container.appendChild(assocRow);
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-list-delete-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、列表、删除、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `appendDeleteWorldBookRow(container)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry List Delete UI ====================
 function appendDeleteWorldBookRow(container) {
     var delBookRow = document.createElement('div');
@@ -8022,6 +10131,16 @@ function appendDeleteWorldBookRow(container) {
     });
     container.appendChild(delBookRow);
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-list-header-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、列表、标题区域、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `appendWorldBookEntryListHeader(container)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry List Header UI ====================
 function appendWorldBookEntryListHeader(container) {
     if (!wiState.currentWorldBookId) return;
@@ -8029,6 +10148,16 @@ function appendWorldBookEntryListHeader(container) {
     appendWorldBookAssociationRow(container);
     appendDeleteWorldBookRow(container);
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-list-row-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、列表、行项目、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `renderWorldBookEntryListEmpty(container)`、`createWorldBookEntryListRow(entry, wi)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry List Row UI ====================
 function renderWorldBookEntryListEmpty(container) {
     var empty = document.createElement('div');
@@ -8086,8 +10215,29 @@ function createWorldBookEntryListRow(entry, wi) {
 
     return row;
 }
+/**
+ * 新手导读（文件：43-worldbook-entry-list-helpers.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、条目、列表、辅助函数”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Entry List Helpers ====================
 // Split into header and row helper chunks.
+/**
+ * 新手导读（文件：43-worldbook-list-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、列表、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `renderWIEntryList(filter)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
+// 世界书列表界面：过滤、排序并渲染当前世界书的条目列表。
 function renderWIEntryList(filter) {
     var container = dom.wiEntryList;
     if (!container) return;
@@ -8120,6 +10270,16 @@ function renderWIEntryList(filter) {
         dom.wiEntryStats.textContent = entries.length + ' ' + t('world_book_entry');
     }
 }
+/**
+ * 新手导读（文件：43-worldbook-global-list-filter.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、全局、列表、筛选”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `getFilteredWorldBookList(filter)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Global List Filter ====================
 function getFilteredWorldBookList(filter) {
     if (!state.worldBooks) state.worldBooks = {};
@@ -8132,6 +10292,16 @@ function getFilteredWorldBookList(filter) {
         return (wb.name || '').toLowerCase().indexOf(f) !== -1;
     });
 }
+/**
+ * 新手导读（文件：43-worldbook-global-list-actions.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、全局、列表、操作”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `openWorldBookFromList(wb)`、`unlinkWorldBookFromCurrentConversation(wbId)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Global List Actions ====================
 function openWorldBookFromList(wb) {
     wiState.currentWorldBookId = wb.id;
@@ -8152,6 +10322,16 @@ function unlinkWorldBookFromCurrentConversation(wbId) {
     renderWorldInfoBadge();
     renderWorldBookList(getCurrentWorldBookFilter());
 }
+/**
+ * 新手导读（文件：43-worldbook-global-list-row-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、全局、列表、行项目、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `renderWorldBookListEmpty(container)`、`createWorldBookListRow(wb, linkedIds)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Global List Row UI ====================
 function renderWorldBookListEmpty(container) {
     var empty = document.createElement('div');
@@ -8207,6 +10387,16 @@ function createWorldBookListRow(wb, linkedIds) {
 
     return row;
 }
+/**
+ * 新手导读（文件：43-worldbook-global-list-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、全局、列表、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `renderWorldBookList(filter)`、`refreshWorldBookLeftPanel(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Global List UI ====================
 function renderWorldBookList(filter) {
     var container = dom.wiEntryList;
@@ -8238,6 +10428,16 @@ function refreshWorldBookLeftPanel() {
         renderWIEntryList(filter);
     }
 }
+/**
+ * 新手导读（文件：43-worldbook-import-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、导入、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `handleWIFileImport(e)`、`importWorldInfoAsNewBook(normalized)`、`importWorldInfoIntoCurrentBook(normalized)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Import UI ====================
 function handleWIFileImport(e) {
     var file = e.target.files[0];
@@ -8300,6 +10500,16 @@ function importWorldInfoIntoCurrentBook(normalized) {
     persistState(true);
     alert('\u4e16\u754c\u4e66\u5bfc\u5165\u6210\u529f\uff08' + Object.keys(wi.entries).length + ' \u6761\u76ee\uff09');
 }
+/**
+ * 新手导读（文件：43-worldbook-export-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、导出、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `sanitizeWorldInfoFileName(name)`、`exportCurrentWorldInfo(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Export UI ====================
 function sanitizeWorldInfoFileName(name) {
     return String(name || 'world_info')
@@ -8315,6 +10525,16 @@ function exportCurrentWorldInfo() {
     downloadJsonFile(data, name + '.json');
     recordBackupMade();
 }
+/**
+ * 新手导读（文件：43-worldbook-badge-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、标记、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：主要从 `renderWorldInfoBadge(无参数)`、`buildWorldInfoBadgeSourceSuffix(conv)`、`renderWorldInfoBudgetWarning(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Badge UI ====================
 function renderWorldInfoBadge() {
     var el = dom.wiEntryCount;
@@ -8376,8 +10596,28 @@ function renderWorldInfoBudgetWarning() {
         dismissBtn._wired = true;
     }
 }
+/**
+ * 新手导读（文件：43-worldbook-import-export-ui.js）
+ *
+ * 负责什么：这是“世界书编辑界面”中的“世界书、导入、导出、界面”部分。
+ * 在程序中的位置：它把世界书和条目显示成表单、列表与按钮，并响应用户编辑。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：界面修改后要同步回数据模型并持久化，否则刷新页面会丢失更改。
+ */
 // ==================== World Book Import / Export UI ====================
 // Split into import, export, and badge helper chunks.
+/**
+ * 新手导读（文件：44-worldbook-match-keys.js）
+ *
+ * 负责什么：这是“世界书匹配引擎”中的“世界书、匹配、关键词”部分。
+ * 在程序中的位置：它扫描最近聊天文本，按关键词、分组、预算和时效规则选出要注入的条目。
+ * 从哪里开始看：主要从 `escapeRegex(str)`、`buildWorldBookKeyRegex(key, flags, wholeWord)`、`entryMatchesKeys(entry, text, caseSensitive, wholeWord)`、`entryMatchesSecondary(entry, text, caseSensitive)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：匹配顺序和预算共同决定最终结果；看似多余的去重步骤用于防止重复注入。
+ */
 // ==================== World Book Key Matching ====================
 function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -8436,6 +10676,16 @@ function entryMatchesSecondary(entry, text, caseSensitive) {
     if (logic === 3) return matches < entry.keysecondary.length;
     return matches > 0;
 }
+/**
+ * 新手导读（文件：44-worldbook-match-filters.js）
+ *
+ * 负责什么：这是“世界书匹配引擎”中的“世界书、匹配、过滤条件”部分。
+ * 在程序中的位置：它扫描最近聊天文本，按关键词、分组、预算和时效规则选出要注入的条目。
+ * 从哪里开始看：主要从 `passesCharacterFilter(entry, charName, charTags)`、`passesProbability(entry)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：匹配顺序和预算共同决定最终结果；看似多余的去重步骤用于防止重复注入。
+ */
 // ==================== World Book Activation Filters ====================
 function passesCharacterFilter(entry, charName, charTags) {
     var cf = entry.characterFilter || { isExclude: false, names: [], tags: [] };
@@ -8457,6 +10707,16 @@ function passesProbability(entry) {
     if (p <= 0) return false;
     return Math.random() * 100 < p;
 }
+/**
+ * 新手导读（文件：44-worldbook-scan-text.js）
+ *
+ * 负责什么：这是“世界书匹配引擎”中的“世界书、扫描、文本”部分。
+ * 在程序中的位置：它扫描最近聊天文本，按关键词、分组、预算和时效规则选出要注入的条目。
+ * 从哪里开始看：主要从 `appendWorldBookCharacterScanSources(out, character, entry)`、`buildScanText(conv, depth, entry)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：匹配顺序和预算共同决定最终结果；看似多余的去重步骤用于防止重复注入。
+ */
 // ==================== World Book Scan Text ====================
 function appendWorldBookCharacterScanSources(out, character, entry) {
     if (!character) return;
@@ -8492,8 +10752,28 @@ function buildScanText(conv, depth, entry) {
     appendWorldBookCharacterScanSources(out, conv.character, entry);
     return out.join('\n');
 }
+/**
+ * 新手导读（文件：44-worldbook-matching.js）
+ *
+ * 负责什么：这是“世界书匹配引擎”中的“世界书、匹配”部分。
+ * 在程序中的位置：它扫描最近聊天文本，按关键词、分组、预算和时效规则选出要注入的条目。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：匹配顺序和预算共同决定最终结果；看似多余的去重步骤用于防止重复注入。
+ */
 // ==================== World Book Matching Helpers ====================
 // Split into key matching, activation filters, and scan text helper chunks.
+/**
+ * 新手导读（文件：44-worldbook-budget.js）
+ *
+ * 负责什么：这是“世界书匹配引擎”中的“世界书、内容预算”部分。
+ * 在程序中的位置：它扫描最近聊天文本，按关键词、分组、预算和时效规则选出要注入的条目。
+ * 从哪里开始看：主要从 `estimateTokens(text)`、`applyWorldInfoBudget(entries, settings)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：匹配顺序和预算共同决定最终结果；看似多余的去重步骤用于防止重复注入。
+ */
 // ==================== World Book Budget Helpers ====================
 function estimateTokens(text) {
     if (!text) return 0;
@@ -8561,8 +10841,28 @@ function applyWorldInfoBudget(entries, settings) {
 
     return { entries: final, trimmed: trimmed };
 }
+/**
+ * 新手导读（文件：44-worldbook-activation-helpers.js）
+ *
+ * 负责什么：这是“世界书匹配引擎”中的“世界书、激活规则、辅助函数”部分。
+ * 在程序中的位置：它扫描最近聊天文本，按关键词、分组、预算和时效规则选出要注入的条目。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：匹配顺序和预算共同决定最终结果；看似多余的去重步骤用于防止重复注入。
+ */
 // ==================== World Book Activation Helpers ====================
 // Split into collection, cache, selection, and result helper chunks.
+/**
+ * 新手导读（文件：44-worldbook-activation-collection.js）
+ *
+ * 负责什么：这是“世界书匹配引擎”中的“世界书、激活规则、集合”部分。
+ * 在程序中的位置：它扫描最近聊天文本，按关键词、分组、预算和时效规则选出要注入的条目。
+ * 从哪里开始看：主要从 `collectWorldInfoActivationEntries(conv)`、`buildCombinedWorldInfo(entries)`、`getEnabledWorldInfoEntries(wi)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：匹配顺序和预算共同决定最终结果；看似多余的去重步骤用于防止重复注入。
+ */
 // ==================== World Book Activation Collection ====================
 function collectWorldInfoActivationEntries(conv) {
     var entries = [];
@@ -8604,6 +10904,16 @@ function getEnabledWorldInfoEntries(wi) {
     return Object.keys(wi.entries).map(function(k) { return wi.entries[k]; })
         .filter(function(e) { return e && !e.disable; });
 }
+/**
+ * 新手导读（文件：44-worldbook-activation-cache.js）
+ *
+ * 负责什么：这是“世界书匹配引擎”中的“世界书、激活规则、缓存”部分。
+ * 在程序中的位置：它扫描最近聊天文本，按关键词、分组、预算和时效规则选出要注入的条目。
+ * 从哪里开始看：主要从 `buildWorldInfoActivationCacheKey(conv, wi)`、`cacheActivatedWorldInfoResult(conv, cacheKey, result)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：匹配顺序和预算共同决定最终结果；看似多余的去重步骤用于防止重复注入。
+ */
 // ==================== World Book Activation Cache ====================
 function buildWorldInfoActivationCacheKey(conv, wi) {
     var messages = conv.messages || [];
@@ -8630,6 +10940,16 @@ function cacheActivatedWorldInfoResult(conv, cacheKey, result) {
         result: result
     };
 }
+/**
+ * 新手导读（文件：44-worldbook-activation-groups.js）
+ *
+ * 负责什么：这是“世界书匹配引擎”中的“世界书、激活规则、分组”部分。
+ * 在程序中的位置：它扫描最近聊天文本，按关键词、分组、预算和时效规则选出要注入的条目。
+ * 从哪里开始看：主要从 `chooseWorldInfoGroupWinner(entries)`、`resolveWorldInfoInclusionGroups(activated)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：匹配顺序和预算共同决定最终结果；看似多余的去重步骤用于防止重复注入。
+ */
 // ==================== World Book Activation Groups ====================
 function chooseWorldInfoGroupWinner(entries) {
     var useScoring = entries.some(function(e) { return e.useGroupScoring; });
@@ -8668,6 +10988,16 @@ function resolveWorldInfoInclusionGroups(activated) {
 
     return activated;
 }
+/**
+ * 新手导读（文件：44-worldbook-activation-selection.js）
+ *
+ * 负责什么：这是“世界书匹配引擎”中的“世界书、激活规则、选择”部分。
+ * 在程序中的位置：它扫描最近聊天文本，按关键词、分组、预算和时效规则选出要注入的条目。
+ * 从哪里开始看：主要从 `activateDirectWorldInfoEntries(all, conv, charName, charTags)`、`expandRecursiveWorldInfoEntries(activated, all, charName, charTags)`、`dedupeWorldInfoEntries(entries)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：匹配顺序和预算共同决定最终结果；看似多余的去重步骤用于防止重复注入。
+ */
 // ==================== World Book Activation Selection ====================
 function activateDirectWorldInfoEntries(all, conv, charName, charTags) {
     var activated = [];
@@ -8721,6 +11051,16 @@ function dedupeWorldInfoEntries(entries) {
         return true;
     });
 }
+/**
+ * 新手导读（文件：44-worldbook-activation-result.js）
+ *
+ * 负责什么：这是“世界书匹配引擎”中的“世界书、激活规则、结果”部分。
+ * 在程序中的位置：它扫描最近聊天文本，按关键词、分组、预算和时效规则选出要注入的条目。
+ * 从哪里开始看：主要从 `applyWorldInfoBudgetWithWarning(activated)`、`groupActivatedWorldInfoByPosition(activated)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：匹配顺序和预算共同决定最终结果；看似多余的去重步骤用于防止重复注入。
+ */
 // ==================== World Book Activation Result Helpers ====================
 function applyWorldInfoBudgetWithWarning(activated) {
     var settings = state.settings || {};
@@ -8757,7 +11097,29 @@ function groupActivatedWorldInfoByPosition(activated) {
 
     return { byPosition: byPos, outlets: outlets };
 }
+/**
+ * 新手导读（文件：44-worldbook-activation.js）
+ *
+ * 负责什么：这是“世界书匹配引擎”中的“世界书、激活规则”部分。
+ * 在程序中的位置：它扫描最近聊天文本，按关键词、分组、预算和时效规则选出要注入的条目。
+ * 从哪里开始看：主要从 `getActivatedWorldInfo(conv)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：匹配顺序和预算共同决定最终结果；看似多余的去重步骤用于防止重复注入。
+ */
 // ==================== World Book Activation Engine ====================
+/**
+ * 根据当前聊天内容选出本轮应加入提示词的世界书条目。
+ *
+ * @param {Object} conv - 当前会话，包含消息、角色、关联世界书和运行时缓存。
+ * @returns {{entries: Array, byPosition: Object, outlets: Object}} 已激活条目及其位置分组。
+ *
+ * 处理管线：收集候选世界书 -> 尝试命中缓存 -> 过滤禁用项 -> 关键词直接匹配 ->
+ * 递归扩展 -> 去重 -> 解决互斥分组 -> 按 order 排序 -> 应用定时效果与 Token 预算 ->
+ * 按提示词位置分组。任何一步次序变化都可能让最终注入内容不同。
+ *
+ * 缓存依赖聊天和世界书内容生成的 key；只有 key 完全相同时才复用结果，避免每次渲染都重扫文本。
+ */
 function getActivatedWorldInfo(conv) {
     var entries = collectWorldInfoActivationEntries(conv);
     if (entries.length === 0) return { entries: [], byPosition: {} };
@@ -8794,6 +11156,16 @@ function getActivatedWorldInfo(conv) {
     cacheActivatedWorldInfoResult(conv, cacheKey, result);
     return result;
 }
+/**
+ * 新手导读（文件：44-worldbook-output.js）
+ *
+ * 负责什么：这是“世界书匹配引擎”中的“世界书、输出”部分。
+ * 在程序中的位置：它扫描最近聊天文本，按关键词、分组、预算和时效规则选出要注入的条目。
+ * 从哪里开始看：主要从 `joinWIContent(list, charName, userName)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：匹配顺序和预算共同决定最终结果；看似多余的去重步骤用于防止重复注入。
+ */
 // ==================== World Book Output Helpers ====================
 function joinWIContent(list, charName, userName) {
     if (!list || !list.length) return '';
@@ -8801,6 +11173,16 @@ function joinWIContent(list, charName, userName) {
         return replacePlaceholders(e.content || '', charName, userName);
     }).join('\n\n');
 }
+/**
+ * 新手导读（文件：44-worldbook-timed-effects.js）
+ *
+ * 负责什么：这是“世界书匹配引擎”中的“世界书、定时效果、联动效果”部分。
+ * 在程序中的位置：它扫描最近聊天文本，按关键词、分组、预算和时效规则选出要注入的条目。
+ * 从哪里开始看：主要从 `getConversationMessageCount(conv)`、`processTimedEffects(conv, activatedEntries)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：匹配顺序和预算共同决定最终结果；看似多余的去重步骤用于防止重复注入。
+ */
 // ==================== Timed Effects Helpers (Sticky / Cooldown / Delay) ====================
 function getConversationMessageCount(conv) {
     if (!conv || !conv.messages) return 0;
@@ -8868,6 +11250,16 @@ function processTimedEffects(conv, activatedEntries) {
 
     return finalEntries;
 }
+/**
+ * 新手导读（文件：50-generation-cot-utils.js）
+ *
+ * 负责什么：这是“文本生成底层”中的“内容生成、思考内容、工具函数”部分。
+ * 在程序中的位置：它发送模型请求、读取流式响应，并拆分正文与思考内容。
+ * 从哪里开始看：主要从 `extractCotDelta(delta)`、`splitInlineCot(content, existingCot)`、`buildCotAwareParts(captureCot, content, cot)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：网络流会分成任意大小的数据块，不能假设一次读取就是完整 JSON 或完整句子。
+ */
 // ==================== Generation CoT Helpers ====================
 function extractCotDelta(delta) {
     if (!delta) return '';
@@ -8900,6 +11292,16 @@ function buildCotAwareParts(captureCot, content, cot) {
         ? splitInlineCot(content || '', cot || '')
         : { content: content || '', cot: '' };
 }
+/**
+ * 新手导读（文件：50-generation-api-request.js）
+ *
+ * 负责什么：这是“文本生成底层”中的“内容生成、模型接口、请求”部分。
+ * 在程序中的位置：它发送模型请求、读取流式响应，并拆分正文与思考内容。
+ * 从哪里开始看：主要从 `shouldCaptureCotForRequest(settings, requestOptions)`、`buildChatCompletionPayload(settings, messages, requestOptions)`、`buildChatCompletionFetchOptions(settings, payload, controller)`、`readChatCompletionError(response)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：网络流会分成任意大小的数据块，不能假设一次读取就是完整 JSON 或完整句子。
+ */
 // ==================== Generation API Request Helpers ====================
 function shouldCaptureCotForRequest(settings, requestOptions) {
     requestOptions = requestOptions || {};
@@ -8941,6 +11343,16 @@ async function readChatCompletionError(response) {
     }
     return new Error(errMsg);
 }
+/**
+ * 新手导读（文件：50-generation-stream-state.js）
+ *
+ * 负责什么：这是“文本生成底层”中的“内容生成、流式数据、状态”部分。
+ * 在程序中的位置：它发送模型请求、读取流式响应，并拆分正文与思考内容。
+ * 从哪里开始看：主要从 `beginGenerationStreamState(无参数)`、`finishGenerationStreamState(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：网络流会分成任意大小的数据块，不能假设一次读取就是完整 JSON 或完整句子。
+ */
 // ==================== Generation Stream State Helpers ====================
 function beginGenerationStreamState() {
     var controller = new AbortController();
@@ -8955,6 +11367,16 @@ function finishGenerationStreamState() {
     appStore.notify('isGenerating');
     state.abortController = null;
 }
+/**
+ * 新手导读（文件：50-generation-response-stream.js）
+ *
+ * 负责什么：这是“文本生成底层”中的“内容生成、响应、流式数据”部分。
+ * 在程序中的位置：它发送模型请求、读取流式响应，并拆分正文与思考内容。
+ * 从哪里开始看：主要从 `streamChatCompletionResponse(response, captureCot, onToken, onComplete, onError)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：网络流会分成任意大小的数据块，不能假设一次读取就是完整 JSON 或完整句子。
+ */
 // ==================== Chat Completion Response Stream ====================
 function streamChatCompletionResponse(response, captureCot, onToken, onComplete, onError) {
     var reader = response.body.getReader();
@@ -9018,7 +11440,29 @@ function streamChatCompletionResponse(response, captureCot, onToken, onComplete,
 
     pump();
 }
+/**
+ * 新手导读（文件：50-generation-integrations.js）
+ *
+ * 负责什么：这是“文本生成底层”中的“内容生成、外部集成”部分。
+ * 在程序中的位置：它发送模型请求、读取流式响应，并拆分正文与思考内容。
+ * 从哪里开始看：主要从 `streamChatWithMessages(messages, onToken, onComplete, onError, requestOptions)`、`streamChat(onToken, onComplete, onError)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：网络流会分成任意大小的数据块，不能假设一次读取就是完整 JSON 或完整句子。
+ */
 // ==================== API Client ====================
+/**
+ * 使用指定 messages 发起一次流式模型请求，并通过回调持续报告结果。
+ *
+ * @param {Array} messages - 已组装好的模型上下文，每项包含 role 和 content。
+ * @param {Function} onToken - 每收到一段增量文本时调用，用于更新正在生成的气泡。
+ * @param {Function} onComplete - 流正常结束或用户主动中止时调用，接收完整正文和思考内容。
+ * @param {Function} onError - 配置、网络或服务端错误时调用。
+ * @param {Object} requestOptions - 可覆盖温度、最大 Token 等本次请求参数。
+ *
+ * 本地 WebLLM 与远程 API 在这里分流。远程路径会规范化地址、兼容 Ollama、创建 AbortController，
+ * 然后把 Response 交给流解析器。fetch 成功只代表服务器有响应，仍必须先检查 response.ok。
+ */
 function streamChatWithMessages(messages, onToken, onComplete, onError, requestOptions) {
     var settings = state.settings;
     if (isWebLLMBackend()) {
@@ -9055,6 +11499,10 @@ function streamChatWithMessages(messages, onToken, onComplete, onError, requestO
     });
 }
 
+/**
+ * 普通聊天生成的便捷入口：先构建当前会话提示词，再调用通用流式请求函数。
+ * 提示词构建失败属于本地错误，此时要恢复 isGenerating 状态，不能继续发送空请求。
+ */
 function streamChat(onToken, onComplete, onError) {
     var messages;
     try {
@@ -9068,6 +11516,16 @@ function streamChat(onToken, onComplete, onError) {
     }
     streamChatWithMessages(messages, onToken, onComplete, onError);
 }
+/**
+ * 新手导读（文件：51-comfyui-settings.js）
+ *
+ * 负责什么：这是“ComfyUI 绘图集成”中的“ComfyUI 绘图、设置”部分。
+ * 在程序中的位置：它填写工作流、请求图片生成，并把生成结果添加到聊天消息。
+ * 从哪里开始看：主要从 `ensureComfySettings(无参数)`、`normalizeComfyServer(url)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：工作流节点来自外部 JSON，查找节点时要保留缺失和格式错误处理。
+ */
 // ==================== ComfyUI Settings ====================
 function ensureComfySettings() {
     if (!state.settings) state.settings = defaultSettings();
@@ -9101,6 +11559,16 @@ function normalizeComfyServer(url) {
     url = String(url || '').trim() || 'http://127.0.0.1:8188';
     return url.replace(/\/+$/, '');
 }
+/**
+ * 新手导读（文件：51-comfyui-workflow-clone.js）
+ *
+ * 负责什么：这是“ComfyUI 绘图集成”中的“ComfyUI 绘图、工作流、复制”部分。
+ * 在程序中的位置：它填写工作流、请求图片生成，并把生成结果添加到聊天消息。
+ * 从哪里开始看：主要从 `cloneComfyWorkflow(无参数)`、`setComfyNodeInput(workflow, nodeId, inputName, value)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：工作流节点来自外部 JSON，查找节点时要保留缺失和格式错误处理。
+ */
 // ==================== ComfyUI Workflow Clone ====================
 function cloneComfyWorkflow() {
     ensureComfySettings();
@@ -9117,6 +11585,16 @@ function setComfyNodeInput(workflow, nodeId, inputName, value) {
     node.inputs[inputName] = value;
     return true;
 }
+/**
+ * 新手导读（文件：51-comfyui-prompt-text.js）
+ *
+ * 负责什么：这是“ComfyUI 绘图集成”中的“ComfyUI 绘图、提示词、文本”部分。
+ * 在程序中的位置：它填写工作流、请求图片生成，并把生成结果添加到聊天消息。
+ * 从哪里开始看：主要从 `buildComfyPromptText(conv)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：工作流节点来自外部 JSON，查找节点时要保留缺失和格式错误处理。
+ */
 // ==================== ComfyUI Prompt Text ====================
 function buildComfyPromptText(conv) {
     ensureComfySettings();
@@ -9149,6 +11627,16 @@ function buildComfyPromptText(conv) {
         .replace(/\{\{user\}\}/gi, state.settings.userName || 'User');
     return text.trim() || scene || character || 'roleplay scene';
 }
+/**
+ * 新手导读（文件：51-comfyui-workflow-apply.js）
+ *
+ * 负责什么：这是“ComfyUI 绘图集成”中的“ComfyUI 绘图、工作流、应用数据”部分。
+ * 在程序中的位置：它填写工作流、请求图片生成，并把生成结果添加到聊天消息。
+ * 从哪里开始看：主要从 `applyComfyPromptToWorkflow(workflow, promptText)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：工作流节点来自外部 JSON，查找节点时要保留缺失和格式错误处理。
+ */
 // ==================== ComfyUI Workflow Apply ====================
 function applyComfyPromptToWorkflow(workflow, promptText) {
     ensureComfySettings();
@@ -9167,6 +11655,16 @@ function applyComfyPromptToWorkflow(workflow, promptText) {
         }
     }
 }
+/**
+ * 新手导读（文件：51-comfyui-output-finder.js）
+ *
+ * 负责什么：这是“ComfyUI 绘图集成”中的“ComfyUI 绘图、输出、查找器”部分。
+ * 在程序中的位置：它填写工作流、请求图片生成，并把生成结果添加到聊天消息。
+ * 从哪里开始看：主要从 `findComfyOutputImage(history, promptId)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：工作流节点来自外部 JSON，查找节点时要保留缺失和格式错误处理。
+ */
 // ==================== ComfyUI Output Finder ====================
 function findComfyOutputImage(history, promptId) {
     var item = history && (history[promptId] || history);
@@ -9178,12 +11676,32 @@ function findComfyOutputImage(history, promptId) {
     }
     return null;
 }
+/**
+ * 新手导读（文件：51-comfyui-workflow.js）
+ *
+ * 负责什么：这是“ComfyUI 绘图集成”中的“ComfyUI 绘图、工作流”部分。
+ * 在程序中的位置：它填写工作流、请求图片生成，并把生成结果添加到聊天消息。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：工作流节点来自外部 JSON，查找节点时要保留缺失和格式错误处理。
+ */
 // ==================== ComfyUI Workflow Facade ====================
 // Workflow cloning, prompt text, prompt application, and output lookup live in:
 // - 51-comfyui-workflow-clone.js
 // - 51-comfyui-prompt-text.js
 // - 51-comfyui-workflow-apply.js
 // - 51-comfyui-output-finder.js
+/**
+ * 新手导读（文件：51-comfyui-client-helpers.js）
+ *
+ * 负责什么：这是“ComfyUI 绘图集成”中的“ComfyUI 绘图、客户端、辅助函数”部分。
+ * 在程序中的位置：它填写工作流、请求图片生成，并把生成结果添加到聊天消息。
+ * 从哪里开始看：主要从 `buildComfyPromptWebSocketUrl(server, clientId)`、`buildComfyPromptHistoryUrl(server, promptId)`、`isComfyPromptHistoryComplete(history, promptId)`、`isComfyPromptFinishedMessage(message, promptId)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：工作流节点来自外部 JSON，查找节点时要保留缺失和格式错误处理。
+ */
 // ==================== ComfyUI Client Pure Helpers ====================
 function buildComfyPromptWebSocketUrl(server, clientId) {
     return server.replace(/^http/i, 'ws') + '/ws?clientId=' + encodeURIComponent(clientId);
@@ -9206,6 +11724,16 @@ function isComfyPromptFinishedMessage(message, promptId) {
         message.data.node === null
     );
 }
+/**
+ * 新手导读（文件：51-comfyui-client.js）
+ *
+ * 负责什么：这是“ComfyUI 绘图集成”中的“ComfyUI 绘图、客户端”部分。
+ * 在程序中的位置：它填写工作流、请求图片生成，并把生成结果添加到聊天消息。
+ * 从哪里开始看：主要从 `makeComfyClientId(无参数)`、`waitForComfyPrompt(server, clientId, promptId, timeoutMs)`、`fetchBlobAsDataUrl(url)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：工作流节点来自外部 JSON，查找节点时要保留缺失和格式错误处理。
+ */
 // ==================== ComfyUI Client Helpers ====================
 function makeComfyClientId() {
     return 'opentavern-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
@@ -9281,6 +11809,16 @@ async function fetchBlobAsDataUrl(url) {
         reader.readAsDataURL(blob);
     });
 }
+/**
+ * 新手导读（文件：51-comfyui-state.js）
+ *
+ * 负责什么：这是“ComfyUI 绘图集成”中的“ComfyUI 绘图、状态”部分。
+ * 在程序中的位置：它填写工作流、请求图片生成，并把生成结果添加到聊天消息。
+ * 从哪里开始看：主要从 `setComfyGenerationActive(active)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：工作流节点来自外部 JSON，查找节点时要保留缺失和格式错误处理。
+ */
 // ==================== ComfyUI Runtime State ====================
 let comfyIsGenerating = false;
 
@@ -9291,6 +11829,16 @@ function setComfyGenerationActive(active) {
         dom.comfyGenerateBtn.classList.toggle('animate-pulse', comfyIsGenerating);
     }
 }
+/**
+ * 新手导读（文件：51-comfyui-errors.js）
+ *
+ * 负责什么：这是“ComfyUI 绘图集成”中的“ComfyUI 绘图、错误处理”部分。
+ * 在程序中的位置：它填写工作流、请求图片生成，并把生成结果添加到聊天消息。
+ * 从哪里开始看：主要从 `formatComfyError(e)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：工作流节点来自外部 JSON，查找节点时要保留缺失和格式错误处理。
+ */
 // ==================== ComfyUI Error Helpers ====================
 function formatComfyError(e) {
     var msg = (e && e.message) || String(e || '');
@@ -9299,6 +11847,16 @@ function formatComfyError(e) {
     }
     return msg;
 }
+/**
+ * 新手导读（文件：51-comfyui-output-message.js）
+ *
+ * 负责什么：这是“ComfyUI 绘图集成”中的“ComfyUI 绘图、输出、消息”部分。
+ * 在程序中的位置：它填写工作流、请求图片生成，并把生成结果添加到聊天消息。
+ * 从哪里开始看：主要从 `buildComfyImageViewUrl(server, image)`、`loadComfyOutputImageDataUrl(server, image)`、`createComfyImageMessage(dataUrl, promptText, promptId, image)`、`appendComfyImageMessage(conv, msg)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：工作流节点来自外部 JSON，查找节点时要保留缺失和格式错误处理。
+ */
 // ==================== ComfyUI Output Message Helpers ====================
 function buildComfyImageViewUrl(server, image) {
     return server + '/view?filename=' + encodeURIComponent(image.filename || '') +
@@ -9335,6 +11893,16 @@ function appendComfyImageMessage(conv, msg) {
     renderMessagesOnly();
     renderConversationListOnly();
 }
+/**
+ * 新手导读（文件：51-comfyui-generation-runtime.js）
+ *
+ * 负责什么：这是“ComfyUI 绘图集成”中的“ComfyUI 绘图、内容生成、运行流程”部分。
+ * 在程序中的位置：它填写工作流、请求图片生成，并把生成结果添加到聊天消息。
+ * 从哪里开始看：主要从 `generateComfyImageForCurrentChat(无参数)`、`submitComfyWorkflowAndFindImage(server, workflow)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：工作流节点来自外部 JSON，查找节点时要保留缺失和格式错误处理。
+ */
 // ==================== ComfyUI Generation Runtime ====================
 async function generateComfyImageForCurrentChat() {
     if (comfyIsGenerating || state.isGenerating) return;
@@ -9390,6 +11958,16 @@ async function submitComfyWorkflowAndFindImage(server, workflow) {
 
     return { promptId: promptId, image: image };
 }
+/**
+ * 新手导读（文件：51-comfyui-workflow-import-ui.js）
+ *
+ * 负责什么：这是“ComfyUI 绘图集成”中的“ComfyUI 绘图、工作流、导入、界面”部分。
+ * 在程序中的位置：它填写工作流、请求图片生成，并把生成结果添加到聊天消息。
+ * 从哪里开始看：主要从 `importComfyWorkflowFile(file)`、`updateComfyWorkflowStatus(无参数)`、`testComfyConnection(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：工作流节点来自外部 JSON，查找节点时要保留缺失和格式错误处理。
+ */
 // ==================== ComfyUI Workflow Import UI ====================
 async function importComfyWorkflowFile(file) {
     if (!file) return;
@@ -9434,10 +12012,31 @@ async function testComfyConnection() {
         alert(t('comfy_error_prefix') + (e.message || e));
     }
 }
+/**
+ * 新手导读（文件：51-comfyui-integration.js）
+ *
+ * 负责什么：这是“ComfyUI 绘图集成”中的“ComfyUI 绘图、外部集成”部分。
+ * 在程序中的位置：它填写工作流、请求图片生成，并把生成结果添加到聊天消息。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：工作流节点来自外部 JSON，查找节点时要保留缺失和格式错误处理。
+ */
 // ==================== ComfyUI txt2img ====================
 // Split into state, error, output message, generation, and workflow UI chunks.
+/**
+ * 新手导读（文件：52-generation-streaming-isolation.js）
+ *
+ * 负责什么：这是“回复生成主流程”中的“内容生成、流式显示、隔离”部分。
+ * 在程序中的位置：它串联提示词、模型调用、流式气泡、消息保存和可选的二段生成。
+ * 从哪里开始看：主要从 `getGenerationStreamingIds(stage)`、`removeGenerationStreamingBubble(stage)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：主回复与二段结果必须保持独立并通过 parentId 关联，避免选项混入正文。
+ */
 // ==================== Generation Streaming Isolation ====================
 function getGenerationStreamingIds(stage) {
+    // 二段生成使用独立 DOM 标识，避免更新正文流式气泡或把选项写进正文消息。
     if (stage === 'second') {
         return {
             message: 'secondStageStreamingMsg',
@@ -9457,6 +12056,16 @@ function removeGenerationStreamingBubble(stage) {
     var streamingEl = document.getElementById(ids.message);
     if (streamingEl) streamingEl.remove();
 }
+/**
+ * 新手导读（文件：52-generation-runtime.js）
+ *
+ * 负责什么：这是“回复生成主流程”中的“内容生成、运行流程”部分。
+ * 在程序中的位置：它串联提示词、模型调用、流式气泡、消息保存和可选的二段生成。
+ * 从哪里开始看：主要从 `completeGenerationTurn(conv)`、`handlePrimaryAssistantComplete(fullContent, fullCot)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：主回复与二段结果必须保持独立并通过 parentId 关联，避免选项混入正文。
+ */
 // ==================== Generation Turn Runtime ====================
 function completeGenerationTurn(conv) {
     if (!conv) return;
@@ -9498,6 +12107,16 @@ function handlePrimaryAssistantComplete(fullContent, fullCot) {
         completeGenerationTurn(conv);
     }
 }
+/**
+ * 新手导读（文件：52-generation-webllm-runtime.js）
+ *
+ * 负责什么：这是“回复生成主流程”中的“内容生成、浏览器本地大模型、运行流程”部分。
+ * 在程序中的位置：它串联提示词、模型调用、流式气泡、消息保存和可选的二段生成。
+ * 从哪里开始看：主要从 `streamChatWebLLMWithMessages(messages, onToken, onComplete, onError, requestOptions)`、`streamChatWebLLM(onToken, onComplete, onError)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：主回复与二段结果必须保持独立并通过 parentId 关联，避免选项混入正文。
+ */
 // ==================== WebLLM Generation Runtime ====================
 async function streamChatWebLLMWithMessages(messages, onToken, onComplete, onError, requestOptions) {
     var modelId = getWebLLMModelId();
@@ -9572,6 +12191,16 @@ async function streamChatWebLLM(onToken, onComplete, onError) {
     }
     return streamChatWebLLMWithMessages(messages, onToken, onComplete, onError);
 }
+/**
+ * 新手导读（文件：52-generation-message-lifecycle.js）
+ *
+ * 负责什么：这是“回复生成主流程”中的“内容生成、消息、生命周期”部分。
+ * 在程序中的位置：它串联提示词、模型调用、流式气泡、消息保存和可选的二段生成。
+ * 从哪里开始看：主要从 `stopGeneration(无参数)`、`ensureMessageIdentity(msg, stage)`、`getLinkedSecondStageIndexes(conv, parentMsg)`、`removeLinkedSecondStageMessages(conv, parentMsg)`、`updateStreamingBubble(fullContent, conv, label, fullCot, stage)`、`finishAssistantMessage(conv, fullContent, speakerForMsg, stage, parentId, fullCot)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：主回复与二段结果必须保持独立并通过 parentId 关联，避免选项混入正文。
+ */
 // ==================== Generation Message Lifecycle ====================
 function stopGeneration() {
     if (state.abortController) {
@@ -9595,6 +12224,7 @@ function ensureMessageIdentity(msg, stage) {
 
 function getLinkedSecondStageIndexes(conv, parentMsg) {
     if (!conv || !parentMsg) return [];
+    // parentId 将二段结果绑定到对应正文，重生成正文时可精确清理旧结果。
     ensureMessageIdentity(parentMsg, 'main');
     var indexes = [];
     for (var i = 0; i < conv.messages.length; i++) {
@@ -9648,7 +12278,27 @@ function finishAssistantMessage(conv, fullContent, speakerForMsg, stage, parentI
     renderTokenBar();
     return pushObj;
 }
+/**
+ * 新手导读（文件：52-generation-second-stage-runtime.js）
+ *
+ * 负责什么：这是“回复生成主流程”中的“内容生成、第二阶段、运行流程”部分。
+ * 在程序中的位置：它串联提示词、模型调用、流式气泡、消息保存和可选的二段生成。
+ * 从哪里开始看：主要从 `runSecondStageGeneration(firstStageMessage, onDone)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：主回复与二段结果必须保持独立并通过 parentId 关联，避免选项混入正文。
+ */
 // ==================== Second Stage Generation Runtime ====================
+/**
+ * 在正文生成结束后，单独运行“第二阶段”模型请求来产生可选事项。
+ *
+ * @param {Object} firstStageMessage - 刚保存的正文消息；其 id 会成为二段消息的 parentId。
+ * @param {Function} onDone - 整个流程结束时调用；成功传 null，失败传 Error。
+ *
+ * 二段请求拥有自己的提示词、采样参数、流式 DOM 标识和最终消息记录。这样用户看到的选项
+ * 不会追加到正文气泡，也不会在下一轮作为普通历史重复发送。若使用 WebLLM，必须先确保
+ * 本地引擎准备完毕；初始化失败会退回远程 API 配置并把错误交给调用者。
+ */
 function runSecondStageGeneration(firstStageMessage, onDone) {
     var conv = getActiveConv();
     if (!conv || !firstStageMessage) {
@@ -9657,6 +12307,7 @@ function runSecondStageGeneration(firstStageMessage, onDone) {
     }
     ensureMessageIdentity(firstStageMessage, 'main');
 
+    // 真正的请求步骤被包成内部函数，远程 API 可直接执行，本地模型则在引擎就绪后执行。
     function startSecondStage() {
         removeGenerationStreamingBubble('main');
         var messages;
@@ -9713,6 +12364,16 @@ function runSecondStageGeneration(firstStageMessage, onDone) {
         startSecondStage();
     }
 }
+/**
+ * 新手导读（文件：52-conversation-save.js）
+ *
+ * 负责什么：这是“回复生成主流程”中的“会话、保存”部分。
+ * 在程序中的位置：它串联提示词、模型调用、流式气泡、消息保存和可选的二段生成。
+ * 从哪里开始看：主要从 `saveCurrentConversation(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：主回复与二段结果必须保持独立并通过 parentId 关联，避免选项混入正文。
+ */
 // ==================== Conversation Save Helpers ====================
 function saveCurrentConversation() {
     var conv = getActiveConv();
@@ -9730,6 +12391,16 @@ function saveCurrentConversation() {
     }
     persistState();
 }
+/**
+ * 新手导读（文件：53-summary-default-prompts.js）
+ *
+ * 负责什么：这是“总结服务”中的“总结、默认值、提示词”部分。
+ * 在程序中的位置：它构建总结提示词并调用独立或主模型 API 生成会话总结。
+ * 从哪里开始看：主要从 `getDefaultSummaryPrompt(lang)`、`getSummaryPromptZhCN(无参数)`、`getSummaryPromptZhTW(无参数)`、`getSummaryPromptEn(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：总结长度限制和语言设置会影响上下文占用，不要绕过统一的限制计算。
+ */
 // ==================== Default Summary Prompts ====================
 function getDefaultSummaryPrompt(lang) {
     if (lang === 'zh-TW') return getSummaryPromptZhTW();
@@ -9769,6 +12440,16 @@ function getSummaryPromptEn() {
         '[Strict Constraints]\n- Stay highly faithful to the original dialogue text. Do not add unsubstantiated details or over-dramatize.\n- Keep language concise and logically clear. Strictly forbidden to output long RP-style continuous narrative or theatrical descriptions.\n- If multiple characters are involved, label each one separately.\n- Regardless of how long the content is, you MUST completely output all 5 sections above without truncating mid-way.'
     ].join('\n\n');
 }
+/**
+ * 新手导读（文件：53-summary-prompt-limits.js）
+ *
+ * 负责什么：这是“总结服务”中的“总结、提示词、限制”部分。
+ * 在程序中的位置：它构建总结提示词并调用独立或主模型 API 生成会话总结。
+ * 从哪里开始看：主要从 `getSummaryWordLimitSuffix(lang, maxWords)`、`getSummaryMaxTokens(maxWords)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：总结长度限制和语言设置会影响上下文占用，不要绕过统一的限制计算。
+ */
 // ==================== Summary Prompt Limits ====================
 function getSummaryWordLimitSuffix(lang, maxWords) {
     if (lang === 'zh-TW') {
@@ -9787,6 +12468,16 @@ function getSummaryMaxTokens(maxWords) {
     }
     return 6144;
 }
+/**
+ * 新手导读（文件：53-summary-prompt-builder.js）
+ *
+ * 负责什么：这是“总结服务”中的“总结、提示词、构建器”部分。
+ * 在程序中的位置：它构建总结提示词并调用独立或主模型 API 生成会话总结。
+ * 从哪里开始看：主要从 `buildSummaryPromptConfig(settings)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：总结长度限制和语言设置会影响上下文占用，不要绕过统一的限制计算。
+ */
 // ==================== Summary Prompt Builder ====================
 function buildSummaryPromptConfig(settings) {
     var lang = settings.lang || 'zh-CN';
@@ -9803,6 +12494,16 @@ function buildSummaryPromptConfig(settings) {
         maxTokens: getSummaryMaxTokens(maxWords)
     };
 }
+/**
+ * 新手导读（文件：53-summary-api-client.js）
+ *
+ * 负责什么：这是“总结服务”中的“总结、模型接口、客户端”部分。
+ * 在程序中的位置：它构建总结提示词并调用独立或主模型 API 生成会话总结。
+ * 从哪里开始看：主要从 `requestSummaryCompletion(endpoint, apiKey, model, summaryMessages, maxTokens)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：总结长度限制和语言设置会影响上下文占用，不要绕过统一的限制计算。
+ */
 // ==================== Summary API Client ====================
 function requestSummaryCompletion(endpoint, apiKey, model, summaryMessages, maxTokens) {
     return fetch(endpoint, {
@@ -9819,6 +12520,16 @@ function requestSummaryCompletion(endpoint, apiKey, model, summaryMessages, maxT
         return r.json();
     });
 }
+/**
+ * 新手导读（文件：53-summarization-service.js）
+ *
+ * 负责什么：这是“总结服务”中的“总结、存储服务”部分。
+ * 在程序中的位置：它构建总结提示词并调用独立或主模型 API 生成会话总结。
+ * 从哪里开始看：主要从 `generateSummary(messages, callback)`、`getSummarizationCredentials(settings)`、`buildSummaryMessages(messages, settings, summaryPrompt)`、`extractSummaryText(data)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：总结长度限制和语言设置会影响上下文占用，不要绕过统一的限制计算。
+ */
 // ==================== Summarization Service ====================
 function generateSummary(messages, callback) {
     var settings = state.settings;
@@ -9882,6 +12593,28 @@ function extractSummaryText(data) {
     }
     return raw;
 }
+/**
+ * 新手导读（文件：54-summarization-runtime.js）
+ *
+ * 负责什么：这是“自动总结流程”中的“总结、运行流程”部分。
+ * 在程序中的位置：它判断何时需要总结、选择消息范围，并把结果写入会话。
+ * 从哪里开始看：主要从 `performSummarization(subset, startIdx, endIdx, onDone)`、`triggerSummarization(turns)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：coveredStart 与 coveredEnd 是历史下标，错误更新会造成消息被重复总结或漏发。
+ */
+// 自动总结运行时：调用总结模型、保存结果并更新会话摘要覆盖范围。
+/**
+ * 为指定的一段历史消息生成总结，并记录这份总结覆盖的原始消息范围。
+ *
+ * @param {Array} subset - 本次交给总结模型的消息副本，至少包含两条消息。
+ * @param {number} startIdx - subset 第一条消息在普通历史中的下标。
+ * @param {number} endIdx - subset 最后一条消息在普通历史中的下标。
+ * @param {Function} onDone - 完成回调；成功传 null，失败传 Error。
+ *
+ * 原始消息不会被删除：聊天界面继续显示完整历史；只有下次构建模型提示词时，已覆盖的旧消息
+ * 才被总结文本替代。这样同时满足“用户能回看”和“模型上下文不过长”两个目标。
+ */
 function performSummarization(subset, startIdx, endIdx, onDone) {
     var conv = getActiveConv();
     if (!conv || !subset || subset.length < 2) {
@@ -9957,6 +12690,16 @@ function triggerSummarization(turns) {
         renderSummaryHistory();
     });
 }
+/**
+ * 新手导读（文件：54-summarization-auto-threshold.js）
+ *
+ * 负责什么：这是“自动总结流程”中的“总结、自动处理、触发阈值”部分。
+ * 在程序中的位置：它判断何时需要总结、选择消息范围，并把结果写入会话。
+ * 从哪里开始看：主要从 `isUnderContextPressure(messageCount)`、`getAutoSummaryThreshold(settings)`、`getAutoSummaryTargetKeep(threshold)`、`getAutoSummaryMinBatch(threshold)`、`getMaxSummaryCoveredEnd(summaries)`、`getActualVisibleCountForSummary(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：coveredStart 与 coveredEnd 是历史下标，错误更新会造成消息被重复总结或漏发。
+ */
 // ==================== Auto Summarization Threshold Helpers ====================
 function isUnderContextPressure(messageCount) {
     var contextMax = state.settings.contextLength || 20;
@@ -10004,6 +12747,16 @@ function getActualVisibleCountForSummary() {
     }
     return visible;
 }
+/**
+ * 新手导读（文件：54-summarization-auto-selection.js）
+ *
+ * 负责什么：这是“自动总结流程”中的“总结、自动处理、选择”部分。
+ * 在程序中的位置：它判断何时需要总结、选择消息范围，并把结果写入会话。
+ * 从哪里开始看：主要从 `getAutoSummaryRegularMessages(conv)`、`shouldAutoSummarizeByBacklog(currentVisibleCount, targetKeep, minSummarizeBatch)`、`shouldAutoSummarizeByVisibleCount(actualVisibleCount, threshold)`、`buildAutoSummarySelection(conv, settings, getFallbackVisibleCount)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：coveredStart 与 coveredEnd 是历史下标，错误更新会造成消息被重复总结或漏发。
+ */
 // ==================== Auto Summarization Selection Helpers ====================
 function getAutoSummaryRegularMessages(conv) {
     return conv && Array.isArray(conv.messages)
@@ -10057,6 +12810,16 @@ function buildAutoSummarySelection(conv, settings, getFallbackVisibleCount) {
         currentVisibleCount: currentVisibleCount
     };
 }
+/**
+ * 新手导读（文件：54-summarization-auto-runtime.js）
+ *
+ * 负责什么：这是“自动总结流程”中的“总结、自动处理、运行流程”部分。
+ * 在程序中的位置：它判断何时需要总结、选择消息范围，并把结果写入会话。
+ * 从哪里开始看：主要从 `autoSummarize(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：coveredStart 与 coveredEnd 是历史下标，错误更新会造成消息被重复总结或漏发。
+ */
 // ==================== Auto Summarization Runtime ====================
 function autoSummarize() {
     if (!state.settings.summaryEnabled) return;
@@ -10071,6 +12834,17 @@ function autoSummarize() {
         renderTokenBar();
     });
 }
+/**
+ * 新手导读（文件：55-summary-history-render.js）
+ *
+ * 负责什么：这是“总结历史界面”中的“总结、历史记录、渲染”部分。
+ * 在程序中的位置：它展示已有总结并提供查看、编辑和删除操作。
+ * 从哪里开始看：主要从 `getSummaryHistoryMessageCount(conv)`、`buildSummaryHistoryRangeText(summary, currentMsgCount)`、`buildSummaryHistoryItemHtml(summary, currentMsgCount)`、`bindSummaryHistoryActions(container)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：删除总结会改变后续提示词内容，操作后必须保存并重新渲染。
+ */
+// 摘要历史渲染辅助：计算消息数量并生成摘要列表项的显示内容。
 function getSummaryHistoryMessageCount(conv) {
     return (conv.messages || []).filter(function(m) { return m.role !== 'system'; }).length;
 }
@@ -10113,6 +12887,17 @@ function bindSummaryHistoryActions(container) {
         });
     });
 }
+/**
+ * 新手导读（文件：55-summary-history-ui.js）
+ *
+ * 负责什么：这是“总结历史界面”中的“总结、历史记录、界面”部分。
+ * 在程序中的位置：它展示已有总结并提供查看、编辑和删除操作。
+ * 从哪里开始看：主要从 `renderSummaryHistory(无参数)`、`editSummary(id)`、`deleteSummary(id)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：删除总结会改变后续提示词内容，操作后必须保存并重新渲染。
+ */
+// 摘要历史界面：展示已有摘要并提供编辑、删除和范围预览入口。
 function renderSummaryHistory() {
     var conv = getActiveConv();
     if (!conv || !dom.summaryHistoryList) return;
@@ -10181,6 +12966,16 @@ async function deleteSummary(id) {
         renderSummaryManagerList();
     }
 }
+/**
+ * 新手导读（文件：57-ui-state.js）
+ *
+ * 负责什么：这是“临时界面状态”中的“界面、状态”部分。
+ * 在程序中的位置：它保存只影响当前页面、不需要长期持久化的界面变量。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要把用户核心数据放在这里，因为刷新页面后这些值可以被重建。
+ */
 // ==================== Shared UI State ====================
 let currentLibraryCard = null;
 let cardLibrarySearchQuery = '';
@@ -10199,6 +12994,16 @@ let newChatPickerCameFromQuick = false;
 // For main library search + filter (moved from old left sidebar library)
 let librarySearchQuery = '';
 let libraryFilter = 'all'; // 'all' | 'male' | 'female'
+/**
+ * 新手导读（文件：58-summary-manager-list-ui.js）
+ *
+ * 负责什么：这是“总结管理器界面”中的“总结、管理器、列表、界面”部分。
+ * 在程序中的位置：它让用户选择消息范围、查看已有总结并启动手动总结。
+ * 从哪里开始看：主要从 `renderSummaryManagerList(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：范围显示使用人类可读编号，而内部数组从 0 开始，转换时要防止差一位。
+ */
 // ==================== Summary Manager List UI ====================
 function renderSummaryManagerList() {
     var conv = getActiveConv();
@@ -10255,6 +13060,16 @@ function renderSummaryManagerList() {
         });
     });
 }
+/**
+ * 新手导读（文件：58-summary-manager-range-ui.js）
+ *
+ * 负责什么：这是“总结管理器界面”中的“总结、管理器、范围、界面”部分。
+ * 在程序中的位置：它让用户选择消息范围、查看已有总结并启动手动总结。
+ * 从哪里开始看：主要从 `getSummaryManagerRegularMessages(conv)`、`getRecentSummarySelection(regularMsgs)`、`getCustomSummarySelection(regularMsgs)`、`getActiveSummarySelection(regularMsgs)`、`previewCustomRange(无参数)`、`buildSummaryRangePreviewHtml(subset)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：范围显示使用人类可读编号，而内部数组从 0 开始，转换时要防止差一位。
+ */
 // ==================== Summary Manager Range UI ====================
 function getSummaryManagerRegularMessages(conv) {
     return conv && Array.isArray(conv.messages)
@@ -10318,6 +13133,16 @@ function buildSummaryRangePreviewHtml(subset) {
     var countStr = t('summary_preview_count').replace('{n}', subset.length);
     return countStr + '<br><span class="opacity-70">' + previewText + '</span>';
 }
+/**
+ * 新手导读（文件：58-summary-manager-generation-ui.js）
+ *
+ * 负责什么：这是“总结管理器界面”中的“总结、管理器、内容生成、界面”部分。
+ * 在程序中的位置：它让用户选择消息范围、查看已有总结并启动手动总结。
+ * 从哪里开始看：主要从 `doGenerateSummary(无参数)`、`setSummaryManagerGenerating(active)`、`setSummaryManagerRangeInvalid(无参数)`、`finishSummaryManagerGeneration(err)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：范围显示使用人类可读编号，而内部数组从 0 开始，转换时要防止差一位。
+ */
 // ==================== Summary Manager Generation UI ====================
 function doGenerateSummary() {
     var conv = getActiveConv();
@@ -10363,6 +13188,16 @@ function finishSummaryManagerGeneration(err) {
         requestRender(['activeConvId']);
     }
 }
+/**
+ * 新手导读（文件：58-summary-manager-open-ui.js）
+ *
+ * 负责什么：这是“总结管理器界面”中的“总结、管理器、打开、界面”部分。
+ * 在程序中的位置：它让用户选择消息范围、查看已有总结并启动手动总结。
+ * 从哪里开始看：主要从 `openSummaryManager(无参数)`、`resetSummaryManagerMode(无参数)`、`initializeSummaryManagerDefaults(regularMsgs)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：范围显示使用人类可读编号，而内部数组从 0 开始，转换时要防止差一位。
+ */
 // ==================== Summary Manager Open UI ====================
 function openSummaryManager() {
     var conv = getActiveConv();
@@ -10395,8 +13230,28 @@ function initializeSummaryManagerDefaults(regularMsgs) {
     if (dom.summaryManagerStatus) dom.summaryManagerStatus.textContent = '';
     if (dom.rangePreview) dom.rangePreview.innerHTML = '';
 }
+/**
+ * 新手导读（文件：58-summary-manager-ui.js）
+ *
+ * 负责什么：这是“总结管理器界面”中的“总结、管理器、界面”部分。
+ * 在程序中的位置：它让用户选择消息范围、查看已有总结并启动手动总结。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：范围显示使用人类可读编号，而内部数组从 0 开始，转换时要防止差一位。
+ */
 // ==================== Summary Manager Workflow UI ====================
 // Split into range, generation, and modal open helper chunks.
+/**
+ * 新手导读（文件：59-new-chat-archive.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、归档”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `archiveCurrentConversation(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat Archive Helpers ====================
 function archiveCurrentConversation() {
     var conv = getActiveConv();
@@ -10413,12 +13268,32 @@ function archiveCurrentConversation() {
     persistState();
     renderConversationList();
 }
+/**
+ * 新手导读（文件：59-new-chat-worldinfo.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、世界书”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `copyWorldInfoFromCurrentConversation(conv, current)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat World Info Helpers ====================
 function copyWorldInfoFromCurrentConversation(conv, current) {
     if (current && current.worldInfo) {
         conv.worldInfo = JSON.parse(JSON.stringify(current.worldInfo));
     }
 }
+/**
+ * 新手导读（文件：59-new-chat-first-message.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、第一条、消息”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `appendCharacterFirstMessage(conv, character, options)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat First Message Helpers ====================
 function appendCharacterFirstMessage(conv, character, options) {
     options = options || {};
@@ -10432,6 +13307,16 @@ function appendCharacterFirstMessage(conv, character, options) {
     if (options.speaker) msg.speaker = options.speaker;
     conv.messages.push(msg);
 }
+/**
+ * 新手导读（文件：59-new-chat-single.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、单选”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `configureSingleCharacterConversation(conv, character)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat Single Character Helpers ====================
 function configureSingleCharacterConversation(conv, character) {
     if (!conv || !character) return;
@@ -10440,6 +13325,16 @@ function configureSingleCharacterConversation(conv, character) {
     appendCharacterFirstMessage(conv, conv.character);
     conv.title = t('chat_with') + conv.character.name;
 }
+/**
+ * 新手导读（文件：59-new-chat-group.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、群聊”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `createNewChatGroupMembers(characters)`、`createNewChatGroupMetadata(characters, members)`、`configureGroupConversation(conv, characters)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat Group Helpers ====================
 function createNewChatGroupMembers(characters) {
     return characters.map(function(char, idx) {
@@ -10478,6 +13373,16 @@ function configureGroupConversation(conv, characters) {
         currentCharacterName = members[0].character.name;
     }
 }
+/**
+ * 新手导读（文件：59-new-chat-finalize.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、收尾”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `initializeNewConversationRuntimeState(conv)`、`registerNewConversation(conv)`、`renderNewConversationState(conv)`、`finalizeNewConversationUi(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat Finalization Helpers ====================
 function initializeNewConversationRuntimeState(conv) {
     if (conv._wiBudgetWarning) conv._wiBudgetWarning = false;
@@ -10513,6 +13418,16 @@ function finalizeNewConversationUi() {
 
     if (isMobile()) closeSidebar();
 }
+/**
+ * 新手导读（文件：59-new-chat-workflow.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、工作流”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `newConversation(charOrChars)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat Workflow ====================
 function newConversation(charOrChars) {
     saveCurrentConversation();
@@ -10538,12 +13453,42 @@ function newConversation(charOrChars) {
 
 // Phase 4: Show character picker when creating new chat
 // Stage 1 MVP: supports multi-select group chat creation.
+/**
+ * 新手导读（文件：59-new-chat-picker-helpers.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、选择器、辅助函数”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat Picker Helpers ====================
 // Split into model, header, multi bar, card UI, and static event chunks.
+/**
+ * 新手导读（文件：59-new-chat-picker-model.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、选择器、数据模型”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `getNewChatPickerCharacterKey(character)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat Picker Model Helpers ====================
 function getNewChatPickerCharacterKey(character) {
     return (character && character.name || '').trim().toLowerCase();
 }
+/**
+ * 新手导读（文件：59-new-chat-picker-header.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、选择器、标题区域”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `resetNewChatPickerHeader(modal)`、`updateNewChatPickerBackButton(modal, cameFromQuick)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat Picker Header Helpers ====================
 function resetNewChatPickerHeader(modal) {
     var header = modal.querySelector('.flex.items-center.mb-4') || (modal.querySelector('h2') && modal.querySelector('h2').parentElement);
@@ -10588,6 +13533,16 @@ function updateNewChatPickerBackButton(modal, cameFromQuick) {
         header.prepend(backBtn);
     }
 }
+/**
+ * 新手导读（文件：59-new-chat-picker-multi-bar.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、选择器、多选、工具栏”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `updateNewChatPickerMultiBar(isMultiSelect, selectedCount)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat Picker Multi Bar Helpers ====================
 function updateNewChatPickerMultiBar(isMultiSelect, selectedCount) {
     if (!dom.newChatPickerMultiBar) return;
@@ -10602,6 +13557,16 @@ function updateNewChatPickerMultiBar(isMultiSelect, selectedCount) {
         dom.newChatPickerMultiBar.classList.add('hidden');
     }
 }
+/**
+ * 新手导读（文件：59-new-chat-picker-card-ui.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、选择器、角色卡、界面”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `createNewChatPickerCharacterCard(character, options)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat Picker Card UI ====================
 function createNewChatPickerCharacterCard(character, options) {
     options = options || {};
@@ -10656,6 +13621,16 @@ function createNewChatPickerCharacterCard(character, options) {
 
     return card;
 }
+/**
+ * 新手导读（文件：59-new-chat-picker-static-events.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、选择器、固定事件、事件”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `bindNewChatPickerStaticButtons(modal)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat Picker Static Events ====================
 function bindNewChatPickerStaticButtons(modal) {
     if (modal._wired) return;
@@ -10687,6 +13662,16 @@ function bindNewChatPickerStaticButtons(modal) {
         }
     });
 }
+/**
+ * 新手导读（文件：59-new-chat-picker-multi-session.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、选择器、多选、选择会话”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `createNewChatPickerSession(modal, listContainer, characters)`、`renderNewChatPickerSessionCards(session)`、`toggleNewChatPickerCharacterSelection(session, selectedKey)`、`refreshNewChatPickerSessionMultiBar(session)`、`getNewChatPickerSelectedCharacters(session)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat Picker Multi-select Session ====================
 function createNewChatPickerSession(modal, listContainer, characters) {
     return {
@@ -10739,6 +13724,16 @@ function getNewChatPickerSelectedCharacters(session) {
         .map(k => session.characters.find(c => getNewChatPickerCharacterKey(c) === k))
         .filter(Boolean);
 }
+/**
+ * 新手导读（文件：59-new-chat-picker-multi-controls.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、选择器、多选、控件”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `ensureNewChatPickerMultiControls(modal)`、`resetNewChatPickerMultiControls(session)`、`setNewChatPickerMultiMode(session, enabled)`、`updateNewChatPickerMultiToggleText(toggleBtn, enabled)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat Picker Multi-select Controls ====================
 function ensureNewChatPickerMultiControls(modal) {
     if (modal._multiControlsAdded) return;
@@ -10786,6 +13781,16 @@ function updateNewChatPickerMultiToggleText(toggleBtn, enabled) {
     const multiExitText = t('new_chat_multi_exit') || '退出多选模式';
     toggleBtn.textContent = enabled ? multiExitText : multiSelectText;
 }
+/**
+ * 新手导读（文件：59-new-chat-picker-multi-confirm.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、选择器、多选、确认”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `syncNewChatPickerGroupConfirmBar(session)`、`createNewChatPickerGroupConfirmBar(modal)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat Picker Multi-select Confirm Bar ====================
 function syncNewChatPickerGroupConfirmBar(session) {
     const modal = session.modal;
@@ -10842,8 +13847,29 @@ function createNewChatPickerGroupConfirmBar(modal) {
 
     return confirmBar;
 }
+/**
+ * 新手导读（文件：59-new-chat-picker-multi-ui.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、选择器、多选、界面”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== New Chat Picker Multi-select UI ====================
 // Split into session, controls, and confirm bar helper chunks.
+/**
+ * 新手导读（文件：59-new-chat-picker-ui.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“新建、聊天、选择器、界面”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `showNewChatCharacterPicker(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
+// 新建聊天角色选择器：打开角色列表并协调单聊、群聊选择流程。
 function showNewChatCharacterPicker() {
     const modal = dom.newChatPickerModal;
     const listContainer = dom.newChatPickerList;
@@ -10880,6 +13906,16 @@ function showNewChatCharacterPicker() {
 
     modal.classList.remove('hidden');
 }
+/**
+ * 新手导读（文件：59-quick-new-chat-helpers.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“快捷、新建、聊天、辅助函数”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `getCurrentChatCharacter(无参数)`、`getQuickNewChatElements(无参数)`、`updateQuickNewChatCurrentButtonLabel(button)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== Quick New Chat Helpers ====================
 function getCurrentChatCharacter() {
     const conv = getActiveConv();
@@ -10917,6 +13953,16 @@ function updateQuickNewChatCurrentButtonLabel(button) {
         ? `${base}（${escapeHtml(currentChar.name)}）`
         : base;
 }
+/**
+ * 新手导读（文件：59-quick-new-chat-events.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“快捷、新建、聊天、事件”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `hideQuickNewChatModal(modal)`、`startQuickNewChatWithCurrent(modal)`、`returnQuickNewChatToLibrary(modal)`、`openQuickNewChatGroupPicker(modal)`、`wireQuickNewChatModal(elements)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== Quick New Chat Events ====================
 function hideQuickNewChatModal(modal) {
     if (modal) modal.classList.add('hidden');
@@ -10952,6 +13998,16 @@ function wireQuickNewChatModal(elements) {
     if (elements.returnBtn) elements.returnBtn.addEventListener('click', () => returnQuickNewChatToLibrary(modal));
     if (elements.groupBtn) elements.groupBtn.addEventListener('click', () => openQuickNewChatGroupPicker(modal));
 }
+/**
+ * 新手导读（文件：59-quick-new-chat-ui.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“快捷、新建、聊天、界面”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `showQuickNewChatModal(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== Quick New Chat Action Modal (resolves library vs chat button conflict) ====================
 function showQuickNewChatModal() {
     const elements = getQuickNewChatElements();
@@ -10964,6 +14020,16 @@ function showQuickNewChatModal() {
     wireQuickNewChatModal(elements);
     elements.modal.classList.remove('hidden');
 }
+/**
+ * 新手导读（文件：59-conversation-timestamp-helpers.js）
+ *
+ * 负责什么：这是“新建聊天流程”中的“会话、时间、辅助函数”部分。
+ * 在程序中的位置：它处理角色选择、群聊多选、首条消息、世界书关联和会话归档。
+ * 从哪里开始看：主要从 `getConversationActivityTimestamp(conv)`、`getMostRecentConversationIdFromOrder(order, conversations)`、`getLastMessageActivityTimestamp(conv)`、`getMessageActivityTimestamp(msg)`、`normalizeConversationActivityTimestamp(value)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：新会话只有在角色与初始数据准备完成后才能保存和切换。
+ */
 // ==================== Conversation Timestamp Helpers ====================
 function getConversationActivityTimestamp(conv) {
     if (!conv) return 0;
@@ -11029,6 +14095,16 @@ function normalizeConversationActivityTimestamp(value) {
     }
     return 0;
 }
+/**
+ * 新手导读（文件：60-public-card-data.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“公共、角色卡、数据”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Public Card Library (static cards/ + preview images) ====================
 const PUBLIC_CARDS = [
     {
@@ -11170,6 +14246,16 @@ const PUBLIC_CARDS = [
     }
     // 新增的10张主目录角色卡已移至 cards/ 目录（使用干净文件名），路径统一为 /cards/ 前缀（与原有5张一致）。预览图路径已预填，缺少png时自动回退到字母占位符。
 ];
+/**
+ * 新手导读（文件：60-public-card-assets.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“公共、角色卡、资源”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `normalizePublicCardAssetPath(url)`、`resolvePublicCardAssetUrl(url)`、`resolvePublicCardImageUrl(card)`、`resolvePublicCardJsonUrl(card)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Public Card Asset Helpers ====================
 function normalizePublicCardAssetPath(url) {
     url = String(url || '').trim();
@@ -11195,6 +14281,16 @@ function resolvePublicCardImageUrl(card) {
 function resolvePublicCardJsonUrl(card) {
     return resolvePublicCardAssetUrl(card && card.jsonUrl);
 }
+/**
+ * 新手导读（文件：60-public-card-library.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“公共、角色卡、资料库”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `getPublicCards(无参数)`、`findPublicCardById(id)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Public Card Library helpers ====================
 function getPublicCards() {
     return Array.isArray(PUBLIC_CARDS) ? PUBLIC_CARDS : [];
@@ -11204,6 +14300,16 @@ function findPublicCardById(id) {
     if (!id) return null;
     return getPublicCards().find(card => card && card.id === id) || null;
 }
+/**
+ * 新手导读（文件：60-public-card-text-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“公共、角色卡、文本、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `escapeHtml(str)`、`highlightMatch(text, query)`、`updateCardLibraryCount(shown, total)`、`openCardLibrary(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Public Card Text Helpers ====================
 function escapeHtml(str) {
     if (!str) return '';
@@ -11235,6 +14341,16 @@ function openCardLibrary() {
     if (typeof setActiveTab === 'function') setActiveTab('public');
     return;
 }
+/**
+ * 新手导读（文件：60-public-card-list-filter.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“公共、角色卡、列表、筛选”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `normalizeCardLibraryQuery(query)`、`cardMatchesLibraryQuery(card, query)`、`getFilteredCardLibraryCards(query)`、`filterCardLibraryCards(cards, query)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Public Card List Filtering ====================
 function normalizeCardLibraryQuery(query) {
     return (query || '').toLowerCase().trim();
@@ -11257,6 +14373,16 @@ function filterCardLibraryCards(cards, query) {
     const q = normalizeCardLibraryQuery(query);
     return (cards || []).filter(card => cardMatchesLibraryQuery(card, q));
 }
+/**
+ * 新手导读（文件：60-public-card-list-item-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“公共、角色卡、列表、项目、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `createCardLibraryImageFallback(card)`、`createCardLibraryImageWrap(card)`、`createCardLibraryItemContent(card, query)`、`createCardLibraryItem(card, query = '')` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Public Card List Item UI ====================
 function createCardLibraryImageFallback(card) {
     return '<div class="w-full h-full flex items-center justify-center text-xl font-bold text-white ot-avatar-fill">' +
@@ -11307,6 +14433,16 @@ function createCardLibraryItem(card, query = '') {
     });
     return item;
 }
+/**
+ * 新手导读（文件：60-public-card-list-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“公共、角色卡、列表、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `showCardLibraryListView(无参数)`、`populateCardLibraryList(无参数)`、`filterCardLibraryList(query)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Public Card List UI ====================
 function showCardLibraryListView() {
     if (dom.cardLibraryListView) dom.cardLibraryListView.classList.remove('hidden');
@@ -11364,6 +14500,16 @@ function filterCardLibraryList(query) {
 
     updateCardLibraryCount(filtered.length, cards.length);
 }
+/**
+ * 新手导读（文件：60-public-card-detail-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“公共、角色卡、详情、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `showCardLibraryDetailView(无参数)`、`showCardLibraryDetail(card)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Public Card Detail UI ====================
 function showCardLibraryDetailView() {
     if (dom.cardLibraryListView) dom.cardLibraryListView.classList.add('hidden');
@@ -11426,6 +14572,16 @@ function showCardLibraryDetail(card) {
 
     showCardLibraryDetailView();
 }
+/**
+ * 新手导读（文件：60-public-card-import-helpers.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“公共、角色卡、导入、辅助函数”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `applyPublicCardImportMetadata(character, cardMeta)`、`storeImportedPublicCardCharacter(character)`、`refreshOpenNewChatPickerAfterPublicCardImport(无参数)`、`refreshPublicCardImportViews(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Public Card Import Helpers ====================
 function applyPublicCardImportMetadata(character, cardMeta) {
     if (cardMeta && cardMeta.previewImage) {
@@ -11456,6 +14612,16 @@ function refreshPublicCardImportViews() {
     }
     refreshOpenNewChatPickerAfterPublicCardImport();
 }
+/**
+ * 新手导读（文件：60-public-card-import-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“公共、角色卡、导入、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `importPublicCard(cardMeta)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Public Card Import Flow ====================
 async function importPublicCard(cardMeta) {
     const modal = dom.cardLibraryModal;
@@ -11515,7 +14681,27 @@ async function importPublicCard(cardMeta) {
 
 // 侧边栏按钮事件（在 DOM 就绪后绑定）
 // (old wireCardLibraryButton removed as public library on left is removed)
+/**
+ * 新手导读（文件：60-public-card-library-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“公共、角色卡、资料库、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // Public card library UI is split across 60-public-card-*-ui.js files.
+/**
+ * 新手导读（文件：60-library-sidebar-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、侧边栏、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `showLibraryConversationList(无参数)`、`getSidebarSectionByI18n(key)`、`setSidebarSectionVisible(key, visible)`、`setLibrarySidebarMode(enabled)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Library Sidebar Mode UI ====================
 function showLibraryConversationList() {
     var convListEl = document.getElementById('convList');
@@ -11544,6 +14730,16 @@ function setLibrarySidebarMode(enabled) {
     var sidebar = document.getElementById('sidebar');
     if (sidebar) sidebar.classList.toggle('library-mode', !!enabled);
 }
+/**
+ * 新手导读（文件：60-library-tabs-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、标签页、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `setActiveTab(tab)`、`getLibraryTabElements(无参数)`、`setLibraryTabGridVisibility(elements, showMy)`、`setLibraryTabButtonActive(button, active)`、`wireLibraryTabButtons(无参数)`、`wireLibraryTabButton(button, tab)`，以及另外 3 个内部步骤 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Library Tabs UI ====================
 var LIBRARY_TAB_ACTIVE_CLASSES = ['active', 'border-b-2', 'border-amber-500', 'text-amber-400'];
 
@@ -11608,6 +14804,16 @@ function syncLibrarySearchInput() {
     var libSearchSync = document.getElementById('librarySearch');
     if (libSearchSync) libSearchSync.value = librarySearchQuery || '';
 }
+/**
+ * 新手导读（文件：60-library-view-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、视图、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `switchView(view)`、`showLibraryView(libraryV, chatV)`、`showChatView(libraryV, chatV)`、`renderLibrary(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Library View / Tab Rendering ====================
 function switchView(view) {
     currentView = view;
@@ -11662,6 +14868,16 @@ function renderLibrary() {
     syncLibrarySearchInput();
     setLibrarySidebarMode(true);
 }
+/**
+ * 新手导读（文件：60-library-conversation-helpers.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、会话、辅助函数”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `findMostRecentConversationForCharacter(characterName)`、`getConversationDisplayCharacterName(conv)`、`resetConversationRuntimeState(conv)`、`removeConversationFromLibraryState(id)`、`createDefaultLibraryConversation(无参数)`、`ensureLibraryActiveConversationAfterDelete(deletedId)`，以及另外 1 个内部步骤 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Library Conversation Helpers ====================
 function findMostRecentConversationForCharacter(characterName) {
     if (!characterName) return null;
@@ -11729,6 +14945,16 @@ function deleteConversationFromLibraryState(id) {
     removeConversationFromLibraryState(id);
     ensureLibraryActiveConversationAfterDelete(id);
 }
+/**
+ * 新手导读（文件：60-library-conversation-actions.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、会话、操作”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `loadOrCreateChatForCharacter(char)`、`loadConversation(id)`、`deleteConversation(id)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Library Conversation Actions ====================
 function loadOrCreateChatForCharacter(char) {
     if (!char || !char.name) return;
@@ -11786,9 +15012,30 @@ async function deleteConversation(id) {
     persistState();
     requestRender(['conversations', 'conversationOrder', 'activeConvId']);
 }
+/**
+ * 新手导读（文件：60-library-ui-render.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、界面、渲染”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // Library rendering is split across:
 // - 60-library-view-ui.js
 // - 60-library-conversation-actions.js
+/**
+ * 新手导读（文件：60-library-card-filter.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、角色卡、筛选”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `getCardOrientation(tags)`、`passesLibraryFilter(card)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
+// 角色卡筛选公共逻辑：解析性向、标签和关键词并判断卡片是否匹配。
 function getCardOrientation(tags) {
     const t = (tags || []).join(' ').toLowerCase();
     const hasFemale = /女|female|futa|娘|女仆|姬/.test(t);
@@ -11814,6 +15061,17 @@ function passesLibraryFilter(card) {
     }
     return true;
 }
+/**
+ * 新手导读（文件：60-library-card-display-helpers.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、角色卡、显示、辅助函数”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `getLibraryCardDisplayName(card)`、`getLibraryCardInitial(card)`、`formatLibraryCardTags(tags)`、`createLibraryCardInfo(card)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
+// 角色卡显示辅助：统一名称、描述、标签和图片等界面展示字段。
 function getLibraryCardDisplayName(card) {
     return (card && card.name) || 'Unnamed';
 }
@@ -11842,6 +15100,16 @@ function createLibraryCardInfo(card) {
     info.appendChild(tags);
     return info;
 }
+/**
+ * 新手导读（文件：60-library-card-image-upload-input-helpers.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、角色卡、图片、上传、输入、辅助函数”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `createCardImageUploadInput(无参数)`、`removeCardImageUploadInput(input)`、`getCardImageUploadFile(input)`、`readCardImageUploadFile(file, onLoad, onError)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Library Card Image Upload Input Helpers ====================
 function createCardImageUploadInput() {
     const input = document.createElement('input');
@@ -11868,6 +15136,16 @@ function readCardImageUploadFile(file, onLoad, onError) {
     reader.onerror = onError;
     reader.readAsDataURL(file);
 }
+/**
+ * 新手导读（文件：60-library-card-image-upload-helpers.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、角色卡、图片、上传、辅助函数”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `getCardImageUploadKey(char)`、`escapeCardImageUploadAltText(text)`、`buildCardImageUploadAvatarHtml(char, dataUrl, roundedClass)`、`isActiveCharacterCardKey(key)`、`refreshActiveCharacterImageAvatars(char, key, dataUrl)`、`updateCardImageUploadAvatarElement(id, char, dataUrl, roundedClass, wrapperClass)`，以及另外 1 个内部步骤 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Library Card Image Upload Helpers ====================
 function getCardImageUploadKey(char) {
     return (char && char.name ? char.name : '').trim().toLowerCase();
@@ -11925,6 +15203,17 @@ function saveMyCharacterPreviewImage(char, dataUrl) {
     refreshActiveCharacterImageAvatars(char, key, dataUrl);
     return true;
 }
+/**
+ * 新手导读（文件：60-library-card-grid-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、角色卡、网格、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `triggerCardImageUpload(char)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
+// 角色卡网格兼容门面：处理角色图片上传等跨网格公共操作。
 function triggerCardImageUpload(char) {
     if (!char || !char.name) return;
     const input = createCardImageUploadInput();
@@ -11943,6 +15232,17 @@ function triggerCardImageUpload(char) {
     };
     input.click();
 }
+/**
+ * 新手导读（文件：60-library-my-card-action-helpers.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、我的、角色卡、操作、辅助函数”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `getMyCardActionTileConfigs(无参数)`、`resetMyCardImportModalControls(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
+// 我的角色卡操作配置：定义新建角色与导入角色卡两个操作卡片。
 function getMyCardActionTileConfigs() {
     return [
         {
@@ -11968,6 +15268,16 @@ function resetMyCardImportModalControls() {
     if (dom.importStatus) dom.importStatus.classList.add('hidden');
     if (dom.importFileInput) dom.importFileInput.value = '';
 }
+/**
+ * 新手导读（文件：60-library-my-card-actions-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、我的、角色卡、操作、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `appendMyCardActionTiles(grid)`、`createMyCardActionTile(options)`、`openMyCardImportModal(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== My Library Card Action Tiles ====================
 function appendMyCardActionTiles(grid) {
     getMyCardActionTileConfigs().forEach(function(options) {
@@ -11992,6 +15302,17 @@ function openMyCardImportModal() {
     dom.importModal.classList.remove('hidden');
     resetMyCardImportModalControls();
 }
+/**
+ * 新手导读（文件：60-library-my-card-control-helpers.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、我的、角色卡、控件、辅助函数”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `getMyCharacterCardKey(char)`、`createMyCharacterControlButton(config)`、`bindMyCharacterControlButtonClick(button, onClick)`、`getMyCharacterDeleteConfirmConfig(char)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
+// 我的角色卡控件辅助：解析角色键并绑定图片、删除等卡片操作。
 function getMyCharacterCardKey(char) {
     return (char && char.name ? char.name : '').trim().toLowerCase();
 }
@@ -12019,6 +15340,16 @@ function getMyCharacterDeleteConfirmConfig(char) {
         options: { title: '\u5220\u9664\u89d2\u8272\u5361', danger: true, okText: '\u5220\u9664' }
     };
 }
+/**
+ * 新手导读（文件：60-library-my-card-order.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、我的、角色卡、顺序”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `getAllMyCardKeys(无参数)`、`normalizeMyCardOrder(order)`、`getMyCardOrder(无参数)`、`getOrderedMyLibraryCharacters(无参数)`、`removeMyCardKeyFromOrder(key)`、`bindMyCardReorderEvents(cardEl)`，以及另外 30 个内部步骤 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== My Library Card Ordering ====================
 var MY_CARD_REORDER_HOLD_MS = 380;
 var MY_CARD_REORDER_MOVE_CANCEL_PX = 18;
@@ -12424,6 +15755,16 @@ function suppressMyCardReorderContextMenu(e) {
         e.preventDefault();
     }
 }
+/**
+ * 新手导读（文件：60-library-my-card-controls-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、我的、角色卡、控件、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `createMyCharacterCardControls(char)`、`createMyCharacterImageButton(char)`、`createMyCharacterDeleteButton(char)`、`confirmAndDeleteMyCharacterCard(char)`、`isMyCharacterCardControlClick(e)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== My Library Card Controls ====================
 function createMyCharacterCardControls(char) {
     const controls = document.createElement('div');
@@ -12470,6 +15811,16 @@ function isMyCharacterCardControlClick(e) {
         e.target.closest('.char-delete-btn')
     );
 }
+/**
+ * 新手导读（文件：60-library-my-card-preview-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、我的、角色卡、预览、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `createMyCharacterPreview(char)`、`setMyCharacterPreviewFallback(preview, letter)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== My Library Card Preview UI ====================
 function createMyCharacterPreview(char) {
     const preview = document.createElement('div');
@@ -12498,10 +15849,30 @@ function setMyCharacterPreviewFallback(preview, letter) {
     preview.textContent = letter;
     if (controls) preview.appendChild(controls);
 }
+/**
+ * 新手导读（文件：60-library-my-card-info-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、我的、角色卡、信息、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `createMyCharacterInfo(char)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== My Library Card Info UI ====================
 function createMyCharacterInfo(char) {
     return createLibraryCardInfo(char);
 }
+/**
+ * 新手导读（文件：60-library-my-card-item-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、我的、角色卡、项目、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `createMyLibraryCharacterCard(char)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== My Library Card Items ====================
 function createMyLibraryCharacterCard(char) {
     const cardEl = document.createElement('div');
@@ -12521,6 +15892,17 @@ function createMyLibraryCharacterCard(char) {
 
     return cardEl;
 }
+/**
+ * 新手导读（文件：60-library-my-card-filter.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、我的、角色卡、筛选”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `buildMyLibraryCharacterFilterCard(character)`、`getFilteredMyLibraryCharacters(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
+// 我的角色卡筛选：把本地角色数据转换为统一的搜索和标签筛选结构。
 function buildMyLibraryCharacterFilterCard(character) {
     return {
         name: character.name,
@@ -12538,6 +15920,17 @@ function getFilteredMyLibraryCharacters() {
         return passesLibraryFilter(buildMyLibraryCharacterFilterCard(character));
     });
 }
+/**
+ * 新手导读（文件：60-library-my-card-grid-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、我的、角色卡、网格、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `renderMyCards(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
+// 我的角色卡网格：渲染本地角色卡和新建、导入操作入口。
 function renderMyCards() {
     const grid = document.getElementById('myCardsGrid');
     if (!grid) return;
@@ -12548,6 +15941,16 @@ function renderMyCards() {
     });
     appendMyCardActionTiles(grid);
 }
+/**
+ * 新手导读（文件：60-library-public-card-item-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、公共、角色卡、项目、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `createPublicLibraryCard(card)`、`createPublicLibraryCardPreview(card)`、`createPublicLibraryCardFallback(card)`、`createPublicLibraryCardInfo(card)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Public Library Card Items ====================
 function createPublicLibraryCard(card) {
     const cardEl = document.createElement('div');
@@ -12588,6 +15991,16 @@ function createPublicLibraryCardFallback(card) {
 function createPublicLibraryCardInfo(card) {
     return createLibraryCardInfo(card);
 }
+/**
+ * 新手导读（文件：60-library-public-card-detail-content-helpers.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、公共、角色卡、详情、内容、辅助函数”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `renderPublicCardDetailTags(tagsDiv, tags)`、`getImportedPublicCardCharacter(card)`、`renderPublicCardDetailModalContent(elements, card)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Public Library Card Detail Content Helpers ====================
 function renderPublicCardDetailTags(tagsDiv, tags) {
     tagsDiv.innerHTML = '';
@@ -12609,6 +16022,16 @@ function renderPublicCardDetailModalContent(elements, card) {
     renderPublicCardDetailTags(elements.tags, card.tags);
     elements.desc.textContent = card.description || '';
 }
+/**
+ * 新手导读（文件：60-library-public-card-detail-modal-helpers.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、公共、角色卡、详情、弹窗、辅助函数”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `buildPublicCardDetailModalHtml(无参数)`、`formatPublicCardDetailAuthor(author)`、`getPublicCardDetailModalElements(无参数)`、`hidePublicCardDetailModal(detailModal)`、`importPublicCardDetailAndOpenChat(detailModal, card)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Public Library Card Detail Modal Helpers ====================
 function buildPublicCardDetailModalHtml() {
     return `
@@ -12662,6 +16085,16 @@ async function importPublicCardDetailAndOpenChat(detailModal, card) {
         loadOrCreateChatForCharacter(importedChar);
     }
 }
+/**
+ * 新手导读（文件：60-library-public-card-detail-modal-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、公共、角色卡、详情、弹窗、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `showPublicCardDetail(card)`、`ensurePublicCardDetailModal(无参数)`、`fillPublicCardDetailModal(detailModal, card)`、`bindPublicCardDetailModalActions(detailModal, card, elements)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== Public Library Card Detail Modal ====================
 function showPublicCardDetail(card) {
     const detailModal = ensurePublicCardDetailModal();
@@ -12695,11 +16128,33 @@ function bindPublicCardDetailModalActions(detailModal, card, elements) {
         await importPublicCardDetailAndOpenChat(detailModal, card);
     };
 }
+/**
+ * 新手导读（文件：60-library-public-card-filter.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、公共、角色卡、筛选”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `getFilteredPublicLibraryCards(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
+// 公共角色卡筛选：根据搜索词、标签和性向返回可见卡片列表。
 function getFilteredPublicLibraryCards() {
     return getPublicCards().filter(function(card) {
         return passesLibraryFilter(card);
     });
 }
+/**
+ * 新手导读（文件：60-library-public-card-grid-ui.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“资料库、公共、角色卡、网格、界面”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `renderPublicCards(无参数)`、`renderLibraryGrids(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
+// 公共角色卡网格：渲染服务器卡片、加载状态和详情入口。
 function renderPublicCards() {
     const grid = document.getElementById('publicCardsGrid');
     if (!grid) return;
@@ -12714,6 +16169,16 @@ function renderLibraryGrids() {
     renderMyCards();
     renderPublicCards();
 }
+/**
+ * 新手导读（文件：60-dom-cache-ids.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“页面元素、缓存、页面元素标识”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== DOM Cache IDs ====================
 var DOM_CACHE_IDS = [
     'sidebar','convList','noConvHint','chatTopBar','charAvatar','chatTitle','chatSubtitle',
@@ -12781,6 +16246,16 @@ var DOM_CACHE_IDS = [
     'newChatPickerMultiBar','newChatPickerMultiHint','newChatPickerMultiCount',
     'groupMentionModal','groupMentionBackdrop','groupMentionCloseBtn','groupMentionList'
 ];
+/**
+ * 新手导读（文件：60-dom-cache.js）
+ *
+ * 负责什么：这是“资料库与角色卡界面”中的“页面元素、缓存”部分。
+ * 在程序中的位置：它缓存常用页面元素，并渲染本地角色、公共角色和对应操作。
+ * 从哪里开始看：主要从 `cacheDom(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：渲染函数可能反复运行；事件绑定和临时元素要避免重复创建。
+ */
 // ==================== DOM Cache ====================
 var dom = {};
 
@@ -12789,6 +16264,16 @@ function cacheDom() {
         dom[id] = document.getElementById(id);
     });
 }
+/**
+ * 新手导读（文件：61-chat-topbar-ui.js）
+ *
+ * 负责什么：这是“聊天消息渲染”中的“聊天、顶部栏、界面”部分。
+ * 在程序中的位置：它把会话消息转换为气泡、状态栏、附件、思考块和二段选项。
+ * 从哪里开始看：主要从 `renderTopBar(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：模型文本属于外部内容，插入 HTML 前必须经过统一转义或安全格式化。
+ */
 // ==================== Chat Top Bar UI ====================
 function renderTopBar() {
     var conv = getActiveConv();
@@ -12832,6 +16317,17 @@ function renderTopBar() {
         if (dom.chatSubtitle) dom.chatSubtitle.textContent = t('no_character');
     }
 }
+/**
+ * 新手导读（文件：61-chat-shell-ui.js）
+ *
+ * 负责什么：这是“聊天消息渲染”中的“聊天、程序外壳、界面”部分。
+ * 在程序中的位置：它把会话消息转换为气泡、状态栏、附件、思考块和二段选项。
+ * 从哪里开始看：主要从 `renderTokenBar(无参数)`、`renderAll(无参数)`、`updateInputState(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：模型文本属于外部内容，插入 HTML 前必须经过统一转义或安全格式化。
+ */
+// 聊天外壳界面：更新 Token 使用量、整体渲染和输入区可用状态。
 function renderTokenBar() {
     var conv = getActiveConv();
     if (!conv) return;
@@ -12890,6 +16386,16 @@ function updateInputState() {
         dom.messageInput.placeholder = t('input_placeholder');
     }
 }
+/**
+ * 新手导读（文件：61-message-text-format.js）
+ *
+ * 负责什么：这是“聊天消息渲染”中的“消息、文本、格式”部分。
+ * 在程序中的位置：它把会话消息转换为气泡、状态栏、附件、思考块和二段选项。
+ * 从哪里开始看：主要从 `escapeHtml(text)`、`highlightDialogue(text)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：模型文本属于外部内容，插入 HTML 前必须经过统一转义或安全格式化。
+ */
 // ==================== Message Text Formatting ====================
 function escapeHtml(text) {
     if (!text) return '';
@@ -12906,6 +16412,16 @@ function highlightDialogue(text) {
     escaped = escaped.replace(/「([\s\S]*?)」/g, '<span class="dialogue-highlight">「$1」</span>');
     return escaped;
 }
+/**
+ * 新手导读（文件：61-message-status-bar-render.js）
+ *
+ * 负责什么：这是“聊天消息渲染”中的“消息、状态、工具栏、渲染”部分。
+ * 在程序中的位置：它把会话消息转换为气泡、状态栏、附件、思考块和二段选项。
+ * 从哪里开始看：主要从 `sanitizeStatusBarHtml(html)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：模型文本属于外部内容，插入 HTML 前必须经过统一转义或安全格式化。
+ */
 // ==================== Message Status Bar Rendering ====================
 function sanitizeStatusBarHtml(html) {
     if (!window.DOMPurify) return highlightDialogue(html);
@@ -12925,6 +16441,16 @@ function sanitizeStatusBarHtml(html) {
 
     return clean;
 }
+/**
+ * 新手导读（文件：61-message-options-render.js）
+ *
+ * 负责什么：这是“聊天消息渲染”中的“消息、选项、渲染”部分。
+ * 在程序中的位置：它把会话消息转换为气泡、状态栏、附件、思考块和二段选项。
+ * 从哪里开始看：主要从 `renderOptionsXml(raw)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：模型文本属于外部内容，插入 HTML 前必须经过统一转义或安全格式化。
+ */
 // ==================== Message Options Rendering ====================
 function renderOptionsXml(raw) {
     var text = String(raw || '').trim();
@@ -12957,6 +16483,16 @@ function renderOptionsXml(raw) {
         return '';
     }
 }
+/**
+ * 新手导读（文件：61-message-attachments-render.js）
+ *
+ * 负责什么：这是“聊天消息渲染”中的“消息、附件、渲染”部分。
+ * 在程序中的位置：它把会话消息转换为气泡、状态栏、附件、思考块和二段选项。
+ * 从哪里开始看：主要从 `renderMessageAttachments(msg)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：模型文本属于外部内容，插入 HTML 前必须经过统一转义或安全格式化。
+ */
 // ==================== Message Attachments Rendering ====================
 function renderMessageAttachments(msg) {
     if (!msg || !Array.isArray(msg.attachments) || msg.attachments.length === 0) return '';
@@ -12975,12 +16511,32 @@ function renderMessageAttachments(msg) {
     html += '</div>';
     return html;
 }
+/**
+ * 新手导读（文件：61-message-cot-render.js）
+ *
+ * 负责什么：这是“聊天消息渲染”中的“消息、思考内容、渲染”部分。
+ * 在程序中的位置：它把会话消息转换为气泡、状态栏、附件、思考块和二段选项。
+ * 从哪里开始看：主要从 `renderCotBlock(cot, streaming)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：模型文本属于外部内容，插入 HTML 前必须经过统一转义或安全格式化。
+ */
 // ==================== Message CoT Rendering ====================
 function renderCotBlock(cot, streaming) {
     if (!cot || !state || !state.settings || state.settings.showCotEnabled === false) return '';
     var cls = 'msg-cot' + (streaming ? ' streaming' : '');
     return '<details class="' + cls + '"><summary>' + escapeHtml(t('cot_block_title') || 'Thinking') + '</summary><div class="msg-cot-content">' + escapeHtml(cot) + '</div></details>';
 }
+/**
+ * 新手导读（文件：61-message-content-render.js）
+ *
+ * 负责什么：这是“聊天消息渲染”中的“消息、内容、渲染”部分。
+ * 在程序中的位置：它把会话消息转换为气泡、状态栏、附件、思考块和二段选项。
+ * 从哪里开始看：主要从 `renderAssistantContent(text)`、`renderMessageAttachments(msg)`、`renderMessageBubbleContent(msg, isUser)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：模型文本属于外部内容，插入 HTML 前必须经过统一转义或安全格式化。
+ */
 // ==================== Message Content Rendering ====================
 function renderAssistantContent(text) {
     if (!text) return '';
@@ -13033,6 +16589,16 @@ function renderMessageBubbleContent(msg, isUser) {
     var content = isUser ? escapeHtml(rawContent) : renderAssistantContent(rawContent);
     return content + renderMessageAttachments(msg);
 }
+/**
+ * 新手导读（文件：61-chat-message-html.js）
+ *
+ * 负责什么：这是“聊天消息渲染”中的“聊天、消息、网页内容”部分。
+ * 在程序中的位置：它把会话消息转换为气泡、状态栏、附件、思考块和二段选项。
+ * 从哪里开始看：主要从 `renderMessageActionButtons(actualIdx, isUser)`、`renderChatMessageHtml(msg, conv)`、`renderChatMessagesHtml(messages, conv)`、`createChatMessageElement(msg, conv)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：模型文本属于外部内容，插入 HTML 前必须经过统一转义或安全格式化。
+ */
 // ==================== Chat Message HTML Helpers ====================
 function renderMessageActionButtons(actualIdx, isUser) {
     var html = '';
@@ -13075,6 +16641,16 @@ function createChatMessageElement(msg, conv) {
     holder.innerHTML = renderChatMessageHtml(msg, conv);
     return holder.firstElementChild;
 }
+/**
+ * 新手导读（文件：61-chat-history-load-button.js）
+ *
+ * 负责什么：这是“聊天消息渲染”中的“聊天、历史记录、读取、按钮”部分。
+ * 在程序中的位置：它把会话消息转换为气泡、状态栏、附件、思考块和二段选项。
+ * 从哪里开始看：主要从 `buildLoadEarlierMessagesButtonMarkup(labelText, paddingClass)`、`buildLoadEarlierMessagesButtonHtml(hiddenCount)`、`buildIncrementalLoadEarlierMessagesButtonHtml(hiddenCount)`、`getLoadEarlierMessagesButtonFromDocument(无参数)`、`bindLoadEarlierMessagesButton(loadBtn, conv, container)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：模型文本属于外部内容，插入 HTML 前必须经过统一转义或安全格式化。
+ */
 // ==================== Chat History Load Button Helpers ====================
 const LOAD_EARLIER_MESSAGES_BUTTON_ID = 'loadEarlierBtn';
 const LOAD_EARLIER_MESSAGES_BUTTON_CLASS = 'px-4 py-1.5 text-xs rounded-2xl glass hover:bg-white/10 text-zinc-400 hover:text-zinc-300 transition-all';
@@ -13111,6 +16687,16 @@ function bindLoadEarlierMessagesButton(loadBtn, conv, container) {
         loadMoreHistory(conv, container);
     });
 }
+/**
+ * 新手导读（文件：61-chat-history-window-ui.js）
+ *
+ * 负责什么：这是“聊天消息渲染”中的“聊天、历史记录、窗口、界面”部分。
+ * 在程序中的位置：它把会话消息转换为气泡、状态栏、附件、思考块和二段选项。
+ * 从哪里开始看：主要从 `ensureHistoryLoadUI(container, conv, allMessages, currentStartIdx)`、`loadMoreHistory(conv, container, silent)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：模型文本属于外部内容，插入 HTML 前必须经过统一转义或安全格式化。
+ */
 // ==================== Chat History Window UI ====================
 /**
  * 确保消息列表顶部有“加载更早历史”的UI
@@ -13185,6 +16771,16 @@ function loadMoreHistory(conv, container, silent) {
         // 可选：如果用户想一次看全，可以在这里提供额外提示
     }
 }
+/**
+ * 新手导读（文件：61-chat-message-window-state.js）
+ *
+ * 负责什么：这是“聊天消息渲染”中的“聊天、消息、窗口、状态”部分。
+ * 在程序中的位置：它把会话消息转换为气泡、状态栏、附件、思考块和二段选项。
+ * 从哪里开始看：主要从 `getRenderableChatMessages(conv)`、`clearMessageContainerAfterConversationSwitch(container, conv)`、`getChatMessageWindowState(conv, allMessages)`、`canIncrementalRenderChatMessages(windowState)`、`setChatMessageEmptyStateVisible(visible)`、`renderChatMessageEmptyState(container)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：模型文本属于外部内容，插入 HTML 前必须经过统一转义或安全格式化。
+ */
 // ==================== Chat Message Window State ====================
 const DEFAULT_CHAT_HISTORY_WINDOW = 150;
 
@@ -13234,6 +16830,16 @@ function renderChatMessageEmptyState(container) {
     container.innerHTML = '';
     setChatMessageEmptyStateVisible(true);
 }
+/**
+ * 新手导读（文件：61-chat-message-window-render.js）
+ *
+ * 负责什么：这是“聊天消息渲染”中的“聊天、消息、窗口、渲染”部分。
+ * 在程序中的位置：它把会话消息转换为气泡、状态栏、附件、思考块和二段选项。
+ * 从哪里开始看：主要从 `appendIncrementalChatMessages(container, conv, windowState)`、`renderChatMessageWindow(container, conv, allMessages, windowState)`、`buildStreamingMessageHtml(conv)`、`wireLoadEarlierMessagesButton(conv, container)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：模型文本属于外部内容，插入 HTML 前必须经过统一转义或安全格式化。
+ */
 // ==================== Chat Message Window Render ====================
 function appendIncrementalChatMessages(container, conv, windowState) {
     var fragment = document.createDocumentFragment();
@@ -13275,7 +16881,27 @@ function buildStreamingMessageHtml(conv) {
 function wireLoadEarlierMessagesButton(conv, container) {
     bindLoadEarlierMessagesButton(getLoadEarlierMessagesButtonFromDocument(), conv, container);
 }
+/**
+ * 新手导读（文件：61-chat-message-renderer.js）
+ *
+ * 负责什么：这是“聊天消息渲染”中的“聊天、消息、渲染器”部分。
+ * 在程序中的位置：它把会话消息转换为气泡、状态栏、附件、思考块和二段选项。
+ * 从哪里开始看：主要从 `renderMessages(无参数)`、`renderMessagesFullHistory(conv)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：模型文本属于外部内容，插入 HTML 前必须经过统一转义或安全格式化。
+ */
 // ==================== Chat Message Renderer ====================
+/**
+ * 把当前会话的消息状态同步到聊天区域的 HTML。
+ *
+ * 输入/返回：无参数、无返回值；它读取当前会话并直接更新 dom.messagesContainer。
+ * 先处理切换会话后的旧 DOM，再取得允许显示的消息。如果没有消息就显示空状态；如果只比上次
+ * 多了少量新消息，就走增量追加以减少卡顿；否则重建当前可见窗口，并补上“加载更早消息”入口。
+ *
+ * “渲染”只负责显示，不应在这里修改或保存消息数据。消息正文最终插入 HTML 前必须继续经过
+ * renderChatMessagesHtml 等安全格式化函数，不能直接把模型原文赋给 innerHTML。
+ */
 function renderMessages() {
     var conv = getActiveConv();
     if (!conv) return;
@@ -13312,6 +16938,16 @@ function renderMessagesFullHistory(conv) {
     container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
 }
+/**
+ * 新手导读（文件：62-sillytavern-preset-model.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、数据模型”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：主要从 `defaultSillyTavernPreset(无参数)`、`ensureSillyTavernPresetSettings(无参数)`、`normalizePromptRole(role)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
 // ==================== SillyTavern Preset Model ====================
 function defaultSillyTavernPreset() {
     return { name: '', importedAt: '', prompts: [], promptOrder: [] };
@@ -13377,6 +17013,16 @@ function normalizePromptRole(role) {
     if (r === 'user' || r === 'assistant' || r === 'system') return r;
     return 'system';
 }
+/**
+ * 新手导读（文件：62-sillytavern-preset-order-items.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、顺序、项目”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：主要从 `addSillyTavernOrderArray(items, arr)`、`appendSillyTavernOrderObject(items, fallbackId, item, idx)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
 // ==================== SillyTavern Preset Order Item Helpers ====================
 function addSillyTavernOrderArray(items, arr) {
     if (!Array.isArray(arr)) return;
@@ -13403,6 +17049,16 @@ function appendSillyTavernOrderObject(items, fallbackId, item, idx) {
         items.push({ identifier: fallbackId, enabled: item, order: idx });
     }
 }
+/**
+ * 新手导读（文件：62-sillytavern-preset-order-normalizer.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、顺序、规范化”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：主要从 `getSillyTavernPromptOrderItems(promptOrder)`、`buildSillyTavernOrderMap(orderItems)`、`serializeSillyTavernPromptOrderItems(orderItems)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
 // ==================== SillyTavern Preset Order Normalizer ====================
 function getSillyTavernPromptOrderItems(promptOrder) {
     var items = [];
@@ -13453,6 +17109,16 @@ function serializeSillyTavernPromptOrderItems(orderItems) {
         return item.identifier;
     });
 }
+/**
+ * 新手导读（文件：62-sillytavern-preset-prompt-normalizer.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、提示词、规范化”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：主要从 `collectSillyTavernPromptRows(src)`、`normalizeSillyTavernPromptRow(p, idx, orderMap, usedIds)`、`getUniqueSillyTavernPromptId(baseId, idx, usedIds)`、`getSillyTavernPromptContent(prompt)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
 // ==================== SillyTavern Preset Prompt Normalizer ====================
 function collectSillyTavernPromptRows(src) {
     var promptRows = Array.isArray(src.prompts) ? src.prompts.slice() : [];
@@ -13505,6 +17171,16 @@ function getSillyTavernPromptContent(prompt) {
         : (prompt.prompt != null ? prompt.prompt : (prompt.text != null ? prompt.text : prompt.value));
     return String(content || '');
 }
+/**
+ * 新手导读（文件：62-sillytavern-preset-normalizer.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、规范化”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：主要从 `normalizeSillyTavernPreset(raw)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
 // ==================== SillyTavern Preset Normalizer ====================
 function normalizeSillyTavernPreset(raw) {
     if (!raw || typeof raw !== 'object') throw new Error(t('settings_st_preset_import_error'));
@@ -13534,8 +17210,29 @@ function normalizeSillyTavernPreset(raw) {
         })
     };
 }
+/**
+ * 新手导读（文件：62-sillytavern-preset-ui.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、界面”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
 // ==================== SillyTavern Preset Module Index ====================
 // Preset model and import normalizer are split into adjacent chunks.
+/**
+ * 新手导读（文件：62-sillytavern-preset-placement.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、放置位置”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：主要从 `describeSillyTavernPresetPlacement(prompt)`、`isSillyTavernChatHistoryMarker(identifier)`、`getSillyTavernPresetPlacement(prompt, fallback)`、`parseSillyTavernDepth(prompt)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
+// SillyTavern 预设位置说明：将内部插入策略转换为可读描述。
 function describeSillyTavernPresetPlacement(prompt) {
     var placement = getSillyTavernPresetPlacement(prompt, 'before_history');
     if (placement === 'in_chat') {
@@ -13570,6 +17267,16 @@ function parseSillyTavernDepth(prompt) {
     var d = parseInt(raw, 10);
     return isNaN(d) ? 0 : d;
 }
+/**
+ * 新手导读（文件：62-sillytavern-preset-settings-rows.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、设置、多行项目”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：主要从 `getSillyTavernPresetRows(preset)`、`buildSillyTavernPresetRowHtml(row)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
 // ==================== SillyTavern Preset Settings Rows ====================
 function getSillyTavernPresetRows(preset) {
     return (preset.prompts || []).map(function(p, index) {
@@ -13600,6 +17307,16 @@ function buildSillyTavernPresetRowHtml(row) {
         '</label>' +
     '</div>';
 }
+/**
+ * 新手导读（文件：62-sillytavern-preset-settings-empty-ui.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、设置、空状态、界面”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：主要从 `renderSillyTavernPresetEmptyState(无参数)`、`setSillyTavernPresetTransferButtonsDisabled(disabled)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
 // ==================== SillyTavern Preset Settings Empty UI ====================
 function renderSillyTavernPresetEmptyState() {
     dom.stPresetStatus.textContent = t('settings_st_preset_empty');
@@ -13615,6 +17332,16 @@ function setSillyTavernPresetTransferButtonsDisabled(disabled) {
         btn.classList.toggle('cursor-not-allowed', !!disabled);
     });
 }
+/**
+ * 新手导读（文件：62-sillytavern-preset-settings-toggle-ui.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、设置、开关、界面”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：主要从 `bindSillyTavernPresetToggleEvents(preset)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
 // ==================== SillyTavern Preset Settings Toggle UI ====================
 function bindSillyTavernPresetToggleEvents(preset) {
     dom.stPresetList.querySelectorAll('.st-preset-toggle').forEach(function(input) {
@@ -13630,6 +17357,16 @@ function bindSillyTavernPresetToggleEvents(preset) {
         });
     });
 }
+/**
+ * 新手导读（文件：62-sillytavern-preset-settings-list-ui.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、设置、列表、界面”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：主要从 `renderSillyTavernPresetSettings(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
 // ==================== SillyTavern Preset Settings List UI ====================
 function renderSillyTavernPresetSettings() {
     if (!dom.stPresetList || !dom.stPresetStatus) return;
@@ -13648,6 +17385,16 @@ function renderSillyTavernPresetSettings() {
     dom.stPresetList.innerHTML = rows.map(buildSillyTavernPresetRowHtml).join('');
     bindSillyTavernPresetToggleEvents(preset);
 }
+/**
+ * 新手导读（文件：62-sillytavern-preset-import-ui.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、导入、界面”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：主要从 `importSillyTavernPresetFile(file)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
 // ==================== SillyTavern Preset Import UI ====================
 function importSillyTavernPresetFile(file) {
     if (!file) return;
@@ -13670,6 +17417,16 @@ function importSillyTavernPresetFile(file) {
     };
     reader.readAsText(file);
 }
+/**
+ * 新手导读（文件：62-sillytavern-preset-export-ui.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、导出、界面”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：主要从 `exportSillyTavernPreset(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
 // ==================== SillyTavern Preset Export UI ====================
 function exportSillyTavernPreset() {
     var preset = ensureSillyTavernPresetSettings();
@@ -13715,6 +17472,16 @@ function exportSillyTavernPreset() {
     };
     downloadJsonFile(data, 'sillytavern_preset_prompts_' + new Date().toISOString().slice(0, 10) + '.json');
 }
+/**
+ * 新手导读（文件：62-sillytavern-preset-delete-ui.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、删除、界面”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：主要从 `deleteSillyTavernPreset(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
 // ==================== SillyTavern Preset Delete UI ====================
 function deleteSillyTavernPreset() {
     var preset = ensureSillyTavernPresetSettings();
@@ -13730,11 +17497,32 @@ function deleteSillyTavernPreset() {
     appStore.notify('settings');
     alert(t('settings_st_preset_delete_success'));
 }
+/**
+ * 新手导读（文件：62-sillytavern-preset-settings-ui.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、设置、界面”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
 // ==================== SillyTavern Preset Settings Facade ====================
 // Import, export, and delete actions live in:
 // - 62-sillytavern-preset-import-ui.js
 // - 62-sillytavern-preset-export-ui.js
 // - 62-sillytavern-preset-delete-ui.js
+/**
+ * 新手导读（文件：62-sillytavern-preset-runtime.js）
+ *
+ * 负责什么：这是“SillyTavern 预设”中的“SillyTavern、预设、运行流程”部分。
+ * 在程序中的位置：它导入、规范化、排序并运行 SillyTavern 格式的提示词预设。
+ * 从哪里开始看：主要从 `buildSillyTavernPresetMessageBuckets(charName, userName)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
+ */
+// SillyTavern 预设运行时：把预设提示词整理为不同位置的消息桶。
 function buildSillyTavernPresetMessageBuckets(charName, userName) {
     var preset = ensureSillyTavernPresetSettings();
     var enabledPrompts = preset.prompts
@@ -13799,6 +17587,16 @@ function buildSillyTavernPresetMessageBuckets(charName, userName) {
     buckets.inChat.sort(function(a, b) { return (a._order || 0) - (b._order || 0); });
     return buckets;
 }
+/**
+ * 新手导读（文件：63-conversation-export-helpers.js）
+ *
+ * 负责什么：这是“会话导入导出”中的“会话、导出、辅助函数”部分。
+ * 在程序中的位置：它把聊天记录转换成文件，或把外部记录合并为内部会话。
+ * 从哪里开始看：主要从 `getConversationExportRecords(无参数)`、`getConversationExportOrder(无参数)`、`buildSingleConversationExportData(conversation, exportedAt)`、`buildSingleConversationExportFilename(conversation)`、`buildAllConversationsExportData(conversations, exportedAt)`、`buildAllConversationsExportFilename(exportedAt)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：导入内容可能不完整或重复，必须先规范化再写入现有状态。
+ */
 // ==================== Conversation Export Helpers ====================
 function getConversationExportRecords() {
     return getConversationIdsWithMissingFallback(state.conversationOrder, state.conversations).map(function(id) {
@@ -13840,6 +17638,16 @@ function buildAllConversationsExportData(conversations, exportedAt) {
 function buildAllConversationsExportFilename(exportedAt) {
     return 'opentavern_all_' + exportedAt.slice(0, 10) + '.json';
 }
+/**
+ * 新手导读（文件：63-conversation-import-records.js）
+ *
+ * 负责什么：这是“会话导入导出”中的“会话、导入、记录”部分。
+ * 在程序中的位置：它把聊天记录转换成文件，或把外部记录合并为内部会话。
+ * 从哪里开始看：主要从 `getConversationImportRecords(data)`、`cloneConversationImportValue(value)`、`importConversationRecords(convsToImport)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：导入内容可能不完整或重复，必须先规范化再写入现有状态。
+ */
 // ==================== Conversation Import Records ====================
 function getConversationImportRecords(data) {
     return data && Array.isArray(data.conversations) ? data.conversations : null;
@@ -13873,6 +17681,16 @@ function importConversationRecords(convsToImport) {
 
     return { imported, skipped, conversations: importedConvs };
 }
+/**
+ * 新手导读（文件：63-conversation-import-merge.js）
+ *
+ * 负责什么：这是“会话导入导出”中的“会话、导入、合并”部分。
+ * 在程序中的位置：它把聊天记录转换成文件，或把外部记录合并为内部会话。
+ * 从哪里开始看：主要从 `mergeImportedTopLevelCharacters(characters)`、`registerImportedConversationCharacters(importedConvs)`、`registerImportedCharacter(char)`、`mergeImportedWorldBooks(worldBooks)`、`applySuccessfulConversationImport(data, importResult)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：导入内容可能不完整或重复，必须先规范化再写入现有状态。
+ */
 // ==================== Conversation Import Merge Helpers ====================
 function mergeImportedTopLevelCharacters(characters) {
     if (!characters || typeof characters !== 'object') return;
@@ -13941,12 +17759,32 @@ function applySuccessfulConversationImport(data, importResult) {
     persistState(true);
     requestRender('activeConvId');
 }
+/**
+ * 新手导读（文件：63-conversation-import-helpers.js）
+ *
+ * 负责什么：这是“会话导入导出”中的“会话、导入、辅助函数”部分。
+ * 在程序中的位置：它把聊天记录转换成文件，或把外部记录合并为内部会话。
+ * 从哪里开始看：主要从 `buildConversationImportSuccessMessage(imported, skipped)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：导入内容可能不完整或重复，必须先规范化再写入现有状态。
+ */
 // ==================== Conversation Import Helpers ====================
 function buildConversationImportSuccessMessage(imported, skipped) {
     var msg = t('import_conv_success') + imported + t('import_conv_success_suffix');
     if (skipped > 0) msg += ' ' + skipped + t('import_conv_duplicate');
     return msg;
 }
+/**
+ * 新手导读（文件：63-conversation-transfer.js）
+ *
+ * 负责什么：这是“会话导入导出”中的“会话、转移”部分。
+ * 在程序中的位置：它把聊天记录转换成文件，或把外部记录合并为内部会话。
+ * 从哪里开始看：主要从 `exportConversation(id)`、`exportAllConversations(无参数)`、`downloadJsonFile(data, filename)`、`importConversations(file)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：导入内容可能不完整或重复，必须先规范化再写入现有状态。
+ */
 // ==================== Conversation Export / Import ====================
 function exportConversation(id) {
     var conv = state.conversations[id];
@@ -14011,6 +17849,16 @@ function importConversations(file) {
     };
     reader.readAsText(file);
 }
+/**
+ * 新手导读（文件：64-conversation-list-helpers.js）
+ *
+ * 负责什么：这是“会话列表”中的“会话、列表、辅助函数”部分。
+ * 在程序中的位置：它计算会话摘要信息并渲染侧边栏中的聊天记录。
+ * 从哪里开始看：主要从 `conversationMatchesCurrentCharacterFilter(id, conv, activeId, characterName)`、`getVisibleConversationListOrder(无参数)`、`getConversationListTimestampOrder(order)`、`getConversationListTimestamp(conv)`、`buildConversationListEmptyHtml(无参数)`、`buildConversationListItemHtml(id, conv, isActive)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：列表项标识必须稳定，否则重命名或删除可能作用到错误会话。
+ */
 // ==================== Conversation List Helpers ====================
 function conversationMatchesCurrentCharacterFilter(id, conv, activeId, characterName) {
     if (!conv) return false;
@@ -14077,6 +17925,16 @@ function buildConversationListItemHtml(id, conv, isActive) {
     html += '</div>';
     return html;
 }
+/**
+ * 新手导读（文件：64-conversation-list-ui.js）
+ *
+ * 负责什么：这是“会话列表”中的“会话、列表、界面”部分。
+ * 在程序中的位置：它计算会话摘要信息并渲染侧边栏中的聊天记录。
+ * 从哪里开始看：主要从 `renderConversationList(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：列表项标识必须稳定，否则重命名或删除可能作用到错误会话。
+ */
 // ==================== Conversation List UI ====================
 function renderConversationList() {
     if (!dom.convList) return;
@@ -14115,6 +17973,16 @@ function renderConversationList() {
         });
     });
 }
+/**
+ * 新手导读（文件：65-character-panel-helpers.js）
+ *
+ * 负责什么：这是“角色编辑与移动端界面”中的“角色、面板、辅助函数”部分。
+ * 在程序中的位置：它显示角色资料、编辑表单、导出操作和移动端侧边栏。
+ * 从哪里开始看：主要从 `setCharacterPanelCardVisible(visible)`、`setCharacterPanelActionButtonsVisible(visible)`、`renderCharacterPanelEmptyState(无参数)`、`buildGroupCharacterSummary(members)`、`renderGroupCharacterPanel(conv)`、`renderCharacterPanelAvatar(character)`，以及另外 1 个内部步骤 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：编辑的是共享角色数据，保存后可能影响使用该角色的多个会话。
+ */
 // ==================== Character Panel Helpers ====================
 const CHARACTER_PANEL_AVATAR_FILL_CLASS = 'w-7 h-7 rounded-lg ot-avatar-fill flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0';
 const CHARACTER_PANEL_IMAGE_AVATAR_CLASS = 'w-7 h-7 rounded-lg overflow-hidden bg-zinc-900 flex-shrink-0 border border-white/10';
@@ -14186,6 +18054,16 @@ function renderSingleCharacterPanel(character) {
         dom.charCardTagCount.textContent = tagCount + ' tag' + (tagCount !== 1 ? 's' : '');
     }
 }
+/**
+ * 新手导读（文件：65-character-panel-ui.js）
+ *
+ * 负责什么：这是“角色编辑与移动端界面”中的“角色、面板、界面”部分。
+ * 在程序中的位置：它显示角色资料、编辑表单、导出操作和移动端侧边栏。
+ * 从哪里开始看：主要从 `renderCharacterCard(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：编辑的是共享角色数据，保存后可能影响使用该角色的多个会话。
+ */
 // ==================== Character Panel UI ====================
 function renderCharacterCard() {
     var conv = getActiveConv();
@@ -14210,6 +18088,16 @@ function renderCharacterCard() {
     }
     renderWorldInfoBadge();
 }
+/**
+ * 新手导读（文件：65-character-library-actions.js）
+ *
+ * 负责什么：这是“角色编辑与移动端界面”中的“角色、资料库、操作”部分。
+ * 在程序中的位置：它显示角色资料、编辑表单、导出操作和移动端侧边栏。
+ * 从哪里开始看：主要从 `removeCharacter(无参数)`、`deleteCharacterFromLibrary(nameOrKey)`、`getCharacterLibraryPersistConversationOrder(order, conversations)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：编辑的是共享角色数据，保存后可能影响使用该角色的多个会话。
+ */
 // ==================== Character Library Actions ====================
 async function removeCharacter() {
     if (!await showGlassConfirm(t('char_remove_confirm'), { title: '\u79fb\u9664\u89d2\u8272\u5361', danger: true, okText: '\u79fb\u9664' })) return;
@@ -14272,6 +18160,16 @@ function deleteCharacterFromLibrary(nameOrKey) {
 function getCharacterLibraryPersistConversationOrder(order, conversations) {
     return getConversationIdsWithMissingFallback(order, conversations);
 }
+/**
+ * 新手导读（文件：65-character-editor-helpers.js）
+ *
+ * 负责什么：这是“角色编辑与移动端界面”中的“角色、编辑器、辅助函数”部分。
+ * 在程序中的位置：它显示角色资料、编辑表单、导出操作和移动端侧边栏。
+ * 从哪里开始看：主要从 `hydrateCharacterEditorForm(character)`、`parseCharacterEditorTags(tagsRaw)`、`buildCharacterFromEditorForm(previousCharacter)`、`registerEditedCharacter(character)`、`shouldSeedEditedCharacterFirstMessage(conv, character, wasNew)`、`updateEditedCharacterConversationTitle(conv, character, wasNew)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：编辑的是共享角色数据，保存后可能影响使用该角色的多个会话。
+ */
 // ==================== Character Editor Helpers ====================
 function hydrateCharacterEditorForm(character) {
     dom.charEditName.value = character ? character.name : '';
@@ -14324,6 +18222,16 @@ function updateEditedCharacterConversationTitle(conv, character, wasNew) {
         conv.title = t('chat_with') + character.name;
     }
 }
+/**
+ * 新手导读（文件：65-character-editor-ui.js）
+ *
+ * 负责什么：这是“角色编辑与移动端界面”中的“角色、编辑器、界面”部分。
+ * 在程序中的位置：它显示角色资料、编辑表单、导出操作和移动端侧边栏。
+ * 从哪里开始看：主要从 `openCharacterEditor(无参数)`、`saveCharacterEdits(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：编辑的是共享角色数据，保存后可能影响使用该角色的多个会话。
+ */
 // ==================== Character Editor UI ====================
 function openCharacterEditor() {
     var conv = getActiveConv();
@@ -14364,6 +18272,16 @@ function saveCharacterEdits() {
     renderConversationListOnly();
     appStore.notify('conversations');
 }
+/**
+ * 新手导读（文件：65-character-export.js）
+ *
+ * 负责什么：这是“角色编辑与移动端界面”中的“角色、导出”部分。
+ * 在程序中的位置：它显示角色资料、编辑表单、导出操作和移动端侧边栏。
+ * 从哪里开始看：主要从 `exportCharacter(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：编辑的是共享角色数据，保存后可能影响使用该角色的多个会话。
+ */
 // ==================== Character Card Export ====================
 function exportCharacter() {
     var conv = getActiveConv();
@@ -14416,6 +18334,16 @@ function exportCharacter() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
+/**
+ * 新手导读（文件：65-mobile-sidebar-ui.js）
+ *
+ * 负责什么：这是“角色编辑与移动端界面”中的“移动端、侧边栏、界面”部分。
+ * 在程序中的位置：它显示角色资料、编辑表单、导出操作和移动端侧边栏。
+ * 从哪里开始看：主要从 `isMobile(无参数)`、`openSidebar(无参数)`、`closeSidebar(无参数)`、`toggleSidebar(无参数)`、`handleSidebarClose(无参数)`、`updateSidebarCloseButton(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：编辑的是共享角色数据，保存后可能影响使用该角色的多个会话。
+ */
 // ==================== Mobile Sidebar ====================
 function isMobile() {
     return window.innerWidth < 768;
@@ -14467,6 +18395,16 @@ function updateSidebarCloseButton() {
         dom.sidebarCloseBtn.title = '';
     }
 }
+/**
+ * 新手导读（文件：65-mobile-announcement-ui.js）
+ *
+ * 负责什么：这是“角色编辑与移动端界面”中的“移动端、公告、界面”部分。
+ * 在程序中的位置：它显示角色资料、编辑表单、导出操作和移动端侧边栏。
+ * 从哪里开始看：主要从 `shouldShowAnnouncement(无参数)`、`showAnnouncementModal(无参数)`、`hideAnnouncementModal(无参数)`、`dismissAnnouncement(permanent)`、`applyAnnouncementTranslations(无参数)`、`updateAnnouncementLangButtons(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：编辑的是共享角色数据，保存后可能影响使用该角色的多个会话。
+ */
 // ==================== Announcement Modal (快速开始引导) ====================
 var ANNOUNCE_KEY = 'opentavern_announce_dismissed_v1';
 
@@ -14527,6 +18465,16 @@ function updateAnnouncementLangButtons() {
         }
     });
 }
+/**
+ * 新手导读（文件：66-character-import-file-reader.js）
+ *
+ * 负责什么：这是“导入与弹窗事件”中的“角色、导入、文件、读取器”部分。
+ * 在程序中的位置：它把文件选择、提示词查看器和总结管理器的按钮连接到业务函数。
+ * 从哪里开始看：主要从 `readCharacterImportFile(file)`、`readFileAsDataUrl(file)`、`readFileAsText(file)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：事件处理函数要防止重复触发，并在异步操作期间正确显示状态。
+ */
 // ==================== Character Import File Reader ====================
 async function readCharacterImportFile(file) {
     var lowerName = (file.name || '').toLowerCase();
@@ -14559,6 +18507,16 @@ function readFileAsText(file) {
         reader.readAsText(file);
     });
 }
+/**
+ * 新手导读（文件：66-character-import-conversation.js）
+ *
+ * 负责什么：这是“导入与弹窗事件”中的“角色、导入、会话”部分。
+ * 在程序中的位置：它把文件选择、提示词查看器和总结管理器的按钮连接到业务函数。
+ * 从哪里开始看：主要从 `prepareConversationForImportedCharacter(无参数)`、`applyImportedCharacterToConversation(conv, character)`、`attachEmbeddedCharacterBook(json, character, conv)`、`registerImportedCharacter(character)`、`addImportedCharacterFirstMessage(conv, character)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：事件处理函数要防止重复触发，并在异步操作期间正确显示状态。
+ */
 // ==================== Character Import Conversation Helpers ====================
 function prepareConversationForImportedCharacter() {
     var conv = getActiveConv();
@@ -14621,6 +18579,16 @@ function addImportedCharacterFirstMessage(conv, character) {
         conv.messages.push({ role: 'assistant', content: firstMes });
     }
 }
+/**
+ * 新手导读（文件：66-character-import-status-ui.js）
+ *
+ * 负责什么：这是“导入与弹窗事件”中的“角色、导入、状态、界面”部分。
+ * 在程序中的位置：它把文件选择、提示词查看器和总结管理器的按钮连接到业务函数。
+ * 从哪里开始看：主要从 `hideCharacterImportModal(无参数)`、`resetCharacterImportFileInput(无参数)`、`setCharacterImportStatus(text, type)`、`buildCharacterImportSuccessText(character, embeddedBook)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：事件处理函数要防止重复触发，并在异步操作期间正确显示状态。
+ */
 // ==================== Character Import Status UI ====================
 function hideCharacterImportModal() {
     dom.importModal.classList.add('hidden');
@@ -14648,6 +18616,16 @@ function buildCharacterImportSuccessText(character, embeddedBook) {
     }
     return successText;
 }
+/**
+ * 新手导读（文件：66-character-import-events.js）
+ *
+ * 负责什么：这是“导入与弹窗事件”中的“角色、导入、事件”部分。
+ * 在程序中的位置：它把文件选择、提示词查看器和总结管理器的按钮连接到业务函数。
+ * 从哪里开始看：主要从 `bindCharacterImportModalEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：事件处理函数要防止重复触发，并在异步操作期间正确显示状态。
+ */
 // ==================== Character Import Modal Events ====================
 function bindCharacterImportModalEvents() {
     dom.importCloseBtn.addEventListener('click', function() { hideCharacterImportModal(); });
@@ -14686,6 +18664,16 @@ function bindCharacterImportModalEvents() {
         }
     });
 }
+/**
+ * 新手导读（文件：66-prompt-viewer-state.js）
+ *
+ * 负责什么：这是“导入与弹窗事件”中的“提示词、查看器、状态”部分。
+ * 在程序中的位置：它把文件选择、提示词查看器和总结管理器的按钮连接到业务函数。
+ * 从哪里开始看：主要从 `setPromptStageButtons(stage)`、`findLatestMainAssistantMessage(conv)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：事件处理函数要防止重复触发，并在异步操作期间正确显示状态。
+ */
 // ==================== Prompt Viewer State ====================
 var currentPromptViewerStage = 'main';
 
@@ -14711,6 +18699,16 @@ function findLatestMainAssistantMessage(conv) {
     }
     return null;
 }
+/**
+ * 新手导读（文件：66-prompt-viewer-clipboard.js）
+ *
+ * 负责什么：这是“导入与弹窗事件”中的“提示词、查看器、剪贴板”部分。
+ * 在程序中的位置：它把文件选择、提示词查看器和总结管理器的按钮连接到业务函数。
+ * 从哪里开始看：主要从 `copyPromptViewerText(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：事件处理函数要防止重复触发，并在异步操作期间正确显示状态。
+ */
 // ==================== Prompt Viewer Clipboard ====================
 function copyPromptViewerText() {
     var text = dom.promptViewerContent.textContent;
@@ -14721,6 +18719,16 @@ function copyPromptViewerText() {
         });
     }
 }
+/**
+ * 新手导读（文件：66-prompt-viewer-events.js）
+ *
+ * 负责什么：这是“导入与弹窗事件”中的“提示词、查看器、事件”部分。
+ * 在程序中的位置：它把文件选择、提示词查看器和总结管理器的按钮连接到业务函数。
+ * 从哪里开始看：主要从 `refreshPromptViewer(无参数)`、`showFullPrompt(无参数)`、`closePromptViewer(无参数)`、`bindPromptViewerEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：事件处理函数要防止重复触发，并在异步操作期间正确显示状态。
+ */
 // ==================== Prompt Viewer Events ====================
 function refreshPromptViewer() {
     try {
@@ -14764,6 +18772,16 @@ function bindPromptViewerEvents() {
     dom.promptViewerBackdrop.addEventListener('click', closePromptViewer);
     dom.copyPromptBtn.addEventListener('click', copyPromptViewerText);
 }
+/**
+ * 新手导读（文件：66-summary-manager-events.js）
+ *
+ * 负责什么：这是“导入与弹窗事件”中的“总结、管理器、事件”部分。
+ * 在程序中的位置：它把文件选择、提示词查看器和总结管理器的按钮连接到业务函数。
+ * 从哪里开始看：主要从 `closeSummaryManager(无参数)`、`showSummaryRecentMode(无参数)`、`showSummaryRangeMode(无参数)`、`bindSummaryManagerWorkflowEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：事件处理函数要防止重复触发，并在异步操作期间正确显示状态。
+ */
 // ==================== Summary Manager Events ====================
 function closeSummaryManager() {
     dom.summaryManagerModal.classList.add('hidden');
@@ -14815,14 +18833,44 @@ function bindSummaryManagerWorkflowEvents() {
         dom.summaryGenerateBtn.addEventListener('click', doGenerateSummary);
     }
 }
+/**
+ * 新手导读（文件：66-prompt-summary-events.js）
+ *
+ * 负责什么：这是“导入与弹窗事件”中的“提示词、总结、事件”部分。
+ * 在程序中的位置：它把文件选择、提示词查看器和总结管理器的按钮连接到业务函数。
+ * 从哪里开始看：主要从 `bindPromptAndSummaryWorkflowEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：事件处理函数要防止重复触发，并在异步操作期间正确显示状态。
+ */
 // ==================== Prompt Viewer / Summary Workflow Events ====================
 function bindPromptAndSummaryWorkflowEvents() {
     bindPromptViewerEvents();
     bindSummaryManagerWorkflowEvents();
 }
+/**
+ * 新手导读（文件：66-dialog-workflow-events.js）
+ *
+ * 负责什么：这是“导入与弹窗事件”中的“对话框、工作流、事件”部分。
+ * 在程序中的位置：它把文件选择、提示词查看器和总结管理器的按钮连接到业务函数。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：事件处理函数要防止重复触发，并在异步操作期间正确显示状态。
+ */
 // Dialog workflow event wiring is split across:
 // - 66-character-import-events.js
 // - 66-prompt-summary-events.js
+/**
+ * 新手导读（文件：67-message-action-helpers.js）
+ *
+ * 负责什么：这是“消息操作”中的“消息、操作、辅助函数”部分。
+ * 在程序中的位置：它处理消息编辑、删除、复制和重新生成，并维护关联的二段消息。
+ * 从哪里开始看：主要从 `resetConversationAfterMessageMutation(conv)`、`persistAndRenderMessageMutation(conv, renderConversationList)`、`deleteUserMessageWithReplies(conv, actualIdx)`、`deleteAssistantMessageAt(conv, actualIdx)`、`findSecondStageParentMessage(conv, msg)`、`removeSecondStageMessageForRegeneration(conv, actualIdx)`，以及另外 1 个内部步骤 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：修改历史消息会影响后续上下文；重生成前要精确识别目标消息和关联结果。
+ */
 // ==================== Message Action Helpers ====================
 function resetConversationAfterMessageMutation(conv) {
     conv.updated = Date.now();
@@ -14879,6 +18927,16 @@ function removePrimaryAssistantMessageForRegeneration(conv, msg) {
     if (actualIdx >= 0) conv.messages.splice(actualIdx, 1);
     persistAndRenderMessageMutation(conv, true);
 }
+/**
+ * 新手导读（文件：67-message-regeneration-runtime.js）
+ *
+ * 负责什么：这是“消息操作”中的“消息、重新生成、运行流程”部分。
+ * 在程序中的位置：它处理消息编辑、删除、复制和重新生成，并维护关联的二段消息。
+ * 从哪里开始看：主要从 `prepareGroupSpeakerForRegeneration(conv, lastMsg)`、`handlePrimaryRegenerationError(err)`、`startPrimaryMessageRegeneration(conv)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：修改历史消息会影响后续上下文；重生成前要精确识别目标消息和关联结果。
+ */
 // ==================== Message Regeneration Runtime ====================
 function prepareGroupSpeakerForRegeneration(conv, lastMsg) {
     if (!isGroupChat(conv)) return;
@@ -14913,6 +18971,16 @@ function startPrimaryMessageRegeneration(conv) {
         start();
     }
 }
+/**
+ * 新手导读（文件：67-message-actions-ui.js）
+ *
+ * 负责什么：这是“消息操作”中的“消息、操作、界面”部分。
+ * 在程序中的位置：它处理消息编辑、删除、复制和重新生成，并维护关联的二段消息。
+ * 从哪里开始看：主要从 `deleteMessage(actualIdx)`、`regenerateMessage(actualIdx)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：修改历史消息会影响后续上下文；重生成前要精确识别目标消息和关联结果。
+ */
 // ==================== Message Delete/Regenerate Actions ====================
 function deleteMessage(actualIdx) {
     var conv = getActiveConv();
@@ -14953,6 +19021,16 @@ function regenerateMessage(actualIdx) {
     prepareGroupSpeakerForRegeneration(conv, lastMsg);
     startPrimaryMessageRegeneration(conv);
 }
+/**
+ * 新手导读（文件：67-message-edit-helpers.js）
+ *
+ * 负责什么：这是“消息操作”中的“消息、编辑、辅助函数”部分。
+ * 在程序中的位置：它处理消息编辑、删除、复制和重新生成，并维护关联的二段消息。
+ * 从哪里开始看：主要从 `findEditableMessageBubble(actualIdx, triggerBtn)`、`createMessageEditTextarea(originalContent, originalBubbleWidth)`、`autoResizeMessageEditTextarea(ta)`、`applyMessageEditContent(conv, actualIdx, originalContent, editedContent)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：修改历史消息会影响后续上下文；重生成前要精确识别目标消息和关联结果。
+ */
 // ==================== Message Edit Helpers ====================
 function findEditableMessageBubble(actualIdx, triggerBtn) {
     if (triggerBtn) {
@@ -15005,6 +19083,16 @@ function applyMessageEditContent(conv, actualIdx, originalContent, editedContent
     conv._lastRenderedVisibleCount = 0;
     return 'changed';
 }
+/**
+ * 新手导读（文件：67-message-edit-ui.js）
+ *
+ * 负责什么：这是“消息操作”中的“消息、编辑、界面”部分。
+ * 在程序中的位置：它处理消息编辑、删除、复制和重新生成，并维护关联的二段消息。
+ * 从哪里开始看：主要从 `copyMessageText(text)`、`editMessage(actualIdx, triggerBtn)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：修改历史消息会影响后续上下文；重生成前要精确识别目标消息和关联结果。
+ */
 // ==================== Message Copy/Edit UI ====================
 function copyMessageText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -15067,6 +19155,16 @@ function editMessage(actualIdx, triggerBtn) {
     });
     setTimeout(function() { autoResizeMessageEditTextarea(ta); }, 0);
 }
+/**
+ * 新手导读（文件：68-settings-basic-hydration.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、基础设置、表单回填”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `hydratePrimaryApiSettings(无参数)`、`hydrateGenerationSettings(无参数)`、`hydratePromptSettings(无参数)`、`bindSettingsPromptShortcutButtons(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
 // ==================== Settings Basic Hydration ====================
 function hydratePrimaryApiSettings() {
     hydrateValueControl(dom.apiEndpoint, state.settings.apiEndpoint);
@@ -15107,6 +19205,16 @@ function bindSettingsPromptShortcutButtons() {
         };
     }
 }
+/**
+ * 新手导读（文件：68-settings-advanced-hydration-helpers.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、高级设置、表单回填、辅助函数”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `hydrateCheckboxControl(control, value)`、`hydrateCheckboxControlDefaultOn(control, value)`、`hydrateValueControl(control, value)`、`hydrateValueAndLabelControl(control, labelControl, value)`、`bindDefaultPromptRestoreButton(button, promptControl, defaultPrompt)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
 // ==================== Settings Advanced Hydration Helpers ====================
 function hydrateCheckboxControl(control, value) {
     if (control) control.checked = !!value;
@@ -15133,6 +19241,16 @@ function bindDefaultPromptRestoreButton(button, promptControl, defaultPrompt) {
         persistState(true);
     };
 }
+/**
+ * 新手导读（文件：68-settings-advanced-hydration.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、高级设置、表单回填”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `hydrateTwoStageSettings(无参数)`、`bindTwoStageRestoreButton(无参数)`、`hydrateSummarySettings(无参数)`、`hydrateWorldInfoBudgetSettings(无参数)`、`hydrateThemePerformanceSettings(无参数)`、`hydrateSummarizationApiSettings(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
 // ==================== Settings Advanced Hydration ====================
 function hydrateTwoStageSettings() {
     hydrateCheckboxControl(dom.twoStageEnabled, state.settings.twoStageEnabled);
@@ -15176,6 +19294,16 @@ function hydrateSummarizationApiSettings() {
     hydrateValueControl(dom.summarizeApiKey, state.settings.summarizeApiKey || '');
     hydrateValueControl(dom.summarizeModel, state.settings.summarizeModel || 'deepseek-v4-flash');
 }
+/**
+ * 新手导读（文件：68-settings-integration-hydration.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、外部集成、表单回填”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `hydrateSillyTavernPresetSettings(无参数)`、`hydrateComfySettingsControls(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
 // ==================== Settings Integration Hydration ====================
 function hydrateSillyTavernPresetSettings() {
     ensureSillyTavernPresetSettings();
@@ -15193,8 +19321,28 @@ function hydrateComfySettingsControls() {
     hydrateValueControl(dom.comfyPromptTemplate, state.settings.comfyPromptTemplate || '');
     updateComfyWorkflowStatus();
 }
+/**
+ * 新手导读（文件：68-settings-modal-hydration.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、弹窗、表单回填”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
 // ==================== Settings Modal Hydration ====================
 // Split into basic, advanced, and integration hydration helper chunks.
+/**
+ * 新手导读（文件：68-settings-modal.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、弹窗”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `updateSummaryThresholdWarning(无参数)`、`toggleSummarizeCustomSection(无参数)`、`openSettings(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
 // ==================== Settings Modal ====================
 function updateSummaryThresholdWarning() {
     if (!dom.summaryThreshold || !dom.contextLength) return;
@@ -15236,6 +19384,17 @@ function openSettings() {
     bindSettingsStorageControls();
     dom.settingsModal.classList.remove('hidden');
 }
+/**
+ * 新手导读（文件：68-settings-cloud-sync-form.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、云同步、表单”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `readCloudSyncSettingsFromForm(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
+// 云同步设置表单：读取并规范化端点、令牌、加密与自动上传选项。
 function readCloudSyncSettingsFromForm() {
     ensureCloudSyncSettings();
     if (dom.cloudSyncEnabled) state.settings.cloudSyncEnabled = readCheckboxControlValue(dom.cloudSyncEnabled, false);
@@ -15255,6 +19414,17 @@ function readCloudSyncSettingsFromForm() {
     }
     if (dom.cloudSyncPassphrase) state.settings.cloudSyncPassphrase = readControlValue(dom.cloudSyncPassphrase);
 }
+/**
+ * 新手导读（文件：68-settings-cloud-sync-ui.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、云同步、界面”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `hydrateCloudSyncSettingsControls(无参数)`、`applyCloudSyncEncryptionAvailabilityHint(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
+// 云同步设置界面：将当前同步配置回填到设置表单控件。
 function hydrateCloudSyncSettingsControls() {
     // 云同步
     ensureCloudSyncSettings();
@@ -15323,6 +19493,17 @@ function applyCloudSyncEncryptionAvailabilityHint() {
     }
     return false;
 }
+/**
+ * 新手导读（文件：68-settings-webllm-ui.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、浏览器本地大模型、界面”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `bindWebLLMSettingsControls(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
+// WebLLM 设置绑定：连接模型选择、设备检测、缓存和初始化控件。
 function bindWebLLMSettingsControls() {
     // ===== WebLLM 后端设置（新增） =====
     var backendSel = document.getElementById('inferenceBackend');
@@ -15398,6 +19579,17 @@ function bindWebLLMSettingsControls() {
         webgpuDeviceInfo.textContent = formatWebGPUDeviceReport(webgpuLastDeviceReport);
     }
 }
+/**
+ * 新手导读（文件：68-settings-storage-status-ui.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、存储、状态、界面”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `bindSettingsStorageStatusControls(backend)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
+// 存储状态设置：展示当前后端、容量使用量和持久化授权状态。
 function bindSettingsStorageStatusControls(backend) {
     const backendEl = document.getElementById('storageBackend');
     const usageEl = document.getElementById('storageUsage');
@@ -15448,6 +19640,17 @@ function bindSettingsStorageStatusControls(backend) {
         });
     }
 }
+/**
+ * 新手导读（文件：68-settings-storage-clear-helpers.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、存储、清理、辅助函数”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `getClearAllStorageButtonStyle(backend)`、`applyClearAllStorageButtonState(clearBtn, backend)`、`getClearAllStorageConfirmConfig(无参数)`、`getClearWebLLMCacheConfirmConfig(无参数)`、`renderStorageUsageClearedState(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
+// 存储清理辅助：生成清理按钮样式、确认文案和危险操作配置。
 function getClearAllStorageButtonStyle(backend) {
     if (backend === 'idb') {
         return { background: 'rgba(239,68,68,0.15)', color: '' };
@@ -15485,6 +19688,17 @@ function renderStorageUsageClearedState() {
     if (usageEl) usageEl.textContent = '0.0 MB / ~0 GB (\u5df2\u6e05\u9664)';
     if (bar) bar.style.width = '0%';
 }
+/**
+ * 新手导读（文件：68-settings-storage-clear-ui.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、存储、清理、界面”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `bindSettingsStorageClearControls(backend)`、`bindClearAllStorageButton(backend)`、`bindClearWebLLMCacheButton(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
+// 存储清理设置：绑定清空应用数据与 WebLLM 缓存的确认流程。
 function bindSettingsStorageClearControls(backend) {
     bindClearAllStorageButton(backend);
     bindClearWebLLMCacheButton();
@@ -15541,6 +19755,17 @@ function bindClearWebLLMCacheButton() {
         }
     };
 }
+/**
+ * 新手导读（文件：68-settings-storage-recovery-ui.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、存储、恢复、界面”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `bindSettingsStorageRecoveryControls(无参数)`、`createStorageRecoveryCandidateRow(candidate)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
+// 存储恢复设置：绑定扫描后端、预览候选快照和恢复操作。
 function bindSettingsStorageRecoveryControls() {
     const scanBtn = document.getElementById('scanStorageBtn');
     const candidatesDiv = document.getElementById('storageCandidates');
@@ -15593,6 +19818,17 @@ function createStorageRecoveryCandidateRow(candidate) {
     row.appendChild(restoreBtn);
     return row;
 }
+/**
+ * 新手导读（文件：68-settings-storage-ui.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、存储、界面”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `bindSettingsStorageControls(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
+// 存储设置总入口：绑定状态、恢复和清理相关设置控件。
 function bindSettingsStorageControls() {
     const backend = StorageService.getBackend();
 
@@ -15601,6 +19837,16 @@ function bindSettingsStorageControls() {
     bindSettingsStorageClearControls(backend);
     bindSettingsStorageRecoveryControls();
 }
+/**
+ * 新手导读（文件：68-settings-save-form-helpers.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、保存、表单、辅助函数”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `readTrimmedControlValue(control)`、`readControlValue(control)`、`readControlValueOr(control, fallback)`、`readTrimmedControlValueOr(control, fallback)`、`readCheckboxControlValue(control, fallback)`、`readIntegerControlValue(control, fallback)`，以及另外 2 个内部步骤 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
 // ==================== Settings Save Form Helpers ====================
 function readTrimmedControlValue(control) {
     return control ? String(control.value || '').trim() : '';
@@ -15634,6 +19880,16 @@ function readFiniteFloatControlValue(control, fallback) {
     var value = parseFloat(control.value);
     return Number.isFinite(value) ? value : fallback;
 }
+/**
+ * 新手导读（文件：68-settings-save-main-form.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、保存、主要流程、表单”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `readMainSettingsFromForm(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
 // ==================== Settings Save Main Form ====================
 function readMainSettingsFromForm() {
     state.settings.apiEndpoint = readTrimmedControlValue(dom.apiEndpoint);
@@ -15658,6 +19914,16 @@ function readMainSettingsFromForm() {
     if (dom.showCotEnabled) state.settings.showCotEnabled = readCheckboxControlValue(dom.showCotEnabled, false);
     if (dom.userDescription) state.settings.userDescription = readTrimmedControlValue(dom.userDescription);
 }
+/**
+ * 新手导读（文件：68-settings-save-summary-form.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、保存、总结、表单”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `readSummarySettingsFromForm(无参数)`、`readWorldInfoBudgetSettingsFromForm(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
 // ==================== Settings Save Summary Form ====================
 function readSummarySettingsFromForm() {
     ensureSillyTavernPresetSettings();
@@ -15671,6 +19937,16 @@ function readWorldInfoBudgetSettingsFromForm() {
     state.settings.worldInfoBudgetEnabled = readCheckboxControlValue(dom.worldInfoBudgetEnabled, false);
     state.settings.worldInfoBudget = readIntegerControlValue(dom.worldInfoBudget, 2048);
 }
+/**
+ * 新手导读（文件：68-settings-save-ui-form.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、保存、界面、表单”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `readUiBehaviorSettingsFromForm(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
 // ==================== Settings Save UI Form ====================
 function readUiBehaviorSettingsFromForm() {
     state.settings.uiTheme = readControlValueOr(dom.uiTheme, 'new-light');
@@ -15678,6 +19954,16 @@ function readUiBehaviorSettingsFromForm() {
     if (typeof cacheUiTheme === 'function') cacheUiTheme(state.settings.uiTheme);
     state.settings.lowPowerMode = readCheckboxControlValue(dom.lowPowerMode, false);
 }
+/**
+ * 新手导读（文件：68-settings-save-summary-api-form.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、保存、总结、模型接口、表单”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `readSummarizationApiSettingsFromForm(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
 // ==================== Settings Save Summarization API Form ====================
 function readSummarizationApiSettingsFromForm() {
     state.settings.summarizeUseMainAPI = readCheckboxControlValue(dom.summarizeUseMainAPI, false);
@@ -15685,6 +19971,16 @@ function readSummarizationApiSettingsFromForm() {
     state.settings.summarizeApiKey = readTrimmedControlValue(dom.summarizeApiKey);
     state.settings.summarizeModel = readTrimmedControlValueOr(dom.summarizeModel, 'deepseek-v4-flash');
 }
+/**
+ * 新手导读（文件：68-settings-save-comfy-form.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、保存、ComfyUI 绘图、表单”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `readComfySettingsFromForm(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
 // ==================== Settings Save ComfyUI Form ====================
 function readComfySettingsFromForm() {
     ensureComfySettings();
@@ -15696,6 +19992,16 @@ function readComfySettingsFromForm() {
     if (dom.comfyNegativePrompt) state.settings.comfyNegativePrompt = readTrimmedControlValue(dom.comfyNegativePrompt);
     if (dom.comfyPromptTemplate) state.settings.comfyPromptTemplate = readTrimmedControlValueOr(dom.comfyPromptTemplate, defaultSettings().comfyPromptTemplate);
 }
+/**
+ * 新手导读（文件：68-settings-save-webllm-form.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、保存、浏览器本地大模型、表单”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `readWebLLMSettingsFromForm(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
 // ==================== Settings Save WebLLM Form ====================
 function readWebLLMSettingsFromForm() {
     var backendSel = document.getElementById('inferenceBackend');
@@ -15703,6 +20009,16 @@ function readWebLLMSettingsFromForm() {
     if (backendSel) state.settings.inferenceBackend = readControlValueOr(backendSel, 'remote-api');
     if (webllmSel) state.settings.webllmModel = readControlValueOr(webllmSel, 'Llama-3.2-1B-Instruct-q4f16_1-MLC');
 }
+/**
+ * 新手导读（文件：68-settings-save-form.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、保存、表单”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `readSettingsFormIntoState(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
 // ==================== Settings Save Form Facade ====================
 // Form readers are split by settings group across 68-settings-save-*-form.js.
 function readSettingsFormIntoState() {
@@ -15715,6 +20031,17 @@ function readSettingsFormIntoState() {
     readCloudSyncSettingsFromForm();
     readWebLLMSettingsFromForm();
 }
+/**
+ * 新手导读（文件：68-settings-save-effect-helpers.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、保存、联动效果、辅助函数”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `applySavedSettingsThemeEffects(无参数)`、`clearActiveConversationWorldInfoCache(无参数)`、`scheduleAutoSummaryAfterSettingsSave(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
+// 设置副作用辅助：应用主题、性能模式和生成相关配置变化。
 function applySavedSettingsThemeEffects() {
     if (typeof applyUiTheme === 'function') {
         applyUiTheme(state.settings.uiTheme);
@@ -15736,6 +20063,17 @@ function scheduleAutoSummaryAfterSettingsSave() {
         setTimeout(function() { autoSummarize(); }, 120);
     }
 }
+/**
+ * 新手导读（文件：68-settings-save-effects.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、保存、联动效果”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `applyClosedSettingsEffects(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
+// 设置保存后的副作用：刷新界面、存储状态及相关集成功能。
 function applyClosedSettingsEffects() {
     persistState();
     dom.settingsModal.classList.add('hidden');
@@ -15750,10 +20088,31 @@ function applyClosedSettingsEffects() {
 
     appStore.notify('settings');
 }
+/**
+ * 新手导读（文件：68-settings-save.js）
+ *
+ * 负责什么：这是“设置界面”中的“设置、保存”部分。
+ * 在程序中的位置：它把当前设置填入表单，读取用户修改，再触发保存后的联动效果。
+ * 从哪里开始看：主要从 `closeSettings(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：表单值都是字符串或勾选状态，写回前要转换成正确的数字、布尔值和枚举。
+ */
+// 设置保存入口：读取表单、持久化设置并关闭设置弹窗。
 function closeSettings() {
     readSettingsFormIntoState();
     applyClosedSettingsEffects();
 }
+/**
+ * 新手导读（文件：70-send-message-helpers.js）
+ *
+ * 负责什么：这是“全局事件初始化”中的“发送、消息、辅助函数”部分。
+ * 在程序中的位置：它集中启动页面事件绑定，并提供发送消息所需的输入辅助。
+ * 从哪里开始看：主要从 `appendUserMessageToConversation(conv, text)`、`getMentionedGroupSpeakerForMessage(text, conv)`、`prepareGroupSpeakerForUserMessage(conv, text)`、`resetMessageComposerInput(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：初始化只能执行一次，否则一个点击会触发多次相同操作。
+ */
 // ==================== Send Message Helpers ====================
 function appendUserMessageToConversation(conv, text) {
     conv.messages.push({ role: 'user', content: text });
@@ -15785,7 +20144,28 @@ function resetMessageComposerInput() {
     dom.messageInput.style.height = 'auto';
     clearPendingGroupMention();
 }
+/**
+ * 新手导读（文件：70-events-init.js）
+ *
+ * 负责什么：这是“全局事件初始化”中的“事件、初始化”部分。
+ * 在程序中的位置：它集中启动页面事件绑定，并提供发送消息所需的输入辅助。
+ * 从哪里开始看：主要从 `sendMessage(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：初始化只能执行一次，否则一个点击会触发多次相同操作。
+ */
 // ==================== Send Message ====================
+/**
+ * 用户点击发送按钮或按下发送快捷键后执行的完整入口。
+ *
+ * 输入/返回：无参数、无返回值；文本来自消息输入框，结果通过异步回调逐步写入界面和会话。
+ *
+ * 执行顺序：阻止重复生成和空消息 -> 把用户消息加入当前会话 -> 为群聊选择下一位发言人 ->
+ * 清空输入框并立即保存 -> 开始远程 API 或 WebLLM 流式生成 -> 持续更新临时气泡 ->
+ * 完成时保存助手消息，失败时移除临时气泡并恢复输入状态。
+ *
+ * isGenerating 是防止连点产生并行请求的锁。无论成功还是失败，都必须最终把它恢复为 false。
+ */
 function sendMessage() {
     if (state.isGenerating) return;
     var text = dom.messageInput.value.trim();
@@ -15833,6 +20213,16 @@ function sendMessage() {
         start();
     }
 }
+/**
+ * 新手导读（文件：71-event-chat-composer-bindings.js）
+ *
+ * 负责什么：这是“页面事件绑定”中的“事件、聊天、输入框、事件绑定”部分。
+ * 在程序中的位置：它把按钮、输入框、快捷键和侧边栏操作连接到对应业务函数。
+ * 从哪里开始看：主要从 `bindChatComposerEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：绑定前要确认元素存在；动态创建的元素通常需要事件委托。
+ */
 // ==================== Chat Composer Event Bindings ====================
 function bindChatComposerEvents() {
     dom.sendBtn.addEventListener('click', sendMessage);
@@ -15891,6 +20281,16 @@ function bindChatComposerEvents() {
 
     dom.archiveBtn.addEventListener('click', archiveCurrentConversation);
 }
+/**
+ * 新手导读（文件：71-event-message-action-bindings.js）
+ *
+ * 负责什么：这是“页面事件绑定”中的“事件、消息、操作、事件绑定”部分。
+ * 在程序中的位置：它把按钮、输入框、快捷键和侧边栏操作连接到对应业务函数。
+ * 从哪里开始看：主要从 `bindMessageActionEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：绑定前要确认元素存在；动态创建的元素通常需要事件委托。
+ */
 // ==================== Message Action Event Bindings ====================
 function bindMessageActionEvents() {
     dom.messagesContainer.addEventListener('click', function(e) {
@@ -15916,6 +20316,16 @@ function bindMessageActionEvents() {
         }
     });
 }
+/**
+ * 新手导读（文件：71-event-message-option-bindings.js）
+ *
+ * 负责什么：这是“页面事件绑定”中的“事件、消息、选项、事件绑定”部分。
+ * 在程序中的位置：它把按钮、输入框、快捷键和侧边栏操作连接到对应业务函数。
+ * 从哪里开始看：主要从 `getMessageOptionSendText(optionEl)`、`clearSelectedMessageOptions(container, exceptEl)`、`putMessageOptionInComposer(text)`、`activateMessageOption(optionEl, container)`、`bindMessageOptionEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：绑定前要确认元素存在；动态创建的元素通常需要事件委托。
+ */
 // ==================== Message Option Event Bindings ====================
 function getMessageOptionSendText(optionEl) {
     if (!optionEl) return '';
@@ -15967,10 +20377,30 @@ function bindMessageOptionEvents() {
         activateMessageOption(optionEl, dom.messagesContainer);
     });
 }
+/**
+ * 新手导读（文件：71-event-chat-bindings.js）
+ *
+ * 负责什么：这是“页面事件绑定”中的“事件、聊天、事件绑定”部分。
+ * 在程序中的位置：它把按钮、输入框、快捷键和侧边栏操作连接到对应业务函数。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：绑定前要确认元素存在；动态创建的元素通常需要事件委托。
+ */
 // ==================== Chat Event Bindings Facade ====================
 // Chat composer and message action bindings live in:
 // - 71-event-chat-composer-bindings.js
 // - 71-event-message-action-bindings.js
+/**
+ * 新手导读（文件：71-event-library-bindings.js）
+ *
+ * 负责什么：这是“页面事件绑定”中的“事件、资料库、事件绑定”部分。
+ * 在程序中的位置：它把按钮、输入框、快捷键和侧边栏操作连接到对应业务函数。
+ * 从哪里开始看：主要从 `bindLibraryEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：绑定前要确认元素存在；动态创建的元素通常需要事件委托。
+ */
 // ==================== Library Event Bindings ====================
 function bindLibraryEvents() {
     var tabMyEl = document.getElementById('tabMy');
@@ -16006,6 +20436,16 @@ function bindLibraryEvents() {
         };
     });
 }
+/**
+ * 新手导读（文件：71-event-sidebar-bindings.js）
+ *
+ * 负责什么：这是“页面事件绑定”中的“事件、侧边栏、事件绑定”部分。
+ * 在程序中的位置：它把按钮、输入框、快捷键和侧边栏操作连接到对应业务函数。
+ * 从哪里开始看：主要从 `bindSidebarEvents(无参数)`、`bindLanguageEvents(无参数)`、`bindCloudSyncShortcutEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：绑定前要确认元素存在；动态创建的元素通常需要事件委托。
+ */
 // ==================== Sidebar and Language Event Bindings ====================
 function bindSidebarEvents() {
     dom.hamburgerBtn.addEventListener('click', toggleSidebar);
@@ -16049,6 +20489,16 @@ function bindCloudSyncShortcutEvents() {
         });
     });
 }
+/**
+ * 新手导读（文件：71-event-character-data-bindings.js）
+ *
+ * 负责什么：这是“页面事件绑定”中的“事件、角色、数据、事件绑定”部分。
+ * 在程序中的位置：它把按钮、输入框、快捷键和侧边栏操作连接到对应业务函数。
+ * 从哪里开始看：主要从 `bindCharacterAndDataEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：绑定前要确认元素存在；动态创建的元素通常需要事件委托。
+ */
 // ==================== Character and Data Event Bindings ====================
 function bindCharacterAndDataEvents() {
     dom.charCreateBtn.addEventListener('click', openCharacterEditor);
@@ -16078,6 +20528,16 @@ function bindCharacterAndDataEvents() {
     dom.charExportBtn.addEventListener('click', exportCharacter);
     dom.worldBookBtn.addEventListener('click', openWorldBookModal);
 }
+/**
+ * 新手导读（文件：71-event-settings-slider-bindings.js）
+ *
+ * 负责什么：这是“页面事件绑定”中的“事件、设置、滑块、事件绑定”部分。
+ * 在程序中的位置：它把按钮、输入框、快捷键和侧边栏操作连接到对应业务函数。
+ * 从哪里开始看：主要从 `bindSettingsSlider(slider, valEl, format)`、`bindSummaryMaxWordsInput(无参数)`、`bindSettingsSlidersAndSummaryEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：绑定前要确认元素存在；动态创建的元素通常需要事件委托。
+ */
 // ==================== Settings Slider Event Bindings ====================
 function bindSettingsSlider(slider, valEl, format) {
     if (!slider || !valEl) return;
@@ -16128,6 +20588,16 @@ function bindSettingsSlidersAndSummaryEvents() {
         dom.summarizeUseMainAPI.addEventListener('change', toggleSummarizeCustomSection);
     }
 }
+/**
+ * 新手导读（文件：71-event-settings-modal-bindings.js）
+ *
+ * 负责什么：这是“页面事件绑定”中的“事件、设置、弹窗、事件绑定”部分。
+ * 在程序中的位置：它把按钮、输入框、快捷键和侧边栏操作连接到对应业务函数。
+ * 从哪里开始看：主要从 `bindSettingsModalEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：绑定前要确认元素存在；动态创建的元素通常需要事件委托。
+ */
 // ==================== Settings Modal Event Bindings ====================
 function bindSettingsModalEvents() {
     if (dom.sidebarSettingsBtn) dom.sidebarSettingsBtn.addEventListener('click', openSettings);
@@ -16135,6 +20605,16 @@ function bindSettingsModalEvents() {
     if (dom.settingsCloseBtn) dom.settingsCloseBtn.addEventListener('click', closeSettings);
     if (dom.settingsBackdrop) dom.settingsBackdrop.addEventListener('click', closeSettings);
 }
+/**
+ * 新手导读（文件：71-event-settings-integration-bindings.js）
+ *
+ * 负责什么：这是“页面事件绑定”中的“事件、设置、外部集成、事件绑定”部分。
+ * 在程序中的位置：它把按钮、输入框、快捷键和侧边栏操作连接到对应业务函数。
+ * 从哪里开始看：主要从 `bindSettingsIntegrationEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：绑定前要确认元素存在；动态创建的元素通常需要事件委托。
+ */
 // ==================== Settings Integration Event Bindings ====================
 function bindSettingsIntegrationEvents() {
     if (dom.stPresetImportBtn) dom.stPresetImportBtn.addEventListener('click', function() {
@@ -16156,12 +20636,32 @@ function bindSettingsIntegrationEvents() {
     });
     if (dom.comfyTestBtn) dom.comfyTestBtn.addEventListener('click', testComfyConnection);
 }
+/**
+ * 新手导读（文件：71-event-settings-bindings.js）
+ *
+ * 负责什么：这是“页面事件绑定”中的“事件、设置、事件绑定”部分。
+ * 在程序中的位置：它把按钮、输入框、快捷键和侧边栏操作连接到对应业务函数。
+ * 从哪里开始看：主要从 `bindSettingsEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：绑定前要确认元素存在；动态创建的元素通常需要事件委托。
+ */
 // ==================== Settings Event Bindings ====================
 function bindSettingsEvents() {
     bindSettingsModalEvents();
     bindSettingsIntegrationEvents();
     bindSettingsSlidersAndSummaryEvents();
 }
+/**
+ * 新手导读（文件：71-event-announcement-hotkeys.js）
+ *
+ * 负责什么：这是“页面事件绑定”中的“事件、公告、快捷键”部分。
+ * 在程序中的位置：它把按钮、输入框、快捷键和侧边栏操作连接到对应业务函数。
+ * 从哪里开始看：主要从 `bindAnnouncementEvents(无参数)`、`bindGlobalKeyboardEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：绑定前要确认元素存在；动态创建的元素通常需要事件委托。
+ */
 // ==================== Announcement and Hotkey Event Bindings ====================
 function bindAnnouncementEvents() {
     if (dom.announceCloseBtn) {
@@ -16208,6 +20708,16 @@ function bindGlobalKeyboardEvents() {
         if (!dom.announceModal.classList.contains('hidden')) hideAnnouncementModal();
     });
 }
+/**
+ * 新手导读（文件：71-event-bindings.js）
+ *
+ * 负责什么：这是“页面事件绑定”中的“事件、事件绑定”部分。
+ * 在程序中的位置：它把按钮、输入框、快捷键和侧边栏操作连接到对应业务函数。
+ * 从哪里开始看：主要从 `bindEvents(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：绑定前要确认元素存在；动态创建的元素通常需要事件委托。
+ */
 // ==================== Event Bindings ====================
 function bindEvents() {
     bindChatComposerEvents();
@@ -16226,6 +20736,16 @@ function bindEvents() {
     bindAnnouncementEvents();
     bindGlobalKeyboardEvents();
 }
+/**
+ * 新手导读（文件：72-app-init-storage.js）
+ *
+ * 负责什么：这是“应用启动流程”中的“应用、初始化、存储”部分。
+ * 在程序中的位置：它按顺序准备存储、状态、界面和后台任务，最终让页面可交互。
+ * 从哪里开始看：主要从 `initializeStorageAndState(无参数)`、`recoverAppStateAfterInitFailure(error)`、`ensureFallbackConversation(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：启动步骤存在先后依赖，不能在状态加载完成前渲染依赖用户数据的界面。
+ */
 // ==================== App Init Storage ====================
 async function initializeStorageAndState() {
     if (StorageService && typeof StorageService.init === 'function') {
@@ -16258,6 +20778,16 @@ function ensureFallbackConversation() {
     state.activeConvId = def.id;
     state.conversationOrder = [def.id];
 }
+/**
+ * 新手导读（文件：72-app-init-ui.js）
+ *
+ * 负责什么：这是“应用启动流程”中的“应用、初始化、界面”部分。
+ * 在程序中的位置：它按顺序准备存储、状态、界面和后台任务，最终让页面可交互。
+ * 从哪里开始看：主要从 `applyInitialLanguageState(无参数)`、`updateInitialLanguageButtons(lang)`、`showInitialLibraryView(无参数)`、`updateStartupInputAvailability(无参数)`、`migrateActiveConversationFirstMessage(无参数)`、`isAnyStartupModalOpen(无参数)`，以及另外 2 个内部步骤 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：启动步骤存在先后依赖，不能在状态加载完成前渲染依赖用户数据的界面。
+ */
 // ==================== App Init UI ====================
 function applyInitialLanguageState() {
     document.documentElement.lang = state.settings.lang;
@@ -16331,6 +20861,16 @@ function scheduleAnnouncementModal() {
         }
     }, 680);
 }
+/**
+ * 新手导读（文件：72-app-startup-runtime.js）
+ *
+ * 负责什么：这是“应用启动流程”中的“应用、启动、运行流程”部分。
+ * 在程序中的位置：它按顺序准备存储、状态、界面和后台任务，最终让页面可交互。
+ * 从哪里开始看：主要从 `installAppDebugGlobals(无参数)`、`refreshStartupStorageStatus(无参数)`、`runFallbackInitialization(err)`、`startApp(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：启动步骤存在先后依赖，不能在状态加载完成前渲染依赖用户数据的界面。
+ */
 // ==================== App Startup Runtime ====================
 function installAppDebugGlobals() {
     window.debugStorage = async function() {
@@ -16362,12 +20902,29 @@ function runFallbackInitialization(err) {
     }
 }
 
+/**
+ * 页面脚本加载完毕后的最终启动入口。
+ *
+ * init() 会依次准备存储、恢复状态、缓存 DOM、绑定事件并首次渲染。成功后刷新存储状态并按需
+ * 提醒用户备份；失败则进入 runFallbackInitialization()，尽量让基础界面和事件仍可使用，
+ * 同时把原始错误保留在控制台供排查。这里不返回给业务层结果，启动由 Promise 回调继续推进。
+ */
 function startApp() {
     init().then(function() {
         refreshStartupStorageStatus();
         showBackupReminderIfNeeded();
     }).catch(runFallbackInitialization);
 }
+/**
+ * 新手导读（文件：72-app-init.js）
+ *
+ * 负责什么：这是“应用启动流程”中的“应用、初始化”部分。
+ * 在程序中的位置：它按顺序准备存储、状态、界面和后台任务，最终让页面可交互。
+ * 从哪里开始看：主要从 `init(无参数)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：启动步骤存在先后依赖，不能在状态加载完成前渲染依赖用户数据的界面。
+ */
 // ==================== Initialize ====================
 async function init() {
     cacheDom();
@@ -16384,4 +20941,15 @@ async function init() {
 
 installAppDebugGlobals();
 startApp();
+/**
+ * 新手导读（文件：99-shell-end.js）
+ *
+ * 负责什么：这是“应用打包外壳”中的“程序外壳、结束”部分。
+ * 在程序中的位置：它最后运行，关闭 00-shell-start.js 打开的私有作用域。
+ * 从哪里开始看：本文件主要保存常量、配置或立即执行代码，没有独立的命名函数。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：这里虽然只有一行，也不能删除或单独调整括号。
+ */
+// 应用 bundle 外壳终点：关闭由 00-shell-start.js 开启的 IIFE。
 })();

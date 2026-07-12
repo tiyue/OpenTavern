@@ -1,3 +1,14 @@
+/**
+ * 新手导读（文件：55-summary-history-ui.js）
+ *
+ * 负责什么：这是“总结历史界面”中的“总结、历史记录、界面”部分。
+ * 在程序中的位置：它展示已有总结并提供查看、编辑和删除操作。
+ * 从哪里开始看：主要从 `renderSummaryHistory(无参数)`、`editSummary(id)`、`deleteSummary(id)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：删除总结会改变后续提示词内容，操作后必须保存并重新渲染。
+ */
+// 摘要历史界面：展示已有摘要并提供编辑、删除和范围预览入口。
 function renderSummaryHistory() {
     var conv = getActiveConv();
     if (!conv || !dom.summaryHistoryList) return;

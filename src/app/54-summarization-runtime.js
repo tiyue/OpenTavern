@@ -1,3 +1,25 @@
+/**
+ * 新手导读（文件：54-summarization-runtime.js）
+ *
+ * 负责什么：这是“自动总结流程”中的“总结、运行流程”部分。
+ * 在程序中的位置：它判断何时需要总结、选择消息范围，并把结果写入会话。
+ * 从哪里开始看：主要从 `performSummarization(subset, startIdx, endIdx, onDone)`、`triggerSummarization(turns)` 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：coveredStart 与 coveredEnd 是历史下标，错误更新会造成消息被重复总结或漏发。
+ */
+// 自动总结运行时：调用总结模型、保存结果并更新会话摘要覆盖范围。
+/**
+ * 为指定的一段历史消息生成总结，并记录这份总结覆盖的原始消息范围。
+ *
+ * @param {Array} subset - 本次交给总结模型的消息副本，至少包含两条消息。
+ * @param {number} startIdx - subset 第一条消息在普通历史中的下标。
+ * @param {number} endIdx - subset 最后一条消息在普通历史中的下标。
+ * @param {Function} onDone - 完成回调；成功传 null，失败传 Error。
+ *
+ * 原始消息不会被删除：聊天界面继续显示完整历史；只有下次构建模型提示词时，已覆盖的旧消息
+ * 才被总结文本替代。这样同时满足“用户能回看”和“模型上下文不过长”两个目标。
+ */
 function performSummarization(subset, startIdx, endIdx, onDone) {
     var conv = getActiveConv();
     if (!conv || !subset || subset.length < 2) {

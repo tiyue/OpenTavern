@@ -1,4 +1,15 @@
 <!DOCTYPE html>
+<!--
+  新手导读：这是浏览器最先打开的单页应用入口。
+
+  HTML 决定页面上“有什么”：设置弹窗、侧边栏、聊天区、按钮和输入框都在这里声明；
+  assets/css/app.css 决定它们的外观；assets/js/app.js 负责读取数据、响应点击并调用模型。
+  id 是 JavaScript 查找元素的稳定名字，class 主要用于 Tailwind/CSS 样式。
+
+  修改元素 id 时必须同步搜索 src/app 中的引用，否则界面可能显示正常但按钮不再工作。
+  带 data-i18n 的文本会被多语言系统替换。assets/js/app.js 是构建产物，应修改 src/app
+  中的源码后运行 npm run build，而不是直接编辑 bundle。
+-->
 <html lang="zh-CN" class="dark">
 <head>
 <meta charset="UTF-8">

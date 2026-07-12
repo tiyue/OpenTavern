@@ -1,3 +1,13 @@
+/**
+ * 新手导读（文件：22-cloud-sync.js）
+ *
+ * 负责什么：这是“云同步系统”中的“云同步”部分。
+ * 在程序中的位置：它把本地快照加密后上传，或下载远端快照并合并回应用状态。
+ * 从哪里开始看：主要从 `ensureCloudSyncSettings(无参数)`、`buildAppDataSnapshot(options)`、`getCloudSyncSnapshotConversationOrder(无参数)`、`getCloudSyncSnapshotActiveConversationId(无参数)`、`syncOpenSettingsFormForCloudSnapshot(无参数)`、`syncNonEmptyPromptSettingsForCloudSnapshot(无参数)`，以及另外 14 个内部步骤 开始阅读。参数名能提示每个函数需要的数据。
+ * 代码如何生效：浏览器不会单独加载这个文件。scripts/build-app.js 会按照 manifest.json 的顺序，
+ * 把它与其他分片合并成 assets/js/app.js；因此这里定义的函数可以被后面加载的分片调用。
+ * 修改时注意：不要记录令牌、密码或明文快照；冲突处理必须防止较旧数据覆盖新数据。
+ */
 // ==================== Cloud Sync Settings & Snapshot ====================
 var _cloudSyncSavingStatus = false;
 var CLOUD_SYNC_TIME_TOLERANCE_MS = 1000;
@@ -149,22 +159,39 @@ function getCloudSyncFreshness(remote) {
 }
 
 function canCompareCloudSyncSnapshotBytes(remote) {
-    if (remote && remote.encrypted === true) return false;
-    return !(state && state.settings && state.settings.cloudSyncEncrypted);
+    if (!remote || typeof remote !== 'object') return false;
+    if (remote.encrypted === true) {
+        return getCloudSyncSnapshotConversationBytes(remote) > 0;
+    }
+    return true;
 }
 
 function getCloudSyncConversationSizeFreshness(remote, localSnapshot) {
     if (!canCompareCloudSyncSnapshotBytes(remote)) return '';
-    var remoteBytes = getCloudSyncConversationSerializedBytes(remote);
-    var localBytes = getCloudSyncConversationSerializedBytes(localSnapshot);
+    var remoteBytes = getCloudSyncSnapshotConversationBytes(remote);
+    var localBytes = getCloudSyncSnapshotConversationBytes(localSnapshot);
     if (remoteBytes <= 0 || localBytes <= 0) return '';
     var byteDiff = remoteBytes - localBytes;
     if (Math.abs(byteDiff) <= CLOUD_SYNC_SIZE_TOLERANCE_BYTES) return '';
     return byteDiff > 0 ? 'newer-by-size' : 'older-by-size';
 }
 
+function getCloudSyncSnapshotConversationBytes(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return 0;
+    if (snapshot.encrypted === true) {
+        var encryptedBytes = Number(snapshot.conversationBytes);
+        return Number.isFinite(encryptedBytes) && encryptedBytes > 0 ? Math.floor(encryptedBytes) : 0;
+    }
+    return getCloudSyncConversationSerializedBytes(snapshot);
+}
+
 function getCloudSyncRemoteBytes(remote) {
     return Number(remote && remote.__cloudSyncBytes || 0) || 0;
+}
+
+function getCloudSyncRemoteUpdatedAt(remote) {
+    var updatedAt = Number(remote && remote.__cloudSyncUpdatedAt);
+    return Number.isFinite(updatedAt) && updatedAt >= 0 ? Math.floor(updatedAt) : null;
 }
 
 function getCloudSyncSerializedBytes(value) {

@@ -1,3 +1,12 @@
+# 新手导读：这是 Cloudflare Wrangler 部署工具读取的项目配置。
+#
+# name 是云端项目名称，compatibility_date 决定运行时兼容行为，pages_build_output_dir
+# 表示当前目录就是要发布的静态网站。下面被 # 注释的 d1_databases 是可选云同步数据库；
+# 创建 D1 后，需要去掉这些行前的 #，并填入真实 database_id，functions/api/sync.js
+# 才能通过 env.SYNC_DB 访问数据库。
+#
+# TOML 使用“键 = 值”格式。这里不保存 API Key、同步令牌等用户秘密，敏感值应放在
+# Cloudflare 的环境变量或 Secret 中，而不是提交到代码仓库。
 name = "opentavern"
 compatibility_date = "2026-07-05"
 pages_build_output_dir = "."

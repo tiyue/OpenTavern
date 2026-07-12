@@ -1,3 +1,11 @@
+# 新手导读：这是 Linux systemd 用来长期运行 Python 云同步服务的配置。
+#
+# [Unit] 说明它应在网络准备后启动；[Service] 指定运行用户、监听地址、数据库位置和
+# Python 入口，并在进程意外退出时自动重启；[Install] 允许服务随系统开机启动。
+# 服务只监听 127.0.0.1:8787，公网请求应由 Nginx 转发，避免直接暴露后端端口。
+#
+# User、Group、脚本路径和数据库目录必须与服务器实际部署一致。修改后需要执行
+# systemctl daemon-reload，再重启服务并查看日志；安全限制不要在没有理由时关闭。
 [Unit]
 Description=OpenTavern Cloud Sync Backend
 After=network.target
