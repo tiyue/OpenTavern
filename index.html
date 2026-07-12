@@ -269,6 +269,14 @@ button[title="删除角色卡"] {
     #chatTopBar { padding: 8px 12px; }
     #chatTopBar .topbar-actions { gap: 2px; }
 
+    /* Keep the archive action accessible in mobile chat; language can still be changed in the library. */
+    #chatTopBar .chat-language-switcher {
+        display: none !important;
+    }
+    #archiveBtn {
+        display: inline-flex !important;
+    }
+
     /* GitHub button: hide in chat view on mobile to make room for archive button */
     #githubBtn {
         display: none !important;
@@ -1325,12 +1333,11 @@ body.theme-new-light .settings-tab-btn.active::after,
 body.theme-new-dark .settings-tab-btn.active::after { background: #D56C4E !important; }
 
 @media (max-width: 767px) {
-    #settingsModal { padding: 8px !important; }
     #settingsDialog {
-        width: 100%;
-        height: calc(100dvh - 16px);
-        max-height: none;
-        border-radius: 20px !important;
+        width: 96%;
+        height: auto;
+        max-height: 90vh;
+        border-radius: 24px !important;
     }
     #settingsHeader { padding: 18px 18px 0; }
     #settingsTabs { margin-top: 14px; }
@@ -2801,7 +2808,7 @@ body.theme-new-dark .settings-tab-btn.active::after { background: #D56C4E !impor
             </div>
             <div class="flex items-center gap-2 flex-shrink-0 topbar-actions">
                 <!-- Language Switcher -->
-                <div class="flex items-center glass rounded-xl p-0.5 border-white/5">
+                <div class="chat-language-switcher flex items-center glass rounded-xl p-0.5 border-white/5">
                     <button class="lang-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 active text-zinc-900" data-lang="zh-CN">简</button>
                     <button class="lang-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 text-zinc-400" data-lang="zh-TW">繁</button>
                     <button class="lang-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 text-zinc-400" data-lang="en">EN</button>
