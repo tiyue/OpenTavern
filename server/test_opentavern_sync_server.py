@@ -158,6 +158,29 @@ class ImageRequestValidationTests(unittest.TestCase):
                 {"prompt": "test", "referenceImage": oversized}
             )
 
+    def test_reference_image_reuses_canonical_base64_without_reencoding(self):
+        png_data = make_png(1024, 1536)
+        encoded = base64.b64encode(png_data).decode("ascii")
+        data_url = "data:image/png;base64," + encoded
+        with mock.patch.object(
+            gateway.base64,
+            "b64encode",
+            side_effect=AssertionError("canonical data URL should not be re-encoded"),
+        ):
+            self.assertEqual(
+                gateway.validate_image_generation_reference_image(data_url),
+                data_url,
+            )
+
+        jpeg_data = make_jpeg(1024, 1536)
+        jpeg_encoded = base64.b64encode(jpeg_data).decode("ascii")
+        self.assertEqual(
+            gateway.validate_image_generation_reference_image(
+                "data:image/jpg;base64," + jpeg_encoded
+            ),
+            "data:image/jpeg;base64," + jpeg_encoded,
+        )
+
     def test_reference_image_enforces_exact_decoded_10_mib_boundary(self):
         exact_data = make_png(1024, 1536).ljust(
             gateway.MAX_REFERENCE_IMAGE_BYTES,
@@ -185,6 +208,22 @@ class ImageRequestValidationTests(unittest.TestCase):
             gateway.get_image_asset_prefix_for_generate_path("/opentavern-image/generate"),
             gateway.IMAGE_ASSET_COMPAT_PREFIX,
         )
+
+
+class StoragePermissionTests(unittest.TestCase):
+    def test_private_storage_permissions_cover_database_sidecars_and_images(self):
+        db_path = os.path.join("storage", "sync.sqlite3")
+        image_dir = os.path.join("storage", "images")
+        with mock.patch.object(gateway.os.path, "exists", return_value=True), mock.patch.object(
+            gateway.os,
+            "chmod",
+        ) as chmod:
+            gateway.enforce_private_storage_permissions(db_path, image_dir)
+
+        chmod.assert_any_call(os.path.dirname(os.path.abspath(db_path)), 0o750)
+        chmod.assert_any_call(image_dir, 0o750)
+        for suffix in ("", "-wal", "-shm", "-journal"):
+            chmod.assert_any_call(db_path + suffix, 0o640)
 
 
 class ImageGatewayTokenTests(unittest.TestCase):

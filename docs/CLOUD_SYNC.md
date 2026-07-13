@@ -22,6 +22,9 @@ cannot be overwritten silently. V2 has no fixed application-layer upper bound on
 data. Practical capacity is constrained by the fixed per-chunk boundary, available memory,
 database or platform storage, and request duration or timeout limits.
 
+Content-addressed chunks are immutable. Re-uploading the same chunk is idempotent, while attempting
+to replace the same object hash and chunk index with different data is rejected as a conflict.
+
 Local-versus-cloud recency is determined solely by the snapshot's `lastSaved` value.
 
 Protocol v1 remains available for existing deployments and old snapshots. When a v2-capable

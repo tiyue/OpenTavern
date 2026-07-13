@@ -12,6 +12,7 @@
 function stripSecondStageOptionBlocks(content) {
     return String(content || '')
         .replace(/(?:\r?\n)*<options\b[^>]*>[\s\S]*?<\/options>/gi, '')
+        .replace(/(?:\r?\n)*<options\b[^>]*>[\s\S]*$/gi, '')
         .trim();
 }
 

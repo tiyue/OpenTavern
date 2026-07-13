@@ -15,34 +15,26 @@ After=network-online.target
 Type=simple
 User=opentavern
 Group=opentavern
+PermissionsStartOnly=true
+ExecStartPre=/usr/bin/install -d -o opentavern -g opentavern -m 0750 /var/lib/opentavern-sync
+ExecStartPre=/usr/bin/install -d -o opentavern -g opentavern -m 0750 /var/lib/opentavern-sync/images
 EnvironmentFile=/etc/opentavern-sync/opentavern-sync.env
 Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
 ExecStart=/usr/bin/python3 /opt/opentavern-sync/opentavern_sync_server.py
 Restart=always
 RestartSec=3
 UMask=0027
 NoNewPrivileges=true
+PrivateTmp=true
 PrivateDevices=true
 ProtectHome=true
-ProtectSystem=strict
-ReadWritePaths=/var/lib/opentavern-sync
-StateDirectory=opentavern-sync
-StateDirectoryMode=0750
-ProtectClock=true
-ProtectControlGroups=true
-ProtectHostname=true
-ProtectKernelLogs=true
-ProtectKernelModules=true
-ProtectKernelTunables=true
+ProtectSystem=full
+ReadOnlyDirectories=/
+ReadWriteDirectories=/var/lib/opentavern-sync
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-RestrictNamespaces=true
-RestrictRealtime=true
-RestrictSUIDSGID=true
-LockPersonality=true
-MemoryDenyWriteExecute=true
 SystemCallArchitectures=native
 CapabilityBoundingSet=
-AmbientCapabilities=
 
 [Install]
 WantedBy=multi-user.target

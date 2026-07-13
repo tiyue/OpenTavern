@@ -489,24 +489,60 @@ async function handleSyncV2PostChunk(request, db, tokenHash) {
     return json({ success: false, error: 'chunkHash does not match the decoded chunk data.' }, { status: 400 });
   }
 
+  const chunkSeenAt = Date.now();
   const result = await db
     .prepare(`
       INSERT INTO opentavern_sync_v2_chunks (
         token_hash, object_hash, chunk_index, chunk_count, data, chunk_hash, created_at
       )
       VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(token_hash, object_hash, chunk_index) DO UPDATE SET
-        chunk_count = excluded.chunk_count,
-        data = excluded.data,
-        chunk_hash = excluded.chunk_hash,
-        created_at = excluded.created_at
+      ON CONFLICT(token_hash, object_hash, chunk_index) DO NOTHING
     `)
     .bind(
-      tokenHash, objectHash, index, total, body.data, chunkHash, Date.now(),
+      tokenHash, objectHash, index, total, body.data, chunkHash, chunkSeenAt,
     )
     .run();
 
-  if (resultChanges(result) !== 1) {
+  const uploaded = resultChanges(result) === 1;
+  if (!uploaded) {
+    const existing = await db
+      .prepare(`
+        SELECT data, chunk_hash, chunk_count
+        FROM opentavern_sync_v2_chunks
+        WHERE token_hash = ? AND object_hash = ? AND chunk_index = ?
+      `)
+      .bind(tokenHash, objectHash, index)
+      .first();
+    if (!existing
+        || Number(existing.chunk_count) !== total
+        || existing.data !== body.data
+        || String(existing.chunk_hash || '').toLowerCase() !== chunkHash) {
+      return json({
+        success: false,
+        error: 'Sync chunk conflicts with existing content-addressed data.',
+      }, {
+        status: 409,
+        headers: { 'X-OpenTavern-Protocol': '2' },
+      });
+    }
+    const refreshed = await db
+      .prepare(`
+        UPDATE opentavern_sync_v2_chunks
+        SET created_at = ?
+        WHERE token_hash = ? AND object_hash = ? AND chunk_index = ?
+          AND chunk_count = ? AND data = ? AND chunk_hash = ?
+      `)
+      .bind(chunkSeenAt, tokenHash, objectHash, index, total, body.data, chunkHash)
+      .run();
+    if (resultChanges(refreshed) !== 1) {
+      return json({ success: false, error: 'Sync chunk changed while it was being verified.' }, {
+        status: 409,
+        headers: { 'X-OpenTavern-Protocol': '2' },
+      });
+    }
+  }
+
+  if (!uploaded && resultChanges(result) !== 0) {
     return json({ success: false, error: 'Sync chunk could not be stored.' }, {
       status: 500,
       headers: { 'X-OpenTavern-Protocol': '2' },
@@ -515,7 +551,7 @@ async function handleSyncV2PostChunk(request, db, tokenHash) {
 
   return json({
     success: true,
-    uploaded: true,
+    uploaded,
     objectHash,
     index,
     total,
@@ -743,6 +779,7 @@ async function handleSyncV2Commit(request, db, tokenHash) {
     return json({ success: false, error: 'manifestBytes does not match manifestChunks.' }, { status: 400 });
   }
 
+  const commitStartedAt = Date.now();
   const lock = await acquireSyncV2MutationLock(db, tokenHash);
   if (!lock.acquired) return syncV2MutationBusy();
 
@@ -804,8 +841,9 @@ async function handleSyncV2Commit(request, db, tokenHash) {
             SELECT 1 FROM json_each(?) AS referenced
             WHERE referenced.value = opentavern_sync_v2_chunks.object_hash
           )
+          AND created_at < ?
       `)
-      .bind(tokenHash, tokenHash, revision, manifestHash, referencedHashes);
+      .bind(tokenHash, tokenHash, revision, manifestHash, referencedHashes, commitStartedAt);
     const results = await runSyncV2MutationAndCleanup(db, mutation, cleanup);
     if (resultChanges(results[0]) !== 1) {
       return syncV2Conflict(await readSyncV2Meta(db, tokenHash));

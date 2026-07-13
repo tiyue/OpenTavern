@@ -132,6 +132,10 @@ class ImageGatewayError(Exception):
         self.upstream_status = upstream_status
 
 
+class SyncV2ChunkConflictError(ValueError):
+    pass
+
+
 def parse_bounded_env_int(environ, name, default, minimum, maximum):
     raw_value = environ.get(name)
     if raw_value is None:
@@ -293,6 +297,17 @@ def ensure_table(db_path):
         )
 
 
+def enforce_private_storage_permissions(db_path, image_dir=None):
+    storage_dir = os.path.dirname(os.path.abspath(db_path))
+    os.chmod(storage_dir, 0o750)
+    if image_dir:
+        os.chmod(image_dir, 0o750)
+    for suffix in ("", "-wal", "-shm", "-journal"):
+        candidate = db_path + suffix
+        if os.path.exists(candidate):
+            os.chmod(candidate, 0o640)
+
+
 def read_sync_row(db_path, token_hash):
     with closing(sqlite3.connect(db_path)) as conn, conn:
         cur = conn.execute(
@@ -365,16 +380,30 @@ def write_v2_chunk(db_path, token_hash, chunk):
     conn = sqlite3.connect(db_path, timeout=30)
     try:
         conn.execute("BEGIN IMMEDIATE")
+        existing = conn.execute(
+            """
+            SELECT chunk_count, data, chunk_hash
+              FROM opentavern_sync_v2_chunks
+             WHERE token_hash = ? AND object_hash = ? AND chunk_index = ?
+            """,
+            (token_hash, chunk["object_hash"], chunk["index"]),
+        ).fetchone()
+        if existing:
+            if (
+                int(existing[0]) == chunk["total"]
+                and existing[1] == chunk["data"]
+                and existing[2] == chunk["chunk_hash"]
+            ):
+                conn.commit()
+                return False
+            raise SyncV2ChunkConflictError(
+                "Sync chunk conflicts with existing content-addressed data."
+            )
         conn.execute(
             """
             INSERT INTO opentavern_sync_v2_chunks
               (token_hash, object_hash, chunk_index, chunk_count, data, chunk_hash, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(token_hash, object_hash, chunk_index) DO UPDATE SET
-              chunk_count = excluded.chunk_count,
-              data = excluded.data,
-              chunk_hash = excluded.chunk_hash,
-              created_at = excluded.created_at
             """,
             (
                 token_hash,
@@ -387,6 +416,7 @@ def write_v2_chunk(db_path, token_hash, chunk):
             ),
         )
         conn.commit()
+        return True
     except Exception:
         conn.rollback()
         raise
@@ -503,7 +533,7 @@ def _delete_v2_orphan_chunks(conn, token_hash, reachable_hashes):
         """
         CREATE TEMP TABLE IF NOT EXISTS opentavern_sync_v2_reachable (
           object_hash TEXT PRIMARY KEY
-        ) WITHOUT ROWID
+        )
         """
     )
     conn.execute("DELETE FROM opentavern_sync_v2_reachable")
@@ -589,17 +619,10 @@ def commit_v2_manifest(db_path, token_hash, commit):
         updated_at = max(now_ms(), (current_updated_at or 0) + 1)
         conn.execute(
             """
-            INSERT INTO opentavern_sync_v2_meta
+            INSERT OR REPLACE INTO opentavern_sync_v2_meta
               (token_hash, manifest_hash, manifest_chunks, manifest_bytes,
                revision, updated_at, last_saved)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(token_hash) DO UPDATE SET
-              manifest_hash = excluded.manifest_hash,
-              manifest_chunks = excluded.manifest_chunks,
-              manifest_bytes = excluded.manifest_bytes,
-              revision = excluded.revision,
-              updated_at = excluded.updated_at,
-              last_saved = excluded.last_saved
             """,
             (
                 token_hash,
@@ -903,7 +926,10 @@ def validate_image_generation_reference_image(value):
         raise ValueError("referenceImage MIME type does not match its image data.")
     if width > MAX_REFERENCE_IMAGE_DIMENSION or height > MAX_REFERENCE_IMAGE_DIMENSION:
         raise ValueError("referenceImage width and height must not exceed 3072 pixels.")
-    return "data:%s;base64,%s" % (mime, base64.b64encode(data).decode("ascii"))
+    canonical_prefix = "data:%s;base64" % mime
+    if prefix == canonical_prefix:
+        return value
+    return "%s,%s" % (canonical_prefix, encoded)
 
 
 def sanitize_qwen_error_text(value, secrets_to_redact=()):
@@ -1642,7 +1668,9 @@ class SyncHandler(BaseHTTPRequestHandler):
 
         token_hash = hash_token(token)
         db_path = self.server.db_path
-        ensure_table(db_path)
+        if not getattr(self.server, "sync_tables_ready", False):
+            ensure_table(db_path)
+            self.server.sync_tables_ready = True
 
         if query.get("v") == ["2"]:
             self.handle_sync_v2(db_path, token_hash, query)
@@ -1739,16 +1767,19 @@ class SyncHandler(BaseHTTPRequestHandler):
                     too_large_message="Encoded sync chunk is too large.",
                 )
                 chunk = parse_v2_chunk_payload(body)
-                write_v2_chunk(db_path, token_hash, chunk)
+                uploaded = write_v2_chunk(db_path, token_hash, chunk)
             except OverflowError as error:
                 self.send_json(413, {"success": False, "error": str(error)}, v2_headers())
+                return
+            except SyncV2ChunkConflictError as error:
+                self.send_json(409, {"success": False, "error": str(error)}, v2_headers())
                 return
             except ValueError as error:
                 self.send_json(400, {"success": False, "error": str(error)}, v2_headers())
                 return
             self.send_json(200, {
                 "success": True,
-                "uploaded": True,
+                "uploaded": uploaded,
             }, v2_headers())
             return
 
@@ -1841,7 +1872,7 @@ class SyncHandler(BaseHTTPRequestHandler):
         if max_bytes is not None and len(raw) > max_bytes:
             raise OverflowError(too_large_message)
         try:
-            return json.loads(raw.decode("utf-8"))
+            return json.loads(raw)
         except Exception:
             return None
 
@@ -2049,11 +2080,15 @@ def main():
     """
 
     args = parse_args()
-    os.makedirs(os.path.dirname(args.db), exist_ok=True)
+    os.umask(0o027)
+    storage_dir = os.path.dirname(os.path.abspath(args.db))
+    os.makedirs(storage_dir, mode=0o750, exist_ok=True)
     os.makedirs(args.image_dir, mode=0o750, exist_ok=True)
     ensure_table(args.db)
+    enforce_private_storage_permissions(args.db, args.image_dir)
     server = ThreadingHTTPServer((args.host, args.port), SyncHandler)
     server.db_path = args.db
+    server.sync_tables_ready = True
     server.image_dir = args.image_dir
     server.image_gateway_token = os.environ.get("IMAGE_GATEWAY_TOKEN", "")
     server.dashscope_api_key = os.environ.get("DASHSCOPE_API_KEY", "")

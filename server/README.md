@@ -2,10 +2,15 @@
 
 OpenTavern Server 是一个独立的 Python 标准库后端，为 OpenTavern 提供 SQLite 云同步，以及百炼 Qwen-Image 图片生成代理和图片持久化。它适合部署在小型 VPS 上，由 Nginx 提供公网入口。
 
+后端兼容 Python 3.6 与 SQLite 3.7.17，适用于仍使用 systemd 219 的旧版服务器。v2 分块采用
+不可变的内容寻址写入：相同分块可幂等重传，但同一对象哈希和分块序号不能被不同内容覆盖。
+
 ## 文件组成
 
 - `opentavern_sync_server.py`：仅依赖标准库的同步、图片生成和图片资源 API 服务代码。
 - `opentavern-sync.service`：systemd 服务单元模板，用于将服务托管为系统服务。
+- `opentavern-sync-modern-hardening.conf`：仅供 systemd 245+ 安装的可选加固 drop-in。
+- `opentavern-sync.tmpfiles.conf`：旧版 systemd 用于创建数据目录并修正权限的 tmpfiles 配置。
 - `nginx-opentavern-sync-location.conf`：Nginx 反向代理的 location 配置模板。
 
 ## 默认访问端点
@@ -180,8 +185,30 @@ sudo chmod 0640 /etc/opentavern-sync/opentavern-sync.env
 sudo chown root:opentavern /etc/opentavern-sync/opentavern-sync.env
 ```
 
-systemd 单元使用只读系统目录，并且只允许服务写入 `/var/lib/opentavern-sync`。如果修改数据库
-或图片目录到其他位置，需要同步调整 `ReadWritePaths`，否则服务会因权限保护而无法写入。
+基础 systemd 单元兼容 systemd 219：通过 `ReadOnlyDirectories=/` 把整个文件系统挂载为只读，
+再只开放 `/var/lib/opentavern-sync` 写入。`ExecStartPre` 会在旧系统上创建数据目录；Python 进程
+启动时还会把数据目录修正为 `0750`、SQLite 文件修正为 `0640`。部署代码目录应归 `root:root`，
+服务账号只需要读取 `/opt/opentavern-sync`：
+
+```bash
+sudo chown -R root:root /opt/opentavern-sync
+sudo install -o root -g root -m 0644 server/opentavern-sync.tmpfiles.conf \
+  /etc/tmpfiles.d/opentavern-sync.conf
+sudo systemd-tmpfiles --create /etc/tmpfiles.d/opentavern-sync.conf
+```
+
+如果修改数据库或图片目录到其他位置，需要同步调整 unit 的 `ReadWriteDirectories`、tmpfiles 配置
+和环境文件，否则服务会因只读文件系统保护而无法写入。
+
+`opentavern-sync-modern-hardening.conf` 是可选的现代加固 drop-in。只有 `systemctl --version`
+显示 systemd 245 或更高时，才安装到：
+
+```text
+/etc/systemd/system/opentavern-sync.service.d/modern-hardening.conf
+```
+
+旧版 systemd 不应安装该 drop-in，否则会产生未知指令警告。基础 unit 已保留旧版可用的
+`NoNewPrivileges`、私有临时目录/设备、只读根文件系统和空 capability 集。
 
 Nginx 配置分成两段：
 
@@ -218,4 +245,4 @@ Qwen-Image 的上游生成请求最长 180 秒，随后图片下载最长 60 秒
 npm run check
 ```
 
-该命令包含前端、Cloudflare/Python 云同步 v2、35 项图片网关测试和 7 项 Python v2 回归测试。
+该命令包含前端、Cloudflare/Python 云同步 v2、图片网关、旧版 SQLite 兼容和 systemd 配置回归测试。

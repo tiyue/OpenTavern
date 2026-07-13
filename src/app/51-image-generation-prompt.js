@@ -61,7 +61,10 @@ function getLatestPrimaryAssistantImageGenerationMessage(conv) {
 function cleanPrimaryImageGenerationText(value) {
     var text = typeof stripSecondStageOptionBlocks === 'function'
         ? stripSecondStageOptionBlocks(value)
-        : String(value || '').replace(/(?:\r?\n)*<options\b[^>]*>[\s\S]*?<\/options>/gi, '').trim();
+        : String(value || '')
+            .replace(/(?:\r?\n)*<options\b[^>]*>[\s\S]*?<\/options>/gi, '')
+            .replace(/(?:\r?\n)*<options\b[^>]*>[\s\S]*$/gi, '')
+            .trim();
     return cleanImageGenerationPromptText(text);
 }
 
@@ -117,6 +120,7 @@ function getImageGenerationReferenceDescriptor(conv, message) {
 function cleanImageGenerationPromptText(value) {
     return String(value || '')
         .replace(/<details\b[\s\S]*?<\/details>/gi, ' ')
+        .replace(/<details\b[^>]*>[\s\S]*$/gi, ' ')
         .replace(/<[^>]+>/g, ' ')
         .replace(/\r/g, '')
         .replace(/[ \t]+/g, ' ')

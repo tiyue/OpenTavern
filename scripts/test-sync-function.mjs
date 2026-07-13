@@ -4493,6 +4493,26 @@ async function assertQwenImageGenerationContract() {
     assert((nginxSource.match(/client_max_body_size\s+16m;/g) || []).length === 2, 'Both exact image-generation routes must accept the Base64 character reference image.');
   });
 
+  await capture('systemd compatibility', async () => {
+    const baseline = await readFile(new URL('../server/opentavern-sync.service', import.meta.url), 'utf8');
+    const modern = await readFile(new URL('../server/opentavern-sync-modern-hardening.conf', import.meta.url), 'utf8');
+    const tmpfiles = await readFile(new URL('../server/opentavern-sync.tmpfiles.conf', import.meta.url), 'utf8');
+    for (const unsupported of [
+      'ProtectSystem=strict', 'ReadWritePaths=', 'StateDirectory=', 'ProtectClock=',
+      'ProtectControlGroups=', 'ProtectHostname=', 'ProtectKernelLogs=',
+      'ProtectKernelModules=', 'ProtectKernelTunables=', 'RestrictNamespaces=',
+      'RestrictRealtime=', 'RestrictSUIDSGID=', 'LockPersonality=',
+      'MemoryDenyWriteExecute=', 'AmbientCapabilities=',
+    ]) {
+      assert(!baseline.includes(unsupported), `The systemd 219 baseline must not contain ${unsupported}`);
+    }
+    assert(baseline.includes('ProtectSystem=full') && baseline.includes('ReadOnlyDirectories=/'), 'The systemd 219 baseline must keep the root filesystem read-only.');
+    assert(baseline.includes('ReadWriteDirectories=/var/lib/opentavern-sync'), 'The systemd 219 baseline must only reopen the data directory for writes.');
+    assert(baseline.includes('PrivateTmp=true') && baseline.includes('PermissionsStartOnly=true'), 'The systemd 219 baseline must isolate temporary files and prepare directories before sandboxing.');
+    assert(modern.includes('ProtectSystem=strict') && modern.includes('MemoryDenyWriteExecute=true'), 'The optional modern systemd drop-in must preserve newer hardening directives.');
+    assert(tmpfiles.includes('/var/lib/opentavern-sync 0750') && tmpfiles.includes('sync.sqlite3 0640'), 'tmpfiles configuration must enforce private sync storage permissions.');
+  });
+
   await capture('python service', async () => {
     const serverUrl = new URL('../server/', import.meta.url);
     const entries = await readdir(serverUrl, { withFileTypes: true });
@@ -4616,16 +4636,21 @@ async function assertQwenImageGenerationContract() {
         getRandomValues: webcrypto.getRandomValues.bind(webcrypto),
         randomUUID: () => '00000000-0000-4000-8000-000000000001',
       };
-      const makeCanvasMock = () => ({
-        width: 0,
-        height: 0,
-        getContext() {
-          return { fillStyle: '', fillRect() {}, drawImage() {} };
-        },
-        toBlob(callback) {
-          callback(new Blob([Uint8Array.from([255, 216, 255, 217])], { type: 'image/jpeg' }));
-        },
-      });
+      const canvases = [];
+      const makeCanvasMock = () => {
+        const canvas = {
+          width: 0,
+          height: 0,
+          getContext() {
+            return { fillStyle: '', fillRect() {}, drawImage() {} };
+          },
+          toBlob(callback) {
+            callback(new Blob([Uint8Array.from([255, 216, 255, 217])], { type: 'image/jpeg' }));
+          },
+        };
+        canvases.push(canvas);
+        return canvas;
+      };
       const documentMock = {
         body: genericElement,
         getElementById(id) { return id === 'messageInput' ? messageInput : genericElement; },
@@ -4760,7 +4785,7 @@ async function assertQwenImageGenerationContract() {
         atob(text) { return Buffer.from(text, 'base64').toString('binary'); },
       };
 
-      vm.runInNewContext(`${sources.join('\n')}\nthis.__generateImage = typeof generateImageForCurrentChat === 'function' ? generateImageForCurrentChat : (typeof generateQwenImageForCurrentChat === 'function' ? generateQwenImageForCurrentChat : null);\nthis.__buildImagePrompt = typeof buildImageGenerationPrompt === 'function' ? buildImageGenerationPrompt : (typeof buildQwenImagePrompt === 'function' ? buildQwenImagePrompt : null);\nthis.__createImageMessage = typeof createQwenImageMessage === 'function' ? createQwenImageMessage : (typeof createImageGenerationMessage === 'function' ? createImageGenerationMessage : null);\nthis.__normalizeImageEndpoint = normalizeImageGenerationEndpoint;\nthis.__createImageError = createImageGenerationRequestError;\nthis.__formatImageError = formatImageGenerationError;\nthis.__requestImage = requestQwenImageGeneration;\nthis.__latestMainMessage = getLatestPrimaryAssistantImageGenerationMessage;\nthis.__latestMainText = getLatestAssistantImageGenerationText;\nthis.__referenceDescriptor = getImageGenerationReferenceDescriptor;\nthis.__buildImageSummaryMessages = buildImageGenerationSummaryMessages;`, context);
+      vm.runInNewContext(`${sources.join('\n')}\nthis.__generateImage = typeof generateImageForCurrentChat === 'function' ? generateImageForCurrentChat : (typeof generateQwenImageForCurrentChat === 'function' ? generateQwenImageForCurrentChat : null);\nthis.__buildImagePrompt = typeof buildImageGenerationPrompt === 'function' ? buildImageGenerationPrompt : (typeof buildQwenImagePrompt === 'function' ? buildQwenImagePrompt : null);\nthis.__createImageMessage = typeof createQwenImageMessage === 'function' ? createQwenImageMessage : (typeof createImageGenerationMessage === 'function' ? createImageGenerationMessage : null);\nthis.__normalizeImageEndpoint = normalizeImageGenerationEndpoint;\nthis.__createImageError = createImageGenerationRequestError;\nthis.__formatImageError = formatImageGenerationError;\nthis.__requestImage = requestQwenImageGeneration;\nthis.__latestMainMessage = getLatestPrimaryAssistantImageGenerationMessage;\nthis.__latestMainText = getLatestAssistantImageGenerationText;\nthis.__referenceDescriptor = getImageGenerationReferenceDescriptor;\nthis.__buildImageSummaryMessages = buildImageGenerationSummaryMessages;\nthis.__prepareImageReference = prepareImageGenerationReferenceImage;\nthis.__readImageReferenceDataUrl = readImageGenerationReferenceBlobAsDataUrl;\nthis.__cleanPrimaryImageText = cleanPrimaryImageGenerationText;`, context);
 
       assert(typeof context.__generateImage === 'function', 'Qwen image modules must expose generateImageForCurrentChat (or an equivalent public generator).');
       assert(typeof context.__buildImagePrompt === 'function', 'Qwen image modules must expose buildImageGenerationPrompt (or an equivalent prompt builder).');
@@ -4771,12 +4796,73 @@ async function assertQwenImageGenerationContract() {
         assert(context.__normalizeImageEndpoint(unsafeEndpoint) === '/api/image/generate', `Unsafe Qwen image endpoint was not rejected: ${unsafeEndpoint}`);
       }
 
+      const originalFetch = context.fetch;
+      let oversizedBlobRead = false;
+      let oversizedBodyCancelled = false;
+      context.fetch = async () => ({
+        ok: true,
+        status: 200,
+        headers: {
+          get(name) {
+            return String(name).toLowerCase() === 'content-length'
+              ? String((32 * 1024 * 1024) + 1)
+              : null;
+          },
+        },
+        body: { cancel() { oversizedBodyCancelled = true; return Promise.resolve(); } },
+        async blob() {
+          oversizedBlobRead = true;
+          return new Blob([Uint8Array.from([1])], { type: 'image/png' });
+        },
+      });
+      await assertRejects(
+        context.__prepareImageReference({ source: '/cards/oversized.png' }, null),
+        'Image reference preprocessing must reject an oversized Content-Length before buffering the body.',
+      );
+      assert(!oversizedBlobRead && oversizedBodyCancelled, 'Oversized character images must be cancelled before response.blob() allocates memory.');
+      context.fetch = originalFetch;
+
+      const originalCreateImageBitmap = context.createImageBitmap;
+      let oversizedBitmapClosed = false;
+      context.createImageBitmap = async () => ({
+        width: 8192,
+        height: 8192,
+        close() { oversizedBitmapClosed = true; },
+      });
+      await assertRejects(
+        context.__prepareImageReference({ source: '/cards/high-pixel-count.png' }, null),
+        'Image reference preprocessing must reject decoded images above the total-pixel limit.',
+      );
+      assert(oversizedBitmapClosed, 'Rejected high-pixel-count bitmaps must be closed immediately.');
+      context.createImageBitmap = originalCreateImageBitmap;
+
+      const OriginalFileReader = context.FileReader;
+      let fileReaderAbortCalled = false;
+      context.FileReader = class {
+        readAsDataURL() {}
+        abort() {
+          fileReaderAbortCalled = true;
+          if (this.onabort) this.onabort();
+        }
+      };
+      const readAbortController = new AbortController();
+      const pendingRead = context.__readImageReferenceDataUrl(
+        new Blob([Uint8Array.from([1, 2, 3])]),
+        readAbortController.signal,
+      );
+      readAbortController.abort();
+      await assertRejects(pendingRead, 'Aborting image generation must stop an active FileReader.');
+      assert(fileReaderAbortCalled, 'Image reference FileReader must receive abort() when generation is cancelled.');
+      context.FileReader = OriginalFileReader;
+
       const latestMainMessage = context.__latestMainMessage(conv);
       const latestMainText = context.__latestMainText(conv);
       assert(latestMainMessage && latestMainMessage.id === 'main-latest', 'Image generation must select the latest main-stage assistant reply.');
       assert(latestMainText.includes('recent main body'), 'Image generation must collect the latest main reply body.');
       assert(!latestMainText.includes('hidden status') && !latestMainText.includes('option'), 'Image generation must remove details/status and second-stage option blocks.');
       assert(!latestMainText.includes(messageInput.value), 'Composer input must not replace the collected main reply body.');
+      assert(context.__cleanPrimaryImageText('main body\n<OPTIONS><option>dangling choice') === 'main body', 'Dangling second-stage option blocks must be truncated from image-summary input.');
+      assert(context.__cleanPrimaryImageText('main body\n<details>dangling status') === 'main body', 'Dangling details/status blocks must be truncated from image-summary input.');
       assert(context.__buildImagePrompt(conv) === latestMainText.slice(0, 5000), 'Legacy image prompt entrypoint must also return only the latest main reply body.');
       const singleReference = context.__referenceDescriptor(conv, latestMainMessage);
       assert(singleReference.source === '/cards/arona.png', 'Image generation must prefer the latest registered role-card image over a stale conversation clone.');
@@ -4845,6 +4931,7 @@ async function assertQwenImageGenerationContract() {
 
       const initialMessageCount = conv.messages.length;
       const generatedResult = await context.__generateImage();
+      assert(canvases.length > 0 && canvases.every((canvas) => canvas.width === 1 && canvas.height === 1), 'Character-image canvases must release their backing buffers after encoding.');
       const summaryRequest = requests.find((entry) => entry.url === 'https://text.example/v1/chat/completions');
       assert(summaryRequest, 'Image generation must summarize the latest main reply with the configured text model.');
       let summaryRequestBody = summaryRequest.body;

@@ -21,6 +21,7 @@ function createMockD1() {
   const meta = new Map();
   const chunks = new Map();
   const locks = new Map();
+  let beforeCleanup = null;
 
   const chunkKey = (tokenHash, objectHash, index) => `${tokenHash}:${objectHash}:${index}`;
   const matchingChunks = (tokenHash, objectHash) => [...chunks.values()].filter((row) => (
@@ -89,7 +90,9 @@ function createMockD1() {
           assert.equal(this.args.length, 7,
             'Chunk writes must bind only chunk fields, without application capacity limits.');
           const [tokenHash, objectHash, index, total, data, chunkHash, createdAt] = this.args;
-          chunks.set(chunkKey(tokenHash, objectHash, index), {
+          const key = chunkKey(tokenHash, objectHash, index);
+          if (chunks.has(key)) return { success: true, meta: { changes: 0 } };
+          chunks.set(key, {
             token_hash: tokenHash,
             object_hash: objectHash,
             chunk_index: index,
@@ -98,6 +101,19 @@ function createMockD1() {
             chunk_hash: chunkHash,
             created_at: createdAt,
           });
+          return { success: true, meta: { changes: 1 } };
+        }
+        if (normalized.startsWith('update opentavern_sync_v2_chunks')) {
+          const [createdAt, tokenHash, objectHash, index, total, data, chunkHash] = this.args;
+          const key = chunkKey(tokenHash, objectHash, index);
+          const current = chunks.get(key);
+          if (!current
+              || Number(current.chunk_count) !== Number(total)
+              || current.data !== data
+              || current.chunk_hash !== chunkHash) {
+            return { success: true, meta: { changes: 0 } };
+          }
+          current.created_at = createdAt;
           return { success: true, meta: { changes: 1 } };
         }
         if (normalized.startsWith('insert into opentavern_sync_v2_meta')) {
@@ -147,9 +163,12 @@ function createMockD1() {
               return { success: true, meta: { changes: 0 } };
             }
             const referenced = new Set(JSON.parse(this.args[4]));
+            const cleanupBefore = Number(this.args[5]);
             let changes = 0;
             for (const [key, row] of chunks) {
-              if (row.token_hash === tokenHash && !referenced.has(row.object_hash)) {
+              if (row.token_hash === tokenHash
+                  && !referenced.has(row.object_hash)
+                  && (!Number.isFinite(cleanupBefore) || Number(row.created_at) < cleanupBefore)) {
                 chunks.delete(key);
                 changes += 1;
               }
@@ -185,11 +204,18 @@ function createMockD1() {
     prepare,
     async batch(statements) {
       const results = [];
-      for (const statement of statements) results.push(await statement.run());
+      for (let index = 0; index < statements.length; index += 1) {
+        if (index === 1 && beforeCleanup) {
+          const hook = beforeCleanup;
+          beforeCleanup = null;
+          await hook();
+        }
+        results.push(await statements[index].run());
+      }
       return results;
     },
   };
-  const seedChunk = ({ tokenHash, objectHash, index, total, data, chunkHash }) => {
+  const seedChunk = ({ tokenHash, objectHash, index, total, data, chunkHash, createdAt = Date.now() }) => {
     chunks.set(chunkKey(tokenHash, objectHash, index), {
       token_hash: tokenHash,
       object_hash: objectHash,
@@ -197,10 +223,17 @@ function createMockD1() {
       chunk_count: total,
       data,
       chunk_hash: chunkHash,
-      created_at: Date.now(),
+      created_at: createdAt,
     });
   };
-  return { db, v1, meta, chunks, seedChunk };
+  return {
+    db,
+    v1,
+    meta,
+    chunks,
+    seedChunk,
+    setBeforeCleanup(callback) { beforeCleanup = callback; },
+  };
 }
 
 async function hash(bytes) {
@@ -425,6 +458,25 @@ async function main() {
     manifestA.objectHash,
   ]), 'Commit must remove chunks not referenced by the current manifest.');
 
+  const idempotentA = await uploadObject(db, encoder.encode('{"theme":"light"}'), objectA.objectHash);
+  assert.equal(idempotentA.objectHash, objectA.objectHash);
+  const originalA = [...chunks.values()].find((row) => row.object_hash === objectA.objectHash && row.chunk_index === 0);
+  const replacementBytes = encoder.encode('{"theme":"corrupted"}');
+  const conflictingChunk = await invoke(db, 'POST', 'v=2&op=chunk', {
+    objectHash: objectA.objectHash,
+    chunkHash: await hash(replacementBytes),
+    index: 0,
+    total: 1,
+    data: Buffer.from(replacementBytes).toString('base64'),
+  });
+  assert.equal(conflictingChunk.status, 409);
+  assert.match((await readJson(conflictingChunk)).error, /conflicts with existing/i);
+  assert.equal(
+    [...chunks.values()].find((row) => row.object_hash === objectA.objectHash && row.chunk_index === 0).data,
+    originalA.data,
+    'A conflicting chunk upload must not overwrite committed content-addressed data.',
+  );
+
   const objectB = await uploadObject(db, encoder.encode('{"theme":"dark"}'));
   const manifestB = await uploadManifest(db, objectB, lastSaved + 2);
   const commitB = await commit(db, 1, manifestB, lastSaved + 2);
@@ -433,6 +485,28 @@ async function main() {
     objectB.objectHash,
     manifestB.objectHash,
   ]), 'A newer commit must retain only its manifest and referenced objects.');
+
+  const raceProbe = createMockD1();
+  const raceObject = await uploadObject(raceProbe.db, encoder.encode('{"theme":"race"}'));
+  const raceManifest = await uploadManifest(raceProbe.db, raceObject, lastSaved + 3);
+  const retriedBytes = encoder.encode('old uncommitted object retried during commit');
+  const retriedObject = await uploadObject(raceProbe.db, retriedBytes);
+  for (const row of raceProbe.chunks.values()) {
+    if (row.object_hash === retriedObject.objectHash) row.created_at = 1;
+  }
+  let concurrentObject = null;
+  raceProbe.setBeforeCleanup(async () => {
+    await uploadObject(raceProbe.db, retriedBytes, retriedObject.objectHash);
+    concurrentObject = await uploadObject(raceProbe.db, encoder.encode('concurrent uncommitted object'));
+  });
+  const raceCommit = await commit(raceProbe.db, 0, raceManifest, lastSaved + 3);
+  assert.equal(raceCommit.status, 200, JSON.stringify(await readJson(raceCommit)));
+  assert.ok(concurrentObject && [...raceProbe.chunks.values()].some(
+    (row) => row.object_hash === concurrentObject.objectHash,
+  ), 'Commit cleanup must preserve chunks uploaded after the commit started.');
+  assert.ok([...raceProbe.chunks.values()].some(
+    (row) => row.object_hash === retriedObject.objectHash,
+  ), 'Commit cleanup must preserve an old orphan chunk that was idempotently retried after the commit started.');
 
   const deleted = await invoke(db, 'DELETE', 'v=2', undefined, { 'If-Match': '"2"' });
   assert.equal(deleted.status, 200);

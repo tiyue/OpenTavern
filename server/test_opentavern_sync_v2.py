@@ -1,6 +1,7 @@
 import base64
 from contextlib import closing
 import hashlib
+import inspect
 import json
 import os
 import sqlite3
@@ -104,6 +105,47 @@ class SyncV2StorageTests(unittest.TestCase):
                 "SELECT COUNT(*) FROM opentavern_sync_v2_chunks WHERE token_hash = ?",
                 (token_hash,),
             ).fetchone()[0]
+
+    def test_storage_sql_remains_compatible_with_sqlite_3_7(self):
+        storage_source = "\n".join((
+            inspect.getsource(sync_server.ensure_table),
+            inspect.getsource(sync_server.write_v2_chunk),
+            inspect.getsource(sync_server._delete_v2_orphan_chunks),
+            inspect.getsource(sync_server.commit_v2_manifest),
+            inspect.getsource(sync_server.delete_v2_sync),
+        )).upper()
+        self.assertNotIn("ON CONFLICT", storage_source)
+        self.assertNotIn("WITHOUT ROWID", storage_source)
+
+    def test_chunk_upload_is_idempotent_but_content_addressed_rows_are_immutable(self):
+        raw = b"original chunk"
+        object_hash = sha256_hex(raw)
+        chunk = sync_server.parse_v2_chunk_payload({
+            "objectHash": object_hash,
+            "chunkHash": sha256_hex(raw),
+            "index": 0,
+            "total": 1,
+            "data": base64.b64encode(raw).decode("ascii"),
+        })
+        self.assertTrue(sync_server.write_v2_chunk(self.db_path, self.token_hash, chunk))
+        self.assertFalse(sync_server.write_v2_chunk(self.db_path, self.token_hash, chunk))
+
+        replacement = b"replacement chunk"
+        conflicting = sync_server.parse_v2_chunk_payload({
+            "objectHash": object_hash,
+            "chunkHash": sha256_hex(replacement),
+            "index": 0,
+            "total": 1,
+            "data": base64.b64encode(replacement).decode("ascii"),
+        })
+        with self.assertRaisesRegex(
+            sync_server.SyncV2ChunkConflictError,
+            "conflicts with existing",
+        ):
+            sync_server.write_v2_chunk(self.db_path, self.token_hash, conflicting)
+        stored = sync_server.read_v2_chunk(self.db_path, self.token_hash, object_hash, 0)
+        self.assertEqual(stored["data"], chunk["data"])
+        self.assertEqual(stored["chunk_hash"], chunk["chunk_hash"])
 
     def test_commit_validates_references_and_cleans_only_orphans(self):
         sync_server.write_sync_row(self.db_path, self.token_hash, '{"version":1}', 10)
