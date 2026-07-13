@@ -54,7 +54,7 @@ Current split map:
 - `23-storage-*` and `24-storage-compat.js`: legacy IndexedDB reads, recovery scanning/restoring, compatibility APIs, safe settings, IDs, and defaults.
 - `30-*` to `35-*`: app state, API presets/compatibility/testing, conversation/group-chat models, lifecycle, initialization, and persistence i18n.
 - `40-*` to `44-*`: character card import, prompt/world-info construction, World Book model/format/registry/UI, matching, budget, output, and timed effects.
-- `50-*` to `54-*`: remote generation, ComfyUI settings/workflow/client/integration, generation runtime pieces, and summarization prompt/API/service/runtime.
+- `50-*` to `54-*`: remote generation, Qwen image settings/client/runtime, and summarization prompt/API/service/runtime.
 - `57-*` to `60-*`: shared UI state, summary manager, new-chat workflows, public-card data/import/UI, and library grid/rendering helpers.
 - `61-*` to `67-*`: chat shell/content/message rendering, SillyTavern presets, conversation transfer/list, character panel/editor/export, mobile UI, dialog workflows, and message actions.
 - `68-*` to `72-*`: settings modal sections, save/apply behavior, event binding groups, and final app initialization.

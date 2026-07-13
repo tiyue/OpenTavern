@@ -14,14 +14,15 @@ function hydrateSillyTavernPresetSettings() {
     renderSillyTavernPresetSettings();
 }
 
-function hydrateComfySettingsControls() {
-    ensureComfySettings();
-    hydrateCheckboxControl(dom.comfyEnabled, state.settings.comfyEnabled);
-    hydrateValueControl(dom.comfyServer, state.settings.comfyServer || 'http://127.0.0.1:8188');
-    hydrateValueControl(dom.comfyPositiveNodeId, state.settings.comfyPositiveNodeId || '');
-    hydrateValueControl(dom.comfyNegativeNodeId, state.settings.comfyNegativeNodeId || '');
-    hydrateValueControl(dom.comfySeedNodeId, state.settings.comfySeedNodeId || '');
-    hydrateValueControl(dom.comfyNegativePrompt, state.settings.comfyNegativePrompt || '');
-    hydrateValueControl(dom.comfyPromptTemplate, state.settings.comfyPromptTemplate || '');
-    updateComfyWorkflowStatus();
+function hydrateImageGenerationSettingsControls() {
+    ensureImageGenerationSettings();
+    hydrateCheckboxControl(dom.imageGenerationEnabled, state.settings.imageGenerationEnabled);
+    hydrateValueControl(dom.imageGenerationEndpoint, state.settings.imageGenerationEndpoint);
+    hydrateValueControl(dom.imageGenerationToken, getImageGenerationAccessToken());
+    hydrateValueControl(dom.imageGenerationSize, state.settings.imageGenerationSize);
+    hydrateValueControl(dom.imageGenerationNegativePrompt, state.settings.imageGenerationNegativePrompt);
+    hydrateCheckboxControl(dom.imageGenerationPromptExtend, state.settings.imageGenerationPromptExtend);
+    hydrateCheckboxControl(dom.imageGenerationIncludeCharacter, state.settings.imageGenerationIncludeCharacter);
+    hydrateCheckboxControl(dom.imageGenerationIncludeContext, state.settings.imageGenerationIncludeContext);
+    hydrateValueControl(dom.imageGenerationPromptTemplate, state.settings.imageGenerationPromptTemplate);
 }

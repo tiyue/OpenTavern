@@ -33,6 +33,7 @@ function regenerateMessage(actualIdx) {
 
     var msg = conv.messages[actualIdx];
     if (!msg || msg.role !== 'assistant') return;
+    if (typeof isImageAttachmentOnlyMessage === 'function' && isImageAttachmentOnlyMessage(msg)) return;
 
     if (msg.stage === 'second') {
         var parent = removeSecondStageMessageForRegeneration(conv, actualIdx);

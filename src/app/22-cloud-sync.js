@@ -146,9 +146,6 @@ function getCloudSyncEndpoint() {
 
 function getCloudSyncFreshness(remote) {
     var localSnapshot = arguments.length > 1 ? arguments[1] : getCloudSyncStoredLocalSnapshotForComparison();
-    var sizeFreshness = getCloudSyncConversationSizeFreshness(remote, localSnapshot);
-    if (sizeFreshness) return sizeFreshness;
-
     var remoteTime = getCloudSyncSnapshotLastSaved(remote);
     var localTime = getCloudSyncSnapshotLastSaved(localSnapshot);
     if (!remoteTime) return 'unknown';
@@ -192,6 +189,11 @@ function getCloudSyncRemoteBytes(remote) {
 function getCloudSyncRemoteUpdatedAt(remote) {
     var updatedAt = Number(remote && remote.__cloudSyncUpdatedAt);
     return Number.isFinite(updatedAt) && updatedAt >= 0 ? Math.floor(updatedAt) : null;
+}
+
+function getCloudSyncRemoteRevision(remote) {
+    var revision = Number(remote && (remote.revision !== undefined ? remote.revision : remote.__cloudSyncRevision));
+    return Number.isFinite(revision) && revision >= 0 ? Math.floor(revision) : null;
 }
 
 function getCloudSyncSerializedBytes(value) {

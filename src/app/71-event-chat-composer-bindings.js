@@ -11,7 +11,15 @@
 // ==================== Chat Composer Event Bindings ====================
 function bindChatComposerEvents() {
     dom.sendBtn.addEventListener('click', sendMessage);
-    if (dom.comfyGenerateBtn) dom.comfyGenerateBtn.addEventListener('click', generateComfyImageForCurrentChat);
+    if (dom.imageGenerationBtn) dom.imageGenerationBtn.addEventListener('click', openImageGenerationPanel);
+    if (dom.imageGenerationSubmitBtn) dom.imageGenerationSubmitBtn.addEventListener('click', generateImageForCurrentChat);
+    if (dom.imageGenerationCloseBtn) dom.imageGenerationCloseBtn.addEventListener('click', closeImageGenerationPanel);
+    if (dom.imageGenerationBackdrop) dom.imageGenerationBackdrop.addEventListener('click', closeImageGenerationPanel);
+    if (dom.imageGenerationPanel) dom.imageGenerationPanel.addEventListener('keydown', handleImageGenerationPanelKeydown);
+    if (dom.imageGenerationCancelBtn) dom.imageGenerationCancelBtn.addEventListener('click', function() {
+        if (imageGenerationIsGenerating) cancelImageGenerationRequest();
+        else closeImageGenerationPanel();
+    });
 
     dom.messageInput.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {

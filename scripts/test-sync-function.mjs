@@ -9,7 +9,7 @@
  * 失败。新增重要行为时应增加对应断言，而不是为了让测试通过而删掉旧断言。
  */
 import { onRequest } from '../functions/api/sync.js';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { webcrypto } from 'node:crypto';
 import vm from 'node:vm';
 
@@ -103,6 +103,8 @@ async function assertFrontendCloudSnapshot() {
         saveApiKey: true,
         apiKey: 'secret-api-key',
         summarizeApiKey: 'secret-summary-key',
+        imageGenerationEndpoint: 'https://private-image.example/generate',
+        imageGenerationToken: 'secret-image-token',
         cloudSyncToken: 'secret-cloud-token',
         cloudSyncPassphrase: 'secret-passphrase',
         cloudSyncLastAt: 123456,
@@ -147,6 +149,8 @@ async function assertFrontendCloudSnapshot() {
   assert(snapshot.settings.model === 'frontend-model', 'Frontend cloud snapshot did not include settings.');
   assert(snapshot.settings.apiKey === '', 'Frontend cloud snapshot must strip the main API key.');
   assert(snapshot.settings.summarizeApiKey === '', 'Frontend cloud snapshot must strip the summary API key.');
+  assert(snapshot.settings.imageGenerationEndpoint === '/api/image/generate', 'Frontend cloud snapshot must replace the device-local image endpoint.');
+  assert(snapshot.settings.imageGenerationToken === '', 'Frontend cloud snapshot must strip the image gateway token.');
   assert(snapshot.settings.cloudSyncToken === '', 'Frontend cloud snapshot must strip the cloud sync token.');
   assert(snapshot.settings.cloudSyncPassphrase === '', 'Frontend cloud snapshot must strip the cloud sync passphrase.');
   assert(snapshot.settings.cloudSyncLastAt === 0, 'Frontend cloud snapshot must strip transient cloud sync timestamps.');
@@ -192,9 +196,9 @@ async function assertFrontendCloudSnapshot() {
   remoteLarger.lastSaved = 1000;
   remoteLarger.conversations.c3 = { id: 'c3', messages: [{ role: 'user', content: 'larger remote conversation payload'.repeat(10) }] };
   remoteLarger.conversationOrder.push('c3');
-  assert(context.__freshness(remoteLarger, comparableLocal) === 'newer-by-size', 'Cloud freshness should use remote conversation byte size before timestamps.');
+  assert(context.__freshness(remoteLarger, comparableLocal) === 'older', 'Cloud freshness should use timestamps even when an older remote snapshot is larger.');
   const remoteSmaller = { lastSaved: 4000, conversations: {}, conversationOrder: [], activeConvId: null };
-  assert(context.__freshness(remoteSmaller, comparableLocal) === 'older-by-size', 'Cloud freshness should use local conversation byte size before timestamps.');
+  assert(context.__freshness(remoteSmaller, comparableLocal) === 'newer', 'Cloud freshness should use timestamps even when a newer remote snapshot is smaller.');
   const remoteSameSize = JSON.parse(JSON.stringify(comparableLocal));
   assert(context.__freshness(remoteSameSize, comparableLocal) === 'same', 'Cloud freshness should fall back to timestamp comparison when conversation sizes match.');
   remoteSameSize.lastSaved = 4000;
@@ -335,7 +339,7 @@ async function assertFrontendStatePersistenceHelpers() {
   let now = 123456;
   const context = {
     state: {
-      settings: { model: 'raw-model' },
+      settings: { model: 'safe-model' },
       conversations: {
         c1: { id: 'c1', messages: [{ content: 'hello' }] },
         orphan: { id: 'orphan', messages: [{ content: 'missing order' }] },
@@ -351,7 +355,7 @@ async function assertFrontendStatePersistenceHelpers() {
       async saveAll(data) { saved.push(JSON.parse(JSON.stringify(data))); },
       _isQuotaError() { return false; },
     },
-    getSafeSettingsForPersist() { return { model: 'safe-model', apiKey: '' }; },
+    getSafeSettingsForPersist() { return { model: context.state.settings.model, apiKey: '' }; },
     updateStorageInfo() { events.push('storage-info'); },
     scheduleCloudSyncUpload() { events.push('cloud-upload'); },
     setTimeout(handler, delay) {
@@ -383,14 +387,14 @@ async function assertFrontendStatePersistenceHelpers() {
     ...context.StorageService._lastSaveSnapshot,
     activeConvId: 'orphan',
   });
-  assert(activeC1Signature === activeOrphanSignature, 'Switching the active conversation alone should not trigger automatic cloud upload.');
+  assert(activeC1Signature !== activeOrphanSignature, 'Switching the active conversation should be included in automatic cloud sync.');
 
   events.length = 0;
   now = 222222;
   context.state.settings.model = 'settings-only-change';
   await context.__persist(true);
   assert(saved.length === 2 && saved[1].lastSaved === 222222, 'Settings-only persists should still save local state.');
-  assert(events.includes('storage-info') && !events.includes('cloud-upload'), 'Settings-only persists should not schedule automatic cloud upload.');
+  assert(events.includes('storage-info') && events.includes('cloud-upload'), 'Settings-only persists should schedule automatic cloud upload.');
 
   events.length = 0;
   now = 333333;
@@ -571,6 +575,8 @@ async function assertFrontendCloudSnapshotApply() {
         saveApiKey: true,
         apiKey: 'local-api-key',
         summarizeApiKey: 'local-summary-key',
+        imageGenerationEndpoint: 'https://local-image.example/generate',
+        imageGenerationToken: '',
         systemPrompt: 'local system prompt',
         postHistoryInstructions: 'local post prompt',
         twoStageSystemPrompt: 'local second system prompt',
@@ -593,6 +599,8 @@ async function assertFrontendCloudSnapshotApply() {
       cloudSyncPassphrase: '',
       cloudSyncLastAt: 0,
       cloudSyncLastStatus: '',
+      imageGenerationEndpoint: '/api/image/generate',
+      imageGenerationToken: '',
       systemPrompt: '',
       postHistoryInstructions: '',
       twoStageSystemPrompt: 'default second system prompt',
@@ -620,7 +628,7 @@ async function assertFrontendCloudSnapshotApply() {
     hydrateWorldInfoBudgetSettings() {},
     hydrateThemePerformanceSettings() {},
     hydrateSummarizationApiSettings() {},
-    hydrateComfySettingsControls() {},
+    hydrateImageGenerationSettingsControls() {},
     bindWebLLMSettingsControls() {},
     normalizeConversation(conv) { conv.normalized = true; },
     defaultConversation() { return { id: 'default', messages: [] }; },
@@ -647,6 +655,8 @@ async function assertFrontendCloudSnapshotApply() {
       saveApiKey: false,
       apiKey: '',
       summarizeApiKey: '',
+      imageGenerationEndpoint: 'https://remote-image.example/steal',
+      imageGenerationToken: 'remote-image-token',
       systemPrompt: 'remote system prompt',
       postHistoryInstructions: 'remote post prompt',
       twoStageSystemPrompt: 'remote second system prompt',
@@ -669,6 +679,8 @@ async function assertFrontendCloudSnapshotApply() {
   assert(context.state.settings.saveApiKey === true, 'Cloud apply must preserve the local API key persistence setting.');
   assert(context.state.settings.apiKey === 'local-api-key', 'Cloud apply must preserve the local main API key.');
   assert(context.state.settings.summarizeApiKey === 'local-summary-key', 'Cloud apply must preserve the local summary API key.');
+  assert(context.state.settings.imageGenerationEndpoint === 'https://local-image.example/generate', 'Cloud apply must preserve the device-local image endpoint.');
+  assert(context.state.settings.imageGenerationToken === '', 'Cloud apply must never restore an image gateway token from the remote snapshot.');
   assert(context.state.settings.systemPrompt === 'remote system prompt', 'Cloud apply did not restore the remote system prompt.');
   assert(promptControls.systemPrompt.value === 'remote system prompt', 'Cloud apply should refresh the visible system prompt field.');
   assert(promptControls.postHistoryInstructions.value === 'remote post prompt', 'Cloud apply should refresh the visible post-history prompt field.');
@@ -808,7 +820,7 @@ async function assertFrontendCloudSyncCrypto() {
   assert(encrypted.encrypted === true && encrypted.payload && encrypted.iv && encrypted.salt, 'Cloud sync encryption should return an encrypted envelope.');
   assert(encrypted.lastSaved === snapshot.lastSaved, 'Encrypted cloud snapshot should preserve freshness metadata.');
   assert(encrypted.conversationBytes === context.__conversationBytes(snapshot), 'Encrypted cloud snapshots should preserve comparable conversation byte metadata.');
-  assert(context.__freshness({ ...encrypted, conversationBytes: encrypted.conversationBytes + 100, lastSaved: 1 }, snapshot) === 'newer-by-size', 'Encrypted cloud freshness should still prioritize conversation byte size.');
+  assert(context.__freshness({ ...encrypted, conversationBytes: encrypted.conversationBytes + 100, lastSaved: 1 }, snapshot) === 'older', 'Encrypted cloud freshness should prioritize timestamps over envelope size.');
   assert(!encryptedText.includes('secret-model-unique-9241'), 'Encrypted cloud snapshot should not expose settings content.');
   assert(!encryptedText.includes('secret-chat-message-9241'), 'Encrypted cloud snapshot should not expose chat content.');
   assert(!encryptedText.includes('secret-card-name-9241'), 'Encrypted cloud snapshot should not expose character card content.');
@@ -954,16 +966,34 @@ async function assertFrontendCloudSyncOperations() {
     ensureCloudSyncSettings() { events.push('ensure'); return context.state.settings; },
     buildAppDataSnapshot() { events.push('snapshot'); return localSnapshot; },
     prepareCloudSyncLocalSnapshotForComparison() { events.push('prepare'); return localSnapshot; },
-    readCloudSyncRemoteSnapshot() {
+    readCloudSyncRemoteMetadata() {
       events.push('read');
       if (context.readFails) throw new Error('offline');
-      return context.remoteSnapshot;
+      return {
+        protocol: 1,
+        v2Supported: false,
+        exists: !!context.remoteSnapshot,
+        snapshot: context.remoteSnapshot,
+        lastSaved: Number(context.remoteSnapshot && context.remoteSnapshot.lastSaved) || 0,
+      };
+    },
+    readCloudSyncRemoteSnapshot(metadata) {
+      events.push('read-snapshot');
+      return metadata && metadata.snapshot !== undefined ? metadata.snapshot : context.remoteSnapshot;
+    },
+    getCloudSyncSelectedRemoteSnapshot(metadata) {
+      if (!metadata) return null;
+      if (Number(metadata.protocol) !== 2) return metadata.snapshot || null;
+      return Number(metadata.selectedProtocol) === 1
+        ? (metadata.legacySnapshot || null)
+        : (metadata.exists ? metadata : (metadata.legacySnapshot || null));
     },
     getCloudSyncFreshness(remote, local) { events.push(`fresh:${remote && remote.freshness || 'same'}:${local ? 'local' : 'none'}`); return (remote && remote.freshness) || 'same'; },
     getCloudSyncRemoteUpdatedAt(remote) {
       const updatedAt = Number(remote && remote.__cloudSyncUpdatedAt);
       return Number.isFinite(updatedAt) && updatedAt >= 0 ? updatedAt : null;
     },
+    getCloudSyncRemoteRevision() { return null; },
     async encryptCloudSyncSnapshot(snapshot) {
       events.push('encrypt');
       return Object.assign({ encrypted: !!context.encryptAsEncrypted }, snapshot);
@@ -1027,8 +1057,8 @@ async function assertFrontendCloudSyncOperations() {
   events.length = 0;
   capturedRequest = null;
   context.remoteSnapshot = { freshness: 'newer-by-size', lastSaved: 1000 };
-  const skippedBySize = await context.__upload(explicitStatus, { force: false });
-  assert(skippedBySize.skipped === true && skippedBySize.reason === 'remote-newer' && capturedRequest === null, 'Protected cloud upload should skip when the remote snapshot wins by byte size.');
+  const uploadedDespiteSize = await context.__upload(explicitStatus, { force: false });
+  assert(uploadedDespiteSize.success === true && capturedRequest.method === 'POST', 'Protected cloud upload should not treat a larger snapshot as newer without a newer timestamp.');
 
   events.length = 0;
   capturedRequest = null;
@@ -1059,15 +1089,14 @@ async function assertFrontendCloudSyncOperations() {
     lastSaved: 7000,
     data: { lastSaved: 7000, settings: { model: 'larger-cloud' }, conversations: {}, characters: {}, worldBooks: {} },
   };
-  const syncDownloadedBySize = await context.__sync(explicitStatus);
-  assert(syncDownloadedBySize.settings.model === 'larger-cloud' && appliedSnapshot === syncDownloadedBySize, 'Cloud sync should download when the remote snapshot wins by byte size.');
+  const syncIgnoredSize = await context.__sync(explicitStatus);
+  assert(syncIgnoredSize.upToDate === true && appliedSnapshot === null, 'Cloud sync should not download solely because the remote snapshot is larger.');
 
   events.length = 0;
   capturedRequest = null;
   context.remoteSnapshot = { freshness: 'older-by-size', lastSaved: 1000, __cloudSyncUpdatedAt: 4321 };
-  const syncUploadedBySize = await context.__sync(explicitStatus);
-  assert(syncUploadedBySize.success === true && capturedRequest.method === 'POST', 'Cloud sync should upload when the local snapshot wins by byte size.');
-  assert(capturedRequest.requestOptions.expectedUpdatedAt === 4321, 'Cloud sync should protect comparison-based uploads with the remote version it inspected.');
+  const syncIgnoredLocalSize = await context.__sync(explicitStatus);
+  assert(syncIgnoredLocalSize.upToDate === true && capturedRequest === null, 'Cloud sync should not upload solely because the local snapshot is larger.');
 
   events.length = 0;
   capturedRequest = null;
@@ -1701,9 +1730,7 @@ async function assertFrontendSettingsEventBindings() {
     stPresetImportFile: el(),
     stPresetExportBtn: el(),
     stPresetDeleteBtn: el(),
-    comfyImportWorkflowBtn: el(),
-    comfyWorkflowFile: el(),
-    comfyTestBtn: el(),
+    imageGenerationEnabled: el(),
     contextLength: el('32'),
     contextLenVal: el(),
     maxTokens: el('2048'),
@@ -1732,8 +1759,7 @@ async function assertFrontendSettingsEventBindings() {
     importSillyTavernPresetFile(file) { events.push(`st:${file.name}`); },
     exportSillyTavernPreset() { events.push('st-export'); },
     deleteSillyTavernPreset() { events.push('st-delete'); },
-    importComfyWorkflowFile(file) { events.push(`comfy:${file.name}`); },
-    testComfyConnection() { events.push('comfy-test'); },
+    updateInputState() { events.push('input-state'); },
     updateSummaryThresholdWarning() { events.push('summary-warning'); },
     toggleSummarizeCustomSection() { events.push('toggle-summary-api'); },
     parseInt,
@@ -1752,11 +1778,11 @@ async function assertFrontendSettingsEventBindings() {
   dom.stPresetImportFile.listeners.change({ target: { files: [{ name: 'preset.json' }] } });
   dom.stPresetExportBtn.listeners.click();
   dom.stPresetDeleteBtn.listeners.click();
-  dom.comfyImportWorkflowBtn.listeners.click();
-  dom.comfyWorkflowFile.listeners.change({ target: { files: [{ name: 'workflow.json' }] } });
-  dom.comfyTestBtn.listeners.click();
-  assert(dom.stPresetImportFile.clicked === true && dom.comfyWorkflowFile.clicked === true, 'Settings integration events should trigger hidden file inputs.');
-  assert(events.includes('st:preset.json') && events.includes('st-export') && events.includes('st-delete') && events.includes('comfy:workflow.json') && events.includes('comfy-test'), 'Settings integration events should bind preset and ComfyUI controls.');
+  dom.imageGenerationEnabled.checked = true;
+  dom.imageGenerationEnabled.listeners.change();
+  assert(dom.stPresetImportFile.clicked === true, 'Settings integration events should trigger the preset file input.');
+  assert(events.includes('st:preset.json') && events.includes('st-export') && events.includes('st-delete'), 'Settings integration events should bind preset controls.');
+  assert(context.state.settings.imageGenerationEnabled === true && events.includes('input-state'), 'Settings integration events should apply the Qwen image enabled state.');
 
   dom.contextLength.listeners.input.call(dom.contextLength);
   dom.summaryThreshold.listeners.input.call(dom.summaryThreshold);
@@ -2185,6 +2211,19 @@ async function assertFrontendPromptMessageHelpers() {
   assert(regular.every((m) => !m.content.includes('<options>')), 'Primary prompt history should exclude second-stage messages and strip leaked option blocks from main replies.');
   regular[0].content = 'mutated';
   assert(conv.messages[5].content.startsWith('visible two'), 'Prompt regular history should clone messages before outlet mutation.');
+
+  const attachmentOnlyHistory = {
+    summaries: [{ coveredEnd: 2 }],
+    messages: [
+      { role: 'user', content: 'summarized user' },
+      { role: 'assistant', content: '', attachments: [{ type: 'image' }] },
+      { role: 'assistant', content: 'summarized assistant' },
+      { role: 'user', content: 'still visible user' },
+      { role: 'assistant', content: 'still visible assistant' },
+    ],
+  };
+  const attachmentRegular = context.__regular(attachmentOnlyHistory, 10);
+  assert(attachmentRegular.map((m) => m.content).join(',') === 'still visible user,still visible assistant', 'Attachment-only messages must not shift summary coverage over unsummarized text messages.');
 
   const outletMessages = [{ role: 'system', content: 'A {{outlet::Lore}} B {{outlet::Missing}} C {{char}}' }];
   context.__outlets(outletMessages, {
@@ -2617,7 +2656,8 @@ async function assertFrontendSettingsSaveHelpers() {
     '../src/app/68-settings-save-summary-form.js',
     '../src/app/68-settings-save-ui-form.js',
     '../src/app/68-settings-save-summary-api-form.js',
-    '../src/app/68-settings-save-comfy-form.js',
+    '../src/app/51-image-generation-settings.js',
+    '../src/app/68-settings-save-image-form.js',
     '../src/app/68-settings-save-webllm-form.js',
     '../src/app/68-settings-save-form.js',
     '../src/app/68-settings-save-effect-helpers.js',
@@ -2633,6 +2673,7 @@ async function assertFrontendSettingsSaveHelpers() {
   };
   const input = (value) => ({ value });
   const checkbox = (checked) => ({ checked });
+  let storedImageToken = '';
   const context = {
     state: { settings: {} },
     dom: {
@@ -2669,13 +2710,15 @@ async function assertFrontendSettingsSaveHelpers() {
       summarizeApiEndpoint: input(' https://summary.example '),
       summarizeApiKey: input(' summary-key '),
       summarizeModel: input(' summary-model '),
-      comfyEnabled: checkbox(true),
-      comfyServer: input(' http://127.0.0.1:8188/ '),
-      comfyPositiveNodeId: input(' 1 '),
-      comfyNegativeNodeId: input(' 2 '),
-      comfySeedNodeId: input(' 3 '),
-      comfyNegativePrompt: input(' neg '),
-      comfyPromptTemplate: input(''),
+      imageGenerationEnabled: checkbox(true),
+      imageGenerationEndpoint: input(' https://image.example/api/generate '),
+      imageGenerationToken: input(' gateway-token '),
+      imageGenerationSize: input('1536*2688'),
+      imageGenerationNegativePrompt: input(' low quality '),
+      imageGenerationPromptExtend: checkbox(false),
+      imageGenerationIncludeCharacter: checkbox(false),
+      imageGenerationIncludeContext: checkbox(true),
+      imageGenerationPromptTemplate: input(''),
       cloudSyncEnabled: checkbox(true),
       cloudSyncAutoUpload: checkbox(true),
       cloudSyncEndpoint: input('   '),
@@ -2695,9 +2738,24 @@ async function assertFrontendSettingsSaveHelpers() {
     ensureSillyTavernPresetSettings() { events.push('preset'); },
     normalizeUiTheme(value) { events.push('theme-normalize'); return value; },
     cacheUiTheme(value) { events.push(`cache:${value}`); },
-    ensureComfySettings() { events.push('comfy'); },
-    normalizeComfyServer(value) { return value.trim().replace(/\/+$/, ''); },
-    defaultSettings() { return { comfyPromptTemplate: 'default comfy template' }; },
+    defaultSettings() {
+      return {
+        imageGenerationEnabled: false,
+        imageGenerationEndpoint: '/api/image/generate',
+        imageGenerationToken: '',
+        imageGenerationSize: '2048*2048',
+        imageGenerationNegativePrompt: 'default negative prompt',
+        imageGenerationPromptExtend: true,
+        imageGenerationIncludeCharacter: true,
+        imageGenerationIncludeContext: true,
+        imageGenerationPromptTemplate: 'default image template',
+      };
+    },
+    localStorage: {
+      getItem() { return storedImageToken || null; },
+      setItem(key, value) { storedImageToken = String(value); },
+      removeItem() { storedImageToken = ''; },
+    },
     ensureCloudSyncSettings() { events.push('cloud'); },
     persistState() { events.push('persist'); },
     applyUiTheme(value) { events.push(`apply-theme:${value}`); },
@@ -2712,13 +2770,19 @@ async function assertFrontendSettingsSaveHelpers() {
     parseFloat,
     Number,
     Set,
+    URL,
+    window: { location: new URL('http://192.0.2.10:8888/') },
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__close = closeSettings;\nthis.__clearWi = clearActiveConversationWorldInfoCache;\nthis.__rawOr = readControlValueOr;\nthis.__trimOr = readTrimmedControlValueOr;\nthis.__checkbox = readCheckboxControlValue;\nthis.__finiteFloat = readFiniteFloatControlValue;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__close = closeSettings;\nthis.__clearWi = clearActiveConversationWorldInfoCache;\nthis.__rawOr = readControlValueOr;\nthis.__trimOr = readTrimmedControlValueOr;\nthis.__checkbox = readCheckboxControlValue;\nthis.__finiteFloat = readFiniteFloatControlValue;\nthis.__normalizeImageEndpoint = normalizeImageGenerationEndpoint;`, context);
   assert(context.__rawOr(input('  raw  '), 'fallback') === '  raw  ', 'Settings save form helper should preserve raw control values when requested.');
   assert(context.__trimOr(input('  '), 'fallback') === 'fallback', 'Settings save form helper should default blank trimmed values.');
   assert(context.__checkbox(null, true) === true, 'Settings save form helper should use checkbox fallback values.');
   assert(context.__finiteFloat(input('0'), 0.3) === 0 && context.__finiteFloat(input('NaN'), 0.3) === 0.3, 'Settings save form helper should preserve finite floats and default invalid values.');
+  assert(context.__normalizeImageEndpoint('https://images.example/generate') === 'https://images.example/generate', 'Image generation should allow HTTPS gateway endpoints.');
+  assert(context.__normalizeImageEndpoint('http://192.0.2.10:8888/api/image/generate') === 'http://192.0.2.10:8888/api/image/generate', 'Image generation should allow the current same-origin HTTP gateway during migration.');
+  assert(context.__normalizeImageEndpoint('http://localhost:8787/api/image/generate') === 'http://localhost:8787/api/image/generate', 'Image generation should allow local development gateways.');
+  assert(context.__normalizeImageEndpoint('http://untrusted.example/generate') === '/api/image/generate', 'Image generation must not send a stored gateway token to an arbitrary plaintext HTTP host.');
   activeConv._wiCache = { stale: true };
   context.__clearWi();
   assert(activeConv._wiCache === null, 'Settings save effects helper should clear the active world-info cache.');
@@ -2728,8 +2792,10 @@ async function assertFrontendSettingsSaveHelpers() {
   assert(context.state.settings.model === 'model-a' && context.state.settings.contextLength === 32, 'Settings save should read model and context length.');
   assert(context.state.settings.twoStageSystemPrompt === 'default two stage', 'Settings save should default empty two-stage prompt.');
   assert(context.state.settings.uiTheme === 'new-dark' && context.state.settings.lowPowerMode === true, 'Settings save should read UI behavior settings.');
-  assert(context.state.settings.comfyServer === 'http://127.0.0.1:8188', 'Settings save should normalize Comfy server.');
-  assert(context.state.settings.comfyPromptTemplate === 'default comfy template', 'Settings save should default empty Comfy prompt template.');
+  assert(context.state.settings.imageGenerationEndpoint === 'https://image.example/api/generate', 'Settings save should normalize the Qwen image endpoint.');
+  assert(context.state.settings.imageGenerationPromptTemplate === 'default image template', 'Settings save should default an empty image prompt template.');
+  assert(context.state.settings.imageGenerationToken === '' && storedImageToken === 'gateway-token', 'Settings save must keep the image gateway token outside persisted settings.');
+  assert(context.state.settings.imageGenerationSize === '1536*2688' && context.state.settings.imageGenerationPromptExtend === false, 'Settings save should read Qwen image options.');
   assert(context.state.settings.cloudSyncEndpoint === '/api/sync', 'Settings save should default empty cloud sync endpoint.');
   assert(context.state.settings.cloudSyncToken === 'cloud-token', 'Settings save should trim cloud sync token.');
   assert(context.state.settings.cloudSyncPassphrase === ' pass phrase ', 'Settings save should preserve cloud sync passphrase exactly.');
@@ -2742,6 +2808,7 @@ async function assertFrontendSettingsSaveHelpers() {
 
 async function assertFrontendSettingsHydrationHelpers() {
   const sources = await Promise.all([
+    '../src/app/51-image-generation-settings.js',
     '../src/app/68-settings-basic-hydration.js',
     '../src/app/68-settings-advanced-hydration-helpers.js',
     '../src/app/68-settings-advanced-hydration.js',
@@ -2794,13 +2861,15 @@ async function assertFrontendSettingsHydrationHelpers() {
       summarizeApiEndpoint: 'https://summary.example',
       summarizeApiKey: 'summary-key',
       summarizeModel: 'summary-model',
-      comfyEnabled: true,
-      comfyServer: 'http://127.0.0.1:8188',
-      comfyPositiveNodeId: '1',
-      comfyNegativeNodeId: '2',
-      comfySeedNodeId: '3',
-      comfyNegativePrompt: 'neg',
-      comfyPromptTemplate: 'template',
+      imageGenerationEnabled: true,
+      imageGenerationEndpoint: 'https://image.example/api/generate',
+      imageGenerationToken: '',
+      imageGenerationSize: '2368*1728',
+      imageGenerationNegativePrompt: 'neg',
+      imageGenerationPromptExtend: false,
+      imageGenerationIncludeCharacter: true,
+      imageGenerationIncludeContext: false,
+      imageGenerationPromptTemplate: 'template',
     } },
     dom: {
       apiEndpoint: input(), apiKey: input(), saveApiKey: input(), ollamaCompatMode: input(), modelName: input(),
@@ -2810,7 +2879,7 @@ async function assertFrontendSettingsHydrationHelpers() {
       summaryEnabled: input(), summaryThreshold: input(), summaryThresholdVal: input(), summaryMaxWords: input(), summaryPrompt: input(),
       worldInfoBudgetEnabled: input(), worldInfoBudget: input(), worldInfoBudgetVal: input(), uiTheme: input(), lowPowerMode: input(),
       summarizeUseMainAPI: input(), summarizeApiEndpoint: input(), summarizeApiKey: input(), summarizeModel: input(),
-      comfyEnabled: input(), comfyServer: input(), comfyPositiveNodeId: input(), comfyNegativeNodeId: input(), comfySeedNodeId: input(), comfyNegativePrompt: input(), comfyPromptTemplate: input(),
+      imageGenerationEnabled: input(), imageGenerationEndpoint: input(), imageGenerationToken: input(), imageGenerationSize: input(), imageGenerationNegativePrompt: input(), imageGenerationPromptExtend: input(), imageGenerationIncludeCharacter: input(), imageGenerationIncludeContext: input(), imageGenerationPromptTemplate: input(),
     },
     BASE_SYSTEM_PROMPT: 'base system',
     DEFAULT_FIRST_STAGE_POST_HISTORY_INSTRUCTIONS: 'default post',
@@ -2819,12 +2888,15 @@ async function assertFrontendSettingsHydrationHelpers() {
     updateSummaryThresholdWarning: () => events.push('summary-warning'),
     ensureSillyTavernPresetSettings: () => events.push('st-ensure'),
     renderSillyTavernPresetSettings: () => events.push('st-render'),
-    ensureComfySettings: () => events.push('comfy-ensure'),
-    updateComfyWorkflowStatus: () => events.push('comfy-status'),
+    localStorage: {
+      getItem(key) { return key === 'opentavern_qwen_image_token' ? 'gateway-token' : null; },
+      setItem() {},
+      removeItem() {},
+    },
     parseInt,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__primary = hydratePrimaryApiSettings;\nthis.__generation = hydrateGenerationSettings;\nthis.__prompt = hydratePromptSettings;\nthis.__two = hydrateTwoStageSettings;\nthis.__summary = hydrateSummarySettings;\nthis.__budget = hydrateWorldInfoBudgetSettings;\nthis.__theme = hydrateThemePerformanceSettings;\nthis.__summaryApi = hydrateSummarizationApiSettings;\nthis.__st = hydrateSillyTavernPresetSettings;\nthis.__comfy = hydrateComfySettingsControls;\nthis.__defaultOn = hydrateCheckboxControlDefaultOn;\nthis.__restorePrompt = bindDefaultPromptRestoreButton;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__primary = hydratePrimaryApiSettings;\nthis.__generation = hydrateGenerationSettings;\nthis.__prompt = hydratePromptSettings;\nthis.__two = hydrateTwoStageSettings;\nthis.__summary = hydrateSummarySettings;\nthis.__budget = hydrateWorldInfoBudgetSettings;\nthis.__theme = hydrateThemePerformanceSettings;\nthis.__summaryApi = hydrateSummarizationApiSettings;\nthis.__st = hydrateSillyTavernPresetSettings;\nthis.__image = hydrateImageGenerationSettingsControls;\nthis.__defaultOn = hydrateCheckboxControlDefaultOn;\nthis.__restorePrompt = bindDefaultPromptRestoreButton;`, context);
 
   context.__primary();
   context.__generation();
@@ -2835,7 +2907,7 @@ async function assertFrontendSettingsHydrationHelpers() {
   context.__theme();
   context.__summaryApi();
   context.__st();
-  context.__comfy();
+  context.__image();
 
   const defaultOnCheckbox = input();
   context.__defaultOn(defaultOnCheckbox, undefined);
@@ -2851,8 +2923,9 @@ async function assertFrontendSettingsHydrationHelpers() {
   assert(context.dom.twoStageSystemPrompt.value === 'default two stage' && context.dom.showCotEnabled.checked === false, 'Settings hydration should fill two-stage controls.');
   assert(context.dom.summaryThresholdVal.textContent === 18 && context.dom.summaryMaxWords.value === 600, 'Settings hydration should fill summary controls.');
   assert(context.dom.worldInfoBudgetVal.textContent === 4096 && context.dom.uiTheme.value === 'new-dark', 'Settings hydration should fill world info and theme controls.');
-  assert(context.dom.summarizeApiEndpoint.value === 'https://summary.example' && context.dom.comfyServer.value === 'http://127.0.0.1:8188', 'Settings hydration should fill integration controls.');
-  assert(events.includes('st-ensure') && events.includes('comfy-status') && events.includes('summary-warning'), 'Settings hydration should call dependent render/status helpers.');
+  assert(context.dom.summarizeApiEndpoint.value === 'https://summary.example' && context.dom.imageGenerationEndpoint.value === 'https://image.example/api/generate', 'Settings hydration should fill integration controls.');
+  assert(context.dom.imageGenerationToken.value === 'gateway-token' && context.dom.imageGenerationSize.value === '2368*1728', 'Settings hydration should read the local image token and Qwen size.');
+  assert(events.includes('st-ensure') && events.includes('summary-warning'), 'Settings hydration should call dependent render/status helpers.');
 
   const shortcutPersistCountBefore = events.filter((event) => event === 'persist').length;
   context.dom.fillRoleplayPromptBtn.onclick();
@@ -4378,94 +4451,505 @@ async function assertFrontendConversationModelHelpers() {
   assert(singlePrompt.includes('Custom Sensei') && singlePrompt.includes('Personality: Kind'), 'Group system prompt should fall back to the single-character system prompt for non-groups.');
 }
 
-async function assertFrontendComfyUIHelpers() {
-  const sources = await Promise.all([
-    '../src/app/51-comfyui-workflow-clone.js',
-    '../src/app/51-comfyui-prompt-text.js',
-    '../src/app/51-comfyui-workflow-apply.js',
-    '../src/app/51-comfyui-output-finder.js',
-    '../src/app/51-comfyui-workflow.js',
-    '../src/app/51-comfyui-client-helpers.js',
-    '../src/app/51-comfyui-errors.js',
-    '../src/app/51-comfyui-output-message.js',
-    '../src/app/51-comfyui-workflow-import-ui.js',
-  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
+async function assertQwenImageGenerationContract() {
+  const failures = [];
+  let imageModuleFiles = [];
 
-  const events = [];
-  const statusEl = { textContent: '', style: {} };
-  const context = {
-    dom: { comfyWorkflowStatus: statusEl, messageInput: { value: ' new image ' } },
-    state: { settings: {
-      comfyWorkflow: {
-        one: { inputs: { text: '' } },
-        two: { inputs: { text: '' } },
-        three: { inputs: { seed: 0 } },
-      },
-      comfyWorkflowName: 'api.json',
-      comfyPromptTemplate: '{{user}}/{{char}}/{{input}}/{{last_assistant}}/{{scene}}',
-      comfyPositiveNodeId: 'one',
-      comfyNegativeNodeId: 'two',
-      comfySeedNodeId: 'three',
-      comfyNegativePrompt: 'avoid blur',
-      userName: 'Sensei',
-    } },
-    t: (key) => ({
-      comfy_error_fetch_hint: 'fetch hint',
-      comfy_error_no_workflow: 'no workflow data',
-      comfy_error_positive_node: 'missing positive node',
-      settings_comfy_no_workflow: 'no workflow',
-    }[key] || key),
-    ensureComfySettings() { events.push('ensure'); },
-    isGroupChat(conv) { return !!(conv && conv.group); },
-    getGroupMembers(conv) { return conv.group.members; },
-    persistState() { events.push('persist'); },
-    renderMessagesOnly() { events.push('messages'); },
-    renderConversationListOnly() { events.push('conversations'); },
-    Math: { floor: Math.floor, random: () => 0.5 },
-    JSON,
-    Date: { now: () => 12345 },
-    Object,
-    String,
-    Array,
-    encodeURIComponent,
-  };
+  async function capture(label, callback) {
+    try {
+      await callback();
+    } catch (error) {
+      failures.push(`${label}: ${error && error.message ? error.message : String(error)}`);
+    }
+  }
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__clone = cloneComfyWorkflow;\nthis.__setInput = setComfyNodeInput;\nthis.__promptText = buildComfyPromptText;\nthis.__applyWorkflow = applyComfyPromptToWorkflow;\nthis.__findOutput = findComfyOutputImage;\nthis.__wsUrl = buildComfyPromptWebSocketUrl;\nthis.__historyUrl = buildComfyPromptHistoryUrl;\nthis.__historyComplete = isComfyPromptHistoryComplete;\nthis.__finishedMessage = isComfyPromptFinishedMessage;\nthis.__error = formatComfyError;\nthis.__url = buildComfyImageViewUrl;\nthis.__msg = createComfyImageMessage;\nthis.__append = appendComfyImageMessage;\nthis.__status = updateComfyWorkflowStatus;`, context);
-
-  assert(context.__error(new Error('Failed to fetch')).startsWith('fetch hint'), 'ComfyUI network errors should include the fetch hint.');
-  const cloned = context.__clone();
-  assert(cloned !== context.state.settings.comfyWorkflow && cloned.one.inputs.text === '', 'ComfyUI workflow clone should deep copy the imported workflow.');
-  assert(context.__setInput(cloned, 'one', 'text', 'positive') === true && cloned.one.inputs.text === 'positive', 'ComfyUI node input helper should set existing inputs.');
-  const promptText = context.__promptText({
-    group: { members: [{ character: { name: 'Arona' } }, { character: { name: 'Plana' } }] },
-    messages: [{ role: 'assistant', content: 'last scene' }],
-    title: 'fallback title',
+  await capture('manifest', async () => {
+    const manifest = JSON.parse(await readFile(new URL('../src/app/manifest.json', import.meta.url), 'utf8'));
+    assert(Array.isArray(manifest), 'Frontend manifest must be an array.');
+    const comfyFiles = manifest.filter((file) => /^51-comfyui(?:-|\.)/i.test(String(file)));
+    assert(comfyFiles.length === 0, `Frontend manifest still contains retired ComfyUI modules: ${comfyFiles.join(', ')}`);
+    imageModuleFiles = manifest.filter((file) => /^51-image-generation(?:-|\.)[^/]*\.js$/i.test(String(file)));
+    assert(imageModuleFiles.length > 0, 'Frontend manifest does not contain any 51-image-generation modules.');
+    for (const modulePart of ['prompt', 'reference', 'summary', 'client', 'message', 'runtime']) {
+      assert(imageModuleFiles.some((file) => file.includes(modulePart)), `Frontend manifest is missing a 51-image-generation ${modulePart} module.`);
+    }
   });
-  assert(promptText === 'Sensei/Arona, Plana/new image/last scene/new image', 'ComfyUI prompt text should expand template placeholders from chat context.');
-  context.__applyWorkflow(cloned, promptText);
-  assert(cloned.one.inputs.text === promptText && cloned.two.inputs.text === 'avoid blur' && cloned.three.inputs.seed > 0, 'ComfyUI workflow application should fill prompt, negative prompt, and seed nodes.');
-  const image = context.__findOutput({ pid: { outputs: { out: { images: [{ filename: 'image.png' }] } } } }, 'pid');
-  assert(image.filename === 'image.png', 'ComfyUI output finder should return the first generated image.');
-  const viewUrl = context.__url('http://127.0.0.1:8188', { filename: 'a b.png', subfolder: 'out/f', type: 'output' });
-  assert(viewUrl.includes('filename=a%20b.png') && viewUrl.includes('subfolder=out%2Ff'), 'ComfyUI view URL should encode image parameters.');
-  assert(context.__wsUrl('http://server', 'client 1') === 'ws://server/ws?clientId=client%201', 'ComfyUI prompt WebSocket URL should be encoded.');
-  assert(context.__historyUrl('http://server', 'prompt/1') === 'http://server/history/prompt%2F1', 'ComfyUI prompt history URL should be encoded.');
-  assert(context.__historyComplete({ pid: {} }, 'pid') && context.__historyComplete({ outputs: {} }, 'pid'), 'ComfyUI history helper should detect finished prompts.');
-  assert(context.__finishedMessage({ type: 'executing', data: { prompt_id: 'pid', node: null } }, 'pid'), 'ComfyUI WebSocket helper should detect finished prompt messages.');
 
-  const msg = context.__msg('data:image/png;base64,abc', 'prompt', 'pid', { filename: 'x.png' });
-  assert(msg.attachments[0].mime === 'image/png' && msg.attachments[0].comfyPromptId === 'pid', 'ComfyUI image message should preserve attachment metadata.');
+  await capture('dialog markup', async () => {
+    const indexSource = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+    const composerEvents = await readFile(new URL('../src/app/71-event-chat-composer-bindings.js', import.meta.url), 'utf8');
+    const imageUi = await readFile(new URL('../src/app/51-image-generation-ui.js', import.meta.url), 'utf8');
+    assert(/id="imageGenerationPanel"[^>]+role="dialog"[^>]+aria-modal="true"/.test(indexSource), 'Qwen image panel must expose modal dialog semantics.');
+    assert(/aria-labelledby="imageGenerationTitle"/.test(indexSource), 'Qwen image panel must have an accessible title reference.');
+    assert(composerEvents.includes('handleImageGenerationPanelKeydown'), 'Qwen image panel must bind keyboard handling.');
+    assert(imageUi.includes("event.key === 'Escape'") && imageUi.includes("event.key !== 'Tab'"), 'Qwen image panel must handle Escape and focus trapping.');
+    assert(imageUi.includes('imageGenerationPreviousFocus'), 'Qwen image panel must restore focus after closing.');
+  });
 
-  const conv = { messages: [], updated: 0, _lastRenderedVisibleCount: 4 };
-  context.__append(conv, msg);
-  assert(conv.messages.length === 1 && conv._lastRenderedVisibleCount === 0, 'ComfyUI append should add the image message and reset visible count.');
-  assert(events.includes('persist') && events.includes('messages') && events.includes('conversations'), 'ComfyUI append should persist and refresh chat UI.');
+  await capture('deployment proxy', async () => {
+    const nginxSource = await readFile(new URL('../server/nginx-opentavern-sync-location.conf', import.meta.url), 'utf8');
+    assert(/location\s*=\s*\/api\/sync\s*\{/.test(nginxSource), 'Nginx deployment must proxy the frontend default /api/sync endpoint.');
+    assert((nginxSource.match(/proxy_read_timeout\s+300s;/g) || []).length >= 2, 'Nginx image routes must allow the full Qwen generation and download timeout window.');
+    assert((nginxSource.match(/client_max_body_size\s+16m;/g) || []).length === 2, 'Both exact image-generation routes must accept the Base64 character reference image.');
+  });
 
-  context.__status();
-  assert(statusEl.textContent.includes('api.json') && statusEl.textContent.includes('3 nodes') && statusEl.style.color === '#86efac', 'ComfyUI workflow status should show imported workflow details.');
-  context.state.settings.comfyWorkflow = null;
-  context.__status();
-  assert(statusEl.textContent === 'no workflow' && statusEl.style.color === '', 'ComfyUI workflow status should show the empty state.');
+  await capture('python service', async () => {
+    const serverUrl = new URL('../server/', import.meta.url);
+    const entries = await readdir(serverUrl, { withFileTypes: true });
+    const pythonFiles = entries.filter((entry) => entry.isFile() && entry.name.endsWith('.py'));
+    assert(pythonFiles.length > 0, 'No Python service source was found under server/.');
+    const pythonSource = (await Promise.all(
+      pythonFiles.map((entry) => readFile(new URL(entry.name, serverUrl), 'utf8'))
+    )).join('\n');
+
+    assert(pythonSource.includes('qwen-image-2.0-pro'), 'Python image service must default to qwen-image-2.0-pro.');
+    assert(pythonSource.includes('DASHSCOPE_API_KEY'), 'Python image service must read DASHSCOPE_API_KEY from the environment.');
+    assert(/\/api\/image\/generate/.test(pythonSource), 'Python image service must expose POST /api/image/generate.');
+    assert(
+      /(?:IMAGE|QWEN)(?:_[A-Z]+)*_(?:DIR|PATH)/.test(pythonSource)
+        && /(?:open\s*\([^\n]+["']wb["']|write_bytes\s*\(|os\.replace\s*\()/i.test(pythonSource),
+      'Python image service must download generated images into a durable image asset path.'
+    );
+    assert(
+      /download_generated_image\s*\(/.test(pythonSource)
+        && /save_image_asset\s*\(/.test(pythonSource)
+        && /IMAGE_ASSET_PREFIX/.test(pythonSource),
+      'Python image service must immediately download the 24-hour upstream URL and return a durable local asset path.'
+    );
+    assert(
+      /(?:ALLOWED|SUPPORTED|VALID|QWEN_IMAGE)(?:_[A-Z]+)*_SIZES?/.test(pythonSource)
+        && /size\s+not\s+in\s+[A-Z][A-Z0-9_]*SIZES/.test(pythonSource),
+      'Python image service must define and enforce an explicit image size whitelist.'
+    );
+    for (const size of ['2048*2048', '2688*1536', '1536*2688', '2368*1728', '1728*2368']) {
+      assert(pythonSource.includes(size), `Python image service size whitelist is missing ${size}.`);
+    }
+    assert(/IMAGE(?:_[A-Z]+)*_TOKEN|IMAGE_TOKEN/.test(pythonSource), 'Python image service must use a dedicated image token setting.');
+    assert(/Authorization|X-OpenTavern-Image-Token|Bearer/i.test(pythonSource), 'Python image endpoint must authenticate requests with an image token header.');
+    assert(/\.aliyuncs\.com/.test(pythonSource) && /validate_qwen_image_url/.test(pythonSource), 'Python image downloads must be restricted to Alibaba Cloud asset hosts.');
+    assert(/dimensions do not match the requested size/.test(pythonSource), 'Python image service must verify downloaded image dimensions.');
+    assert(/referenceImage|reference_image/.test(pythonSource), 'Python image service must accept a character-card reference image.');
+    assert(/content\.append\(\{["']image["']/.test(pythonSource), 'Python Qwen payload must place the reference image before the text prompt.');
+  });
+
+  if (imageModuleFiles.length > 0) {
+    await capture('frontend behavior', async () => {
+      const sources = await Promise.all(
+        imageModuleFiles.map((file) => readFile(new URL(`../src/app/${file}`, import.meta.url), 'utf8'))
+      );
+      const events = [];
+      const requests = [];
+      const messageInput = { value: 'current input: sunset on the academy rooftop' };
+      const genericElement = {
+        value: '',
+        textContent: '',
+        innerHTML: '',
+        disabled: false,
+        checked: false,
+        style: {},
+        dataset: {},
+        classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+        addEventListener() {},
+        removeEventListener() {},
+        setAttribute() {},
+        removeAttribute() {},
+        querySelector() { return null; },
+        querySelectorAll() { return []; },
+        focus() {},
+      };
+      const imageGenerationStatus = { ...genericElement, textContent: '' };
+      const character = {
+        id: 'arona',
+        name: 'Arona',
+        previewImage: '/cards/arona.png',
+        description: 'blue-haired academy guide with a halo',
+        personality: 'cheerful and helpful',
+        scenario: 'Kivotos academy city',
+      };
+      const conversationCharacter = { ...character, previewImage: '/cards/arona-old.png' };
+      const conv = {
+        id: 'c1',
+        title: 'Rooftop scene',
+        characterId: 'arona',
+        character: conversationCharacter,
+        messages: [
+          { role: 'user', content: 'older user message' },
+          {
+            id: 'main-latest',
+            role: 'assistant',
+            stage: 'main',
+            content: 'recent main body: wind lifts the papers into golden light\n<details>hidden status</details>\n<options><option>second-stage choice that must be excluded</option></options>',
+          },
+          { id: 'second-latest', role: 'assistant', stage: 'second', parentId: 'main-latest', content: '<options><option>visible second-stage option</option></options>' },
+          { role: 'assistant', content: '', attachments: [{ type: 'image', source: 'qwen-image', url: '/api/image/assets/old' }] },
+        ],
+        updated: 0,
+        _lastRenderedVisibleCount: 4,
+      };
+      const responseImage = {
+        assetId: 'asset-qwen-123',
+        id: 'asset-qwen-123',
+        url: '/api/image/assets/asset-qwen-123.png',
+        imageUrl: '/api/image/assets/asset-qwen-123.png',
+        mime: 'image/png',
+        mimeType: 'image/png',
+        model: 'qwen-image-2.0-pro',
+        width: 2048,
+        height: 2048,
+        source: 'qwen-image',
+      };
+      let responsePayload = {
+        success: true,
+        ...responseImage,
+        image: { ...responseImage },
+        asset: { ...responseImage },
+        data: { ...responseImage },
+      };
+      let summaryResponsePayload = {
+        choices: [{
+          finish_reason: 'stop',
+          message: { content: 'summarized safe scene: Arona on a golden rooftop, cinematic light' },
+        }],
+      };
+      const cryptoMock = {
+        subtle: webcrypto.subtle,
+        getRandomValues: webcrypto.getRandomValues.bind(webcrypto),
+        randomUUID: () => '00000000-0000-4000-8000-000000000001',
+      };
+      const makeCanvasMock = () => ({
+        width: 0,
+        height: 0,
+        getContext() {
+          return { fillStyle: '', fillRect() {}, drawImage() {} };
+        },
+        toBlob(callback) {
+          callback(new Blob([Uint8Array.from([255, 216, 255, 217])], { type: 'image/jpeg' }));
+        },
+      });
+      const documentMock = {
+        body: genericElement,
+        getElementById(id) { return id === 'messageInput' ? messageInput : genericElement; },
+        querySelector() { return null; },
+        querySelectorAll() { return []; },
+        createElement(tagName) { return String(tagName).toLowerCase() === 'canvas' ? makeCanvasMock() : { ...genericElement }; },
+        addEventListener() {},
+        removeEventListener() {},
+      };
+      const context = {
+        state: {
+          settings: {
+            imageGenerationEnabled: true,
+            qwenImageEnabled: true,
+            imageGenerationEndpoint: '/api/image/generate',
+            qwenImageEndpoint: '/api/image/generate',
+            imageGenerationToken: 'valid-image-token',
+            qwenImageToken: 'valid-image-token',
+            imageGenerationSize: '2048*2048',
+            qwenImageSize: '2048*2048',
+            imageGenerationNegativePrompt: 'low quality, blurry text',
+            qwenImageNegativePrompt: 'low quality, blurry text',
+            imageGenerationPromptExtend: true,
+            qwenImagePromptExtend: true,
+            imageGenerationUseCharacter: true,
+            imageGenerationUseChatContext: true,
+            userName: 'Sensei',
+            apiEndpoint: 'https://text.example/v1/chat/completions',
+            apiKey: 'text-api-key',
+            model: 'text-model',
+            summarizeUseMainAPI: true,
+          },
+          conversations: { c1: conv },
+          conversationOrder: ['c1'],
+          activeConvId: 'c1',
+          characters: { arona: character },
+          isGenerating: false,
+        },
+        dom: new Proxy({ messageInput, imageGenerationStatus }, { get(target, property) { return target[property] || genericElement; } }),
+        document: documentMock,
+        window: {
+          document: documentMock,
+          crypto: cryptoMock,
+          location: { origin: 'https://example.com', protocol: 'https:', host: 'example.com', href: 'https://example.com/' },
+          showGlassAlert(message) { events.push(`alert:${message}`); },
+        },
+        navigator: { storage: {} },
+        localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+        crypto: cryptoMock,
+        getActiveConv() { return conv; },
+        getActiveConversation() { return conv; },
+        getCurrentCharacter() { return character; },
+        isGroupChat(target) { return !!(target && target.group && Array.isArray(target.group.members) && target.group.members.length >= 2); },
+        getGroupMembers(target) { return target && target.group && Array.isArray(target.group.members) ? target.group.members : []; },
+        async persistState() { events.push('persist'); },
+        async saveConversation() { events.push('persist'); },
+        StorageService: { async saveAll() { events.push('persist'); } },
+        renderMessagesOnly() { events.push('messages'); },
+        renderConversationListOnly() { events.push('conversations'); },
+        requestFullRender() { events.push('render'); },
+        updateInputState() { events.push('input-state'); },
+        appStore: { notify() { events.push('notify'); } },
+        showGlassAlert(message) { events.push(`alert:${message}`); },
+        showToast(message) { events.push(`toast:${message}`); },
+        t(key) { return key; },
+        normalizeApiEndpoint(value) { return String(value || ''); },
+        shouldUseOllamaCompat() { return false; },
+        normalizeMessagesForOllamaCompatibility(messages) { return messages; },
+        async fetch(input, options = {}) {
+          let url = String(input);
+          let method = options.method || 'GET';
+          let body = options.body;
+          let headers = options.headers || {};
+          if (typeof Request !== 'undefined' && input instanceof Request) {
+            url = input.url;
+            method = input.method;
+            body = await input.clone().text();
+            headers = Object.fromEntries(input.headers.entries());
+          }
+          requests.push({ url, method, body, headers });
+          if (/\/api\/image\/generate(?:\?|$)/.test(url)) {
+            return new Response(JSON.stringify(responsePayload), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+          if (url === 'https://text.example/v1/chat/completions') {
+            return new Response(JSON.stringify(summaryResponsePayload), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+          return new Response(Uint8Array.from([137, 80, 78, 71]), {
+            status: 200,
+            headers: { 'Content-Type': 'image/png' },
+          });
+        },
+        FileReader: class {
+          readAsDataURL() { this.result = 'data:image/jpeg;base64,/9j/2Q=='; if (this.onload) this.onload(); }
+        },
+        async createImageBitmap() { return { width: 1024, height: 1536, close() {} }; },
+        Response,
+        Request,
+        Headers,
+        Blob,
+        FormData,
+        URL,
+        URLSearchParams,
+        AbortController,
+        TextEncoder,
+        TextDecoder,
+        Uint8Array,
+        ArrayBuffer,
+        Promise,
+        JSON,
+        Date,
+        Math,
+        Number,
+        Object,
+        String,
+        Array,
+        RegExp,
+        Error,
+        TypeError,
+        console,
+        setTimeout,
+        clearTimeout,
+        queueMicrotask,
+        encodeURIComponent,
+        decodeURIComponent,
+        btoa(text) { return Buffer.from(text, 'binary').toString('base64'); },
+        atob(text) { return Buffer.from(text, 'base64').toString('binary'); },
+      };
+
+      vm.runInNewContext(`${sources.join('\n')}\nthis.__generateImage = typeof generateImageForCurrentChat === 'function' ? generateImageForCurrentChat : (typeof generateQwenImageForCurrentChat === 'function' ? generateQwenImageForCurrentChat : null);\nthis.__buildImagePrompt = typeof buildImageGenerationPrompt === 'function' ? buildImageGenerationPrompt : (typeof buildQwenImagePrompt === 'function' ? buildQwenImagePrompt : null);\nthis.__createImageMessage = typeof createQwenImageMessage === 'function' ? createQwenImageMessage : (typeof createImageGenerationMessage === 'function' ? createImageGenerationMessage : null);\nthis.__normalizeImageEndpoint = normalizeImageGenerationEndpoint;\nthis.__createImageError = createImageGenerationRequestError;\nthis.__formatImageError = formatImageGenerationError;\nthis.__requestImage = requestQwenImageGeneration;\nthis.__latestMainMessage = getLatestPrimaryAssistantImageGenerationMessage;\nthis.__latestMainText = getLatestAssistantImageGenerationText;\nthis.__referenceDescriptor = getImageGenerationReferenceDescriptor;\nthis.__buildImageSummaryMessages = buildImageGenerationSummaryMessages;`, context);
+
+      assert(typeof context.__generateImage === 'function', 'Qwen image modules must expose generateImageForCurrentChat (or an equivalent public generator).');
+      assert(typeof context.__buildImagePrompt === 'function', 'Qwen image modules must expose buildImageGenerationPrompt (or an equivalent prompt builder).');
+      assert(typeof context.__createImageMessage === 'function', 'Qwen image modules must expose createQwenImageMessage (or an equivalent message factory).');
+      assert(context.__normalizeImageEndpoint('/api/image/generate') === '/api/image/generate', 'Qwen image endpoint normalization must preserve same-origin paths.');
+      assert(context.__normalizeImageEndpoint('https://image.example/generate') === 'https://image.example/generate', 'Qwen image endpoint normalization must preserve explicit HTTPS endpoints.');
+      for (const unsafeEndpoint of ['javascript:alert(1)', 'data:text/plain,token', 'file:///tmp/image', '//evil.example/steal']) {
+        assert(context.__normalizeImageEndpoint(unsafeEndpoint) === '/api/image/generate', `Unsafe Qwen image endpoint was not rejected: ${unsafeEndpoint}`);
+      }
+
+      const latestMainMessage = context.__latestMainMessage(conv);
+      const latestMainText = context.__latestMainText(conv);
+      assert(latestMainMessage && latestMainMessage.id === 'main-latest', 'Image generation must select the latest main-stage assistant reply.');
+      assert(latestMainText.includes('recent main body'), 'Image generation must collect the latest main reply body.');
+      assert(!latestMainText.includes('hidden status') && !latestMainText.includes('option'), 'Image generation must remove details/status and second-stage option blocks.');
+      assert(!latestMainText.includes(messageInput.value), 'Composer input must not replace the collected main reply body.');
+      assert(context.__buildImagePrompt(conv) === latestMainText.slice(0, 5000), 'Legacy image prompt entrypoint must also return only the latest main reply body.');
+      const singleReference = context.__referenceDescriptor(conv, latestMainMessage);
+      assert(singleReference.source === '/cards/arona.png', 'Image generation must prefer the latest registered role-card image over a stale conversation clone.');
+
+      const mika = { name: 'Mika', previewImage: '/cards/mika.png' };
+      context.state.characters.mika = mika;
+      const groupMain = { id: 'group-main', role: 'assistant', stage: 'main', speaker: 'Mika', content: 'group main body' };
+      const groupConv = {
+        group: { members: [{ character }, { character: mika }] },
+        messages: [groupMain],
+      };
+      assert(context.__referenceDescriptor(groupConv, groupMain).source === '/cards/mika.png', 'Group image generation must use the latest main reply speaker role-card image.');
+
+      const summaryMessages = context.__buildImageSummaryMessages(latestMainText, 'use a low-angle camera');
+      const summaryInput = JSON.parse(summaryMessages[1].content);
+      assert(summaryInput.latestMainReply === latestMainText, 'Image summary request must contain only the cleaned latest main reply.');
+      assert(summaryInput.userSupplement === 'use a low-angle camera', 'Image summary request may include only an explicit optional supplement.');
+      assert(!/unrestricted|ignore (?:all )?(?:filters|safety)/i.test(summaryMessages[0].content), 'Image summary system prompt must not attempt to bypass safety filters.');
+
+      const qwenError = context.__createImageError(502, {
+        success: false,
+        error: 'Qwen image generation failed.',
+        provider: 'qwen',
+        code: 'QWEN_UPSTREAM_FAILED',
+        upstreamCode: 'DataInspectionFailed',
+        reason: 'Input data may contain inappropriate content.',
+        requestId: 'request-error-123',
+        upstreamStatus: 400,
+      });
+      const qwenErrorText = context.__formatImageError(qwenError);
+      assert(qwenErrorText.includes('Input data may contain inappropriate content.'), 'Qwen failure UI must include the upstream failure reason.');
+      assert(qwenErrorText.includes('DataInspectionFailed'), 'Qwen failure UI must include the upstream error code.');
+      assert(qwenErrorText.includes('request-error-123'), 'Qwen failure UI must include the upstream request ID.');
+
+      const credentialError = context.__createImageError(502, {
+        provider: 'qwen',
+        reason: 'Signature=signature-secret AccessKeyId=access-secret SecurityToken=security-secret Credential=credential-secret',
+      });
+      const credentialErrorText = context.__formatImageError(credentialError);
+      for (const secret of ['signature-secret', 'access-secret', 'security-secret', 'credential-secret']) {
+        assert(!credentialErrorText.includes(secret), `Qwen failure UI must redact signed credential field: ${secret}`);
+      }
+      const imageEchoError = context.__createImageError(502, {
+        provider: 'qwen',
+        reason: 'echoed data:image/jpeg;base64,QUJDREVGR0g=',
+      });
+      assert(!context.__formatImageError(imageEchoError).includes('QUJDREVGR0g'), 'Qwen failure UI must redact echoed reference-image data URLs.');
+      const foldedImageEchoError = context.__createImageError(502, {
+        provider: 'qwen',
+        reason: 'echoed data:image/jpeg;base64,QUJD\r\nREVGR0hJSktMTU5PUA==',
+      });
+      const foldedImageEchoText = context.__formatImageError(foldedImageEchoError);
+      assert(!foldedImageEchoText.includes('QUJD') && !foldedImageEchoText.includes('REVGR0hJSktMTU5PUA'), 'Qwen failure UI must redact folded reference-image data URLs completely.');
+
+      const unauthorizedError = context.__createImageError(401, {
+        error: 'Invalid token: secret-token-value',
+        reason: 'Authorization: Bearer secret-token-value',
+        requestId: 'request-auth',
+      });
+      const unauthorizedText = context.__formatImageError(unauthorizedError);
+      assert(unauthorizedText === '图片服务拒绝访问，请检查访问令牌。', 'Image gateway 401 must keep the safe access-token guidance.');
+      assert(!unauthorizedText.includes('secret-token-value'), 'Image gateway 401 must not expose response credentials.');
+
+      const htmlError = context.__createImageError(502, null, '<html><body>proxy failure</body></html>');
+      assert(!String(htmlError.message).includes('proxy failure'), 'Non-JSON proxy responses must not be displayed as Qwen failure reasons.');
+
+      const initialMessageCount = conv.messages.length;
+      const generatedResult = await context.__generateImage();
+      const summaryRequest = requests.find((entry) => entry.url === 'https://text.example/v1/chat/completions');
+      assert(summaryRequest, 'Image generation must summarize the latest main reply with the configured text model.');
+      let summaryRequestBody = summaryRequest.body;
+      if (typeof summaryRequestBody === 'string') summaryRequestBody = JSON.parse(summaryRequestBody);
+      assert(summaryRequestBody.model === 'text-model', 'Image scene summarization must use the configured text model.');
+      assert(summaryRequestBody.max_tokens === 1300, 'Image scene summarization must cap output at 1300 tokens.');
+      assert(summaryRequestBody.stream === false, 'Image scene summarization must use a non-streaming request.');
+      const summaryPayloadInput = JSON.parse(summaryRequestBody.messages[1].content);
+      assert(summaryPayloadInput.latestMainReply.includes('recent main body'), 'Summary input must contain the latest main reply.');
+      assert(!summaryPayloadInput.latestMainReply.includes('option') && !summaryPayloadInput.latestMainReply.includes('hidden status'), 'Summary input must exclude second-stage options and details/status content.');
+      assert(!summaryPayloadInput.latestMainReply.includes('older user message') && !summaryPayloadInput.latestMainReply.includes(messageInput.value), 'Summary input must not include older history or the composer text.');
+
+      const generateRequest = requests.find((entry) => /\/api\/image\/generate(?:\?|$)/.test(entry.url));
+      assert(generateRequest, 'generateImageForCurrentChat must call POST /api/image/generate.');
+      assert(String(generateRequest.method).toUpperCase() === 'POST', 'Qwen image generation request must use POST.');
+      let requestBody = generateRequest.body;
+      if (typeof requestBody === 'string') requestBody = JSON.parse(requestBody);
+      assert(requestBody && typeof requestBody === 'object', 'Qwen image generation request must send a JSON body.');
+      assert(requestBody.size === '2048*2048', 'Qwen image generation request must include the selected size.');
+      assert(requestBody.negativePrompt === 'low quality, blurry text', 'Qwen image generation request must include negativePrompt.');
+      assert(requestBody.promptExtend === true, 'Qwen image generation request must include promptExtend.');
+      assert(generateRequest.headers['X-OpenTavern-Image-Token'] === 'valid-image-token', 'Qwen image generation must send the dedicated image gateway token header.');
+      assert(!generateRequest.headers['X-OpenTavern-Token'], 'Qwen image generation must not reuse the cloud sync token header.');
+      const sentPrompt = String(requestBody.prompt || '');
+      assert(sentPrompt === 'summarized safe scene: Arona on a golden rooftop, cinematic light', 'Qwen prompt must be exactly the text-model summary.');
+      assert(/^data:image\/jpeg;base64,/i.test(String(requestBody.referenceImage || '')), 'Qwen image request must include the rasterized character-card image.');
+      assert(requests.indexOf(summaryRequest) < requests.indexOf(generateRequest), 'The image request must wait for the text-model summary.');
+
+      const resultMessages = generatedResult && Array.isArray(generatedResult.messages)
+        ? generatedResult.messages
+        : generatedResult && generatedResult.message
+          ? [generatedResult.message]
+          : generatedResult && Array.isArray(generatedResult.attachments)
+            ? [generatedResult]
+            : [];
+      const createdMessages = conv.messages.slice(initialMessageCount).concat(resultMessages);
+      const createdAttachment = createdMessages
+        .flatMap((message) => Array.isArray(message && message.attachments) ? message.attachments : [])
+        .find((attachment) => attachment && attachment.source === 'qwen-image');
+      assert(createdAttachment, 'Successful Qwen generation must create a source=qwen-image attachment.');
+      assert(
+        createdAttachment.assetId === 'asset-qwen-123'
+          || createdAttachment.url === '/api/image/assets/asset-qwen-123.png'
+          || createdAttachment.imageUrl === '/api/image/assets/asset-qwen-123.png',
+        'Qwen image attachment must retain the durable server asset reference.'
+      );
+      assert(createdAttachment.prompt === sentPrompt, 'Saved Qwen attachment must retain the summarized image prompt.');
+      assert(createdAttachment.sourceMessageId === 'main-latest', 'Saved Qwen attachment must retain the source main-message ID.');
+      assert(createdAttachment.referenceCharacterName === 'Arona', 'Saved Qwen attachment must retain the reference character name.');
+      assert(events.includes('persist'), 'Successful Qwen generation must persist the new image message.');
+
+      responsePayload = {
+        success: false,
+        error: 'Qwen image generation failed.',
+        provider: 'qwen',
+        code: 'QWEN_NO_IMAGE',
+        upstreamCode: 'DataInspectionFailed',
+        reason: 'The prompt was rejected by the content policy.',
+        requestId: 'request-runtime-failure',
+      };
+      let directFailure = null;
+      try {
+        await context.__requestImage({ prompt: 'blocked prompt' });
+      } catch (error) {
+        directFailure = error;
+      }
+      assert(directFailure && directFailure.reason === 'The prompt was rejected by the content policy.', 'HTTP 200 success=false must reject with the Qwen failure reason.');
+
+      const messagesBeforeFailure = conv.messages.length;
+      const persistEventsBeforeFailure = events.filter((event) => event === 'persist').length;
+      await context.__generateImage();
+      assert(conv.messages.length === messagesBeforeFailure, 'Failed Qwen generation must not append a chat message.');
+      assert(events.filter((event) => event === 'persist').length === persistEventsBeforeFailure, 'Failed Qwen generation must not persist a new message.');
+      assert(
+        String(imageGenerationStatus.textContent).includes('The prompt was rejected by the content policy.'),
+        `Failed Qwen generation must show the upstream reason in the panel status (actual: ${String(imageGenerationStatus.textContent)}).`
+      );
+
+      summaryResponsePayload = {
+        choices: [{ finish_reason: 'stop', message: { content: 'CANNOT_CREATE_SAFE_IMAGE_PROMPT' } }],
+      };
+      const generateCountBeforeUnsafeSummary = requests.filter((entry) => /\/api\/image\/generate(?:\?|$)/.test(entry.url)).length;
+      const messagesBeforeUnsafeSummary = conv.messages.length;
+      await context.__generateImage();
+      assert(
+        requests.filter((entry) => /\/api\/image\/generate(?:\?|$)/.test(entry.url)).length === generateCountBeforeUnsafeSummary,
+        'Unsafe or unsummarizable main text must block the Qwen image request.'
+      );
+      assert(conv.messages.length === messagesBeforeUnsafeSummary, 'Blocked image-summary content must not append a chat message.');
+      assert(String(imageGenerationStatus.textContent).includes('无法安全改写'), 'Blocked image-summary content must show a clear safe-rewrite error.');
+
+      const savedRegistryImage = character.previewImage;
+      const savedConversationImage = conversationCharacter.previewImage;
+      character.previewImage = '';
+      conversationCharacter.previewImage = '';
+      const requestCountBeforeMissingImage = requests.length;
+      await context.__generateImage();
+      assert(requests.length === requestCountBeforeMissingImage, 'Missing role-card images must block both summary and image requests.');
+      assert(String(imageGenerationStatus.textContent).includes('没有可用图片'), 'Missing role-card images must show a clear error.');
+      character.previewImage = savedRegistryImage;
+      conversationCharacter.previewImage = savedConversationImage;
+    });
+  }
+
+  assert(failures.length === 0, `Qwen image generation contract failed:\n- ${failures.join('\n- ')}`);
 }
 
 async function assertFrontendLibraryConversationHelpers() {
@@ -4886,6 +5370,8 @@ async function assertFrontendCharacterEditorUI() {
     character: {
       name: 'Unnamed',
       tags: ['old'],
+      previewImage: 'data:image/png;base64,preview',
+      avatar: 'data:image/png;base64,avatar',
       alternate_greetings: ['hi'],
       extensions: { depth: 1 },
     },
@@ -4947,6 +5433,7 @@ async function assertFrontendCharacterEditorUI() {
   context.__save();
   assert(activeConv.character.name === 'Arona' && activeConv.character.tags.join(',') === 'ai,guide', 'Character editor should save form fields into the conversation character.');
   assert(activeConv.character.alternate_greetings[0] === 'hi' && activeConv.character.extensions.depth === 1, 'Character editor should preserve existing character metadata.');
+  assert(activeConv.character.previewImage.includes('preview') && activeConv.character.avatar.includes('avatar'), 'Character editor should preserve role-card images used by image generation.');
   assert(activeConv.messages[0].content === 'Hello Sensei from Arona', 'Character editor should seed first messages for new characters.');
   assert(context.state.characters.arona.name === 'Arona' && context.state.characters.arona !== activeConv.character, 'Character editor should register an independent global card copy.');
   assert(activeConv.title === 'Chat with Arona' && activeConv.updated === 999, 'Character editor should update conversation title and timestamp.');
@@ -5033,6 +5520,7 @@ async function assertFrontendMessageContentHelpers() {
     '../src/app/61-message-attachments-render.js',
     '../src/app/61-message-cot-render.js',
     '../src/app/61-message-content-render.js',
+    '../src/app/61-chat-message-html.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
   class FakeDOMParser {
@@ -5067,7 +5555,7 @@ async function assertFrontendMessageContentHelpers() {
     RegExp,
   };
 
-  vm.runInNewContext(`${sources.join('\n')}\nthis.__escape = escapeHtml;\nthis.__highlight = highlightDialogue;\nthis.__status = sanitizeStatusBarHtml;\nthis.__assistant = renderAssistantContent;\nthis.__attachments = renderMessageAttachments;\nthis.__bubble = renderMessageBubbleContent;\nthis.__cot = renderCotBlock;\nthis.__options = renderOptionsXml;`, context);
+  vm.runInNewContext(`${sources.join('\n')}\nthis.__escape = escapeHtml;\nthis.__highlight = highlightDialogue;\nthis.__status = sanitizeStatusBarHtml;\nthis.__assistant = renderAssistantContent;\nthis.__attachments = renderMessageAttachments;\nthis.__bubble = renderMessageBubbleContent;\nthis.__cot = renderCotBlock;\nthis.__options = renderOptionsXml;\nthis.__actions = renderMessageActionButtons;`, context);
 
   assert(context.__escape('<b title="x">&') === '&lt;b title=&quot;x&quot;&gt;&amp;', 'Message escapeHtml should escape unsafe HTML characters.');
 
@@ -5086,7 +5574,12 @@ async function assertFrontendMessageContentHelpers() {
       { type: 'file', url: 'skip' },
     ],
   });
-  assert(attachments.includes('msg-attachment-image') && attachments.includes('ComfyUI') && attachments.includes('&lt;prompt&gt;') && !attachments.includes('skip'), 'Message attachment renderer should render escaped image attachments only.');
+  assert(attachments.includes('msg-attachment-image') && attachments.includes('&lt;prompt&gt;') && !attachments.includes('skip'), 'Message attachment renderer must keep rendering historical source=comfyui image attachments.');
+
+  const textActions = context.__actions(1, false, { role: 'assistant', content: 'text reply' });
+  const imageActions = context.__actions(2, false, { role: 'assistant', content: '', attachments: [{ type: 'image', source: 'qwen-image', url: '/api/image/assets/id' }] });
+  assert(textActions.includes('data-action="copy"') && textActions.includes('data-action="edit"') && textActions.includes('data-action="retry"'), 'Text assistant messages should keep their standard actions.');
+  assert(!imageActions.includes('data-action="copy"') && !imageActions.includes('data-action="edit"') && !imageActions.includes('data-action="retry"') && imageActions.includes('data-action="delete"'), 'Image-only messages should expose only the safe delete action.');
 
   const bubble = context.__bubble({ role: 'user', content: '<hello>', attachments: [] }, true);
   assert(bubble === '&lt;hello&gt;', 'User message bubble should render escaped plain text.');
@@ -5283,6 +5776,11 @@ async function assertFrontendMessageActionHelpers() {
     document: { getElementById: () => null },
     appStore: { notify(key) { events.push('notify:' + key); } },
     alert: (msg) => events.push('alert:' + msg),
+    isImageAttachmentOnlyMessage(msg) {
+      return !String(msg && msg.content || '').trim()
+        && Array.isArray(msg && msg.attachments)
+        && msg.attachments.some((attachment) => attachment && attachment.type === 'image');
+    },
     Date: { now: () => 12345 },
     Array,
   };
@@ -5329,6 +5827,15 @@ async function assertFrontendMessageActionHelpers() {
   context.__regen(1);
   assert(activeConv.messages.length === 1 && events.includes('second:parent') && events.includes('complete:regen-second'), 'Second-stage regenerate should remove the child and rerun second-stage generation.');
   assert(!events.includes('render-conversations'), 'Second-stage regenerate should not refresh the conversation list.');
+
+  reset({
+    id: 'regen-image',
+    messages: [
+      { role: 'assistant', content: '', attachments: [{ type: 'image', source: 'qwen-image', url: '/api/image/assets/id' }] },
+    ],
+  });
+  context.__regen(0);
+  assert(activeConv.messages.length === 1 && events.length === 0, 'Image-only assistant messages must not enter the text regeneration flow.');
 
   reset({
     id: 'regen-main',
@@ -7298,7 +7805,7 @@ async function main() {
   await assertFrontendGroupChatCoreHelpers();
   await assertFrontendGroupMentionUI();
   await assertFrontendConversationModelHelpers();
-  await assertFrontendComfyUIHelpers();
+  await assertQwenImageGenerationContract();
   await assertFrontendLibraryConversationHelpers();
   await assertFrontendLibraryViewHelpers();
   await assertFrontendMobileSidebarUI();

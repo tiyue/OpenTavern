@@ -42,7 +42,7 @@ function openSettings() {
     hydrateWorldInfoBudgetSettings();
     hydrateThemePerformanceSettings();
     hydrateSummarizationApiSettings();
-    hydrateComfySettingsControls();
+    hydrateImageGenerationSettingsControls();
     hydrateCloudSyncSettingsControls();
     toggleSummarizeCustomSection();
     bindWebLLMSettingsControls();

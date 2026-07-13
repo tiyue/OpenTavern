@@ -14,9 +14,9 @@ function renderMessageAttachments(msg) {
     var html = '<div class="msg-attachments">';
     msg.attachments.forEach(function(att) {
         if (!att || att.type !== 'image') return;
-        var src = att.dataUrl || att.url || '';
+        var src = getRenderableImageAttachmentSource(att);
         if (!src) return;
-        var label = att.source === 'comfyui' ? 'ComfyUI' : (att.source || 'Image');
+        var label = getImageAttachmentSourceLabel(att);
         var prompt = att.prompt ? String(att.prompt) : '';
         html += '<figure>';
         html += '<img class="msg-attachment-image" src="' + escapeHtml(src) + '" alt="' + escapeHtml(label) + '" loading="lazy">';
@@ -25,4 +25,17 @@ function renderMessageAttachments(msg) {
     });
     html += '</div>';
     return html;
+}
+
+function getRenderableImageAttachmentSource(att) {
+    var src = String(att && (att.dataUrl || att.url) || '').trim();
+    if (!src) return '';
+    if (/^(data:image\/|blob:|https?:\/\/|\/|\.\.?\/)/i.test(src)) return src;
+    return src.indexOf(':') === -1 ? src : '';
+}
+
+function getImageAttachmentSourceLabel(att) {
+    if (att && att.source === 'comfyui') return 'ComfyUI';
+    if (att && att.source === 'qwen-image') return 'Qwen 图片';
+    return att && att.source ? String(att.source) : 'Image';
 }

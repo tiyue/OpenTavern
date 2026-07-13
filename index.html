@@ -416,50 +416,62 @@
             </div>
 
             <hr class="border-white/5">
-            <!-- ComfyUI txt2img local image generation -->
+            <!-- Qwen Image generation -->
             <div class="glass rounded-2xl p-3 border border-white/5">
                 <div class="flex items-center justify-between gap-3">
                     <div>
-                        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_comfy_title">ComfyUI 图像生成</label>
-                        <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_comfy_hint">连接本机 ComfyUI，通过导入 API workflow 手动生成图片并附加到聊天。</p>
+                        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Qwen 图片生成</label>
+                        <p class="text-[10px] text-zinc-600 mt-0.5">使用文本模型总结最近主回复，再把总结和对应角色卡图片发送到 Qwen Image 网关。</p>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
-                        <input type="checkbox" id="comfyEnabled" class="sr-only peer">
+                        <input type="checkbox" id="imageGenerationEnabled" class="sr-only peer">
                         <div class="w-9 h-5 bg-white/10 rounded-full peer-checked:bg-amber-500/60 peer-checked:ring-1 peer-checked:ring-amber-500/40 transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
                     </label>
                 </div>
                 <div class="mt-3 space-y-2">
                     <div>
-                        <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_comfy_server">ComfyUI 地址</label>
-                        <input id="comfyServer" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="http://127.0.0.1:8188">
+                        <label class="text-xs font-semibold text-zinc-400">服务端点</label>
+                        <input id="imageGenerationEndpoint" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="/api/image/generate">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400">访问令牌</label>
+                        <input id="imageGenerationToken" type="password" autocomplete="off" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="图片网关访问令牌">
+                        <p class="text-[10px] text-zinc-600 mt-1">令牌仅保存在当前浏览器；百炼 API Key 只配置在服务端。</p>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_comfy_positive_node">正向提示词节点 ID</label>
-                            <input id="comfyPositiveNodeId" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200" placeholder="6">
+                            <label class="text-xs font-semibold text-zinc-400">默认画面比例</label>
+                            <select id="imageGenerationSize" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
+                                <option value="2048*2048">1:1 · 2048 × 2048</option>
+                                <option value="2688*1536">16:9 · 2688 × 1536</option>
+                                <option value="1536*2688">9:16 · 1536 × 2688</option>
+                                <option value="2368*1728">4:3 · 2368 × 1728</option>
+                                <option value="1728*2368">3:4 · 1728 × 2368</option>
+                            </select>
                         </div>
-                        <div>
-                            <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_comfy_negative_node">负向提示词节点 ID</label>
-                            <input id="comfyNegativeNodeId" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200" placeholder="7">
+                        <div class="hidden" aria-hidden="true">
+                            <label class="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
+                                <input id="imageGenerationPromptExtend" type="checkbox" class="accent-amber-500">
+                                智能改写提示词
+                            </label>
+                            <label class="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
+                                <input id="imageGenerationIncludeCharacter" type="checkbox" class="accent-amber-500">
+                                包含角色资料
+                            </label>
+                            <label class="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
+                                <input id="imageGenerationIncludeContext" type="checkbox" class="accent-amber-500">
+                                包含最近对话
+                            </label>
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_comfy_seed_node">Seed 节点 ID</label>
-                            <input id="comfySeedNodeId" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200" placeholder="3">
-                        </div>
-                        <div>
-                            <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_comfy_negative_prompt">默认负向提示词</label>
-                            <input id="comfyNegativePrompt" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200" placeholder="low quality, blurry">
-                        </div>
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400">默认负向提示词</label>
+                        <textarea id="imageGenerationNegativePrompt" rows="2" maxlength="500" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 resize-y" placeholder="低画质，模糊，肢体畸形，错误文字"></textarea>
                     </div>
-                    <textarea id="comfyPromptTemplate" rows="3" class="w-full px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 resize-y" data-i18n-placeholder="settings_comfy_prompt_template_placeholder"></textarea>
-                    <input id="comfyWorkflowFile" type="file" accept=".json,application/json" class="hidden">
-                    <div class="flex flex-wrap gap-2">
-                        <button id="comfyImportWorkflowBtn" type="button" class="px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-amber-500/20 active:bg-amber-500/30 text-amber-300 hover:text-amber-200 border border-white/10 transition-all font-medium" data-i18n="settings_comfy_import_workflow">导入 API Workflow</button>
-                        <button id="comfyTestBtn" type="button" class="px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-amber-500/20 active:bg-amber-500/30 text-zinc-300 hover:text-amber-200 border border-white/10 transition-all font-medium" data-i18n="settings_comfy_test">测试连接</button>
+                    <div class="hidden" aria-hidden="true">
+                        <label class="text-xs font-semibold text-zinc-400">提示词模板</label>
+                        <textarea id="imageGenerationPromptTemplate" rows="4" maxlength="5000" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 resize-y" placeholder="支持 {{character}}、{{scene}}、{{context}}、{{input}}"></textarea>
                     </div>
-                    <div id="comfyWorkflowStatus" class="text-[10px] leading-relaxed text-zinc-500" data-i18n="settings_comfy_no_workflow">尚未导入 workflow。</div>
                 </div>
             </div>
 
@@ -498,8 +510,8 @@
                     </div>
                     <div class="flex items-center justify-between gap-3">
                         <div>
-                            <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">加密上传内容</label>
-                            <p class="text-[10px] text-zinc-600 mt-0.5">上传前在浏览器内加密云端快照。</p>
+                            <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">加密上传内容（预留）</label>
+                            <p class="text-[10px] text-zinc-600 mt-0.5">增量同步加密暂未实现；开启后会阻止上传，不会静默上传明文。</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
                             <input type="checkbox" id="cloudSyncEncrypted" class="sr-only peer">
@@ -509,7 +521,7 @@
                     <div>
                         <label class="text-xs font-semibold text-zinc-400">加密密码</label>
                         <input id="cloudSyncPassphrase" type="password" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="开启加密时必填">
-                        <p class="text-[10px] text-zinc-600 mt-1">加密密码也只保存在本地；遗失后将无法恢复已加密的云端快照。</p>
+                        <p class="text-[10px] text-zinc-600 mt-1">目前仅用于恢复旧版已加密快照；密码只保存在本地。</p>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <button id="cloudSyncNowBtn" type="button" class="px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-emerald-500/20 active:bg-emerald-500/30 text-emerald-300 hover:text-emerald-200 border border-white/10 transition-all font-medium">立即同步</button>
@@ -518,6 +530,47 @@
                     </div>
                     <div id="cloudSyncStatus" class="text-[10px] leading-relaxed text-zinc-500"></div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Qwen Image Generation Panel ===== -->
+<div id="imageGenerationPanel" class="modal-overlay fixed inset-0 z-[170] flex items-end sm:items-center justify-center hidden" role="dialog" aria-modal="true" aria-labelledby="imageGenerationTitle" aria-hidden="true">
+    <div id="imageGenerationBackdrop" class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+    <div class="relative glass w-full sm:w-[92%] sm:max-w-lg rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl animate-fade-in max-h-[88vh] overflow-y-auto">
+        <div class="flex items-center justify-between gap-3 mb-4">
+            <div>
+                <h2 id="imageGenerationTitle" class="text-base font-bold text-zinc-100">生成图片</h2>
+                <p class="text-[10px] text-zinc-500 mt-0.5">自动总结最近一次主回复正文，并结合对应角色卡图片进行图文生成。</p>
+            </div>
+            <button id="imageGenerationCloseBtn" type="button" class="w-8 h-8 rounded-full glass flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors" aria-label="关闭">&times;</button>
+        </div>
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs font-semibold text-zinc-400">补充画面要求（可选）</label>
+                <textarea id="imageGenerationPrompt" rows="4" maxlength="2000" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 resize-y" placeholder="正文固定取最近一次主回复；这里只填写可选的镜头、构图或氛围要求"></textarea>
+            </div>
+            <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400">画面比例</label>
+                    <select id="imageGenerationPanelSize" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
+                        <option value="2048*2048">1:1 · 2048 × 2048</option>
+                        <option value="2688*1536">16:9 · 2688 × 1536</option>
+                        <option value="1536*2688">9:16 · 1536 × 2688</option>
+                        <option value="2368*1728">4:3 · 2368 × 1728</option>
+                        <option value="1728*2368">3:4 · 1728 × 2368</option>
+                    </select>
+                </div>
+                <label class="h-[42px] px-3 glass rounded-xl flex items-center gap-2 text-xs text-zinc-300 cursor-pointer whitespace-nowrap">
+                    <input id="imageGenerationPanelPromptExtend" type="checkbox" class="accent-amber-500">
+                    智能改写
+                </label>
+            </div>
+            <div id="imageGenerationStatus" class="min-h-[18px] text-xs text-zinc-500" aria-live="polite"></div>
+            <div class="flex justify-end gap-2">
+                <button id="imageGenerationCancelBtn" type="button" class="px-4 py-2 text-sm rounded-xl glass text-zinc-300 hover:text-zinc-100 transition-colors">取消</button>
+                <button id="imageGenerationSubmitBtn" type="button" class="px-4 py-2 text-sm rounded-xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">生成图片</button>
             </div>
         </div>
     </div>
@@ -1457,9 +1510,10 @@
                           class="flex-1 px-4 py-3 glass rounded-2xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none transition-all min-h-[44px]"
                           data-i18n-placeholder="input_placeholder"
                           disabled></textarea>
-                <button id="comfyGenerateBtn"
-                        class="hidden flex-shrink-0 w-11 h-11 rounded-2xl glass text-zinc-400 hover:text-amber-300 hover:bg-white/10 active:bg-white/15 transition-all duration-200 items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
-                        data-i18n-title="comfy_generate_title"
+                <button id="imageGenerationBtn"
+                        class="hidden flex flex-shrink-0 w-11 h-11 rounded-2xl glass text-zinc-400 hover:text-amber-300 hover:bg-white/10 active:bg-white/15 transition-all duration-200 items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="生成图片"
+                        aria-label="生成图片"
                         disabled>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><path d="M14 14l2 2"/></svg>
                 </button>
@@ -1478,6 +1532,6 @@
     </div>
 </div> <!-- end main content -->
 
-<script src="assets/js/app.js?v=20260711-second-stage-isolation"></script>
+<script src="assets/js/app.js?v=20260713-qwen-image-reference-summary"></script>
 </body>
 </html>

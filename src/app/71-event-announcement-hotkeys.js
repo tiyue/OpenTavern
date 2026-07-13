@@ -39,6 +39,12 @@ function bindGlobalKeyboardEvents() {
     document.addEventListener('keydown', function(e) {
         if (e.key !== 'Escape') return;
 
+        if (typeof isImageGenerationPanelOpen === 'function' && isImageGenerationPanelOpen()) {
+            if (imageGenerationIsGenerating) cancelImageGenerationRequest();
+            else closeImageGenerationPanel();
+            return;
+        }
+
         if (isMobile() && dom.sidebar.classList.contains('open')) {
             closeSidebar();
             return;

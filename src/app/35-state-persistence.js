@@ -138,9 +138,9 @@ function rememberCloudSyncConversationBaseline(snapshot) {
 }
 
 /**
- * 为会话相关数据生成可比较的字符串“指纹”。
+ * 为云同步相关数据生成可比较的字符串“指纹”。
  *
- * 它不是安全哈希，而是稳定排序后的 JSON 字符串；用途只是判断两次保存之间会话是否变化。
+ * 它不是安全哈希，而是稳定排序后的 JSON 字符串；用途只是判断两次保存之间云同步数据是否变化。
  * 临时界面字段和函数会先被移除，否则滚动位置等无关变化也会触发云上传。
  */
 function buildCloudSyncConversationSignature(snapshot) {
@@ -151,11 +151,32 @@ function buildCloudSyncConversationSignature(snapshot) {
             conversationOrder: getPersistableConversationOrder(
                 snapshot && snapshot.conversationOrder,
                 conversations
-            )
+            ),
+            activeConvId: getPersistableActiveConversationId(
+                snapshot && snapshot.activeConvId,
+                snapshot && snapshot.conversationOrder,
+                conversations
+            ),
+            settings: getCloudSyncSignatureSettings(snapshot && snapshot.settings),
+            characters: snapshot && snapshot.characters || {},
+            worldBooks: snapshot && snapshot.worldBooks || {},
+            charactersMigrated: !!(snapshot && snapshot.charactersMigrated)
         });
     } catch (_) {
         return '';
     }
+}
+
+function getCloudSyncSignatureSettings(settings) {
+    var clean = JSON.parse(JSON.stringify(settings || {}));
+    clean.apiKey = '';
+    clean.summarizeApiKey = '';
+    clean.imageGenerationToken = '';
+    clean.cloudSyncToken = '';
+    clean.cloudSyncPassphrase = '';
+    clean.cloudSyncLastAt = 0;
+    clean.cloudSyncLastStatus = '';
+    return clean;
 }
 
 function getCloudSyncSignatureConversations(conversations) {

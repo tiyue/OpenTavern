@@ -11,7 +11,7 @@
 // ==================== DOM Cache IDs ====================
 var DOM_CACHE_IDS = [
     'sidebar','convList','noConvHint','chatTopBar','charAvatar','chatTitle','chatSubtitle',
-    'messagesContainer','emptyState','messageInput','sendBtn','stopBtn','mentionBtn','mentionPill','mentionPillName','mentionPillClear','comfyGenerateBtn',
+    'messagesContainer','emptyState','messageInput','sendBtn','stopBtn','mentionBtn','mentionPill','mentionPillName','mentionPillClear','imageGenerationBtn',
     'settingsModal','settingsBackdrop','settingsCloseBtn',
     'apiEndpoint','apiKey','saveApiKey','ollamaCompatMode','modelName','contextLength','contextLenVal',
     'maxTokens','maxTokensVal','temperature','tempVal','topP','topPVal',
@@ -62,8 +62,10 @@ var DOM_CACHE_IDS = [
     'uiTheme','lowPowerMode',
     'summarizeUseMainAPI','summarizeApiEndpoint','summarizeApiKey','summarizeModel',
     'summarizeCustomApiSection',
-    'comfyEnabled','comfyServer','comfyPositiveNodeId','comfyNegativeNodeId','comfySeedNodeId',
-    'comfyNegativePrompt','comfyPromptTemplate','comfyImportWorkflowBtn','comfyWorkflowFile','comfyTestBtn','comfyWorkflowStatus',
+    'imageGenerationEnabled','imageGenerationEndpoint','imageGenerationToken','imageGenerationSize',
+    'imageGenerationNegativePrompt','imageGenerationPromptExtend','imageGenerationIncludeCharacter','imageGenerationIncludeContext','imageGenerationPromptTemplate',
+    'imageGenerationPanel','imageGenerationBackdrop','imageGenerationCloseBtn','imageGenerationPrompt','imageGenerationPanelSize',
+    'imageGenerationPanelPromptExtend','imageGenerationStatus','imageGenerationCancelBtn','imageGenerationSubmitBtn',
     'cloudSyncEnabled','cloudSyncAutoUpload','cloudSyncEndpoint','cloudSyncToken',
     'cloudSyncEncrypted','cloudSyncPassphrase',
     'cloudSyncNowBtn','cloudSyncUploadBtn','cloudSyncDownloadBtn','cloudSyncStatus',

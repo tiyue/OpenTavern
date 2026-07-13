@@ -41,6 +41,7 @@ function saveAll(data) {
 // This prevents accidental persistence of secrets in localStorage.
 function getSafeSettingsForPersist() {
     var s = JSON.parse(JSON.stringify(state.settings || {}));
+    s.imageGenerationToken = '';
     if (!s.saveApiKey) {
         s.apiKey = '';
         s.summarizeApiKey = '';
@@ -52,6 +53,8 @@ function getSafeSettingsForCloudSync() {
     var s = getSafeSettingsForPersist();
     s.apiKey = '';
     s.summarizeApiKey = '';
+    s.imageGenerationEndpoint = '/api/image/generate';
+    s.imageGenerationToken = '';
     s.cloudSyncToken = '';
     s.cloudSyncPassphrase = '';
     s.cloudSyncLastAt = 0;

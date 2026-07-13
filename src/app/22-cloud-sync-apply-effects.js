@@ -33,7 +33,7 @@ function refreshOpenSettingsControlsAfterCloudSyncApply() {
     if (typeof hydrateWorldInfoBudgetSettings === 'function') hydrateWorldInfoBudgetSettings();
     if (typeof hydrateThemePerformanceSettings === 'function') hydrateThemePerformanceSettings();
     if (typeof hydrateSummarizationApiSettings === 'function') hydrateSummarizationApiSettings();
-    if (typeof hydrateComfySettingsControls === 'function') hydrateComfySettingsControls();
+    if (typeof hydrateImageGenerationSettingsControls === 'function') hydrateImageGenerationSettingsControls();
     if (typeof bindWebLLMSettingsControls === 'function') bindWebLLMSettingsControls();
 }
 

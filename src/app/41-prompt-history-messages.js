@@ -21,16 +21,16 @@ function getMaxPromptSummaryCoveredEnd(summaries) {
 
 function getRegularPromptMessages(conv, maxMsgs) {
     var regularMsgs = (conv && Array.isArray(conv.messages) ? conv.messages : []).filter(function(m) {
-        return m.role !== 'system' && String(m.content || '').trim();
+        return m.role !== 'system';
     });
     var lastCovered = getMaxPromptSummaryCoveredEnd((conv && conv.summaries) || []);
-    // coveredEnd 使用完整历史中的旧下标，因此必须先按摘要裁剪，再排除二段消息。
+    // coveredEnd 使用全部非 system 消息的下标，因此必须先裁剪，再排除空正文和二段消息。
     if (lastCovered >= 0 && lastCovered < regularMsgs.length - 1) {
         regularMsgs = regularMsgs.slice(lastCovered + 1);
     }
 
     regularMsgs = regularMsgs.filter(function(m) {
-        return m.stage !== 'second';
+        return m.stage !== 'second' && String(m.content || '').trim();
     }).map(function(m) {
         var content = m.role === 'assistant' ? isolatePrimaryStageContent(m.content) : m.content;
         return { role: m.role, content: content };

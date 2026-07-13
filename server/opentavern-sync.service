@@ -7,22 +7,42 @@
 # User、Group、脚本路径和数据库目录必须与服务器实际部署一致。修改后需要执行
 # systemctl daemon-reload，再重启服务并查看日志；安全限制不要在没有理由时关闭。
 [Unit]
-Description=OpenTavern Cloud Sync Backend
-After=network.target
+Description=OpenTavern Sync and Qwen Image Backend
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 Type=simple
 User=opentavern
 Group=opentavern
-Environment=OPENTAVERN_SYNC_HOST=127.0.0.1
-Environment=OPENTAVERN_SYNC_PORT=8787
-Environment=OPENTAVERN_SYNC_DB=/var/lib/opentavern-sync/sync.sqlite3
+EnvironmentFile=/etc/opentavern-sync/opentavern-sync.env
+Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=/usr/bin/python3 /opt/opentavern-sync/opentavern_sync_server.py
 Restart=always
 RestartSec=3
+UMask=0027
 NoNewPrivileges=true
-PrivateTmp=true
+PrivateDevices=true
 ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/opentavern-sync
+StateDirectory=opentavern-sync
+StateDirectoryMode=0750
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
 
 [Install]
 WantedBy=multi-user.target

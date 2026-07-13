@@ -61,19 +61,14 @@ function applyCloudSyncEncryptionAvailabilityHint() {
         typeof isCloudSyncWebCryptoAvailable !== 'function' ||
         isCloudSyncWebCryptoAvailable()
     ) return true;
-    dom.cloudSyncEncrypted.checked = false;
-    dom.cloudSyncEncrypted.disabled = true;
-    if (state.settings) state.settings.cloudSyncEncrypted = false;
     var toggle = dom.cloudSyncEncrypted.closest('label');
     if (toggle) {
-        toggle.classList.add('opacity-50', 'cursor-not-allowed');
         toggle.title = typeof getCloudSyncWebCryptoUnavailableMessage === 'function'
             ? getCloudSyncWebCryptoUnavailableMessage()
             : '当前页面不支持浏览器加密同步。';
     }
-    if (dom.cloudSyncPassphrase) dom.cloudSyncPassphrase.disabled = true;
     if (dom.cloudSyncStatus && typeof setCloudSyncPendingStatus === 'function') {
-        setCloudSyncPendingStatus(dom.cloudSyncStatus, '当前 HTTP 页面不支持浏览器加密同步，已关闭“加密上传内容”。如需加密，请使用 HTTPS 域名访问。');
+        setCloudSyncPendingStatus(dom.cloudSyncStatus, '当前页面不支持浏览器加密同步；开启加密时上传会被阻止，不会改为明文。');
     }
     return false;
 }

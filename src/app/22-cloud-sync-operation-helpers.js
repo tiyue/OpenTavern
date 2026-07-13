@@ -33,17 +33,9 @@ function disableCloudSyncEncryptionWhenUnavailable(statusEl) {
     var s = ensureCloudSyncSettings();
     if (!s.cloudSyncEncrypted) return false;
     if (typeof isCloudSyncWebCryptoAvailable !== 'function' || isCloudSyncWebCryptoAvailable()) return false;
-
-    s.cloudSyncEncrypted = false;
-    if (typeof dom !== 'undefined' && dom.cloudSyncEncrypted) {
-        dom.cloudSyncEncrypted.checked = false;
-        dom.cloudSyncEncrypted.disabled = true;
-    }
-    if (typeof dom !== 'undefined' && dom.cloudSyncPassphrase) {
-        dom.cloudSyncPassphrase.disabled = true;
-    }
-    setCloudSyncPendingStatus(statusEl, '当前 HTTP 页面不支持浏览器加密同步，已自动关闭“加密上传内容”，本次将按普通云同步处理。');
-    return true;
+    var message = '当前页面不支持浏览器加密同步，已阻止本次上传；不会改为明文上传。请使用 HTTPS，或手动关闭加密。';
+    setCloudSyncPendingStatus(statusEl, message);
+    throw new Error(message);
 }
 
 async function persistCloudSyncOperationState() {

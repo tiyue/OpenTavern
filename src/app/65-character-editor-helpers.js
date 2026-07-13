@@ -39,6 +39,8 @@ function buildCharacterFromEditorForm(previousCharacter) {
         post_history_instructions: dom.charEditPostHistory.value,
         creator_notes: dom.charEditCreatorNotes.value,
         tags: parseCharacterEditorTags(dom.charEditTags.value),
+        previewImage: previousCharacter ? (previousCharacter.previewImage || '') : '',
+        avatar: previousCharacter ? (previousCharacter.avatar || '') : '',
         alternate_greetings: previousCharacter ? (previousCharacter.alternate_greetings || []) : [],
         extensions: previousCharacter ? (previousCharacter.extensions || {}) : {}
     };

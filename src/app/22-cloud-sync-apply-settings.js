@@ -11,6 +11,7 @@
 // ==================== Cloud Sync Apply Local Settings ====================
 function getCloudSyncLocalSettingsForRestore() {
     var local = {
+        imageGenerationToken: '',
         cloudSyncLastAt: Date.now(),
         cloudSyncLastStatus: '云端下载已应用。'
     };
@@ -18,6 +19,7 @@ function getCloudSyncLocalSettingsForRestore() {
         'apiKey',
         'summarizeApiKey',
         'saveApiKey',
+        'imageGenerationEndpoint',
         'cloudSyncEnabled',
         'cloudSyncAutoUpload',
         'cloudSyncEndpoint',

@@ -16,7 +16,7 @@ function readSettingsFormIntoState() {
     readWorldInfoBudgetSettingsFromForm();
     readUiBehaviorSettingsFromForm();
     readSummarizationApiSettingsFromForm();
-    readComfySettingsFromForm();
+    readImageGenerationSettingsFromForm();
     readCloudSyncSettingsFromForm();
     readWebLLMSettingsFromForm();
 }

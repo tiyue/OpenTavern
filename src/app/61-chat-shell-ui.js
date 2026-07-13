@@ -44,20 +44,20 @@ function updateInputState() {
     var hasApiKey = !!(state.settings.apiKey && state.settings.apiEndpoint);
     // 本地 WebLLM 模式不需要远程 API Key
     var canSend = useLocal || hasApiKey;
-    ensureComfySettings();
-    var showComfy = !!state.settings.comfyEnabled;
-    var canComfy = !!getActiveConv() && showComfy && !!state.settings.comfyWorkflow && !state.isGenerating && !comfyIsGenerating;
+    ensureImageGenerationSettings();
+    var showImageGeneration = !!state.settings.imageGenerationEnabled;
+    var canGenerateImage = !!getActiveConv() && showImageGeneration && !state.isGenerating && !imageGenerationIsGenerating;
     dom.messageInput.disabled = !canSend || state.isGenerating;
     dom.sendBtn.disabled = !canSend || state.isGenerating;
-    if (dom.comfyGenerateBtn) dom.comfyGenerateBtn.disabled = !canComfy;
+    if (dom.imageGenerationBtn) dom.imageGenerationBtn.disabled = !canGenerateImage;
     if (state.isGenerating) {
         dom.stopBtn.classList.remove('hidden');
         dom.sendBtn.classList.add('hidden');
-        if (dom.comfyGenerateBtn) dom.comfyGenerateBtn.classList.add('hidden');
+        if (dom.imageGenerationBtn) dom.imageGenerationBtn.classList.add('hidden');
     } else {
         dom.stopBtn.classList.add('hidden');
         dom.sendBtn.classList.remove('hidden');
-        if (dom.comfyGenerateBtn) dom.comfyGenerateBtn.classList.toggle('hidden', !showComfy);
+        if (dom.imageGenerationBtn) dom.imageGenerationBtn.classList.toggle('hidden', !showImageGeneration);
     }
     if (!canSend && !state.isGenerating) {
         dom.messageInput.placeholder = t('input_placeholder_no_api');

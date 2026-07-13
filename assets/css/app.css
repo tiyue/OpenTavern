@@ -1071,9 +1071,9 @@ body.theme-new-dark #mentionPillClear { color: #D56C4E !important; }
 body.theme-new-light #mentionBtn:hover,
 body.theme-new-dark #mentionBtn:hover { color: #D56C4E !important; }
 
-/* ComfyUI image button hover */
-body.theme-new-light #comfyGenerateBtn:hover,
-body.theme-new-dark #comfyGenerateBtn:hover { color: #D56C4E !important; }
+/* Qwen image button hover */
+body.theme-new-light #imageGenerationBtn:hover,
+body.theme-new-dark #imageGenerationBtn:hover { color: #D56C4E !important; }
 
 /* Edit buttons hover (character card + summary) */
 body.theme-new-light #charEditBtn:hover,
