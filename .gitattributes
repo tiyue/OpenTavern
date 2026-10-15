@@ -1,0 +1,2 @@
+# Runtime dependency hashes require the exact published bytes on every platform.
+assets/js/vendor/*.js -text

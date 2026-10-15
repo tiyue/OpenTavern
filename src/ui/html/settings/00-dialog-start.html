@@ -1,0 +1,17 @@
+
+<!-- ===== Settings Modal ===== -->
+<div id="settingsModal" class="modal-overlay fixed inset-0 z-[100] flex items-center justify-center hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="absolute inset-0 bg-black/65 backdrop-blur-sm" id="settingsBackdrop"></div>
+    <div class="settings-dialog relative glass rounded-3xl shadow-2xl animate-fade-in">
+        <div class="settings-header flex items-center justify-between">
+            <h2 id="settingsTitle" class="text-lg font-bold text-zinc-100" data-i18n="settings_title">Settings</h2>
+            <button id="settingsCloseBtn" type="button" class="w-8 h-8 rounded-full glass flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors" aria-label="Close settings">&times;</button>
+        </div>
+        <div id="settingsTabs" class="settings-tabs" role="tablist" aria-labelledby="settingsTitle">
+            <button id="settingsTabModel" class="settings-tab" type="button" role="tab" aria-selected="true" aria-controls="settingsPanelModel" tabindex="0" data-settings-tab data-i18n="settings_tab_model">Connection</button>
+            <button id="settingsTabPrompts" class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="settingsPanelPrompts" tabindex="-1" data-settings-tab data-i18n="settings_tab_prompts">Chat</button>
+            <button id="settingsTabSummary" class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="settingsPanelSummary" tabindex="-1" data-settings-tab data-i18n="settings_tab_summary">Memory</button>
+            <button id="settingsTabExtensions" class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="settingsPanelExtensions" tabindex="-1" data-settings-tab data-i18n="settings_tab_extensions">Extensions</button>
+            <button id="settingsTabWorkspace" class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="settingsPanelWorkspace" tabindex="-1" data-settings-tab data-i18n="settings_tab_workspace">Interface &amp; Data</button>
+        </div>
+        <div id="settingsPanels" class="settings-panels">

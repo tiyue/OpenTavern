@@ -1,0 +1,211 @@
+            <section id="settingsPanelWorkspace" class="settings-panel space-y-5" role="tabpanel" aria-labelledby="settingsTabWorkspace" hidden>
+            <!-- Storage Status (Phase 3 增强) -->
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">存储后端</label>
+                    <span id="storageBackend" class="text-xs px-2 py-0.5 rounded-full bg-white/5">localStorage</span>
+                </div>
+
+                <div class="mb-1">
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 mb-0.5">
+                        <span data-i18n="storage_used_space">已用空间</span>
+                        <span id="storageUsage" data-i18n="storage_usage_calculating">计算中...</span>
+                    </div>
+                    <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div id="storageUsageBar" class="h-full bg-amber-500 transition-all" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <p class="text-[10px] text-zinc-500" id="storageHint" data-i18n="storage_hint_pending">存储后端初始化中，localStorage 保留应急快照。</p>
+
+                <!-- 清除按钮：IndexedDB 主数据 + localStorage 快照 + OPFS 镜像/恢复数据 -->
+                <button id="clearOPFSBtn"
+                        class="mt-2 w-full px-3 py-1.5 text-xs rounded-lg bg-red-500/10 hover:bg-red-500/20 active:bg-red-500/30 text-red-400 border border-red-500/20 transition-all font-medium flex items-center justify-center gap-1"
+                        data-i18n="clear_opfs_data">
+                    <!-- 文字由 JS 通过 t('clear_opfs_data') 动态设置 -->
+                </button>
+                <!-- 【Recovery Tool】存储恢复工具 -->
+                <hr class="border-white/5 mt-3">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">存储恢复工具</label>
+                    <p class="text-[10px] text-zinc-500 mb-1.5">数据找不到了？点击扫描可检测 OPFS / localStorage / 旧版 IndexedDB（仅主动扫描时读取旧 IDB）。</p>
+                    <button id="scanStorageBtn"
+                            class="w-full px-3 py-1 text-xs rounded-lg bg-blue-500/10 hover:bg-blue-500/20 active:bg-blue-500/30 text-blue-300 border border-blue-500/20 transition-all font-medium">
+                        扫描所有存储后端
+                    </button>
+                    <div id="storageCandidates" class="mt-2 space-y-1 text-[10px]"></div>
+                </div>
+            </div>
+
+            <!-- 本地资源与离线更新（核心/公共资源就绪状态、检查更新、准备资料、清理、切换） -->
+            <hr class="border-white/5">
+            <div id="localResourceSection">
+                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">本地资源与离线更新</label>
+                <p id="localResourceSummary" class="feature-hint">应用与资料缓存在本机浏览器缓存中；断网站点不影响已准备内容与本地操作，模型请求仍需供应商网络可达。</p>
+                <ul class="local-resource-list">
+                    <li id="localResourceCore">核心版本状态读取中…</li>
+                    <li id="localResourcePublic">公共资料状态读取中…</li>
+                    <li id="localResourceUpdate">更新状态读取中…</li>
+                    <li id="localResourcePrivate" hidden>本地图片状态读取中…</li>
+                </ul>
+                <div class="feature-toolbar local-resource-actions">
+                    <button id="localResourceCheckBtn" type="button">检查更新</button>
+                    <button id="localResourcePrepareBtn" type="button">准备资料</button>
+                    <button id="localResourcePrivatePrepareBtn" type="button" hidden>准备本地图片</button>
+                    <button id="localResourceCleanBtn" type="button">清理可重下资源</button>
+                    <button id="localResourceApplyBtn" type="button" disabled>切换已就绪更新</button>
+                </div>
+                <p id="localResourceStatus" class="feature-hint" role="status" aria-live="polite"></p>
+                <p class="feature-hint">普通远程 HTTP 无受控离线缓存，已准备内容无法保证断网重开，但本地操作照常可用；本机与 HTTPS 来源会尽量准备离线副本。清理只删除非当前版本的应用下载缓存与公共资料缓存，不触碰聊天、设置或已导入资料。</p>
+            </div>
+
+            <!-- 界面主题（从 index_new.html 迁移为额外可选项） -->
+            <hr class="border-white/5">
+            <div>
+                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_ui_theme_label">界面主题</label>
+                <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_ui_theme_hint">选择聊天界面的视觉风格，不影响聊天、总结、世界书或模型设置。</p>
+                <select id="uiTheme" class="w-full mt-2 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
+                    <option value="system">跟随系统</option>
+                    <option value="classic" data-i18n="settings_ui_theme_classic">经典暗色玻璃</option>
+                    <option value="new-light" data-i18n="settings_ui_theme_new_light">新版浅色工作区</option>
+                    <option value="new-dark" data-i18n="settings_ui_theme_new_dark">新版低亮度工作区</option>
+                    <option value="taoxin">桃信浅色</option>
+                </select>
+            </div>
+            <div class="feature-grid">
+                <label class="feature-field" for="readingWidth"><span>阅读列宽</span><select id="readingWidth"><option value="narrow">窄</option><option value="medium">适中</option><option value="wide">宽</option><option value="full">全宽</option></select></label>
+                <label class="feature-field" for="readingFontSize"><span>正文字号</span><select id="readingFontSize"><option value="default">主题默认</option><option value="14">14px</option><option value="15">15px</option><option value="16">16px</option><option value="18">18px</option></select></label>
+            </div>
+            <label class="feature-check"><input id="restoreLastChat" type="checkbox">启动时恢复上次聊天</label>
+            <div>
+                <label class="text-xs font-semibold text-zinc-400">聊天背景</label>
+                <div class="feature-toolbar"><button id="chatBackgroundChoose" type="button">选择图片</button><button id="chatBackgroundClear" type="button">清除</button></div>
+                <input id="chatBackgroundFile" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                <p id="chatBackgroundStatus" class="feature-hint"></p><p class="feature-hint">PNG、JPEG 或 WebP，最多 2 MiB，最长边 4096px。仅作用于聊天区。</p>
+            </div>
+            <hr class="border-white/5">
+            <div class="flex items-center justify-between">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_low_power_label">效能模式（减少视觉效果以降低手机发热）</label>
+                    <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_low_power_hint">开启后暂停背景动画、关闭玻璃模糊效果，可显著降低手机 GPU 负载与发热。随时可关闭。</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                    <input type="checkbox" id="lowPowerMode" class="sr-only peer">
+                    <div class="w-9 h-5 bg-white/10 rounded-full peer-checked:bg-amber-500/60 peer-checked:ring-1 peer-checked:ring-amber-500/40 transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                </label>
+            </div>
+            <hr class="border-white/5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="showReplyAvatar" data-i18n="settings_show_reply_avatar_label">显示回复头像</label>
+                    <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_show_reply_avatar_hint">在助手消息上方显示角色头像；无图片时显示名称首字母。默认关闭。</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                    <input type="checkbox" id="showReplyAvatar" class="sr-only peer">
+                    <span class="settings-toggle-track"></span>
+                </label>
+            </div>
+            <hr class="border-white/5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="showMsgTokenUsage" data-i18n="settings_show_msg_token_usage_label">显示消息 Token 统计</label>
+                    <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_show_msg_token_usage_hint">在助手气泡下显示本轮输入、输出 Token 与生成速度；旧消息没有数据时不显示。默认关闭。</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                    <input type="checkbox" id="showMsgTokenUsage" class="sr-only peer">
+                    <span class="settings-toggle-track"></span>
+                </label>
+            </div>
+            <hr class="border-white/5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="submitWithCmdEnter" data-i18n="settings_submit_cmd_enter_label">需要 Cmd+Enter 来提交</label>
+                    <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_submit_cmd_enter_hint">开启后 Cmd/Ctrl+Enter 提交，Enter 换行；关闭后 Enter 提交、Shift+Enter 换行。默认开启。</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                    <input type="checkbox" id="submitWithCmdEnter" class="sr-only peer">
+                    <span class="settings-toggle-track"></span>
+                </label>
+            </div>
+            <hr class="border-white/5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="streamEnabled" data-i18n="settings_stream_enabled_label">启用串流</label>
+                    <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_stream_enabled_hint">开启后边生成边显示；关闭后发送 stream: false，等待完整回复后一次显示。默认开启。</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                    <input type="checkbox" id="streamEnabled" class="sr-only peer" checked>
+                    <span class="settings-toggle-track"></span>
+                </label>
+            </div>
+            <hr class="border-white/5">
+            <div>
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="streamTextAnimEnabled" data-i18n="settings_stream_anim_label">流式文字动画</label>
+                        <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_stream_anim_hint">仅让新出现的文字播放进入动画；效能模式或系统减少动态效果时自动停用。默认关闭。</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                        <input type="checkbox" id="streamTextAnimEnabled" class="sr-only peer">
+                        <span class="settings-toggle-track"></span>
+                    </label>
+                </div>
+                <div id="streamTextAnimDetails" class="settings-detail-region hidden">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400" for="streamTextAnimEffect" data-i18n="settings_stream_anim_effect">动画效果</label>
+                        <select id="streamTextAnimEffect" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
+                            <option value="fade" data-i18n="settings_stream_anim_effect_fade">淡入</option>
+                            <option value="rise" data-i18n="settings_stream_anim_effect_rise">上移淡入</option>
+                            <option value="slide" data-i18n="settings_stream_anim_effect_slide">侧入淡入</option>
+                            <option value="scale" data-i18n="settings_stream_anim_effect_scale">缩放淡入</option>
+                            <option value="drop" data-i18n="settings_stream_anim_effect_drop">下落淡入</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400" for="streamTextAnimUnit" data-i18n="settings_stream_anim_unit">动画粒度</label>
+                        <select id="streamTextAnimUnit" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
+                            <option value="token" data-i18n="settings_stream_anim_unit_token">按 Token 批次</option>
+                            <option value="char" data-i18n="settings_stream_anim_unit_char">按字符</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between"><label class="text-xs font-semibold text-zinc-400" for="streamTextAnimDuration" data-i18n="settings_stream_anim_duration">时长 (ms)</label><span id="streamTextAnimDurationVal" class="settings-value-pill">180</span></div>
+                        <input type="range" id="streamTextAnimDuration" min="50" max="1000" step="10" value="180" class="w-full">
+                    </div>
+                    <div id="streamTextAnimDistanceRow">
+                        <div class="flex items-center justify-between"><label class="text-xs font-semibold text-zinc-400" for="streamTextAnimDistance" data-i18n="settings_stream_anim_distance">位移幅度 (em)</label><span id="streamTextAnimDistanceVal" class="settings-value-pill">0.80</span></div>
+                        <input type="range" id="streamTextAnimDistance" min="0.05" max="0.80" step="0.01" value="0.80" class="w-full">
+                    </div>
+                    <div id="streamTextAnimScaleRow" class="hidden">
+                        <div class="flex items-center justify-between"><label class="text-xs font-semibold text-zinc-400" for="streamTextAnimScale" data-i18n="settings_stream_anim_scale">缩放起始值</label><span id="streamTextAnimScaleVal" class="settings-value-pill">1.10</span></div>
+                        <input type="range" id="streamTextAnimScale" min="1.02" max="1.40" step="0.01" value="1.10" class="w-full">
+                    </div>
+                    <div id="streamTextAnimStaggerRow" class="hidden">
+                        <div class="flex items-center justify-between"><label class="text-xs font-semibold text-zinc-400" for="streamTextAnimStagger" data-i18n="settings_stream_anim_stagger">字间延迟 (ms)</label><span id="streamTextAnimStaggerVal" class="settings-value-pill">12</span></div>
+                        <input type="range" id="streamTextAnimStagger" min="0" max="40" step="1" value="12" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between gap-2"><label class="text-xs font-semibold text-zinc-400" data-i18n="settings_stream_anim_preview">预览</label><button type="button" id="streamAnimPreviewBtn" class="px-2.5 py-1 text-[11px] rounded-lg bg-white/5 hover:bg-amber-500/20 text-amber-300 border border-white/10 transition-all font-medium" data-i18n="settings_stream_anim_preview_btn">播放预览</button></div>
+                        <div id="streamAnimPreviewBox" class="mt-2 min-h-9 px-3 py-2 text-sm glass rounded-xl text-zinc-200" aria-live="polite"></div>
+                    </div>
+                </div>
+            </div>
+            <hr class="border-white/5">
+            <div>
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="streamIdleTimeoutSec" data-i18n="settings_stream_idle_timeout_label">流式空闲超时</label>
+                        <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_stream_idle_timeout_hint">超过该时间没有新内容时自动中断，并保留已生成部分。默认关闭。</p>
+                    </div>
+                    <span id="streamIdleTimeoutVal" class="settings-value-pill flex-shrink-0">关闭</span>
+                </div>
+                <input type="range" id="streamIdleTimeoutSec" min="0" max="300" step="5" value="0" class="w-full mt-2">
+            </div>
+            <hr class="border-white/5">
+            <div>
+                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="onboarding_replay_title">新手引导</label>
+                <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="onboarding_replay_hint">重新配置 API、用户设定、角色扮演提示词和推荐角色卡。</p>
+                <button id="onboardingReplayBtn" type="button" class="mt-2 w-full px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition-colors" data-i18n="onboarding_replay_action">重新打开新手引导</button>
+            </div>
+
+            </section>

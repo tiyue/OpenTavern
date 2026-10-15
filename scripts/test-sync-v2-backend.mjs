@@ -70,6 +70,9 @@ function createMockD1() {
         throw new Error(`Unsupported mock D1 first() SQL: ${normalized}`);
       },
       async run() {
+        if (normalized.startsWith('create table if not exists')) {
+          return { success: true, meta: { changes: 0 } };
+        }
         if (normalized.startsWith('insert into opentavern_sync_v2_locks')) {
           const [tokenHash, lockId, expiresAt, now] = this.args;
           const current = locks.get(tokenHash);
@@ -205,7 +208,7 @@ function createMockD1() {
     async batch(statements) {
       const results = [];
       for (let index = 0; index < statements.length; index += 1) {
-        if (index === 1 && beforeCleanup) {
+        if (statements.length === 2 && index === 1 && beforeCleanup) {
           const hook = beforeCleanup;
           beforeCleanup = null;
           await hook();

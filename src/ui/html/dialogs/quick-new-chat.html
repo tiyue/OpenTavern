@@ -1,0 +1,31 @@
+
+<!-- ===== Quick New Chat Action Modal (chat context: resolve design conflict between library & chat) ===== -->
+<div id="quickNewChatModal" class="modal-overlay fixed inset-0 z-[160] flex items-center justify-center hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-md" id="quickNewChatBackdrop"></div>
+    <div class="relative glass rounded-3xl w-[92%] max-w-sm p-6 shadow-2xl animate-fade-in">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold" data-i18n="quick_new_chat_title">新对话 / 新群聊</h2>
+            <button id="quickNewChatCloseBtn" class="w-8 h-8 rounded-full glass flex items-center justify-center text-xl leading-none text-zinc-400 hover:text-zinc-200 transition-colors">&times;</button>
+        </div>
+        <div class="space-y-2.5">
+            <button id="quickNewChatWithCurrentBtn"
+                    class="w-full px-4 py-3 rounded-2xl text-sm font-semibold bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-black transition-all flex items-center justify-center gap-2"
+                    data-i18n="quick_new_with_current">
+                与当前角色开启新对话
+            </button>
+            <button id="quickReturnToLibraryBtn"
+                    class="w-full px-4 py-3 rounded-2xl text-sm font-semibold bg-white/10 hover:bg-white/15 transition-all"
+                    data-i18n="quick_return_library">
+                ← 返回卡片库
+            </button>
+            <button id="quickNewGroupChatBtn"
+                    class="w-full px-4 py-3 rounded-2xl text-sm font-semibold bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
+                    data-i18n="quick_new_group">
+                创建新群聊（进入选择界面）
+            </button>
+        </div>
+        <p class="mt-4 text-[10px] text-center text-zinc-500">在卡片库直接点击角色卡也可开始新对话或群聊</p>
+    </div>
+</div>
+
+<!-- (Old public card library modal removed; search and public cards now in main homepage library with tabs + filter) -->

@@ -1,0 +1,39 @@
+{
+  "html": [
+    "00-document-start.html",
+    "settings/00-dialog-start.html",
+    "settings/model.html",
+    "settings/prompts.html",
+    "settings/summary.html",
+    "settings/workspace.html",
+    "settings/extensions.html",
+    "settings/99-dialog-end.html",
+    "dialogs/image-generation.html",
+    "dialogs/app-dialog.html",
+    "dialogs/prompt-viewer.html",
+    "dialogs/character-import.html",
+    "dialogs/character-editor.html",
+    "dialogs/worldbook.html",
+    "dialogs/summary-manager.html",
+    "dialogs/announcement.html",
+    "dialogs/onboarding.html",
+    "dialogs/new-chat-picker.html",
+    "dialogs/quick-new-chat.html",
+    "dialogs/group-mention.html",
+    "workspace.html",
+    "99-document-end.html"
+  ],
+  "css": [
+    "00-tokens-feature-ui.css",
+    "10-base-layout.css",
+    "20-messages.css",
+    "30-card-controls.css",
+    "40-mobile-and-animation.css",
+    "50-settings.css",
+    "60-language-and-onboarding.css",
+    "70-library-and-low-power.css",
+    "80-workspace-themes.css",
+    "90-workspace-accent.css",
+    "99-card-runtime.css"
+  ]
+}

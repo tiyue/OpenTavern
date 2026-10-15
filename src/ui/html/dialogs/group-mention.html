@@ -1,0 +1,19 @@
+
+<!-- ===== 群组 @ 提及角色面板 (手机端友好) ===== -->
+<div id="groupMentionModal" class="modal-overlay fixed inset-0 z-[160] flex items-end sm:items-center justify-center hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-md" id="groupMentionBackdrop"></div>
+    <div class="relative glass rounded-t-3xl sm:rounded-3xl w-full sm:w-[92%] sm:max-w-md p-4 sm:p-6 shadow-2xl animate-fade-in max-h-[70vh] sm:max-h-[80vh] flex flex-col">
+        <div class="flex items-center justify-between mb-3 px-1">
+            <h2 class="text-base sm:text-lg font-bold text-zinc-100" data-i18n="group_mention_title">选择要提及的角色</h2>
+            <button id="groupMentionCloseBtn" class="w-8 h-8 rounded-full glass flex items-center justify-center text-xl leading-none text-zinc-400 hover:text-zinc-200 active:bg-white/10 transition-colors">&times;</button>
+        </div>
+
+        <div id="groupMentionList" class="flex-1 overflow-y-auto pr-1 custom-scroll space-y-1.5">
+            <!-- 动态填充角色列表 -->
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-white/10 text-[11px] text-zinc-500 px-1" data-i18n="group_mention_hint">
+            选择后在输入栏左侧显示指定角色气泡（不可编辑），本轮将由该角色回复
+        </div>
+    </div>
+</div>

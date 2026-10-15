@@ -29,18 +29,6 @@ with full SillyTavern compatibility, advanced memory, and **Group Chat support**
 - **完整 SillyTavern 兼容**：支持导入/导出 `chara_card_v3` 角色卡，完整实现 World Info（世界书）。
 - **高级记忆系统**：自动 + 手动总结，支持历史记录、编辑、删除、自定义范围。
 - **独立总结 API**：可为长期记忆压缩使用完全不同的（更便宜/无限制）模型。
-- **浏览器本地推理（WebLLM，新功能）**：
-  - 在「设置」中将「**推理后端**」切换为「**浏览器本地 (WebLLM)**」。
-  - **切换后会立即弹出重要确认对话框**（设计如此）：
-    > 注意：启用浏览器本地模型需要下载模型文件（约 XXX MB）。
-    > 首次下载会使用较多流量，建议在 Wi-Fi 环境下进行。
-    > 是否继续？
-  - 你必须在确认框中**明确选择**要下载的模型（目前提供 **Llama-3.2-1B q4f16** 约 850 MB 和 **Llama-3.2-3B q4f16** 约 2100 MB）。
-  - 下载和初始化过程有专用进度弹窗实时显示。
-  - **严格保障**：页面初始化时**完全不引入**任何 WebLLM 代码。没有 `<script type="module">` 标签，没有预加载。**只有**用户点击「继续」后才会执行动态 `import("https://esm.run/@mlc-ai/web-llm")`。
-  - 聊天生成完全在本地进行（使用 WebGPU），无需向远程服务器发送对话内容。
-  - 总结功能仍可使用你配置的远程总结 API（可保留强大远程模型做记忆压缩，主聊天保持本地隐私）。
-  - 需求：浏览器需支持 **WebGPU**（推荐最新版 Chrome 或 Edge）。
 - **OPFS 存储**：使用 Origin Private File System，默认容量大、性能好。
 - **群聊与 @ 提及**：支持多角色同时对话，通过 @ 精确控制本轮由谁回复。
 - **三语言支持**：简体中文 / 繁體中文 / English，界面即时切换。
@@ -51,19 +39,11 @@ with full SillyTavern compatibility, advanced memory, and **Group Chat support**
 1. 下载最新的 `index.html`
 2. 用现代浏览器打开（推荐 Chrome / Edge）
 3. 点击右上角或侧边栏的 **⚙️ 设置**
-4. 配置 API Endpoint 和 Key（支持一键预设 DeepSeek），**或者**直接切换「推理后端」为「浏览器本地 (WebLLM)」（首次会弹出确认并下载模型）
+4. 配置 API Endpoint 和 Key（支持一键预设 DeepSeek）
 5. （可选）导入 SillyTavern 角色卡
 6. 开始聊天！
 
-**本地模式提示**：启用后，主聊天无需填写 API Key。模型下载为一次性操作（浏览器会缓存），之后加载速度会更快。1B 模型适合大多数设备，3B 模型质量更好但需要更强的 GPU。
-
 ### 常见问题（新增）
-
-**Q: 可以完全不使用任何云端 API 吗？**  
-A: 可以！在设置里把「推理后端」切换为「浏览器本地 (WebLLM)」，按照确认对话框选择并下载模型后，聊天生成就在浏览器本地完成（WebGPU）。总结仍可走远程 API。
-
-**Q: 为什么切换本地后端时会强制弹出确认框并要求选择模型？**  
-A: 这是核心设计要求。应用保证**页面加载时完全不执行任何 WebLLM 相关代码**。只有用户主动选择后端并在确认框明确点击模型按钮后，才会开始下载。
 
 更多完整说明请参考下方英文部分或直接查看应用内的设置界面。
 
@@ -85,7 +65,6 @@ OpenTavern continues to evolve with cutting-edge browser storage technology. The
 - **Full Transparency** — View the exact prompt sent to the API at any time.
 - **Three Languages** — 简体中文 / 繁體中文 / English (full UI translation with instant switching).
 - **Privacy First** — Everything stays in your browser. Nothing is sent except to your chosen API provider.
-- **Browser Local Inference (WebLLM, New)** — Run chat generation **entirely locally** in the browser using WebLLM (Llama-3.2 1B/3B quantized models). No API calls for the main chat. Strict lazy loading: **zero WebLLM code is loaded or executed on page initialization**. Only after you explicitly switch the backend in Settings and confirm the download warning dialog does the dynamic import begin. Includes mandatory traffic warning, model size info, Wi-Fi recommendation, and real-time progress modal.
 
 ---
 
@@ -113,16 +92,13 @@ OpenTavern continues to evolve with cutting-edge browser storage technology. The
 2. Open it in any modern browser (Chrome / Edge / Firefox / Safari recommended)
 3. Click the **⚙️ Settings** button (top right or sidebar)
 4. Configure your **API Endpoint** and **API Key** (one-click preset for DeepSeek available)
-   - Or switch **推理后端** to **浏览器本地 (WebLLM)** for fully local inference (see section below)
 5. (Optional) Import a SillyTavern character card
 6. Start chatting!
 
 **Recommended first-time setup**:
-- Use **DeepSeek** (fast, cheap, excellent Chinese/English performance) **or** try the new local WebLLM mode
+- Use **DeepSeek** (fast, cheap, excellent Chinese/English performance)
 - Set **Context Length** to 20–30
 - Enable **Auto Summarize** with threshold ~12–18
-
-**Note on local mode**: When using WebLLM, the first activation will ask you to choose and download a model (1B or 3B). Chat generation then runs locally. Summarization can still use a remote API if you configure one.
 
 ---
 
@@ -199,15 +175,7 @@ Complete SillyTavern implementation with modern UI:
 - Backup reminder system
 
 ### 6. Settings & Customization
-- **Inference Backend** (New): Choose between **远程 API（OpenAI 兼容）** (default) or **浏览器本地 (WebLLM)**. 
-  - Switching to local triggers an **important confirmation dialog** immediately:
-    > 注意：启用浏览器本地模型需要下载模型文件（约 XXX MB）。
-    > 首次下载会使用较多流量，建议在 Wi-Fi 环境下进行。
-    > 是否继续？
-  - You explicitly choose the model (Llama-3.2-1B q4f16 ~850MB or Llama-3.2-3B q4f16 ~2100MB) before any download starts.
-  - Real-time download & initialization progress modal.
-  - **Guarantee**: Page initialization loads **nothing** related to WebLLM (no `<script type="module">`, no top-level import, no pre-execution). Dynamic `import("https://esm.run/@mlc-ai/web-llm")` happens **only** after user clicks "继续".
-- API: Endpoint, Key (with optional localStorage save + security warning), Model (used for remote mode)
+- API: Endpoint, Key (with optional localStorage save + security warning), Model
 - Generation params: Temperature, Top P, Max Tokens, Context Length
 - User name (replaces `{{user}}`)
 - Custom global system prompt (overrides character prompt)
@@ -217,36 +185,7 @@ Complete SillyTavern implementation with modern UI:
 - Storage backend status and usage statistics (now prominently shows **OPFS**)
 - Low Power Mode (reduces visual effects to lower phone heat)
 
-### 7. Browser Local Inference — WebLLM (New Major Feature)
-
-You can now run the AI **completely locally** in your browser without sending chat messages to any remote server.
-
-**How to enable:**
-1. Open **⚙️ Settings**
-2. Find **推理后端** (Inference Backend)
-3. Select **浏览器本地 (WebLLM)**
-4. An important confirmation dialog appears **immediately** (this is by design):
-   - Warning about model file download size (currently supports **Llama-3.2-1B** ≈ 850 MB and **Llama-3.2-3B** ≈ 2100 MB, q4f16 quantized)
-   - Traffic reminder: "首次下载会使用较多流量，建议在 Wi-Fi 环境下进行。"
-   - You must **explicitly choose which model** to download using the buttons in the dialog.
-5. Click the desired model button → Download & initialization progress modal appears.
-6. Once complete, all chat generation (streaming) happens locally via WebGPU.
-
-**Key technical guarantees (as requested):**
-- **Zero impact on page load**: No WebLLM library is fetched or executed during initialization. No `<script type="module">` tags. No preloading.
-- Dynamic import only triggers **after** the user clicks "继续" (or a model choice button) in the confirmation dialog.
-- Model switching later (while already using local backend) will again show the progress confirmation for the new model.
-
-**Requirements & Notes:**
-- Browser must support **WebGPU** (latest Chrome or Microsoft Edge recommended; Firefox support is experimental).
-- Summarization still uses your configured remote Summarization API (you can keep using a cheap/uncensored remote model for memory compression while chat runs locally).
-- The 1B model is recommended for most devices and mobile. The 3B model gives better quality but requires more VRAM/GPU power.
-- After first download, models are cached by the browser. Subsequent loads are much faster.
-- When local mode is active, you no longer need to fill in API Key/Endpoint for chat generation (the input placeholder and send button logic adapt automatically).
-
-This gives you a true private, offline-capable chat experience while keeping the powerful remote options available.
-
-### 8. Group Chat with @ Mention (New)
+### 7. Group Chat with @ Mention (New)
 - Create conversations with **multiple characters** at once.
 - Use the **@ button** (left of input) to open a beautiful character selection panel.
 - Explicitly @ a character (e.g. `@普拉娜` or via panel) to make them reply this turn.
@@ -288,9 +227,8 @@ OpenTavern uses the standard **OpenAI-compatible** chat completions API (`/v1/ch
 - **Graphics**: Custom WebGL shader for animated background + vignette overlay
 - **Storage**: **OPFS (Origin Private File System)** — primary backend (recommended for long-term use) + localStorage fallback
 - **i18n**: Built-in translation system with instant language switching (简体中文 / 繁體中文 / English)
-- **Local Inference**: WebLLM (lazy-loaded via dynamic ESM import only after explicit user confirmation)
-- **Streaming**: Fetch + ReadableStream for real-time token streaming (remote) + WebLLM streaming for local mode
-- **No external dependencies** — everything is self-contained in one HTML file (WebLLM is fetched on-demand only when user enables local mode)
+- **Streaming**: Fetch + ReadableStream for real-time token streaming
+- **No external dependencies** — everything is self-contained in one HTML file
 
 ---
 
@@ -332,25 +270,14 @@ A: Long conversations can become expensive or hit content filters. A dedicated s
 **Q: How do I report bugs or request features?**  
 A: Open an issue on the GitHub repository.
 
-**Q: Can I run the AI completely locally without any cloud API?**  
-A: Yes! In Settings, set **推理后端** to **浏览器本地 (WebLLM)**. The first time you do this, an important confirmation will appear. You choose and download either the 1B model (~850 MB) or 3B model (~2100 MB). After that, main chat generation runs 100% in your browser using WebGPU. No API Key or Endpoint is required for chat (the UI adapts automatically).
-
-**Q: What are the requirements for local mode?**  
-A: A modern browser with **WebGPU** support (Chrome or Edge latest versions recommended). The confirmation dialog will warn you about download size and recommend Wi-Fi. Note that summarization still uses the remote Summarization API you configure (this is intentional, so you can use a powerful remote model for memory while keeping chat private).
-
-**Q: Why does it ask for confirmation and model choice when I switch to local?**  
-A: This is by design. The app guarantees that **no WebLLM code is executed and no model is downloaded** until you explicitly confirm. Changing the backend type immediately shows the critical warning dialog (with exact sizes), and you must pick which of the two supported models (Llama-3.2-1B or 3B) to download.
-
-**Q: Can I switch back to remote API later?**  
-A: Yes, just change the Inference Backend back to "远程 API" in Settings. Your previous remote configuration is preserved.
-
 ---
 
 ## 🔄 Version History Highlights
 
-- **Latest**: Added **Browser Local Inference (WebLLM)**. New "推理后端" option in Settings. Users switching to "浏览器本地 (WebLLM)" immediately see a mandatory confirmation dialog with download size warning and must explicitly choose Llama-3.2-1B (~850MB) or 3B (~2100MB) before any download. Strict lazy-loading: no WebLLM code or network request on page init. Includes progress modal. Summarization remains remote-configurable. Also improved low-power mode and other refinements.
-- Previous: Switched primary storage to **OPFS** for superior capacity and performance. Added New Chat Character Picker modal. Refined summary manager, mobile layouts, and World Book editor. Default summarization model updated to `deepseek-v4-flash`.
-- Older: IndexedDB storage, Summary Manager with history & custom range, separate summarization API, World Info token budget, full prompt viewer, major mobile UI fixes.
+- **Latest**: Removed browser local inference (WebLLM); chat generation always uses the remote API (OpenAI compatible). Settings reorganized into tabbed panels (Model / Prompts / Summary / Interface & Data / Extensions).
+- Previous: Added **Browser Local Inference (WebLLM)** with strict lazy-loading and confirmation dialogs (later removed). Also improved low-power mode and other refinements.
+- Older: Switched primary storage to **OPFS** for superior capacity and performance. Added New Chat Character Picker modal. Refined summary manager, mobile layouts, and World Book editor. Default summarization model updated to `deepseek-v4-flash`.
+- Oldest: IndexedDB storage, Summary Manager with history & custom range, separate summarization API, World Info token budget, full prompt viewer, major mobile UI fixes.
 
 ---
 
@@ -378,7 +305,7 @@ Please open issues or submit pull requests on GitHub.
 ---
 
 **OpenTavern** — Powerful character chat, made simple.  
-Now with optional fully local inference via WebLLM (lazy-loaded, user-confirmed) + OPFS storage.
+Remote API inference (OpenAI compatible) + OPFS storage.
 
 ---
 

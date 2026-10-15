@@ -1,0 +1,19 @@
+
+<!-- ===== Full Prompt Viewer Modal ===== -->
+<div id="promptViewerModal" class="modal-overlay fixed inset-0 z-[100] flex items-center justify-center hidden">
+    <div class="absolute inset-0 bg-black/65 backdrop-blur-sm" id="promptViewerBackdrop"></div>
+    <div class="relative glass rounded-3xl w-[92%] max-w-2xl p-7 shadow-2xl animate-fade-in max-h-[90vh] flex flex-col">
+        <div class="flex items-center justify-between mb-4 flex-shrink-0">
+            <h2 class="text-lg font-bold text-zinc-100" data-i18n="prompt_viewer_title">Full Prompt (sent to API)</h2>
+            <div class="flex items-center gap-2">
+                <button id="copyPromptBtn" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition-all" data-i18n="copy">Copy</button>
+                <button id="promptViewerCloseBtn" class="w-8 h-8 rounded-full glass flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors">&times;</button>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 mb-3 flex-shrink-0">
+            <button id="promptStageMainBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/20 transition-all" data-prompt-stage="main" data-i18n="prompt_stage_main">主生成</button>
+            <button id="promptStageSecondBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 text-zinc-400 border border-white/10 hover:bg-white/10 transition-all" data-prompt-stage="second" data-i18n="prompt_stage_second">第二阶段</button>
+        </div>
+        <pre id="promptViewerContent" class="flex-1 overflow-y-auto glass rounded-2xl p-4 text-xs text-zinc-300 whitespace-pre-wrap font-mono leading-relaxed"></pre>
+    </div>
+</div>

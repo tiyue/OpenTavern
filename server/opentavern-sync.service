@@ -7,7 +7,7 @@
 # User、Group、脚本路径和数据库目录必须与服务器实际部署一致。修改后需要执行
 # systemctl daemon-reload，再重启服务并查看日志；安全限制不要在没有理由时关闭。
 [Unit]
-Description=OpenTavern Sync and Qwen Image Backend
+Description=OpenTavern Sync and Packy GPT Image Backend
 Wants=network-online.target
 After=network-online.target
 

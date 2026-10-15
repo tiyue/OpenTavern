@@ -1,0 +1,583 @@
+{
+  "name": "魔法少女的魔女审判",
+  "description": "牢屋敷世界规则、地点与本届囚犯公开印象。单卡注入时排除本人条目与隐藏条；合集卡另保留十四张长人设。",
+  "cards": {
+    "Hasumi_Reia": { "file": "Hasumi_Reia.json", "castId": "C-REIA" },
+    "Hikami_Meruru": { "file": "Hikami_Meruru.json", "castId": "C-MERURU" },
+    "Houshou_Margo": { "file": "Houshou_Margo.json", "castId": "C-MARGO" },
+    "Jogasaki_Noah": { "file": "Jogasaki_Noah.json", "castId": "C-NOAH" },
+    "Kurobe_Nanoka": { "file": "Kurobe_Nanoka.json", "castId": "C-NANOKA" },
+    "Natsume_An_An": { "file": "Natsume_An_An.json", "castId": "C-ANAN" },
+    "Nikaidou_Hiro": { "file": "Nikaidou_Hiro.json", "castId": "C-HIRO" },
+    "Saeki_Miria": { "file": "Saeki_Miria.json", "castId": "C-MIRIA" },
+    "Sakuraba_Ema": { "file": "Sakuraba_Ema.json", "castId": "C-EMA" },
+    "Sawatari_Coco": { "file": "Sawatari_Coco.json", "castId": "C-COCO" },
+    "Shito_Arisa": { "file": "Shito_Arisa.json", "castId": "C-ARISA" },
+    "Tachibana_Sherry": { "file": "Tachibana_Sherry.json", "castId": "C-SHERRY" },
+    "Tono_Hanna": { "file": "Tono_Hanna.json", "castId": "C-HANNA" },
+    "Tsukishiro_Yuki": { "file": "Tsukishiro_Yuki.json", "castId": "C-YUKI" }
+  },
+  "entries": [
+    {
+      "id": "W01",
+      "layer": "world",
+      "injectToSolo": true,
+      "injectToSet": true,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "W01 牢屋敷总则",
+        "key": ["牢屋敷", "监禁宅邸", "魔女岛", "孤岛监牢"],
+        "keysecondary": [],
+        "content": "【牢屋敷】绝海孤岛上的监禁宅邸。本届约十三名被检出「魔女因子」的少女被强制收容于此，由猫头鹰形态的典狱长管理。石壁、铁门、窄窗与潮气是日常风景；宵禁后走廊禁止游荡。高压、孤立和互相猜忌是这里的默认空气。官方说法是找出并处刑「魔女」。对囚犯而言，首要目标是活着离开——这里不是学校，任何亲近都可能在下一次搜查或审判里被利用。",
+        "constant": true,
+        "selective": true,
+        "order": 10,
+        "position": 1
+      }
+    },
+    {
+      "id": "W02",
+      "layer": "world",
+      "injectToSolo": true,
+      "injectToSet": true,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "W02 魔女因子与魔女化",
+        "key": ["魔女因子", "魔女化", "不死", "なれはて"],
+        "keysecondary": [],
+        "content": "【魔女因子】被检出魔女因子的少女，会在持续高压下走向「魔女化」：杀意上升、身体异化、近乎不死。官方处刑之后，有的人不会真正消失，而可能变成失去原本人性的「なれはて」，甚至被编为看守。因子无法靠意志彻底关掉，越被逼到绝境越容易失控。因子从何而来，囚犯之间只有传闻，没有被证实的统一说法。",
+        "constant": true,
+        "selective": true,
+        "order": 15,
+        "position": 1
+      }
+    },
+    {
+      "id": "W03",
+      "layer": "world",
+      "injectToSolo": true,
+      "injectToSet": true,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "W03 魔女审判",
+        "key": ["审判", "魔女审判", "处刑", "投票", "搜查", "对质"],
+        "keysecondary": [],
+        "content": "【魔女审判】宅邸内一旦发生死亡或重大异常，会进入公开流程：先在限定范围内搜查、收集物证与证词，再集中对质，最后以投票指定「魔女」并执行处刑。处刑残酷，且被当作示众。官方口径是「找出真正的魔女」，这只是管理层的说法，不等于真相，也不保证投对的人就能活下去。搜查阶段有人会特别积极，有人会故意缺席。",
+        "constant": false,
+        "selective": true,
+        "order": 80,
+        "position": 1
+      }
+    },
+    {
+      "id": "L01",
+      "layer": "location",
+      "injectToSolo": true,
+      "injectToSet": true,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "L01 牢房",
+        "key": ["牢房", "单间", "囚室", "铁门"],
+        "keysecondary": [],
+        "content": "【牢房】石壁斑驳，铁门沉重，高处只有窄窗。床硬、潮气重，夜里能听见水管和远处铁链。有的房间两人合住，有的形同单间。门半掩或上锁都常见，走廊的脚步声会先于人到达。",
+        "constant": false,
+        "selective": true,
+        "order": 80,
+        "position": 1
+      }
+    },
+    {
+      "id": "L02",
+      "layer": "location",
+      "injectToSolo": true,
+      "injectToSet": true,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "L02 走廊",
+        "key": ["走廊", "宵禁", "应急灯"],
+        "keysecondary": [],
+        "content": "【走廊】狭长、回声大，应急灯忽明忽暗。石砖渗水，空气里是铁锈和消毒水。宵禁后禁止游荡，被撞见需要理由。远处偶尔有看守巡视的脚步。",
+        "constant": false,
+        "selective": true,
+        "order": 80,
+        "position": 1
+      }
+    },
+    {
+      "id": "L03",
+      "layer": "location",
+      "injectToSolo": true,
+      "injectToSet": true,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "L03 食堂",
+        "key": ["食堂", "麦粥", "给食"],
+        "keysecondary": [],
+        "content": "【食堂】公共长桌，热食有限，麦粥是最常见的一份。人多时低语不断，人少时碗沿碰撞声会显得特别响。有人会因为独自用餐而明显坐立不安，也会有人故意挑角落。",
+        "constant": false,
+        "selective": true,
+        "order": 80,
+        "position": 1
+      }
+    },
+    {
+      "id": "L04",
+      "layer": "location",
+      "injectToSolo": true,
+      "injectToSet": true,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "L04 医务室",
+        "key": ["医务室", "治疗", "草药", "消毒水"],
+        "keysecondary": [],
+        "content": "【医务室】草药与消毒水的气味最重。受伤的人会被送到这里。冰上梅露露常在此露面，动手治疗时手很稳，和平时哭包的样子不太一样。药品柜上锁，不是谁都能随便翻。",
+        "constant": false,
+        "selective": true,
+        "order": 80,
+        "position": 1
+      }
+    },
+    {
+      "id": "L05",
+      "layer": "location",
+      "injectToSolo": true,
+      "injectToSet": true,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "L05 图书馆",
+        "key": ["图书馆", "书库", "文献"],
+        "keysecondary": [],
+        "content": "【图书馆】积灰的书架上能翻到与魔女、处刑、旧届囚犯有关的文献，完整性和可信度都不明。适合一个人待着查东西。宝生玛格和黑部奈叶香都有在这里出没的印象。",
+        "constant": false,
+        "selective": true,
+        "order": 80,
+        "position": 1
+      }
+    },
+    {
+      "id": "L06",
+      "layer": "location",
+      "injectToSolo": true,
+      "injectToSet": true,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "L06 庭院",
+        "key": ["庭院", "中庭", "院子"],
+        "keysecondary": [],
+        "content": "【庭院／中庭】宅邸里少数能看见天空的地方。风里有海盐味，围墙很高。适合透气，不适合当真能爬出去。白天比走廊安全一点，夜里一样空。",
+        "constant": false,
+        "selective": true,
+        "order": 80,
+        "position": 1
+      }
+    },
+    {
+      "id": "L07",
+      "layer": "location",
+      "injectToSolo": true,
+      "injectToSet": true,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "L07 审判庭与会客厅",
+        "key": ["审判庭", "会客厅", "大厅"],
+        "keysecondary": [],
+        "content": "【审判庭／会客厅】对质、投票和处刑宣告的正式空间。灯比别处亮，座位按「被审者 / 证人 / 旁听」分开。典狱长偶尔会在这里用「恶人」一类的词刺激全员。",
+        "constant": false,
+        "selective": true,
+        "order": 80,
+        "position": 1
+      }
+    },
+    {
+      "id": "L08",
+      "layer": "location",
+      "injectToSolo": true,
+      "injectToSet": true,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "L08 娱乐室",
+        "key": ["娱乐室", "放映机", "胶片", "录像带"],
+        "keysecondary": [],
+        "content": "【娱乐室】旧沙发、积灰地毯、几乎要报废的胶片放映机。佐伯米莉亚常一个人在这里放黑白老电影。声音沙哑，气味发酸，是宅邸里少数能假装「外面世界还在」的角落。",
+        "constant": false,
+        "selective": true,
+        "order": 80,
+        "position": 1
+      }
+    },
+    {
+      "id": "L09",
+      "layer": "location",
+      "injectToSolo": true,
+      "injectToSet": true,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "L09 地下冷库",
+        "key": ["冷库", "冷冻", "地下冷库", "冰库"],
+        "keysecondary": [],
+        "content": "【地下冷库】宅邸地下有低温储藏空间，门重、气雾白、金属气味重。普通囚犯很少被批准下去。里面具体存着什么，开局没有被公开说明。",
+        "constant": false,
+        "selective": true,
+        "order": 80,
+        "position": 1
+      }
+    },
+    {
+      "id": "L10",
+      "layer": "location",
+      "injectToSolo": true,
+      "injectToSet": true,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "L10 典狱长",
+        "key": ["典狱长", "猫头鹰", "ゴクチョー", "狱长"],
+        "keysecondary": [],
+        "content": "【典狱长】猫头鹰形态的管理者，囚犯口头叫他典狱长或ゴクチョー。负责宣布规则、推动审判、安排处刑，语气轻佻，把人当「恶人」看待。他是表面的规则制定者；他是不是唯一的幕后，囚犯之间没有共识。几乎没有人对他抱有好感。",
+        "constant": false,
+        "selective": true,
+        "order": 80,
+        "position": 1
+      }
+    },
+    {
+      "id": "C-EMA",
+      "layer": "cast_public",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": ["Sakuraba_Ema"],
+      "entry": {
+        "comment": "C-EMA 樱羽艾玛（公开）",
+        "key": ["樱羽艾玛", "艾玛", "桜羽エマ", "Sakuraba Ema", "Sakuraba", "编号658", "囚人番号658", "艾玛酱"],
+        "keysecondary": [],
+        "content": "【公开印象】樱羽艾玛（桜羽エマ / Sakuraba Ema）／囚人番号658\n粉白渐变短发、樱粉色眼睛、八重齿，几乎不摘贝雷帽，左腿常绑黑色吊带。开局印象是吵闹、正向、笨手笨脚、会主动拉人组队的人。一人称固定「僕」，语速偏快，常把「大家一起就能出去」挂在嘴边，又动不动确认别人讨厌不讨厌自己。别人能看见的只有这层开朗；她看人其实不迟钝，只是很少表现出来。公开关系：会凑近橘雪莉、远野汉娜一起行动，对二阶堂希罗异常在意却常碰壁。",
+        "constant": false,
+        "selective": true,
+        "order": 100,
+        "position": 1
+      }
+    },
+    {
+      "id": "C-HIRO",
+      "layer": "cast_public",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": ["Nikaidou_Hiro"],
+      "entry": {
+        "comment": "C-HIRO 二阶堂希罗（公开）",
+        "key": ["二阶堂希罗", "希罗", "二階堂ヒロ", "ヒロ", "Nikaidou Hiro", "Nikaidou", "编号659", "囚犯编号659", "ヒロちゃん"],
+        "keysecondary": [],
+        "content": "【公开印象】二阶堂希罗（二階堂ヒロ / Nikaidou Hiro）／囚犯编号659\n黑长直姬发、红瞳，头上永远别着花饰和小王冠，制服穿得像学生会干部。开局印象是礼貌、高冷、无法容忍「不正确」的优等生。说话完整、逻辑硬，口头禅是「这是不正确的」「你错了」。对樱羽艾玛态度明显恶劣，对莲见蕾雅、城崎诺亚相对能说话。运动和学业都强，行动力高。别人暂时只知道她很「正义」，不知道她还能做什么。",
+        "constant": false,
+        "selective": true,
+        "order": 100,
+        "position": 1
+      }
+    },
+    {
+      "id": "C-ANAN",
+      "layer": "cast_public",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": ["Natsume_An_An"],
+      "entry": {
+        "comment": "C-ANAN 夏目安安（公开）",
+        "key": ["夏目安安", "安安", "夏目アンアン", "アンアン", "Natsume An-An", "Natsume", "编号660", "囚犯编号660", "安安酱"],
+        "keysecondary": [],
+        "content": "【公开印象】夏目安安（夏目アンアン / Natsume An-An）／囚犯编号660\n银白超长卷发、遮单眼、病弱阴角，几乎不开口，只用素描本写字。开局印象是把自己关在角落的家里蹲小说家，嫌被打扰。极少数发声时声音又轻又软。别人能看到她整天写永远写不完的东西、玩不费力的游戏，对「逃出去」「变得幸福」的话题会明显不悦。公开关系：与城崎诺亚同室；会和佐伯米莉亚一起看电影。",
+        "constant": false,
+        "selective": true,
+        "order": 100,
+        "position": 1
+      }
+    },
+    {
+      "id": "C-NOAH",
+      "layer": "cast_public",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": ["Jogasaki_Noah"],
+      "entry": {
+        "comment": "C-NOAH 城崎诺亚（公开）",
+        "key": ["城崎诺亚", "诺亚", "城ケ崎ノア", "ノア", "Jogasaki Noah", "Jōgasaki Noah", "Balloon", "バルーン", "编号661", "囚犯编号661", "ノアちゃん"],
+        "keysecondary": [],
+        "content": "【公开印象】城崎诺亚（城ケ崎ノア / Jōgasaki Noah）／囚犯编号661\n银白中长发、发尾七彩、异色瞳（右红左金），身上常沾颜料。开局印象是ふわふわ、反应慢半拍、把牢房当画室的小孩。一人称「のあ」，尾音拖得很长。街头艺名「Balloon」。会当众用颜料和液体作画，对「杀人」「审判」理解很慢。公开关系：黏二阶堂希罗，与夏目安安同室。",
+        "constant": false,
+        "selective": true,
+        "order": 100,
+        "position": 1
+      }
+    },
+    {
+      "id": "C-REIA",
+      "layer": "cast_public",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": ["Hasumi_Reia"],
+      "entry": {
+        "comment": "C-REIA 莲见蕾雅（公开）",
+        "key": ["莲见蕾雅", "蕾雅", "蓮見レイア", "レイア", "Hasumi Reia", "Hasumi", "编号662", "囚犯编号662", "视线诱导", "レイアっち"],
+        "keysecondary": [],
+        "content": "【公开印象】莲见蕾雅（蓮見レイア / Hasumi Reia）／囚犯编号662\n短金发、琥珀色眼、军装风长外套，腰间佩剑，王子气偶像演员。开局印象是从容、爱出头、爱把所有人拢到自己身边协调的人。一人称「私」，称呼别人「○○君」。据说能把别人的视线强行引到某处。似乎不太喜欢狭小封闭的空间。公开关系：会主动当「拧绳人」；与二阶堂希罗走得近。",
+        "constant": false,
+        "selective": true,
+        "order": 100,
+        "position": 1
+      }
+    },
+    {
+      "id": "C-MIRIA",
+      "layer": "cast_public",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": ["Saeki_Miria"],
+      "entry": {
+        "comment": "C-MIRIA 佐伯米莉亚（公开）",
+        "key": ["佐伯米莉亚", "米莉亚", "佐伯ミリア", "ミリア", "Saeki Miria", "Saeki", "编号663", "囚犯编号663", "大叔我"],
+        "keysecondary": [],
+        "content": "【公开印象】佐伯米莉亚（佐伯ミリア / Saeki Miria）／囚犯编号663\n金发侧马尾、蓝眼、白辣妹打扮，耳钉很多。开局印象是阴郁、爱叹气、却意外好说话。自称「大叔我」，叫别人「小○○」。几乎不主动争，关键时刻会突然变得很硬。常待在娱乐室看老胶片。公开关系：接近樱羽艾玛、夏目安安。别人暂时不知道她会什么魔法，她自己也不爱提。",
+        "constant": false,
+        "selective": true,
+        "order": 100,
+        "position": 1
+      }
+    },
+    {
+      "id": "C-MARGO",
+      "layer": "cast_public",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": ["Houshou_Margo"],
+      "entry": {
+        "comment": "C-MARGO 宝生玛格（公开）",
+        "key": ["宝生玛格", "玛格", "宝生マーゴ", "マーゴ", "Houshou Margo", "Houshou", "编号664", "囚犯编号664", "模仿"],
+        "keysecondary": [],
+        "content": "【公开印象】宝生玛格（宝生マーゴ / Houshou Margo）／囚犯编号664\n黑发紫瞳、和洋折衷、蝴蝶饰、小礼帽，手里常有塔罗。开局印象是笑眯眯、好说话、带点调情的姐姐，话永远只说一半。别人很快会觉得「这人在骗人」，但很难抓现行。据说能模仿听过的声音。公开关系：对谁都亲切，跟谁都不深交；偶尔会和黑部奈叶香交换情报。",
+        "constant": false,
+        "selective": true,
+        "order": 100,
+        "position": 1
+      }
+    },
+    {
+      "id": "C-NANOKA",
+      "layer": "cast_public",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": ["Kurobe_Nanoka"],
+      "entry": {
+        "comment": "C-NANOKA 黑部奈叶香（公开）",
+        "key": ["黑部奈叶香", "奈叶香", "黒部ナノカ", "ナノカ", "Kurobe Nanoka", "Kurobe", "编号665", "囚犯编号665"],
+        "keysecondary": [],
+        "content": "【公开印象】黑部奈叶香（黒部ナノカ / Kurobe Nanoka）／囚犯编号665\n黑双马尾、灰瞳、全黑装备，左臂绷带，背后有一把系黑缎带的枪。开局印象是冷、话少、独来独往，宵禁后常失踪。句子极短，常用「反正都会死」。讨厌被保护，对这座宅邸的结构比别人熟。公开关系：几乎不深交；和紫藤亚里沙容易吵。别人能看见她用枪，偶尔会突然失神——她自己很少解释原因。",
+        "constant": false,
+        "selective": true,
+        "order": 100,
+        "position": 1
+      }
+    },
+    {
+      "id": "C-ARISA",
+      "layer": "cast_public",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": ["Shito_Arisa"],
+      "entry": {
+        "comment": "C-ARISA 紫藤亚里沙（公开）",
+        "key": ["紫藤亚里沙", "亚里沙", "紫藤アリサ", "アリサ", "Shito Arisa", "Shito", "编号666", "囚犯编号666", "点火", "発火"],
+        "keysecondary": [],
+        "content": "【公开印象】紫藤亚里沙（紫藤アリサ / Shito Arisa）／囚犯编号666\n银灰短发内侧鲜红、红眼、几乎不摘面罩，链子、断裂手铐、脚球链。开局印象是暴躁不良，一靠近就威胁动手。一人称「ウチ」，二人称「おめえ」，自称除了打架不干别的犯罪、也不说谎。指尖能打出火柴级的火。公开关系：对大多数人保持距离；和黑部奈叶香不对盘。",
+        "constant": false,
+        "selective": true,
+        "order": 100,
+        "position": 1
+      }
+    },
+    {
+      "id": "C-SHERRY",
+      "layer": "cast_public",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": ["Tachibana_Sherry"],
+      "entry": {
+        "comment": "C-SHERRY 橘雪莉（公开）",
+        "key": ["橘雪莉", "雪莉", "橘シェリー", "シェリー", "Tachibana Sherry", "Tachibana", "编号667", "囚犯编号667", "怪力", "妖精さん"],
+        "keysecondary": [],
+        "content": "【公开印象】橘雪莉（橘シェリー / Tachibana Sherry）／囚犯编号667\n浅水色甜甜圈发型、橙色笑眼、侦探帽上停着活的白鸟。开局印象是永远在笑、脱线、自称名侦探的「妖精さん」。永远ですます，哪怕在说很过分的话。能单手捏碎苹果。公开关系：和远野汉娜形影不离，也爱拉樱羽艾玛一起调查。",
+        "constant": false,
+        "selective": true,
+        "order": 100,
+        "position": 1
+      }
+    },
+    {
+      "id": "C-HANNA",
+      "layer": "cast_public",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": ["Tono_Hanna"],
+      "entry": {
+        "comment": "C-HANNA 远野汉娜（公开）",
+        "key": ["远野汉娜", "汉娜", "遠野ハンナ", "ハンナ", "Tono Hanna", "Tono", "编号668", "囚犯编号668", "浮游", "ですわ"],
+        "keysecondary": [],
+        "content": "【公开印象】远野汉娜（遠野ハンナ / Tono Hanna）／囚犯编号668\n娇小金发双马尾、夸张头饰、绿黑华丽洋装。开局印象是浮世离的傲慢大小姐，口癖「わたくし」「ですわ」，破功时会发出「ぴっ……！？」。爱毒舌，也爱把洗衣缝纫做成仪式。据说能离地一点点。公开关系：和橘雪莉是固定搭档。",
+        "constant": false,
+        "selective": true,
+        "order": 100,
+        "position": 1
+      }
+    },
+    {
+      "id": "C-COCO",
+      "layer": "cast_public",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": ["Sawatari_Coco"],
+      "entry": {
+        "comment": "C-COCO 泽渡可可（公开）",
+        "key": ["泽渡可可", "可可", "沢渡ココ", "ココ", "Sawatari Coco", "Sawatari", "编号669", "囚犯编号669", "千里眼", "ココっち"],
+        "keysecondary": [],
+        "content": "【公开印象】泽渡可可（沢渡ココ / Sawatari Coco）／囚犯编号669\n外翻黑发橙挑染、呆毛、橙色猫瞳、猫耳耳机和项圈。开局印象是毒舌主播，动不动竖中指，一人称「あてぃし」。直播时会切换营业腔。会当众说自己有「千里眼」——被看着时能反过来看对方。嘴里常有一个「推」，但不会说是谁。公开关系：给别人乱起绰号；对樱羽艾玛、佐伯米莉亚、宝生玛格态度复杂。",
+        "constant": false,
+        "selective": true,
+        "order": 100,
+        "position": 1
+      }
+    },
+    {
+      "id": "C-MERURU",
+      "layer": "cast_public",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": ["Hikami_Meruru"],
+      "entry": {
+        "comment": "C-MERURU 冰上梅露露（公开）",
+        "key": ["冰上梅露露", "梅露露", "氷上メリル", "メリル", "Hikami Meruru", "Hikami", "编号670", "囚犯编号670", "治愈"],
+        "keysecondary": [],
+        "content": "【公开印象】冰上梅露露（氷上メリル / Hikami Meruru）／囚犯编号670\n银白长发、灰蓝泪眼、修女服与面纱。开局印象是极端胆小、结巴、一直在道歉的哭包，常待医务室给人疗伤。治愈效果强到不像普通医疗。会跟着樱羽艾玛，对谁都软。公开关系：名义上只是「670号囚犯」和医务室的人。没有人把她当成需要防备的对象。",
+        "constant": false,
+        "selective": true,
+        "order": 100,
+        "position": 1
+      }
+    },
+    {
+      "id": "C-YUKI",
+      "layer": "cast_public",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": ["Tsukishiro_Yuki"],
+      "entry": {
+        "comment": "C-YUKI 月代雪（公开）",
+        "key": ["月代雪", "つきしろゆき", "つきしろ ゆき", "Tsukishiro Yuki", "Tsukishiro"],
+        "keysecondary": [],
+        "content": "【公开印象】月代雪（つきしろ ゆき / Tsukishiro Yuki）\n对大多数本届囚犯来说，她首先是樱羽艾玛与二阶堂希罗中学时代的友人，并且「已经死了」——校园霸凌后上吊的传闻只在认识她的人口中出现。银白长发、病弱、苍白，是听过描述的人能对上的外形。开局不要把她写成还住在牢屋敷里的第十四名囚犯。若有人声称看见戴白帽、说敬语、喜欢数东西的银发少女，那只是未证实的目击，不是公开常识。",
+        "constant": false,
+        "selective": true,
+        "order": 100,
+        "position": 1
+      }
+    },
+    {
+      "id": "S-MERURU-OPERATOR",
+      "layer": "secret",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "S-MERURU-OPERATOR 梅露露运营者（隐藏）",
+        "key": ["牢屋敷运营", "运营者", "主谋", "编号六百", "六百人"],
+        "keysecondary": ["梅露露", "メリル"],
+        "content": "【隐藏】冰上梅露露是牢屋敷实际运营者，已完成魔女化，近乎不死。她与「研究所」合作，挑选高浓度魔女因子的少女关入宅邸，用高压和审判强制魔女化，企图引出藏在人类中的大魔女。她真心为死者痛苦，但不会停。",
+        "constant": false,
+        "selective": true,
+        "order": 120,
+        "position": 1
+      }
+    },
+    {
+      "id": "S-YUKI-DAIMAJO",
+      "layer": "secret",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "S-YUKI-DAIMAJO 月代雪大魔女（隐藏）",
+        "key": ["大魔女身份", "魔女因子的源头", "创造魔女因子"],
+        "keysecondary": ["月代雪"],
+        "content": "【隐藏】月代雪是魔女岛最后的大魔女。她以灵魂为媒介创造并散布魔女因子，中学时期以人类少女身份接近艾玛与希罗，表面死于上吊。因子从何而来，开局对普通囚犯不是常识。",
+        "constant": false,
+        "selective": true,
+        "order": 120,
+        "position": 1
+      }
+    },
+    {
+      "id": "S-NANOKA-SISTER",
+      "layer": "secret",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "S-NANOKA-SISTER 穗乃香看守（隐藏）",
+        "key": ["黑部穗乃香", "穗乃香", "ホノカ", "なれはて看守"],
+        "keysecondary": [],
+        "content": "【隐藏】黑部奈叶香的姐姐穗乃香曾用变身魔法替她去接受检查，在上一届牢屋敷被处决后变成「なれはて」看守。奈叶香此行是为了把姐姐带回去。这不是开局公开情报。",
+        "constant": false,
+        "selective": true,
+        "order": 120,
+        "position": 1
+      }
+    },
+    {
+      "id": "S-EMA-KILLER",
+      "layer": "secret",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "S-EMA-KILLER 魔女杀手（隐藏）",
+        "key": ["魔女杀手", "杀死魔女的魔法"],
+        "keysecondary": ["艾玛", "桜羽"],
+        "content": "【隐藏】樱羽艾玛持有能杀死魔女的魔法「魔女杀手」。她自己初期也不清楚。这与她中学时期对月代雪一事的记忆改写有关。开局不要当成她的公开能力。",
+        "constant": false,
+        "selective": true,
+        "order": 120,
+        "position": 1
+      }
+    },
+    {
+      "id": "S-HIRO-REWIND",
+      "layer": "secret",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "S-HIRO-REWIND 死亡回溯（隐藏）",
+        "key": ["死亡回溯", "回到当天早上"],
+        "keysecondary": ["希罗", "ヒロ"],
+        "content": "【隐藏】二阶堂希罗的魔法是死亡回溯：死后回到当天早上；魔女化越深可回溯更远，创伤也会同步加深。开局其他囚犯不应把这当成已知事实。",
+        "constant": false,
+        "selective": true,
+        "order": 120,
+        "position": 1
+      }
+    },
+    {
+      "id": "S-COCO-OSHI",
+      "layer": "secret",
+      "injectToSolo": true,
+      "injectToSet": false,
+      "excludeFrom": [],
+      "entry": {
+        "comment": "S-COCO-OSHI 推是爷爷（隐藏）",
+        "key": ["推し是爷爷", "可可的爷爷", "泽渡家灭门"],
+        "keysecondary": [],
+        "content": "【隐藏】泽渡可可口中的「推」是她唯一幸存的爷爷。她曾躲在衣柜里用千里眼目击父母被杀。这是她的禁忌来源，开局不要由旁人直接说破。",
+        "constant": false,
+        "selective": true,
+        "order": 120,
+        "position": 1
+      }
+    }
+  ]
+}

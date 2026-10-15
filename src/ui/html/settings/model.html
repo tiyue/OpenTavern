@@ -1,0 +1,45 @@
+            <section id="settingsPanelModel" class="settings-panel space-y-5" role="tabpanel" aria-labelledby="settingsTabModel">
+            <div>
+                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_api_endpoint">API Endpoint</label>
+                <input id="apiEndpoint" type="text" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all" placeholder="https://api.openai.com/v1 （或直接粘贴完整地址）">
+                <div class="mt-1.5">
+                    <div class="text-[10px] text-zinc-500 mb-1" data-i18n="settings_api_presets">一键填入 DeepSeek 地址（推荐）</div>
+                    <div class="flex flex-wrap gap-1.5">
+                        <button type="button" onclick="applyMainApiPreset('deepseek')" class="px-3 py-1 text-xs rounded-lg bg-white/5 hover:bg-amber-500/20 active:bg-amber-500/30 text-zinc-300 hover:text-amber-300 transition-all border border-white/10 font-medium">DeepSeek</button>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_api_key">API Key</label>
+                <input id="apiKey" type="password" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all" placeholder="sk-...">
+                <div class="mt-1.5">
+                    <label class="flex items-center gap-2 text-[11px] text-zinc-300 cursor-pointer select-none">
+                        <input type="checkbox" id="saveApiKey" class="accent-amber-500 w-3.5 h-3.5 flex-shrink-0">
+                        <span data-i18n="settings_save_api_key">将 API Key 保存到浏览器本地存储</span>
+                    </label>
+                    <div class="mt-1 ml-5 text-[10px] text-amber-400/90 leading-snug" data-i18n="settings_save_api_key_warn">
+                        请仅在完全信任的私人设备上启用。API Key 将以明文形式存储在浏览器 localStorage 中，公共或共享设备请勿勾选。
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button id="apiConnectBtn" type="button" class="px-3 py-1.5 text-xs rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/20 transition-colors font-medium" data-i18n="api_connect_models">Connect &amp; Load Models</button>
+                    <button id="apiRefreshModelsBtn" type="button" class="px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition-colors" data-i18n="api_refresh_models">Refresh List</button>
+                    <span id="apiConnectionStatus" class="text-[10px] text-zinc-500" role="status" aria-live="polite" data-i18n="api_status_disconnected">Not connected</span>
+                </div>
+                <p class="mt-1.5 text-[10px] text-zinc-500" data-i18n="api_model_discovery_hint">Enter Endpoint and Key, then connect to choose a model or type any Model ID.</p>
+                <div id="apiTestResult" class="mt-1.5 text-xs rounded-lg p-2 hidden border"></div>
+            </div>
+            <div>
+                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="modelCatalog" data-i18n="settings_model_catalog">Choose from list</label>
+                <select id="modelCatalog" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
+                    <option value="" data-i18n="settings_model_custom_option">— Custom / manual —</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="modelName" data-i18n="settings_model_manual">Model ID (manual)</label>
+                <input id="modelName" type="text" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all" placeholder="gpt-4o">
+                <p class="mt-1 text-[10px] text-zinc-500" data-i18n="settings_model_manual_hint">Selecting a model updates Model ID; manual IDs remain supported.</p>
+            </div>
+            </section>

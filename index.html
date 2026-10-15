@@ -15,26 +15,60 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>OpenTavern — AI Character Chat</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="assets/js/tailwind.config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
-<link rel="stylesheet" href="assets/css/app.css?v=20260711-second-stage-isolation">
+<meta name="description" content="OpenTavern is a browser-based AI character chat and character-card library.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="OpenTavern — AI Character Chat">
+<meta property="og:description" content="Chat with AI characters, manage character cards, conversations and world books in your browser.">
+<meta property="og:image" content="/assets/images/opentavern-og.png">
+<meta property="og:image:width" content="1731">
+<meta property="og:image:height" content="909">
+<meta name="twitter:card" content="summary_large_image">
+<script id="ot-runtime-config" data-release="fd7bfb26208f884977056a60" data-snapshot="">
+// 运行时资源与版本配置：由构建期的离线清单在运行时补全快照版本；基址按当前文档位置推导，
+// 因此普通入口与 /.sites-public/ 预览共用同一份产物，不写死绝对发布路径。
+(function () {
+    var script = document.currentScript;
+    var path = (window.location && window.location.pathname) || '/';
+    var dir = path.slice(0, path.lastIndexOf('/') + 1) || '/';
+    var release = (script && script.getAttribute('data-release')) || '';
+    var pinned = (script && script.getAttribute('data-snapshot')) || '';
+    var side = release ? 'assets/offline/' + release + '/' : '';
+    window.__OT_RUNTIME__ = {
+        releaseId: release,
+        basePath: dir,
+        snapshotBase: pinned || (side ? dir + side : ''),
+        manifestUrl: dir + 'offline-manifest.json'
+    };
+})();
+</script>
+<link rel="stylesheet" href="assets/offline/fd7bfb26208f884977056a60/assets/css/tailwind.css">
+<script src="assets/offline/fd7bfb26208f884977056a60/assets/js/purify.min.js"></script>
+<script src="assets/offline/fd7bfb26208f884977056a60/assets/js/marked.umd.js"></script>
+<link rel="stylesheet" href="assets/offline/fd7bfb26208f884977056a60/assets/css/app.css">
 </head>
 <body class="shimmer-enabled theme-new-light">
-<script src="assets/js/theme-preload.js"></script>
+<script src="assets/offline/fd7bfb26208f884977056a60/assets/js/theme-preload.js"></script>
 
 <canvas id="shaderCanvas"></canvas>
 <div id="vignetteOverlay"></div>
 
 <!-- ===== Settings Modal ===== -->
-<div id="settingsModal" class="modal-overlay fixed inset-0 z-[100] flex items-center justify-center hidden">
+<div id="settingsModal" class="modal-overlay fixed inset-0 z-[100] flex items-center justify-center hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
     <div class="absolute inset-0 bg-black/65 backdrop-blur-sm" id="settingsBackdrop"></div>
-    <div class="relative glass rounded-3xl w-[92%] max-w-lg p-7 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-6">
-            <h2 class="text-lg font-bold text-zinc-100" data-i18n="settings_title">Settings</h2>
-            <button id="settingsCloseBtn" class="w-8 h-8 rounded-full glass flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors">&times;</button>
+    <div class="settings-dialog relative glass rounded-3xl shadow-2xl animate-fade-in">
+        <div class="settings-header flex items-center justify-between">
+            <h2 id="settingsTitle" class="text-lg font-bold text-zinc-100" data-i18n="settings_title">Settings</h2>
+            <button id="settingsCloseBtn" type="button" class="w-8 h-8 rounded-full glass flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors" aria-label="Close settings">&times;</button>
         </div>
-        <div class="space-y-5">
+        <div id="settingsTabs" class="settings-tabs" role="tablist" aria-labelledby="settingsTitle">
+            <button id="settingsTabModel" class="settings-tab" type="button" role="tab" aria-selected="true" aria-controls="settingsPanelModel" tabindex="0" data-settings-tab data-i18n="settings_tab_model">Connection</button>
+            <button id="settingsTabPrompts" class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="settingsPanelPrompts" tabindex="-1" data-settings-tab data-i18n="settings_tab_prompts">Chat</button>
+            <button id="settingsTabSummary" class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="settingsPanelSummary" tabindex="-1" data-settings-tab data-i18n="settings_tab_summary">Memory</button>
+            <button id="settingsTabExtensions" class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="settingsPanelExtensions" tabindex="-1" data-settings-tab data-i18n="settings_tab_extensions">Extensions</button>
+            <button id="settingsTabWorkspace" class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="settingsPanelWorkspace" tabindex="-1" data-settings-tab data-i18n="settings_tab_workspace">Interface &amp; Data</button>
+        </div>
+        <div id="settingsPanels" class="settings-panels">
+            <section id="settingsPanelModel" class="settings-panel space-y-5" role="tabpanel" aria-labelledby="settingsTabModel">
             <div>
                 <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_api_endpoint">API Endpoint</label>
                 <input id="apiEndpoint" type="text" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all" placeholder="https://api.openai.com/v1 （或直接粘贴完整地址）">
@@ -44,14 +78,6 @@
                         <button type="button" onclick="applyMainApiPreset('deepseek')" class="px-3 py-1 text-xs rounded-lg bg-white/5 hover:bg-amber-500/20 active:bg-amber-500/30 text-zinc-300 hover:text-amber-300 transition-all border border-white/10 font-medium">DeepSeek</button>
                     </div>
                 </div>
-                <!-- 测试 API 连接 按钮 -->
-                <div class="mt-2">
-                    <button type="button" onclick="testMainApiConnection()" 
-                            class="px-3 py-1 text-xs rounded-lg bg-white/5 hover:bg-amber-500/20 active:bg-amber-500/30 text-amber-300 hover:text-amber-200 transition-all border border-white/10 font-medium"
-                            data-i18n="api_test_button">测试 API 连接</button>
-                    <span class="ml-2 text-[10px] text-zinc-500" data-i18n="api_test_hint">测试前请填写 Endpoint 与 Key</span>
-                </div>
-                <div id="apiTestResult" class="mt-1.5 text-xs rounded-lg p-2 hidden border"></div>
             </div>
             <div>
                 <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_api_key">API Key</label>
@@ -66,45 +92,28 @@
                     </div>
                 </div>
             </div>
-            <div class="glass rounded-2xl p-3 border border-white/5">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_ollama_compat_label">Ollama 兼容模式</label>
-                        <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_ollama_compat_hint">开启后会在发送前合并/降级多条 system 消息，避免部分本地模型的 Jinja 模板报错。</p>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
-                        <input type="checkbox" id="ollamaCompatMode" class="sr-only peer">
-                        <div class="w-9 h-5 bg-white/10 rounded-full peer-checked:bg-amber-500/60 peer-checked:ring-1 peer-checked:ring-amber-500/40 transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
-                    </label>
+            <div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button id="apiConnectBtn" type="button" class="px-3 py-1.5 text-xs rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/20 transition-colors font-medium" data-i18n="api_connect_models">Connect &amp; Load Models</button>
+                    <button id="apiRefreshModelsBtn" type="button" class="px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition-colors" data-i18n="api_refresh_models">Refresh List</button>
+                    <span id="apiConnectionStatus" class="text-[10px] text-zinc-500" role="status" aria-live="polite" data-i18n="api_status_disconnected">Not connected</span>
                 </div>
+                <p class="mt-1.5 text-[10px] text-zinc-500" data-i18n="api_model_discovery_hint">Enter Endpoint and Key, then connect to choose a model or type any Model ID.</p>
+                <div id="apiTestResult" class="mt-1.5 text-xs rounded-lg p-2 hidden border"></div>
             </div>
             <div>
-                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_model">Model</label>
-                <input id="modelName" type="text" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all" placeholder="gpt-4o">
-            </div>
-
-            <!-- WebLLM 本地后端选择（零加载：仅用户在设置中主动切换并确认后才动态 import） -->
-            <div>
-                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_inference_backend">推理后端</label>
-                <select id="inferenceBackend" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all">
-                    <option value="remote-api" data-i18n="settings_backend_remote">远程 API（OpenAI 兼容）</option>
-                    <option value="webllm" data-i18n="settings_backend_webllm">浏览器本地 (WebLLM)</option>
+                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="modelCatalog" data-i18n="settings_model_catalog">Choose from list</label>
+                <select id="modelCatalog" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
+                    <option value="" data-i18n="settings_model_custom_option">— Custom / manual —</option>
                 </select>
-                <div id="webllmModelSection" class="mt-2 hidden">
-                    <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_webllm_model">本地模型</label>
-                    <select id="webllmModel" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
-                        <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama-3.2-1B (q4f16，约 850 MB)</option>
-                        <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Llama-3.2-3B (q4f16，约 2100 MB)</option>
-                    </select>
-                    <p class="mt-1 text-[10px] text-amber-400/90" data-i18n="settings_webllm_hint">首次使用需下载模型文件，建议 Wi-Fi 环境。需要浏览器支持 WebGPU。</p>
-                    <button id="detectWebGPUDeviceBtn" type="button"
-                            class="mt-2 w-full px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-amber-500/20 active:bg-amber-500/30 text-amber-300 hover:text-amber-200 border border-white/10 transition-all font-medium">
-                        检测当前 WebGPU 设备
-                    </button>
-                    <div id="webgpuDeviceInfo" class="mt-1.5 text-[10px] leading-relaxed text-zinc-500"></div>
-                </div>
             </div>
-
+            <div>
+                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="modelName" data-i18n="settings_model_manual">Model ID (manual)</label>
+                <input id="modelName" type="text" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all" placeholder="gpt-4o">
+                <p class="mt-1 text-[10px] text-zinc-500" data-i18n="settings_model_manual_hint">Selecting a model updates Model ID; manual IDs remain supported.</p>
+            </div>
+            </section>
+            <section id="settingsPanelPrompts" class="settings-panel space-y-5" role="tabpanel" aria-labelledby="settingsTabPrompts" hidden>
             <hr class="border-white/5">
             <div>
                 <div class="flex items-center justify-between mb-1.5">
@@ -119,9 +128,9 @@
             <div>
                 <div class="flex items-center justify-between mb-1.5">
                     <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_max_tokens">Max Response Tokens</label>
-                    <span id="maxTokensVal" class="text-xs text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full">1024</span>
+                    <span id="maxTokensVal" class="text-xs text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full">8192</span>
                 </div>
-                <input type="range" id="maxTokens" min="64" max="8192" value="1024" class="w-full">
+                <input type="range" id="maxTokens" min="64" max="8192" value="8192" class="w-full">
             </div>
             <div>
                 <div class="flex items-center justify-between mb-1.5">
@@ -132,20 +141,49 @@
             </div>
             <div>
                 <div class="flex items-center justify-between mb-1.5">
+                    <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_frequency_penalty">Frequency Penalty</label>
+                    <span id="frequencyPenaltyVal" class="text-xs text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full">0</span>
+                </div>
+                <input type="range" id="frequencyPenalty" min="-2" max="2" step="0.05" value="0" class="w-full">
+            </div>
+            <div>
+                <div class="flex items-center justify-between mb-1.5">
+                    <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_presence_penalty">Presence Penalty</label>
+                    <span id="presencePenaltyVal" class="text-xs text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full">0</span>
+                </div>
+                <input type="range" id="presencePenalty" min="-2" max="2" step="0.05" value="0" class="w-full">
+            </div>
+            <div>
+                <div class="flex items-center justify-between mb-1.5">
                     <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_top_p">Top P</label>
                     <span id="topPVal" class="text-xs text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full">0.9</span>
                 </div>
                 <input type="range" id="topP" min="0" max="1" step="0.05" value="0.9" class="w-full">
             </div>
-            <div>
-                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_user_name">Your Name (replaces {{user}})</label>
-                <input id="userName" type="text" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all" placeholder="User">
-            </div>
-            <div>
-                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_user_description">User Description / Persona</label>
-                <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_user_description_hint">This will be injected into the prompt as your character setting / background (similar to a character's Description).</p>
-                <textarea id="userDescription" rows="3" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all resize-none" data-i18n-placeholder="settings_user_description_placeholder"></textarea>
-            </div>
+            <fieldset class="settings-persona-group glass rounded-2xl p-3 border border-white/5" aria-labelledby="userPersonaGroupTitle">
+                <legend id="userPersonaGroupTitle" class="px-1 text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_user_personas">User personas</legend>
+                <p class="text-[10px] text-zinc-600 mt-0.5 mb-3" data-i18n="settings_user_personas_hint">Save multiple personas. Each conversation remembers its selected persona; {{char}} and {{user}} are supported.</p>
+                <label class="text-xs font-semibold text-zinc-400" for="userPersonaSelect" data-i18n="settings_user_persona_current">Current persona</label>
+                <select id="userPersonaSelect" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30"></select>
+                <div class="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button id="userPersonaNewBtn" type="button" class="px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition-colors" data-i18n="settings_user_persona_new">New</button>
+                    <button id="userPersonaCopyBtn" type="button" class="px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition-colors" data-i18n="settings_user_persona_copy">Copy current</button>
+                    <button id="userPersonaDeleteBtn" type="button" class="px-3 py-1.5 text-xs rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" data-i18n="settings_user_persona_delete">Delete</button>
+                </div>
+                <div class="mt-3">
+                    <label class="text-xs font-semibold text-zinc-400" for="userPersonaName" data-i18n="settings_user_persona_name">Persona name</label>
+                    <input id="userPersonaName" type="text" class="w-full mt-1 px-3 py-2 glass rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" data-i18n-placeholder="settings_user_persona_name_placeholder" placeholder="Detective route, campus daily life">
+                </div>
+                <div class="mt-3">
+                    <label class="text-xs font-semibold text-zinc-400" for="userName" data-i18n="settings_user_name">Your Name (replaces {{user}})</label>
+                    <input id="userName" type="text" class="w-full mt-1 px-3 py-2 glass rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all" placeholder="User">
+                </div>
+                <div class="mt-3">
+                    <label class="text-xs font-semibold text-zinc-400" for="userDescription" data-i18n="settings_user_description">User Description / Persona</label>
+                    <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_user_description_hint">This will be injected into the prompt as your character setting / background (similar to a character's Description).</p>
+                    <textarea id="userDescription" rows="3" class="w-full mt-1 px-3 py-2 glass rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all resize-none" data-i18n-placeholder="settings_user_description_placeholder"></textarea>
+                </div>
+            </fieldset>
             <div>
                 <div class="flex items-center justify-between gap-2 mb-1.5">
                     <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider"><span data-i18n="settings_system_prompt">Custom System Prompt</span> <span class="text-zinc-600" data-i18n="settings_system_prompt_hint">(overrides character's system prompt)</span></label>
@@ -233,7 +271,7 @@
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                         <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_st_preset_title">SillyTavern Preset Prompts</label>
-                        <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_st_preset_hint">Only prompt text is imported and inserted after the system prompt.</p>
+                        <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_st_preset_hint">Imports prompts, ordering, and declarative regex_scripts. Regex requires separate consent.</p>
                     </div>
                     <div class="flex gap-1.5 flex-shrink-0">
                         <button id="stPresetImportBtn" type="button" class="px-2.5 py-1 text-[11px] rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition-colors" data-i18n="settings_st_preset_import">Import</button>
@@ -245,7 +283,8 @@
                 <div id="stPresetStatus" class="mt-2 text-[10px] text-zinc-500"></div>
                 <div id="stPresetList" class="mt-2 space-y-1.5 max-h-48 overflow-y-auto pr-1"></div>
             </div>
-            <hr class="border-white/5">
+            </section>
+            <section id="settingsPanelSummary" class="settings-panel space-y-5" role="tabpanel" aria-labelledby="settingsTabSummary" hidden>
             <!-- 自动总结设置（清晰分离） -->
             <div class="flex items-center justify-between">
                 <div>
@@ -326,8 +365,29 @@
                 </div>
             </div>
 
-            <!-- Storage Status (Phase 3 增强) -->
+            <!-- World Info Budget -->
             <hr class="border-white/5">
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_wi_budget">World Info Token Budget</label>
+                        <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_wi_budget_hint">Limit total tokens injected from World Book entries per generation</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                        <input type="checkbox" id="worldInfoBudgetEnabled" class="sr-only peer">
+                        <div class="w-9 h-5 bg-white/10 rounded-full peer-checked:bg-amber-500/60 peer-checked:ring-1 peer-checked:ring-amber-500/40 transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                    </label>
+                </div>
+                <div class="flex items-center justify-between mb-1.5">
+                    <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_wi_budget_max">Max Tokens from World Info</label>
+                    <span id="worldInfoBudgetVal" class="text-xs text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full">2048</span>
+                </div>
+                <input type="range" id="worldInfoBudget" min="256" max="8192" step="256" value="2048" class="w-full">
+            </div>
+
+            </section>
+            <section id="settingsPanelWorkspace" class="settings-panel space-y-5" role="tabpanel" aria-labelledby="settingsTabWorkspace" hidden>
+            <!-- Storage Status (Phase 3 增强) -->
             <div>
                 <div class="flex items-center justify-between mb-1">
                     <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">存储后端</label>
@@ -352,13 +412,6 @@
                         data-i18n="clear_opfs_data">
                     <!-- 文字由 JS 通过 t('clear_opfs_data') 动态设置 -->
                 </button>
-
-                <!-- 【Storage Fix】清除 WebLLM 缓存按钮 -->
-                <button id="clearWebLLMBtn"
-                        class="mt-1.5 w-full px-3 py-1 text-xs rounded-lg bg-amber-500/10 hover:bg-amber-500/20 active:bg-amber-500/30 text-amber-300 border border-amber-500/20 transition-all font-medium flex items-center justify-center gap-1">
-                    清除 WebLLM 模型缓存
-                </button>
-
                 <!-- 【Recovery Tool】存储恢复工具 -->
                 <hr class="border-white/5 mt-3">
                 <div>
@@ -372,24 +425,26 @@
                 </div>
             </div>
 
-            <!-- World Info Budget -->
+            <!-- 本地资源与离线更新（核心/公共资源就绪状态、检查更新、准备资料、清理、切换） -->
             <hr class="border-white/5">
-            <div>
-                <div class="flex items-center justify-between mb-2">
-                    <div>
-                        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_wi_budget">World Info Token Budget</label>
-                        <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_wi_budget_hint">Limit total tokens injected from World Book entries per generation</p>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
-                        <input type="checkbox" id="worldInfoBudgetEnabled" class="sr-only peer">
-                        <div class="w-9 h-5 bg-white/10 rounded-full peer-checked:bg-amber-500/60 peer-checked:ring-1 peer-checked:ring-amber-500/40 transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
-                    </label>
+            <div id="localResourceSection">
+                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">本地资源与离线更新</label>
+                <p id="localResourceSummary" class="feature-hint">应用与资料缓存在本机浏览器缓存中；断网站点不影响已准备内容与本地操作，模型请求仍需供应商网络可达。</p>
+                <ul class="local-resource-list">
+                    <li id="localResourceCore">核心版本状态读取中…</li>
+                    <li id="localResourcePublic">公共资料状态读取中…</li>
+                    <li id="localResourceUpdate">更新状态读取中…</li>
+                    <li id="localResourcePrivate" hidden>本地图片状态读取中…</li>
+                </ul>
+                <div class="feature-toolbar local-resource-actions">
+                    <button id="localResourceCheckBtn" type="button">检查更新</button>
+                    <button id="localResourcePrepareBtn" type="button">准备资料</button>
+                    <button id="localResourcePrivatePrepareBtn" type="button" hidden>准备本地图片</button>
+                    <button id="localResourceCleanBtn" type="button">清理可重下资源</button>
+                    <button id="localResourceApplyBtn" type="button" disabled>切换已就绪更新</button>
                 </div>
-                <div class="flex items-center justify-between mb-1.5">
-                    <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_wi_budget_max">Max Tokens from World Info</label>
-                    <span id="worldInfoBudgetVal" class="text-xs text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full">2048</span>
-                </div>
-                <input type="range" id="worldInfoBudget" min="256" max="8192" step="256" value="2048" class="w-full">
+                <p id="localResourceStatus" class="feature-hint" role="status" aria-live="polite"></p>
+                <p class="feature-hint">普通远程 HTTP 无受控离线缓存，已准备内容无法保证断网重开，但本地操作照常可用；本机与 HTTPS 来源会尽量准备离线副本。清理只删除非当前版本的应用下载缓存与公共资料缓存，不触碰聊天、设置或已导入资料。</p>
             </div>
 
             <!-- 界面主题（从 index_new.html 迁移为额外可选项） -->
@@ -398,10 +453,23 @@
                 <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="settings_ui_theme_label">界面主题</label>
                 <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_ui_theme_hint">选择聊天界面的视觉风格，不影响聊天、总结、世界书或模型设置。</p>
                 <select id="uiTheme" class="w-full mt-2 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
+                    <option value="system">跟随系统</option>
                     <option value="classic" data-i18n="settings_ui_theme_classic">经典暗色玻璃</option>
                     <option value="new-light" data-i18n="settings_ui_theme_new_light">新版浅色工作区</option>
                     <option value="new-dark" data-i18n="settings_ui_theme_new_dark">新版低亮度工作区</option>
+                    <option value="taoxin">桃信浅色</option>
                 </select>
+            </div>
+            <div class="feature-grid">
+                <label class="feature-field" for="readingWidth"><span>阅读列宽</span><select id="readingWidth"><option value="narrow">窄</option><option value="medium">适中</option><option value="wide">宽</option><option value="full">全宽</option></select></label>
+                <label class="feature-field" for="readingFontSize"><span>正文字号</span><select id="readingFontSize"><option value="default">主题默认</option><option value="14">14px</option><option value="15">15px</option><option value="16">16px</option><option value="18">18px</option></select></label>
+            </div>
+            <label class="feature-check"><input id="restoreLastChat" type="checkbox">启动时恢复上次聊天</label>
+            <div>
+                <label class="text-xs font-semibold text-zinc-400">聊天背景</label>
+                <div class="feature-toolbar"><button id="chatBackgroundChoose" type="button">选择图片</button><button id="chatBackgroundClear" type="button">清除</button></div>
+                <input id="chatBackgroundFile" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                <p id="chatBackgroundStatus" class="feature-hint"></p><p class="feature-hint">PNG、JPEG 或 WebP，最多 2 MiB，最长边 4096px。仅作用于聊天区。</p>
             </div>
             <hr class="border-white/5">
             <div class="flex items-center justify-between">
@@ -414,14 +482,128 @@
                     <div class="w-9 h-5 bg-white/10 rounded-full peer-checked:bg-amber-500/60 peer-checked:ring-1 peer-checked:ring-amber-500/40 transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
                 </label>
             </div>
-
             <hr class="border-white/5">
-            <!-- Qwen Image generation -->
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="showReplyAvatar" data-i18n="settings_show_reply_avatar_label">显示回复头像</label>
+                    <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_show_reply_avatar_hint">在助手消息上方显示角色头像；无图片时显示名称首字母。默认关闭。</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                    <input type="checkbox" id="showReplyAvatar" class="sr-only peer">
+                    <span class="settings-toggle-track"></span>
+                </label>
+            </div>
+            <hr class="border-white/5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="showMsgTokenUsage" data-i18n="settings_show_msg_token_usage_label">显示消息 Token 统计</label>
+                    <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_show_msg_token_usage_hint">在助手气泡下显示本轮输入、输出 Token 与生成速度；旧消息没有数据时不显示。默认关闭。</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                    <input type="checkbox" id="showMsgTokenUsage" class="sr-only peer">
+                    <span class="settings-toggle-track"></span>
+                </label>
+            </div>
+            <hr class="border-white/5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="submitWithCmdEnter" data-i18n="settings_submit_cmd_enter_label">需要 Cmd+Enter 来提交</label>
+                    <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_submit_cmd_enter_hint">开启后 Cmd/Ctrl+Enter 提交，Enter 换行；关闭后 Enter 提交、Shift+Enter 换行。默认开启。</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                    <input type="checkbox" id="submitWithCmdEnter" class="sr-only peer">
+                    <span class="settings-toggle-track"></span>
+                </label>
+            </div>
+            <hr class="border-white/5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="streamEnabled" data-i18n="settings_stream_enabled_label">启用串流</label>
+                    <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_stream_enabled_hint">开启后边生成边显示；关闭后发送 stream: false，等待完整回复后一次显示。默认开启。</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                    <input type="checkbox" id="streamEnabled" class="sr-only peer" checked>
+                    <span class="settings-toggle-track"></span>
+                </label>
+            </div>
+            <hr class="border-white/5">
+            <div>
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="streamTextAnimEnabled" data-i18n="settings_stream_anim_label">流式文字动画</label>
+                        <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_stream_anim_hint">仅让新出现的文字播放进入动画；效能模式或系统减少动态效果时自动停用。默认关闭。</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                        <input type="checkbox" id="streamTextAnimEnabled" class="sr-only peer">
+                        <span class="settings-toggle-track"></span>
+                    </label>
+                </div>
+                <div id="streamTextAnimDetails" class="settings-detail-region hidden">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400" for="streamTextAnimEffect" data-i18n="settings_stream_anim_effect">动画效果</label>
+                        <select id="streamTextAnimEffect" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
+                            <option value="fade" data-i18n="settings_stream_anim_effect_fade">淡入</option>
+                            <option value="rise" data-i18n="settings_stream_anim_effect_rise">上移淡入</option>
+                            <option value="slide" data-i18n="settings_stream_anim_effect_slide">侧入淡入</option>
+                            <option value="scale" data-i18n="settings_stream_anim_effect_scale">缩放淡入</option>
+                            <option value="drop" data-i18n="settings_stream_anim_effect_drop">下落淡入</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400" for="streamTextAnimUnit" data-i18n="settings_stream_anim_unit">动画粒度</label>
+                        <select id="streamTextAnimUnit" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
+                            <option value="token" data-i18n="settings_stream_anim_unit_token">按 Token 批次</option>
+                            <option value="char" data-i18n="settings_stream_anim_unit_char">按字符</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between"><label class="text-xs font-semibold text-zinc-400" for="streamTextAnimDuration" data-i18n="settings_stream_anim_duration">时长 (ms)</label><span id="streamTextAnimDurationVal" class="settings-value-pill">180</span></div>
+                        <input type="range" id="streamTextAnimDuration" min="50" max="1000" step="10" value="180" class="w-full">
+                    </div>
+                    <div id="streamTextAnimDistanceRow">
+                        <div class="flex items-center justify-between"><label class="text-xs font-semibold text-zinc-400" for="streamTextAnimDistance" data-i18n="settings_stream_anim_distance">位移幅度 (em)</label><span id="streamTextAnimDistanceVal" class="settings-value-pill">0.80</span></div>
+                        <input type="range" id="streamTextAnimDistance" min="0.05" max="0.80" step="0.01" value="0.80" class="w-full">
+                    </div>
+                    <div id="streamTextAnimScaleRow" class="hidden">
+                        <div class="flex items-center justify-between"><label class="text-xs font-semibold text-zinc-400" for="streamTextAnimScale" data-i18n="settings_stream_anim_scale">缩放起始值</label><span id="streamTextAnimScaleVal" class="settings-value-pill">1.10</span></div>
+                        <input type="range" id="streamTextAnimScale" min="1.02" max="1.40" step="0.01" value="1.10" class="w-full">
+                    </div>
+                    <div id="streamTextAnimStaggerRow" class="hidden">
+                        <div class="flex items-center justify-between"><label class="text-xs font-semibold text-zinc-400" for="streamTextAnimStagger" data-i18n="settings_stream_anim_stagger">字间延迟 (ms)</label><span id="streamTextAnimStaggerVal" class="settings-value-pill">12</span></div>
+                        <input type="range" id="streamTextAnimStagger" min="0" max="40" step="1" value="12" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between gap-2"><label class="text-xs font-semibold text-zinc-400" data-i18n="settings_stream_anim_preview">预览</label><button type="button" id="streamAnimPreviewBtn" class="px-2.5 py-1 text-[11px] rounded-lg bg-white/5 hover:bg-amber-500/20 text-amber-300 border border-white/10 transition-all font-medium" data-i18n="settings_stream_anim_preview_btn">播放预览</button></div>
+                        <div id="streamAnimPreviewBox" class="mt-2 min-h-9 px-3 py-2 text-sm glass rounded-xl text-zinc-200" aria-live="polite"></div>
+                    </div>
+                </div>
+            </div>
+            <hr class="border-white/5">
+            <div>
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" for="streamIdleTimeoutSec" data-i18n="settings_stream_idle_timeout_label">流式空闲超时</label>
+                        <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="settings_stream_idle_timeout_hint">超过该时间没有新内容时自动中断，并保留已生成部分。默认关闭。</p>
+                    </div>
+                    <span id="streamIdleTimeoutVal" class="settings-value-pill flex-shrink-0">关闭</span>
+                </div>
+                <input type="range" id="streamIdleTimeoutSec" min="0" max="300" step="5" value="0" class="w-full mt-2">
+            </div>
+            <hr class="border-white/5">
+            <div>
+                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="onboarding_replay_title">新手引导</label>
+                <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="onboarding_replay_hint">重新配置 API、用户设定、角色扮演提示词和推荐角色卡。</p>
+                <button id="onboardingReplayBtn" type="button" class="mt-2 w-full px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition-colors" data-i18n="onboarding_replay_action">重新打开新手引导</button>
+            </div>
+
+            </section>
+            <section id="settingsPanelExtensions" class="settings-panel space-y-5" role="tabpanel" aria-labelledby="settingsTabExtensions" hidden>
+            <!-- Packy GPT Image generation -->
             <div class="glass rounded-2xl p-3 border border-white/5">
                 <div class="flex items-center justify-between gap-3">
                     <div>
-                        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Qwen 图片生成</label>
-                        <p class="text-[10px] text-zinc-600 mt-0.5">使用文本模型总结最近主回复，再把总结和对应角色卡图片发送到 Qwen Image 网关。</p>
+                        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Packy GPT Image 图片生成</label>
+                        <p class="text-[10px] text-zinc-600 mt-0.5">使用文本模型总结最近主回复，再把总结和对应角色卡图片发送到 Packy GPT Image 网关。</p>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
                         <input type="checkbox" id="imageGenerationEnabled" class="sr-only peer">
@@ -436,41 +618,31 @@
                     <div>
                         <label class="text-xs font-semibold text-zinc-400">访问令牌</label>
                         <input id="imageGenerationToken" type="password" autocomplete="off" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="图片网关访问令牌">
-                        <p class="text-[10px] text-zinc-600 mt-1">令牌仅保存在当前浏览器；百炼 API Key 只配置在服务端。</p>
+                        <p class="text-[10px] text-zinc-600 mt-1">令牌仅保存在当前浏览器；Packy API Key 只配置在服务端。</p>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div>
                         <div>
                             <label class="text-xs font-semibold text-zinc-400">默认画面比例</label>
                             <select id="imageGenerationSize" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
-                                <option value="2048*2048">1:1 · 2048 × 2048</option>
-                                <option value="2688*1536">16:9 · 2688 × 1536</option>
-                                <option value="1536*2688">9:16 · 1536 × 2688</option>
-                                <option value="2368*1728">4:3 · 2368 × 1728</option>
-                                <option value="1728*2368">3:4 · 1728 × 2368</option>
+                                <optgroup label="Packy 标准尺寸">
+                                    <option value="1024x1024">1:1 · 1024 × 1024</option>
+                                    <option value="1536x1024">3:2 · 1536 × 1024</option>
+                                    <option value="1024x1536">2:3 · 1024 × 1536</option>
+                                </optgroup>
+                                <optgroup label="兼容高分辨率尺寸">
+                                    <option value="2048*2048">1:1 · 2048 × 2048</option>
+                                    <option value="2688*1536">16:9 · 2688 × 1536</option>
+                                    <option value="1536*2688">9:16 · 1536 × 2688</option>
+                                    <option value="2368*1728">4:3 · 2368 × 1728</option>
+                                    <option value="1728*2368">3:4 · 1728 × 2368</option>
+                                </optgroup>
                             </select>
-                        </div>
-                        <div class="hidden" aria-hidden="true">
-                            <label class="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
-                                <input id="imageGenerationPromptExtend" type="checkbox" class="accent-amber-500">
-                                智能改写提示词
-                            </label>
-                            <label class="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
-                                <input id="imageGenerationIncludeCharacter" type="checkbox" class="accent-amber-500">
-                                包含角色资料
-                            </label>
-                            <label class="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
-                                <input id="imageGenerationIncludeContext" type="checkbox" class="accent-amber-500">
-                                包含最近对话
-                            </label>
                         </div>
                     </div>
                     <div>
-                        <label class="text-xs font-semibold text-zinc-400">默认负向提示词</label>
-                        <textarea id="imageGenerationNegativePrompt" rows="2" maxlength="500" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 resize-y" placeholder="低画质，模糊，肢体畸形，错误文字"></textarea>
-                    </div>
-                    <div class="hidden" aria-hidden="true">
-                        <label class="text-xs font-semibold text-zinc-400">提示词模板</label>
-                        <textarea id="imageGenerationPromptTemplate" rows="4" maxlength="5000" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 resize-y" placeholder="支持 {{character}}、{{scene}}、{{context}}、{{input}}"></textarea>
+                        <label class="text-xs font-semibold text-zinc-400">默认风格提示词</label>
+                        <textarea id="imageGenerationStylePrompt" rows="3" maxlength="1000" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 resize-y" placeholder="画面中的人物均为二次元角色，整体参考《碧蓝档案》的高质量日系动画插画风格。"></textarea>
+                        <p class="text-[10px] text-zinc-600 mt-1">在正文总结完成后追加到最终生图提示词，不会参与正文采集或总结。</p>
                     </div>
                 </div>
             </div>
@@ -510,18 +682,19 @@
                     </div>
                     <div class="flex items-center justify-between gap-3">
                         <div>
-                            <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">加密上传内容（预留）</label>
-                            <p class="text-[10px] text-zinc-600 mt-0.5">增量同步加密暂未实现；开启后会阻止上传，不会静默上传明文。</p>
+                            <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">加密上传内容（尚未实现）</label>
+                            <p id="cloudSyncEncryptionNotice" class="text-[10px] text-amber-300/80 mt-0.5">增量同步加密尚未实现，即使使用 HTTPS 也不能开启。若旧配置显示为已开启，上传会被阻止；请使用下方关闭按钮，再明确触发未加密上传。</p>
                         </div>
-                        <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
-                            <input type="checkbox" id="cloudSyncEncrypted" class="sr-only peer">
-                            <div class="w-9 h-5 bg-white/10 rounded-full peer-checked:bg-amber-500/60 peer-checked:ring-1 peer-checked:ring-amber-500/40 transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                        <label class="relative inline-flex items-center cursor-not-allowed flex-shrink-0 ml-3 opacity-60">
+                            <input type="checkbox" id="cloudSyncEncrypted" class="sr-only peer" disabled aria-disabled="true" aria-describedby="cloudSyncEncryptionNotice">
+                            <div class="w-9 h-5 bg-white/10 rounded-full peer-checked:bg-amber-500/60 peer-checked:ring-1 peer-checked:ring-amber-500/40 transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4 peer-disabled:opacity-60"></div>
                         </label>
                     </div>
+                    <button id="cloudSyncDisableEncryptionBtn" type="button" class="hidden w-full px-3 py-2 text-xs rounded-lg bg-amber-500/10 hover:bg-amber-500/20 active:bg-amber-500/30 text-amber-200 border border-amber-500/20 transition-all font-medium" aria-describedby="cloudSyncEncryptionNotice">关闭加密上传（只保存设置，不自动上传）</button>
                     <div>
-                        <label class="text-xs font-semibold text-zinc-400">加密密码</label>
-                        <input id="cloudSyncPassphrase" type="password" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="开启加密时必填">
-                        <p class="text-[10px] text-zinc-600 mt-1">目前仅用于恢复旧版已加密快照；密码只保存在本地。</p>
+                        <label class="text-xs font-semibold text-zinc-400">旧版 v1 加密快照密码</label>
+                        <input id="cloudSyncPassphrase" type="password" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="下载旧版加密快照时填写">
+                        <p class="text-[10px] text-zinc-600 mt-1">仅用于恢复旧版已加密快照；密码只保存在本地，不会启用新的加密上传。</p>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <button id="cloudSyncNowBtn" type="button" class="px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-emerald-500/20 active:bg-emerald-500/30 text-emerald-300 hover:text-emerald-200 border border-white/10 transition-all font-medium">立即同步</button>
@@ -531,11 +704,16 @@
                     <div id="cloudSyncStatus" class="text-[10px] leading-relaxed text-zinc-500"></div>
                 </div>
             </div>
+            </section>
         </div>
+        <footer class="settings-draft-footer">
+            <div><p class="feature-hint">关闭、遮罩和 Esc 等同完成。预设、正则、用户设定切换及数据操作即时保存；同步按钮立即使用当前云连接配置。</p><p id="settingsDraftError" class="feature-error" role="alert" hidden></p></div>
+            <div class="feature-toolbar"><button id="settingsDiscardBtn" type="button">放弃修改</button><button id="settingsDoneBtn" type="button">完成</button></div>
+        </footer>
     </div>
 </div>
 
-<!-- ===== Qwen Image Generation Panel ===== -->
+<!-- ===== Packy GPT Image Generation Panel ===== -->
 <div id="imageGenerationPanel" class="modal-overlay fixed inset-0 z-[170] flex items-end sm:items-center justify-center hidden" role="dialog" aria-modal="true" aria-labelledby="imageGenerationTitle" aria-hidden="true">
     <div id="imageGenerationBackdrop" class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
     <div class="relative glass w-full sm:w-[92%] sm:max-w-lg rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl animate-fade-in max-h-[88vh] overflow-y-auto">
@@ -551,21 +729,24 @@
                 <label class="text-xs font-semibold text-zinc-400">补充画面要求（可选）</label>
                 <textarea id="imageGenerationPrompt" rows="4" maxlength="2000" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 resize-y" placeholder="正文固定取最近一次主回复；这里只填写可选的镜头、构图或氛围要求"></textarea>
             </div>
-            <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
+            <div>
                 <div>
                     <label class="text-xs font-semibold text-zinc-400">画面比例</label>
                     <select id="imageGenerationPanelSize" class="w-full mt-1.5 px-3 py-2.5 glass rounded-xl text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
-                        <option value="2048*2048">1:1 · 2048 × 2048</option>
-                        <option value="2688*1536">16:9 · 2688 × 1536</option>
-                        <option value="1536*2688">9:16 · 1536 × 2688</option>
-                        <option value="2368*1728">4:3 · 2368 × 1728</option>
-                        <option value="1728*2368">3:4 · 1728 × 2368</option>
+                        <optgroup label="Packy 标准尺寸">
+                            <option value="1024x1024">1:1 · 1024 × 1024</option>
+                            <option value="1536x1024">3:2 · 1536 × 1024</option>
+                            <option value="1024x1536">2:3 · 1024 × 1536</option>
+                        </optgroup>
+                        <optgroup label="兼容高分辨率尺寸">
+                            <option value="2048*2048">1:1 · 2048 × 2048</option>
+                            <option value="2688*1536">16:9 · 2688 × 1536</option>
+                            <option value="1536*2688">9:16 · 1536 × 2688</option>
+                            <option value="2368*1728">4:3 · 2368 × 1728</option>
+                            <option value="1728*2368">3:4 · 1728 × 2368</option>
+                        </optgroup>
                     </select>
                 </div>
-                <label class="h-[42px] px-3 glass rounded-xl flex items-center gap-2 text-xs text-zinc-300 cursor-pointer whitespace-nowrap">
-                    <input id="imageGenerationPanelPromptExtend" type="checkbox" class="accent-amber-500">
-                    智能改写
-                </label>
             </div>
             <div id="imageGenerationStatus" class="min-h-[18px] text-xs text-zinc-500" aria-live="polite"></div>
             <div class="flex justify-end gap-2">
@@ -576,71 +757,6 @@
     </div>
 </div>
 
-<!-- ===== WebLLM 切换确认对话框（关键：仅在用户主动选择“浏览器本地 (WebLLM)”时立即弹出） -->
-<div id="webllmConfirmModal" class="modal-overlay fixed inset-0 z-[120] flex items-center justify-center hidden">
-    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" id="webllmConfirmBackdrop"></div>
-    <div class="relative glass rounded-3xl w-[92%] max-w-md p-6 shadow-2xl animate-fade-in">
-        <div class="flex items-center gap-3 mb-4">
-            <span class="text-xs font-semibold uppercase tracking-wider text-amber-300">Local</span>
-            <h2 class="text-lg font-bold text-zinc-100" data-i18n="webllm_confirm_title">启用浏览器本地模型</h2>
-        </div>
-        <div class="text-sm text-zinc-300 space-y-2 mb-4 leading-relaxed" id="webllmConfirmText">
-            <!-- JS 动态填充带具体模型大小的警告文字 -->
-        </div>
-
-        <!-- 模型选择区：用户第一次选择本地后端时在这里明确挑选要下载的模型 -->
-        <div id="webllmConfirmChoice" class="mb-4">
-            <div class="text-xs font-semibold text-zinc-400 mb-2">请选择要下载的模型：</div>
-            <div class="grid grid-cols-1 gap-2">
-                <button id="webllmChoice1B"
-                        class="w-full px-3 py-2.5 rounded-xl text-sm font-medium glass border border-white/10 hover:border-amber-500/40 active:bg-amber-500/10 text-left transition-all">
-                    <div class="font-semibold">Llama-3.2-1B (q4f16)</div>
-                    <div class="text-[11px] text-amber-300">约 850 MB · 适合大多数设备</div>
-                </button>
-                <button id="webllmChoice3B"
-                        class="w-full px-3 py-2.5 rounded-xl text-sm font-medium glass border border-white/10 hover:border-amber-500/40 active:bg-amber-500/10 text-left transition-all">
-                    <div class="font-semibold">Llama-3.2-3B (q4f16)</div>
-                    <div class="text-[11px] text-amber-300">约 2100 MB · 需要较强 GPU</div>
-                </button>
-            </div>
-        </div>
-
-        <div class="flex gap-3" id="webllmConfirmGenericActions">
-            <button id="webllmConfirmCancelBtn"
-                    class="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/15 text-zinc-300 transition-all"
-                    data-i18n="webllm_confirm_cancel">取消</button>
-            <button id="webllmConfirmContinueBtn"
-                    class="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white shadow-lg shadow-amber-500/20 transition-all"
-                    data-i18n="webllm_confirm_continue">继续</button>
-        </div>
-        <p class="mt-3 text-[10px] text-center text-zinc-500" data-i18n="webllm_confirm_note">点击对应模型按钮后将开始下载（首次较慢，建议 Wi-Fi）。</p>
-    </div>
-</div>
-
-<!-- ===== WebLLM 初始化进度 Modal（下载/编译阶段反馈） -->
-<div id="webllmProgressModal" class="modal-overlay fixed inset-0 z-[130] flex items-center justify-center hidden">
-    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" id="webllmProgressBackdrop"></div>
-    <div class="relative glass rounded-3xl w-[92%] max-w-md p-6 shadow-2xl animate-fade-in">
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="text-lg font-bold text-zinc-100" data-i18n="webllm_progress_title">正在初始化浏览器本地模型</h2>
-            <button id="webllmProgressCloseBtn" class="w-8 h-8 rounded-full glass flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors text-xl leading-none">&times;</button>
-        </div>
-        <div id="webllmProgressStatus" class="text-sm text-zinc-300 mb-2">准备中...</div>
-        <div class="h-2.5 bg-white/10 rounded-full overflow-hidden mb-1">
-            <div id="webllmProgressBar" class="h-full bg-amber-500 transition-all duration-200" style="width:0%"></div>
-        </div>
-        <div id="webllmProgressPercent" class="text-xs text-right text-zinc-400 tabular-nums">0%</div>
-        <div class="mt-4 flex gap-2">
-            <button id="webllmDetectDeviceBtn"
-                    class="flex-1 px-4 py-2 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/15 text-amber-300 border border-white/10 transition-all">
-                    检测设备</button>
-            <button id="webllmProgressCancelBtn"
-                    class="flex-1 px-4 py-2 rounded-xl text-sm font-semibold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition-all"
-                    data-i18n="webllm_progress_cancel">取消并切回远程 API</button>
-        </div>
-        <p class="mt-2 text-[10px] text-zinc-500" data-i18n="webllm_progress_hint">请保持页面打开，不要锁屏或切换标签页过久。下载完成后即可使用本地推理。</p>
-    </div>
-</div>
 
 <!-- ===== Glass Alert / Confirm Dialog ===== -->
 <div id="appDialogModal" class="modal-overlay fixed inset-0 z-[220] flex items-center justify-center hidden">
@@ -751,6 +867,20 @@
             <div>
                 <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="char_editor_creator_notes">Creator Notes</label>
                 <textarea id="charEditCreatorNotes" rows="2" class="w-full mt-1 px-3 py-2 glass rounded-xl text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all resize-none"></textarea>
+            </div>
+            <div id="charRegexControls" class="hidden border-t border-white/10 pt-4 space-y-3">
+                <div>
+                    <div class="text-xs font-semibold text-zinc-200" data-i18n="char_editor_regex_title">角色卡正则格式化</div>
+                    <p id="charRegexSummary" class="text-[10px] leading-relaxed text-zinc-500 mt-1"></p>
+                </div>
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input id="charEditRegexEnabled" type="checkbox" class="mt-0.5 rounded border-white/20 bg-white/5 text-amber-500 focus:ring-amber-500/30">
+                    <span class="text-xs text-zinc-300" data-i18n="char_editor_regex_display">允许正则修改聊天显示文本</span>
+                </label>
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input id="charEditRegexPromptEnabled" type="checkbox" class="mt-0.5 rounded border-white/20 bg-white/5 text-amber-500 focus:ring-amber-500/30">
+                    <span class="text-xs text-zinc-300" data-i18n="char_editor_regex_prompt">允许正则修改发送给模型的提示词</span>
+                </label>
             </div>
         </div>
         <div class="flex gap-3 mt-5 flex-shrink-0">
@@ -1160,6 +1290,7 @@
             <input type="checkbox" id="announceDontShow" class="accent-amber-500 w-4 h-4 flex-shrink-0">
             <span data-i18n="announce_dont_show">下次不再显示此公告</span>
         </label>
+        <p id="announceAckError" class="hidden -mt-2 mb-4 px-1 text-xs text-red-400" role="alert" data-i18n="announce_ack_required">请先勾选“下次不再显示此公告”，再开始使用。</p>
 
         <!-- Primary action -->
         <button id="announceGotItBtn"
@@ -1177,6 +1308,95 @@
         </div>
     </div>
 </div>
+
+<!-- ===== Four-step onboarding ===== -->
+<dialog id="onboardingDialog" class="onboarding-dialog glass" aria-labelledby="onboardingTitle">
+    <div class="onboarding-shell">
+        <header class="onboarding-header">
+            <div class="min-w-0">
+                <p class="onboarding-kicker">OpenTavern</p>
+                <h2 id="onboardingTitle" data-i18n="onboarding_title">快速配置</h2>
+            </div>
+            <button id="onboardingSkipAllBtn" type="button" class="onboarding-text-button" data-i18n="onboarding_skip_all">跳过全部</button>
+        </header>
+
+        <div class="onboarding-progress" aria-label="Onboarding progress">
+            <span id="onboardingStepMeta">1 / 4</span>
+            <div id="onboardingProgressDots" class="onboarding-progress-dots" aria-hidden="true">
+                <span class="is-active"></span><span></span><span></span><span></span>
+            </div>
+        </div>
+
+        <div class="onboarding-body custom-scroll">
+            <section class="onboarding-step" data-onboarding-step="0">
+                <div class="onboarding-step-heading">
+                    <span class="onboarding-step-number">01</span>
+                    <div><h3 data-i18n="onboarding_api_title">连接模型 API</h3><p data-i18n="onboarding_api_hint">支持 OpenAI 兼容接口；连接后可直接选择模型。</p></div>
+                </div>
+                <div class="onboarding-fields">
+                    <label for="onboardingApiEndpoint" data-i18n="settings_api_endpoint">API 端点</label>
+                    <input id="onboardingApiEndpoint" type="text" autocomplete="url" placeholder="https://api.openai.com/v1/chat/completions">
+                    <label for="onboardingApiKey" data-i18n="settings_api_key">API 密钥</label>
+                    <input id="onboardingApiKey" type="password" autocomplete="off" placeholder="sk-...">
+                    <label class="onboarding-checkbox"><input id="onboardingSaveApiKey" type="checkbox"><span data-i18n="settings_save_api_key">将 API Key 保存到浏览器本地存储</span></label>
+                    <button id="onboardingApiConnectBtn" type="button" class="onboarding-secondary-button" data-i18n="api_connect_models">连接并加载模型</button>
+                    <p id="onboardingApiStatus" class="onboarding-status" role="status" aria-live="polite"></p>
+                    <label for="onboardingModelCatalog" data-i18n="settings_model_catalog">从列表选择</label>
+                    <select id="onboardingModelCatalog"><option value="" data-i18n="settings_model_custom_option">— 自定义 / 手动填写 —</option></select>
+                    <label for="onboardingModelName" data-i18n="settings_model_manual">模型 ID（手动填写）</label>
+                    <input id="onboardingModelName" type="text" placeholder="gpt-4o">
+                </div>
+            </section>
+
+            <section class="onboarding-step" data-onboarding-step="1" hidden>
+                <div class="onboarding-step-heading">
+                    <span class="onboarding-step-number">02</span>
+                    <div><h3 data-i18n="onboarding_persona_title">创建用户设定</h3><p data-i18n="onboarding_persona_hint">这些信息会作为 {{user}} 的身份参与角色扮演。</p></div>
+                </div>
+                <div class="onboarding-fields">
+                    <label for="onboardingPersonaName" data-i18n="settings_user_persona_name">设定名称</label>
+                    <input id="onboardingPersonaName" type="text" data-i18n-placeholder="settings_user_persona_name_placeholder" placeholder="校园日常">
+                    <label for="onboardingUserName" data-i18n="settings_user_name">你的名字（替换 {{user}}）</label>
+                    <input id="onboardingUserName" type="text" placeholder="User">
+                    <label for="onboardingUserDescription" data-i18n="settings_user_description">用户描述 / 人设</label>
+                    <textarea id="onboardingUserDescription" rows="6" data-i18n-placeholder="settings_user_description_placeholder"></textarea>
+                </div>
+            </section>
+
+            <section class="onboarding-step" data-onboarding-step="2" hidden>
+                <div class="onboarding-step-heading">
+                    <span class="onboarding-step-number">03</span>
+                    <div><h3 data-i18n="onboarding_prompt_title">角色扮演提示词</h3><p data-i18n="onboarding_prompt_hint">可一键使用内置提示词，也可以保留当前设置。</p></div>
+                </div>
+                <div class="onboarding-choice-grid" role="group" aria-label="Prompt choice">
+                    <button id="onboardingPromptYesBtn" type="button" class="onboarding-choice is-selected" aria-pressed="true">
+                        <strong data-i18n="onboarding_prompt_yes">使用内置提示词</strong><span data-i18n="onboarding_prompt_yes_hint">适合直接开始沉浸式角色扮演</span>
+                    </button>
+                    <button id="onboardingPromptNoBtn" type="button" class="onboarding-choice" aria-pressed="false">
+                        <strong data-i18n="onboarding_prompt_no">保留当前设置</strong><span data-i18n="onboarding_prompt_no_hint">不覆盖已有系统提示词</span>
+                    </button>
+                </div>
+                <p id="onboardingPromptFeedback" class="onboarding-status" data-i18n="onboarding_prompt_selected">完成引导时将写入内置角色扮演提示词。</p>
+            </section>
+
+            <section class="onboarding-step" data-onboarding-step="3" hidden>
+                <div class="onboarding-step-heading">
+                    <span class="onboarding-step-number">04</span>
+                    <div><h3 data-i18n="onboarding_cards_title">选择推荐角色卡</h3><p data-i18n="onboarding_cards_hint">可多选；完成后会导入你的本地角色库。</p></div>
+                </div>
+                <div id="onboardingFeaturedCards" class="onboarding-card-grid"></div>
+                <p id="onboardingCardsStatus" class="onboarding-status" role="status" aria-live="polite"></p>
+            </section>
+        </div>
+
+        <footer class="onboarding-footer">
+            <button id="onboardingBackBtn" type="button" class="onboarding-secondary-button" data-i18n="onboarding_back">上一步</button>
+            <div class="onboarding-footer-spacer"></div>
+            <button id="onboardingSkipStepBtn" type="button" class="onboarding-text-button" data-i18n="onboarding_skip_step">跳过本步</button>
+            <button id="onboardingNextBtn" type="button" class="onboarding-primary-button" data-i18n="onboarding_next">下一步</button>
+        </footer>
+    </div>
+</dialog>
 
 <!-- ===== New Chat Character Picker Modal (Phase 4 UX) ===== -->
 <div id="newChatPickerModal" class="modal-overlay fixed inset-0 z-[150] flex items-center justify-center hidden">
@@ -1368,40 +1588,34 @@
                         </button>
                         <h2 class="text-lg font-bold" data-i18n="library_title">卡片库</h2>
                     </div>
-                    <!-- Language switcher and GitHub in library view as requested -->
+                    <!-- Sync shortcut -->
                     <div class="flex items-center gap-2 flex-shrink-0">
-                        <div class="flex items-center">
-                            <button type="button" class="cloud-sync-shortcut-btn inline-flex min-w-[92px] items-center justify-center px-3.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 bg-[#c87556] hover:bg-[#d18262] active:bg-[#b8664d] text-white shadow-none disabled:opacity-60 disabled:hover:bg-[#c87556]" data-label="+ 立即同步">+ 立即同步</button>
-                            <div class="hidden" aria-hidden="true">
-                                <button class="lang-btn" data-lang="zh-CN" tabindex="-1">简</button>
-                                <button class="lang-btn" data-lang="zh-TW" tabindex="-1">繁</button>
-                                <button class="lang-btn" data-lang="en" tabindex="-1">EN</button>
-                            </div>
-                        </div>
-                        <!-- GitHub Link -->
-                        <a href="https://github.com/Hajimides/OpenTavern" target="_blank" rel="noopener noreferrer"
-                           class="w-8 h-8 rounded-xl glass flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-white/10 transition-colors"
-                           title="GitHub Repository">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-                            </svg>
-                        </a>
+                        <button type="button" class="cloud-sync-shortcut-btn inline-flex min-w-[92px] items-center justify-center px-3.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 bg-[#c87556] hover:bg-[#d18262] active:bg-[#b8664d] text-white shadow-none disabled:opacity-60 disabled:hover:bg-[#c87556]" data-label="+ 立即同步">+ 立即同步</button>
                     </div>
                 </div>
-                <!-- Tabs for switching My vs Public (not simultaneous) -->
-                <div class="mt-3 flex gap-1 border-b border-white/10">
-                    <button id="tabMy" class="tab-btn active px-4 py-2 text-sm font-medium border-b-2 border-amber-500 text-amber-400" data-tab="my" data-i18n="tab_my_cards">我的卡片</button>
-                    <button id="tabPublic" class="tab-btn px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200" data-tab="public" data-i18n="tab_public">公共卡片库</button>
+                <!-- Tabs for switching local, official public and contributor catalogs -->
+                <div class="mt-3 flex gap-1 border-b border-white/10 overflow-x-auto" role="tablist" aria-label="角色卡目录">
+                    <button id="tabMy" class="tab-btn active px-4 py-2 text-sm font-medium border-b-2 border-amber-500 text-amber-400 whitespace-nowrap" type="button" role="tab" aria-selected="true" data-tab="my" data-i18n="tab_my_cards">我的卡片</button>
+                    <button id="tabPublic" class="tab-btn px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 whitespace-nowrap" type="button" role="tab" aria-selected="false" tabindex="-1" data-tab="public" data-i18n="tab_public">公共卡片库</button>
+                    <button id="tabContributors" class="tab-btn px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 whitespace-nowrap" type="button" role="tab" aria-selected="false" tabindex="-1" data-tab="contributors" data-i18n="tab_contributors">贡献者卡片</button>
                 </div>
 
-                <!-- Search + simple orientation filter (moved from old left library) -->
+                <!-- Search + academy/author filter while browsing a series -->
                 <div class="mt-2 flex items-center gap-2">
-                    <input id="librarySearch" type="text" class="flex-1 px-3 py-1.5 text-sm glass rounded-xl placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40" placeholder="搜索名称、标签、描述..." data-i18n-placeholder="library_search_placeholder">
-                    <div class="flex gap-1 text-xs">
-                        <button class="px-2 py-1 rounded bg-amber-500/20 text-amber-300 filter-btn active" data-filter="all" data-i18n="filter_all">全部</button>
-                        <button class="px-2 py-1 rounded bg-white/10 filter-btn" data-filter="male" data-i18n="filter_male">男性向</button>
-                        <button class="px-2 py-1 rounded bg-white/10 filter-btn" data-filter="female" data-i18n="filter_female">女性向</button>
+                    <button id="publicSeriesBackBtn" type="button" class="hidden flex-shrink-0 px-2.5 py-1.5 text-xs rounded-xl glass text-zinc-300 hover:text-zinc-100 hover:bg-white/10 transition-colors" data-i18n="public_series_back">← 系列</button>
+                    <input id="librarySearch" type="text" class="flex-1 min-w-0 px-3 py-1.5 text-sm glass rounded-xl placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40" placeholder="搜索名称、标签、描述..." data-i18n-placeholder="library_search_placeholder">
+                    <div id="academyFilterWrap" class="relative flex-shrink-0 hidden">
+                        <button id="academyFilterToggle" type="button" class="px-2.5 py-1.5 text-xs rounded-xl glass text-zinc-300 hover:text-zinc-100 hover:bg-white/10 transition-colors flex items-center gap-1.5 max-w-[10rem]" aria-haspopup="menu" aria-expanded="false">
+                            <span id="academyFilterLabel" class="truncate" data-i18n="filter_academy">学院筛选</span>
+                            <svg class="w-3 h-3 flex-shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div id="academyFilterMenu" class="hidden absolute right-0 mt-1.5 z-30 min-w-[9.5rem] max-h-64 overflow-y-auto glass rounded-xl border border-white/10 p-1 shadow-xl" role="menu"></div>
                     </div>
+                </div>
+                <div id="publicSeriesBreadcrumb" class="hidden mt-2 text-xs text-zinc-400 px-0.5">
+                    <span id="publicSeriesBreadcrumbRoot" data-i18n="tab_public">公共卡片库</span>
+                    <span class="mx-1 opacity-50">/</span>
+                    <span id="publicSeriesBreadcrumbName" class="text-zinc-200 font-medium"></span>
                 </div>
             </div>
             <div class="flex-1 overflow-y-auto p-4">
@@ -1411,7 +1625,11 @@
                 </div>
                 <!-- Tailwind CDN hint: ensure dynamic button variants are generated -->
                 <span class="hidden opacity-0 md:opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 active:opacity-100 pointer-events-none group-hover:pointer-events-auto active:pointer-events-auto"></span>
-                <!-- Public Cards Grid (hidden by default, same grid style) -->
+                <!-- Public series folders -->
+                <div id="publicSeriesGrid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                    <!-- JS populated -->
+                </div>
+                <!-- Cards in the selected public series -->
                 <div id="publicCardsGrid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                     <!-- JS populated -->
                 </div>
@@ -1433,15 +1651,7 @@
                 </div>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0 topbar-actions">
-                <!-- Language Switcher -->
-                <div class="flex items-center">
-                    <button type="button" class="cloud-sync-shortcut-btn inline-flex min-w-[92px] items-center justify-center px-3.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 bg-[#c87556] hover:bg-[#d18262] active:bg-[#b8664d] text-white shadow-none disabled:opacity-60 disabled:hover:bg-[#c87556]" data-label="+ 立即同步">+ 立即同步</button>
-                    <div class="hidden" aria-hidden="true">
-                        <button class="lang-btn" data-lang="zh-CN" tabindex="-1">简</button>
-                        <button class="lang-btn" data-lang="zh-TW" tabindex="-1">繁</button>
-                        <button class="lang-btn" data-lang="en" tabindex="-1">EN</button>
-                    </div>
-                </div>
+                <button type="button" class="cloud-sync-shortcut-btn inline-flex min-w-[92px] items-center justify-center px-3.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 bg-[#c87556] hover:bg-[#d18262] active:bg-[#b8664d] text-white shadow-none disabled:opacity-60 disabled:hover:bg-[#c87556]" data-label="+ 立即同步">+ 立即同步</button>
                 <button id="summarizeBtn" 
                         class="px-2 sm:px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-500 glass hover:text-zinc-300 hover:bg-white/10 transition-all flex items-center justify-center"
                         data-i18n-title="summary_manager_title">
@@ -1452,14 +1662,6 @@
                 <button id="archiveBtn" class="mobile-hide-sm px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-500 glass hover:text-zinc-300 hover:bg-white/10 transition-all" data-i18n="archive" data-i18n-title="archive_title">Archive</button>
                 <button id="topSettingsBtn" class="w-8 h-8 rounded-xl glass flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors" aria-label="Settings">Set</button>
 
-                <!-- GitHub Link -->
-                <a id="githubBtn" href="https://github.com/Hajimides/OpenTavern" target="_blank" rel="noopener noreferrer"
-                   class="w-8 h-8 rounded-xl glass flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-white/10 transition-colors"
-                   title="GitHub Repository">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-                    </svg>
-                </a>
             </div>
         </div>
 
@@ -1506,6 +1708,7 @@
                             aria-label="清除@指定">×</button>
                 </div>
 
+                <button id="userDraftBtn" type="button" class="flex-shrink-0 w-11 h-11 rounded-xl glass text-xs text-zinc-400 disabled:opacity-30" title="按用户设定生成草稿，确认后自行发送" aria-label="按用户设定生成草稿" disabled>代写</button>
                 <textarea id="messageInput" rows="1"
                           class="flex-1 px-4 py-3 glass rounded-2xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none transition-all min-h-[44px]"
                           data-i18n-placeholder="input_placeholder"
@@ -1532,6 +1735,7 @@
     </div>
 </div> <!-- end main content -->
 
-<script src="assets/js/app.js?v=20260713-qwen-image-reference-summary"></script>
+<script src="assets/offline/fd7bfb26208f884977056a60/assets/js/vendor/js-sha256-1.0.0.min.js" integrity="sha256-oFDXlOFwaZvRpp0zkI0JQsaJAcuINHAWBktgskDwBn4=" crossorigin="anonymous"></script>
+<script src="assets/offline/fd7bfb26208f884977056a60/assets/js/app.js"></script>
 </body>
 </html>

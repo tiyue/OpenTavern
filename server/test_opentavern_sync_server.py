@@ -18,19 +18,50 @@ except ModuleNotFoundError:
     import opentavern_sync_server as gateway
 
 
-VALID_IMAGE_URL = "https://opentavern-test.oss-cn-beijing.aliyuncs.com/result/image.png"
+if gateway.__package__:
+    from server.opentavern_backend import config, image_assets, image_provider
+else:
+    from opentavern_backend import config, image_assets, image_provider
+
+
+VALID_IMAGE_URL = "https://external-resources.packyapi.com/result/image.png"
 
 
 def make_png(width, height):
-    return b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + struct.pack(">II", width, height)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + b"\x00\x00\x00\rIHDR"
+        + struct.pack(">II", width, height)
+        + b"\x08\x06\x00\x00\x00\x00\x00\x00\x00"
+        + b"\x00\x00\x00\x00IEND\xaeB\x60\x82"
+    )
 
 
 def make_jpeg(width, height):
     return (
         b"\xff\xd8\xff\xc0\x00\x11\x08"
         + struct.pack(">HH", height, width)
-        + b"\x03\x01\x11\x00\x02\x11\x00\x03\x11\x00"
+        + b"\x03\x01\x11\x00\x02\x11\x00\x03\x11\x00\xff\xd9"
     )
+
+
+def make_sized_png(width, height, total_bytes):
+    base_png = make_png(width, height)
+    if total_bytes < len(base_png):
+        raise ValueError("total_bytes is too small")
+    return base_png[:-12] + (b"\x00" * (total_bytes - len(base_png))) + base_png[-12:]
+
+
+def make_reference_data_url(width=1024, height=1024):
+    return "data:image/png;base64," + base64.b64encode(make_png(width, height)).decode("ascii")
+
+
+def make_packy_image_request(prompt="test", size="2048*2048"):
+    return gateway.validate_image_generation_request({
+        "prompt": prompt,
+        "size": size,
+        "referenceImage": make_reference_data_url(),
+    })
 
 
 def make_headers(content_type=None, content_length=None, request_id=None):
@@ -40,7 +71,7 @@ def make_headers(content_type=None, content_length=None, request_id=None):
     if content_length is not None:
         headers["Content-Length"] = str(content_length)
     if request_id is not None:
-        headers["X-DashScope-Request-Id"] = request_id
+        headers["X-Request-Id"] = request_id
     return headers
 
 
@@ -103,7 +134,7 @@ class ImageRequestValidationTests(unittest.TestCase):
                 {"prompt": "ok", "negativePrompt": "x" * (gateway.MAX_NEGATIVE_PROMPT_CHARS + 1)},
                 "Negative prompt must not exceed 500 characters.",
             ),
-            ({"prompt": "ok", "size": "1024*1024"}, "Unsupported image size."),
+            ({"prompt": "ok", "size": "512*512"}, "Unsupported image size."),
             ({"prompt": "ok", "promptExtend": 1}, "promptExtend must be a boolean."),
             ({"prompt": "ok", "seed": True}, "Seed must be an integer."),
             ({"prompt": "ok", "seed": 1.5}, "Seed must be an integer."),
@@ -119,6 +150,23 @@ class ImageRequestValidationTests(unittest.TestCase):
                 with self.assertRaises(ValueError) as raised:
                     gateway.validate_image_generation_request(body)
                 self.assertEqual(str(raised.exception), expected_message)
+
+    def test_new_and_legacy_sizes_map_to_packy_dimensions(self):
+        expected = {
+            "1024*1024": ("1024x1024", (1024, 1024)),
+            "1536*1024": ("1536x1024", (1536, 1024)),
+            "1024*1536": ("1024x1536", (1024, 1536)),
+            "2048*2048": ("2048x2048", (2048, 2048)),
+            "2688*1536": ("2688x1536", (2688, 1536)),
+            "1536*2688": ("1536x2688", (1536, 2688)),
+        }
+        for requested_size, mapped_size in expected.items():
+            with self.subTest(requested_size=requested_size):
+                validated = gateway.validate_image_generation_request(
+                    {"prompt": "test", "size": requested_size}
+                )
+                self.assertEqual(validated["size"], requested_size)
+                self.assertEqual(gateway.PACKY_IMAGE_SIZES[requested_size], mapped_size)
 
     def test_reference_image_is_validated_and_normalized(self):
         png_data = make_png(1024, 1536)
@@ -182,9 +230,12 @@ class ImageRequestValidationTests(unittest.TestCase):
         )
 
     def test_reference_image_enforces_exact_decoded_10_mib_boundary(self):
-        exact_data = make_png(1024, 1536).ljust(
-            gateway.MAX_REFERENCE_IMAGE_BYTES,
-            b"\x00",
+        base_png = make_png(1024, 1536)
+        trailer = base_png[-12:]
+        exact_data = (
+            base_png[:-12]
+            + (b"\x00" * (gateway.MAX_REFERENCE_IMAGE_BYTES - len(base_png)))
+            + trailer
         )
         exact_url = "data:image/png;base64," + base64.b64encode(exact_data).decode("ascii")
         validated = gateway.validate_image_generation_reference_image(exact_url)
@@ -342,10 +393,11 @@ class ImageGatewayLimitConfigTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as image_dir:
             server = SimpleNamespace(
                 image_gateway_token="gateway-token",
-                dashscope_api_key="upstream-key",
-                dashscope_workspace_id="ws-test",
+                packy_api_token="upstream-key",
+                packy_image_endpoint="https://www.packyapi.com/v1/images/edits",
                 image_dir=image_dir,
-                qwen_image_model="qwen-image-2.0-pro",
+                packy_image_model="gpt-image-2",
+                packy_image_quality="high",
                 image_max_storage_bytes=123456,
             )
             health = gateway.get_image_gateway_health(server)
@@ -353,8 +405,16 @@ class ImageGatewayLimitConfigTests(unittest.TestCase):
             self.assertTrue(health["storageWritable"])
             self.assertTrue(health["ready"])
             self.assertEqual(health["maxStorageBytes"], 123456)
+            self.assertEqual(health["quality"], "high")
             self.assertNotIn("gateway-token", repr(health))
             self.assertNotIn("upstream-key", repr(health))
+
+    def test_packy_quality_accepts_documented_values_and_rejects_invalid_values(self):
+        for quality in ("low", "medium", "high", "auto"):
+            self.assertEqual(gateway.validate_packy_image_quality(quality), quality)
+        with self.assertRaises(gateway.ImageGatewayError) as raised:
+            gateway.validate_packy_image_quality("ultra")
+        self.assertEqual(raised.exception.status, 503)
 
 
 class ImageGenerationLimiterTests(unittest.TestCase):
@@ -463,9 +523,10 @@ class ImageGatewayLimitHandlerTests(unittest.TestCase):
         handler.headers = headers
         handler.server = SimpleNamespace(
             image_gateway_token="gateway-token",
-            dashscope_api_key="upstream-key",
-            dashscope_workspace_id="workspace_123",
-            qwen_image_model="qwen-image-test",
+            packy_api_token="upstream-key",
+            packy_image_endpoint="https://www.packyapi.com/v1/images/edits",
+            packy_image_model="gpt-image-test",
+            packy_image_quality="high",
             image_generation_limiter=limiter,
         )
         handler.read_json_body = mock.Mock(return_value=None)
@@ -495,13 +556,13 @@ class ImageGatewayLimitHandlerTests(unittest.TestCase):
             {"X-OpenTavern-Image-Token": "gateway-token"},
             limiter,
         )
-        with mock.patch.object(gateway, "call_qwen_image_api") as qwen_api:
+        with mock.patch.object(image_provider, "call_packy_image_api") as packy_api:
             handler.handle_image_generate()
 
         limiter.acquire.assert_called_once_with()
         limiter.release.assert_not_called()
         handler.read_json_body.assert_not_called()
-        qwen_api.assert_not_called()
+        packy_api.assert_not_called()
         handler.send_json.assert_called_once_with(
             429,
             {"success": False, "error": "Image generation rate limit exceeded."},
@@ -520,6 +581,22 @@ class ImageGatewayLimitHandlerTests(unittest.TestCase):
         handler.send_json.assert_called_once_with(
             400,
             {"success": False, "error": "Invalid image generation payload."},
+        )
+
+    def test_missing_reference_image_is_rejected_locally_before_packy_request(self):
+        limiter = mock.Mock()
+        handler = self.make_handler(
+            {"X-OpenTavern-Image-Token": "gateway-token"},
+            limiter,
+        )
+        handler.read_json_body.return_value = {"prompt": "test"}
+        with mock.patch.object(image_provider, "open_packy_api_request") as api_open:
+            handler.handle_image_generate()
+        api_open.assert_not_called()
+        limiter.release.assert_called_once_with()
+        handler.send_json.assert_called_once_with(
+            400,
+            {"success": False, "error": "referenceImage is required."},
         )
 
     def test_handler_uses_16_mib_image_request_limit(self):
@@ -547,33 +624,33 @@ class ImageGatewayLimitHandlerTests(unittest.TestCase):
         )
 
         second_handler = self.make_handler(headers, limiter)
-        with mock.patch.object(gateway, "call_qwen_image_api") as qwen_api:
+        with mock.patch.object(image_provider, "call_packy_image_api") as packy_api:
             second_handler.handle_image_generate()
         second_handler.read_json_body.assert_not_called()
-        qwen_api.assert_not_called()
+        packy_api.assert_not_called()
         second_handler.send_json.assert_called_once_with(
             429,
             {"success": False, "error": "Image generation rate limit exceeded."},
         )
 
-    def test_qwen_failure_details_are_returned_to_the_client(self):
+    def test_packy_failure_details_are_returned_to_the_client(self):
         limiter = mock.Mock()
         handler = self.make_handler(
             {"X-OpenTavern-Image-Token": "gateway-token"},
             limiter,
         )
         handler.read_json_body.return_value = {"prompt": "test"}
-        qwen_error = gateway.ImageGatewayError(
-            "Qwen image generation failed.",
+        packy_error = gateway.ImageGatewayError(
+            "Packy image generation failed.",
             status=502,
             request_id="request-123",
-            provider="qwen",
-            code="QWEN_UPSTREAM_FAILED",
+            provider="packy",
+            code="PACKY_UPSTREAM_FAILED",
             upstream_code="DataInspectionFailed",
             reason="Input data may contain inappropriate content.",
             upstream_status=400,
         )
-        with mock.patch.object(gateway, "call_qwen_image_api", side_effect=qwen_error):
+        with mock.patch.object(image_provider, "call_packy_image_api", side_effect=packy_error):
             handler.handle_image_generate()
 
         limiter.acquire.assert_called_once_with()
@@ -582,17 +659,17 @@ class ImageGatewayLimitHandlerTests(unittest.TestCase):
             502,
             {
                 "success": False,
-                "error": "Qwen image generation failed.",
+                "error": "Packy image generation failed.",
                 "requestId": "request-123",
-                "provider": "qwen",
-                "code": "QWEN_UPSTREAM_FAILED",
+                "provider": "packy",
+                "code": "PACKY_UPSTREAM_FAILED",
                 "upstreamCode": "DataInspectionFailed",
                 "reason": "Input data may contain inappropriate content.",
                 "upstreamStatus": 400,
             },
         )
 
-    def test_download_failure_keeps_the_qwen_request_id(self):
+    def test_download_failure_keeps_the_packy_request_id(self):
         limiter = mock.Mock()
         handler = self.make_handler(
             {"X-OpenTavern-Image-Token": "gateway-token"},
@@ -601,17 +678,17 @@ class ImageGatewayLimitHandlerTests(unittest.TestCase):
         handler.read_json_body.return_value = {"prompt": "test"}
         download_error = gateway.ImageGatewayError(
             "Generated image could not be downloaded.",
-            provider="qwen",
-            code="QWEN_IMAGE_DOWNLOAD_FAILED",
+            provider="packy",
+            code="PACKY_IMAGE_DOWNLOAD_FAILED",
             upstream_code="HTTP_403",
             reason="The generated image URL returned HTTP 403.",
             upstream_status=403,
         )
         with mock.patch.object(
-            gateway,
-            "call_qwen_image_api",
-            return_value=(VALID_IMAGE_URL, "request-download", "qwen-image-test"),
-        ), mock.patch.object(gateway, "download_generated_image", side_effect=download_error):
+            image_provider,
+            "call_packy_image_api",
+            return_value=({"url": VALID_IMAGE_URL}, "request-download", "gpt-image-test"),
+        ), mock.patch.object(image_assets, "materialize_packy_image", side_effect=download_error):
             handler.handle_image_generate()
 
         handler.send_json.assert_called_once_with(
@@ -620,8 +697,8 @@ class ImageGatewayLimitHandlerTests(unittest.TestCase):
                 "success": False,
                 "error": "Generated image could not be downloaded.",
                 "requestId": "request-download",
-                "provider": "qwen",
-                "code": "QWEN_IMAGE_DOWNLOAD_FAILED",
+                "provider": "packy",
+                "code": "PACKY_IMAGE_DOWNLOAD_FAILED",
                 "upstreamCode": "HTTP_403",
                 "reason": "The generated image URL returned HTTP 403.",
                 "upstreamStatus": 403,
@@ -629,50 +706,53 @@ class ImageGatewayLimitHandlerTests(unittest.TestCase):
         )
 
 
-class QwenUrlValidationTests(unittest.TestCase):
-    def test_https_aliyuncs_subdomains_are_allowed(self):
-        urls = [
-            VALID_IMAGE_URL,
-            "https://bucket.aliyuncs.com/image.jpg",
-            "https://BUCKET.OSS-CN-SHANGHAI.ALIYUNCS.COM./image.jpg",
-        ]
-        for url in urls:
-            with self.subTest(url=url):
-                parsed = gateway.validate_qwen_image_url(url)
-                self.assertEqual(parsed.scheme, "https")
+class PackyUrlValidationTests(unittest.TestCase):
+    def test_documented_packy_resource_host_is_allowed(self):
+        parsed = gateway.validate_packy_image_url(VALID_IMAGE_URL)
+        self.assertEqual(parsed.scheme, "https")
 
-    def test_non_aliyun_or_credentialed_urls_are_rejected(self):
+    def test_non_https_private_or_credentialed_urls_are_rejected(self):
         urls = [
-            "http://bucket.aliyuncs.com/image.png",
-            "https://aliyuncs.com/image.png",
-            "https://bucket.aliyuncs.com.example.test/image.png",
-            "https://user@bucket.aliyuncs.com/image.png",
-            "https://user:password@bucket.aliyuncs.com/image.png",
+            "http://cdn.packyapi.com/image.png",
+            "https://localhost/image.png",
+            "https://127.0.0.1/image.png",
+            "https://169.254.169.254/latest/meta-data",
+            "https://evil.example/image.png",
+            "https://user@external-resources.packyapi.com/image.png",
+            "https://user:password@external-resources.packyapi.com/image.png",
+            "https://external-resources.packyapi.com/image.png#fragment",
+            "https://external-resources.packyapi.com:444/image.png",
+            "https://external-resources.packyapi.com:bad/image.png",
             "not-a-url",
         ]
         for url in urls:
             with self.subTest(url=url):
                 with self.assertRaises(gateway.ImageGatewayError):
-                    gateway.validate_qwen_image_url(url)
+                    gateway.validate_packy_image_url(url)
+
+    def test_hostname_resolution_rejects_private_addresses(self):
+        with mock.patch.object(
+            gateway.socket,
+            "getaddrinfo",
+            return_value=[(2, 1, 6, "", ("10.0.0.5", 443))],
+        ):
+            with self.assertRaises(gateway.ImageGatewayError):
+                gateway.validate_packy_image_url(VALID_IMAGE_URL, resolve_hostname=True)
 
     def test_redirect_handler_validates_every_redirect_target(self):
-        handler = gateway.QwenImageRedirectHandler()
+        handler = gateway.PackyImageRedirectHandler()
         original_request = Request(VALID_IMAGE_URL)
         redirect_headers = Message()
         sentinel = object()
 
-        with mock.patch.object(
-            gateway.HTTPRedirectHandler,
-            "redirect_request",
-            return_value=sentinel,
+        with mock.patch.object(gateway.socket, "getaddrinfo", return_value=[
+            (2, 1, 6, "", ("8.8.8.8", 443)),
+        ]), mock.patch.object(
+            gateway.HTTPRedirectHandler, "redirect_request", return_value=sentinel
         ) as parent_redirect:
             result = handler.redirect_request(
-                original_request,
-                None,
-                302,
-                "Found",
-                redirect_headers,
-                "https://another-bucket.aliyuncs.com/final.png",
+                original_request, None, 302, "Found", redirect_headers,
+                "https://external-resources.packyapi.com/final.png",
             )
             self.assertIs(result, sentinel)
             parent_redirect.assert_called_once()
@@ -688,37 +768,68 @@ class QwenUrlValidationTests(unittest.TestCase):
                     302,
                     "Found",
                     redirect_headers,
-                    "https://example.test/stolen.png",
+                    "https://127.0.0.1/stolen.png",
                 )
             parent_redirect.assert_not_called()
 
+    def test_packy_api_post_never_follows_redirects_with_the_bearer_token(self):
+        handler = gateway.PackyApiNoRedirectHandler()
+        request = Request(
+            "https://www.packyapi.com/v1/images/edits",
+            headers={"Authorization": "Bearer secret"},
+        )
+        for target in (
+            "https://www.packyapi.com/v1/images/other",
+            "https://evil.example/steal-token",
+        ):
+            with self.subTest(target=target):
+                self.assertIsNone(
+                    handler.redirect_request(request, None, 302, "Found", Message(), target)
+                )
 
-class QwenApiTests(unittest.TestCase):
-    def test_qwen_error_helpers_support_scalar_errors_and_safe_request_ids(self):
-        code, reason = gateway.extract_qwen_error_details(
+        opener = mock.Mock()
+        sentinel = object()
+        opener.open.return_value = sentinel
+        with mock.patch.object(image_provider, "build_opener", return_value=opener) as build_opener:
+            result = gateway.open_packy_api_request(request, 123)
+        self.assertIs(result, sentinel)
+        self.assertIsInstance(build_opener.call_args.args[0], gateway.PackyApiNoRedirectHandler)
+        opener.open.assert_called_once_with(request, timeout=123)
+
+
+class PackyApiTests(unittest.TestCase):
+    def test_packy_error_helpers_support_scalar_errors_and_safe_request_ids(self):
+        code, reason = gateway.extract_packy_error_details(
             {"code": "BadRequest", "error": "plain upstream reason"}
         )
         self.assertEqual(code, "BadRequest")
         self.assertEqual(reason, "plain upstream reason")
         self.assertEqual(
-            gateway.get_qwen_request_id(
+            gateway.get_packy_request_id(
                 make_headers(request_id="header-request-123"),
                 {"request_id": {"invalid": True}},
             ),
             "header-request-123",
         )
-        sanitized = gateway.sanitize_qwen_error_text(
+        self.assertEqual(
+            gateway.get_packy_request_id(
+                {},
+                {"error": {"message": "Rejected (request id: 01JZ9ABC_DEF-123)."}},
+            ),
+            "01JZ9ABC_DEF-123",
+        )
+        sanitized = gateway.sanitize_packy_error_text(
             "Signature=signature-secret AccessKeyId=access-secret "
             "SecurityToken=security-secret Credential=credential-secret"
         )
         for secret in ("signature-secret", "access-secret", "security-secret", "credential-secret"):
             self.assertNotIn(secret, sanitized)
-        image_error = gateway.sanitize_qwen_error_text(
+        image_error = gateway.sanitize_packy_error_text(
             "upstream echoed data:image/jpeg;base64,QUJDREVGR0g="
         )
         self.assertNotIn("QUJDREVGR0g", image_error)
         self.assertIn("[REDACTED]", image_error)
-        folded_image_error = gateway.sanitize_qwen_error_text(
+        folded_image_error = gateway.sanitize_packy_error_text(
             "upstream echoed data:image/jpeg;base64,QUJD\r\n"
             "REVGR0hJSktMTU5PUA=="
         )
@@ -726,131 +837,172 @@ class QwenApiTests(unittest.TestCase):
             self.assertNotIn(fragment, folded_image_error)
         self.assertIn("[REDACTED]", folded_image_error)
 
-    def test_qwen_request_is_built_without_real_network_access(self):
+    def test_packy_multipart_request_and_base64_response(self):
+        generated_image = make_png(1024, 1536)
         response_payload = {
-            "output": {
-                "choices": [
-                    {
-                        "message": {
-                            "content": [{"image": "  %s  " % VALID_IMAGE_URL}]
-                        }
-                    }
-                ]
-            }
+            "data": [{"b64_json": base64.b64encode(generated_image).decode("ascii")}]
         }
         raw_response = json.dumps(response_payload).encode("utf-8")
         response = make_response(raw_response, content_type="application/json")
-        response.headers["X-DashScope-Request-Id"] = "request-123"
+        response.headers["X-Request-Id"] = "request-123"
 
-        reference_image = "data:image/png;base64," + base64.b64encode(
-            make_png(1024, 1536)
-        ).decode("ascii")
+        reference_bytes = make_png(1024, 1536)
+        reference_image = "data:image/png;base64," + base64.b64encode(reference_bytes).decode("ascii")
         image_request = gateway.validate_image_generation_request(
             {
                 "prompt": "paint a tavern",
                 "referenceImage": reference_image,
                 "negativePrompt": "text",
-                "size": "1536*2688",
+                "size": "1024*1536",
                 "promptExtend": False,
                 "seed": 42,
             }
         )
-        with mock.patch.object(gateway, "urlopen", return_value=response) as urlopen:
-            result = gateway.call_qwen_image_api(
+        with mock.patch.object(image_provider, "open_packy_api_request", return_value=response) as api_open:
+            result = gateway.call_packy_image_api(
                 {
-                    "api_key": "dashscope-secret",
-                    "workspace_id": "workspace_123",
-                    "model": "qwen-image-test",
+                    "api_token": "packy-secret",
+                    "endpoint": "https://www.packyapi.com/v1/images/edits",
+                    "model": "gpt-image-test",
                 },
                 image_request,
             )
 
-        self.assertEqual(result, (VALID_IMAGE_URL, "request-123", "qwen-image-test"))
-        request = urlopen.call_args.args[0]
+        self.assertEqual(result, ({"data": generated_image}, "request-123", "gpt-image-test"))
+        request = api_open.call_args.args[0]
         self.assertEqual(request.get_method(), "POST")
-        self.assertEqual(
-            request.full_url,
-            "https://workspace_123.cn-beijing.maas.aliyuncs.com/api/v1/services/"
-            "aigc/multimodal-generation/generation",
+        self.assertEqual(request.full_url, "https://www.packyapi.com/v1/images/edits")
+        self.assertEqual(request.get_header("Authorization"), "Bearer packy-secret")
+        self.assertEqual(api_open.call_args.args[1], gateway.PACKY_REQUEST_TIMEOUT_SECONDS)
+        content_type = request.get_header("Content-type")
+        self.assertTrue(content_type.startswith("multipart/form-data; boundary="))
+        body = request.data
+        for fragment in (
+            b'name="model"\r\n\r\ngpt-image-test',
+            b'name="prompt"\r\n\r\npaint a tavern',
+            b'name="image"; filename="reference.png"',
+            b"Content-Type: image/png",
+            b'name="size"\r\n\r\n1024x1536',
+            b'name="quality"\r\n\r\nhigh',
+            b'name="output_format"\r\n\r\npng',
+            reference_bytes,
+        ):
+            self.assertIn(fragment, body)
+        for unsupported in (
+            b"response_format",
+            b"input_fidelity",
+            b"negative_prompt",
+            b"prompt_extend",
+            b"seed",
+        ):
+            self.assertNotIn(unsupported, body)
+
+    def test_packy_url_response_is_supported_without_revised_prompt(self):
+        response = make_response(
+            json.dumps({"data": [{"url": "  %s  " % VALID_IMAGE_URL}]}).encode("utf-8"),
+            content_type="application/json",
         )
-        self.assertEqual(request.get_header("Authorization"), "Bearer dashscope-secret")
-        self.assertEqual(urlopen.call_args.kwargs["timeout"], gateway.QWEN_REQUEST_TIMEOUT_SECONDS)
-        payload = json.loads(request.data.decode("utf-8"))
-        self.assertEqual(payload["model"], "qwen-image-test")
+        image_request = make_packy_image_request()
+        with mock.patch.object(image_provider, "open_packy_api_request", return_value=response):
+            result = gateway.call_packy_image_api(
+                {"api_token": "secret", "model": "gpt-image-2"},
+                image_request,
+            )
+        self.assertEqual(result, ({"url": VALID_IMAGE_URL}, "", "gpt-image-2"))
+
+    def test_packy_json_limit_allows_a_20_mib_base64_image_but_rejects_larger_json(self):
+        self.assertEqual(gateway.MAX_PACKY_RESPONSE_BYTES, 32 * 1024 * 1024)
+        generated_image = make_sized_png(1024, 1024, gateway.MAX_IMAGE_BYTES)
+        raw_response = json.dumps({
+            "data": [{"b64_json": base64.b64encode(generated_image).decode("ascii")}]
+        }).encode("utf-8")
+        self.assertLess(len(raw_response), gateway.MAX_PACKY_RESPONSE_BYTES)
+        response = make_response(raw_response, content_type="application/json")
+        image_request = make_packy_image_request(size="1024*1024")
+        with mock.patch.object(image_provider, "open_packy_api_request", return_value=response):
+            image_source, _, _ = gateway.call_packy_image_api(
+                {"api_token": "secret", "model": "gpt-image-2"},
+                image_request,
+            )
+        self.assertEqual(len(image_source["data"]), gateway.MAX_IMAGE_BYTES)
         self.assertEqual(
-            payload["input"]["messages"][0]["content"],
-            [{"image": reference_image}, {"text": "paint a tavern"}],
-        )
-        self.assertEqual(
-            payload["parameters"],
-            {
-                "negative_prompt": "text",
-                "prompt_extend": False,
-                "watermark": False,
-                "size": "1536*2688",
-                "n": 1,
-                "seed": 42,
-            },
+            gateway.materialize_packy_image(image_source, (1024, 1024))[1:],
+            ("image/png", 1024, 1024),
         )
 
-    def test_invalid_qwen_configuration_is_rejected_before_network_access(self):
-        image_request = gateway.validate_image_generation_request({"prompt": "test"})
+        oversized_response = make_response(
+            b"{}",
+            content_type="application/json",
+            content_length=gateway.MAX_PACKY_RESPONSE_BYTES + 1,
+        )
+        with mock.patch.object(image_provider, "open_packy_api_request", return_value=oversized_response):
+            with self.assertRaises(gateway.ImageGatewayError) as raised:
+                gateway.call_packy_image_api(
+                    {"api_token": "secret", "model": "gpt-image-2"},
+                    image_request,
+                )
+        self.assertEqual(raised.exception.code, "PACKY_INVALID_RESPONSE")
+        oversized_response.read.assert_not_called()
+
+    def test_invalid_packy_configuration_is_rejected_before_network_access(self):
+        image_request = make_packy_image_request()
         configs = [
-            {"api_key": "", "workspace_id": "workspace"},
-            {"api_key": "secret", "workspace_id": ""},
-            {"api_key": "secret", "workspace_id": "bad.workspace"},
+            {"api_token": "", "endpoint": "https://www.packyapi.com/v1/images/edits"},
+            {"api_token": "secret", "endpoint": "http://www.packyapi.com/v1/images/edits"},
+            {"api_token": "secret", "endpoint": "https://user@www.packyapi.com/v1/images/edits"},
+            {"api_token": "secret", "endpoint": "https://www.packyapi.com/v1/images/edits?token=x"},
         ]
-        with mock.patch.object(gateway, "urlopen") as urlopen:
+        with mock.patch.object(image_provider, "open_packy_api_request") as api_open:
             for config in configs:
                 with self.subTest(config=config):
                     with self.assertRaises(gateway.ImageGatewayError) as raised:
-                        gateway.call_qwen_image_api(config, image_request)
+                        gateway.call_packy_image_api(config, image_request)
                     self.assertEqual(raised.exception.status, 503)
-            urlopen.assert_not_called()
+            api_open.assert_not_called()
 
-    def test_qwen_http_error_preserves_safe_failure_reason(self):
-        image_request = gateway.validate_image_generation_request({"prompt": "test"})
-        error_payload = {
-            "code": "DataInspectionFailed",
+    def test_packy_http_error_preserves_safe_failure_reason(self):
+        image_request = make_packy_image_request()
+        error_payload = {"error": {
+            "code": "content_policy_violation",
+            "type": "packy_invalid_request_error",
             "message": (
                 "Input data may contain inappropriate content.\n"
-                "Authorization: Bearer dashscope-secret "
+                "Authorization: Bearer packy-secret "
                 "https://example.test/private?token=signed-value"
             ),
             "request_id": "request-filtered",
-        }
+        }, "request_id": "request-filtered"}
         http_error = HTTPError(
-            "https://workspace_123.cn-beijing.maas.aliyuncs.com/generate",
+            "https://www.packyapi.com/v1/images/edits",
             400,
             "Bad Request",
             make_headers(request_id="request-header"),
             BytesIO(json.dumps(error_payload).encode("utf-8")),
         )
-        with mock.patch.object(gateway, "urlopen", side_effect=http_error):
+        with mock.patch.object(image_provider, "open_packy_api_request", side_effect=http_error):
             with self.assertRaises(gateway.ImageGatewayError) as raised:
-                gateway.call_qwen_image_api(
+                gateway.call_packy_image_api(
                     {
-                        "api_key": "dashscope-secret",
-                        "workspace_id": "workspace_123",
-                        "model": "qwen-image-test",
+                        "api_token": "packy-secret",
+                        "model": "gpt-image-test",
                     },
                     image_request,
                 )
 
         error = raised.exception
         self.assertEqual(error.status, 502)
-        self.assertEqual(error.provider, "qwen")
-        self.assertEqual(error.code, "QWEN_UPSTREAM_FAILED")
-        self.assertEqual(error.upstream_code, "DataInspectionFailed")
+        self.assertEqual(error.provider, "packy")
+        self.assertEqual(error.code, "PACKY_UPSTREAM_FAILED")
+        self.assertEqual(error.upstream_code, "content_policy_violation")
         self.assertEqual(error.request_id, "request-filtered")
         self.assertEqual(error.upstream_status, 400)
         self.assertIn("Input data may contain inappropriate content.", error.reason)
-        self.assertNotIn("dashscope-secret", error.reason)
+        self.assertNotIn("packy-secret", error.reason)
         self.assertNotIn("signed-value", error.reason)
         self.assertNotIn("https://", error.reason)
 
-    def test_qwen_upstream_401_stays_gateway_502_and_429_is_preserved(self):
-        image_request = gateway.validate_image_generation_request({"prompt": "test"})
+    def test_packy_upstream_401_stays_gateway_502_and_429_is_preserved(self):
+        image_request = make_packy_image_request()
         for upstream_status, expected_status in ((401, 502), (403, 502), (429, 429)):
             with self.subTest(upstream_status=upstream_status):
                 payload = {
@@ -858,131 +1010,109 @@ class QwenApiTests(unittest.TestCase):
                     "message": "Upstream reason %s" % upstream_status,
                 }
                 http_error = HTTPError(
-                    "https://workspace_123.cn-beijing.maas.aliyuncs.com/generate",
+                    "https://www.packyapi.com/v1/images/edits",
                     upstream_status,
                     "Upstream Error",
                     make_headers(),
                     BytesIO(json.dumps(payload).encode("utf-8")),
                 )
-                with mock.patch.object(gateway, "urlopen", side_effect=http_error):
+                with mock.patch.object(image_provider, "open_packy_api_request", side_effect=http_error):
                     with self.assertRaises(gateway.ImageGatewayError) as raised:
-                        gateway.call_qwen_image_api(
+                        gateway.call_packy_image_api(
                             {
-                                "api_key": "secret",
-                                "workspace_id": "workspace_123",
-                                "model": "qwen-image-test",
+                                "api_token": "secret",
+                                "model": "gpt-image-test",
                             },
                             image_request,
                         )
                 self.assertEqual(raised.exception.status, expected_status)
                 self.assertEqual(raised.exception.upstream_status, upstream_status)
 
-    def test_qwen_success_status_without_image_preserves_failure_details(self):
+    def test_packy_success_status_with_error_preserves_failure_details(self):
         response_payload = {
             "request_id": "request-no-image",
-            "output": {
-                "task_status": "FAILED",
+            "error": {
                 "code": "DataInspectionFailed",
                 "message": "The prompt was rejected by the content policy.",
-                "choices": [],
             },
+            "data": [],
         }
         response = make_response(
             json.dumps(response_payload).encode("utf-8"),
             content_type="application/json",
         )
-        image_request = gateway.validate_image_generation_request({"prompt": "test"})
-        with mock.patch.object(gateway, "urlopen", return_value=response):
+        image_request = make_packy_image_request()
+        with mock.patch.object(image_provider, "open_packy_api_request", return_value=response):
             with self.assertRaises(gateway.ImageGatewayError) as raised:
-                gateway.call_qwen_image_api(
+                gateway.call_packy_image_api(
                     {
-                        "api_key": "secret",
-                        "workspace_id": "workspace_123",
-                        "model": "qwen-image-test",
+                        "api_token": "secret",
+                        "model": "gpt-image-test",
                     },
                     image_request,
                 )
 
         error = raised.exception
-        self.assertEqual(error.code, "QWEN_UPSTREAM_FAILED")
+        self.assertEqual(error.code, "PACKY_UPSTREAM_FAILED")
         self.assertEqual(error.upstream_code, "DataInspectionFailed")
         self.assertEqual(error.reason, "The prompt was rejected by the content policy.")
         self.assertEqual(error.request_id, "request-no-image")
 
-    def test_explicit_failure_status_is_not_accepted_even_when_an_image_is_present(self):
-        cases = [
-            {
-                "request_id": "request-failed-task",
-                "output": {
-                    "task_status": "FAILED",
-                    "message": "The task failed after validation.",
-                    "choices": [{"message": {"content": [{"image": VALID_IMAGE_URL}]}}],
-                },
-            },
-            {
-                "request_id": "request-filtered-choice",
-                "output": {
-                    "choices": [
-                        {
-                            "finish_reason": "content_filter",
-                            "message": {"content": [{"image": VALID_IMAGE_URL}]},
-                        }
-                    ]
-                },
-            },
-        ]
-        image_request = gateway.validate_image_generation_request({"prompt": "test"})
+    def test_explicit_packy_error_is_not_accepted_even_when_an_image_is_present(self):
+        cases = [{
+            "request_id": "request-filtered",
+            "error": {"code": "content_filter", "message": "blocked"},
+            "data": [{"url": VALID_IMAGE_URL}],
+        }]
+        image_request = make_packy_image_request()
         for response_payload in cases:
             with self.subTest(request_id=response_payload["request_id"]):
                 response = make_response(
                     json.dumps(response_payload).encode("utf-8"),
                     content_type="application/json",
                 )
-                with mock.patch.object(gateway, "urlopen", return_value=response):
+                with mock.patch.object(image_provider, "open_packy_api_request", return_value=response):
                     with self.assertRaises(gateway.ImageGatewayError) as raised:
-                        gateway.call_qwen_image_api(
+                        gateway.call_packy_image_api(
                             {
-                                "api_key": "secret",
-                                "workspace_id": "workspace_123",
-                                "model": "qwen-image-test",
+                                "api_token": "secret",
+                                "model": "gpt-image-test",
                             },
                             image_request,
                         )
-                self.assertEqual(raised.exception.code, "QWEN_UPSTREAM_FAILED")
+                self.assertEqual(raised.exception.code, "PACKY_UPSTREAM_FAILED")
                 self.assertEqual(raised.exception.request_id, response_payload["request_id"])
 
     def test_invalid_json_preserves_request_id_from_response_headers(self):
         response = make_response(b"<html>not json</html>", content_type="text/html")
-        response.headers["X-DashScope-Request-Id"] = "request-invalid-json"
-        image_request = gateway.validate_image_generation_request({"prompt": "test"})
-        with mock.patch.object(gateway, "urlopen", return_value=response):
+        response.headers["X-Request-Id"] = "request-invalid-json"
+        image_request = make_packy_image_request()
+        with mock.patch.object(image_provider, "open_packy_api_request", return_value=response):
             with self.assertRaises(gateway.ImageGatewayError) as raised:
-                gateway.call_qwen_image_api(
+                gateway.call_packy_image_api(
                     {
-                        "api_key": "secret",
-                        "workspace_id": "workspace_123",
-                        "model": "qwen-image-test",
+                        "api_token": "secret",
+                        "model": "gpt-image-test",
                     },
                     image_request,
                 )
-        self.assertEqual(raised.exception.code, "QWEN_INVALID_RESPONSE")
+        self.assertEqual(raised.exception.code, "PACKY_INVALID_RESPONSE")
         self.assertEqual(raised.exception.request_id, "request-invalid-json")
 
     def test_non_object_json_is_rejected_with_request_id(self):
         response = make_response(b"[]", content_type="application/json")
-        response.headers["X-DashScope-Request-Id"] = "request-json-array"
-        image_request = gateway.validate_image_generation_request({"prompt": "test"})
-        with mock.patch.object(gateway, "urlopen", return_value=response):
+        response.headers["X-Request-Id"] = "request-json-array"
+        image_request = make_packy_image_request()
+        with mock.patch.object(image_provider, "open_packy_api_request", return_value=response):
             with self.assertRaises(gateway.ImageGatewayError) as raised:
-                gateway.call_qwen_image_api(
+                gateway.call_packy_image_api(
                     {
-                        "api_key": "secret",
-                        "workspace_id": "workspace_123",
-                        "model": "qwen-image-test",
+                        "api_token": "secret",
+                        "model": "gpt-image-test",
                     },
                     image_request,
                 )
-        self.assertEqual(raised.exception.code, "QWEN_INVALID_RESPONSE")
+        self.assertEqual(raised.exception.code, "PACKY_INVALID_RESPONSE")
         self.assertEqual(raised.exception.request_id, "request-json-array")
         self.assertIn("unexpected structure", raised.exception.reason)
 
@@ -1006,10 +1136,14 @@ class ImageDownloadTests(unittest.TestCase):
     def download_with_response(self, response, expected_size):
         opener = mock.MagicMock()
         opener.open.return_value = response
-        with mock.patch.object(gateway, "build_opener", return_value=opener) as build_opener:
+        with mock.patch.object(
+            gateway.socket,
+            "getaddrinfo",
+            return_value=[(2, 1, 6, "", ("8.8.8.8", 443))],
+        ), mock.patch.object(image_assets, "build_opener", return_value=opener) as build_opener:
             result = gateway.download_generated_image(VALID_IMAGE_URL, expected_size)
         redirect_handler = build_opener.call_args.args[0]
-        self.assertIsInstance(redirect_handler, gateway.QwenImageRedirectHandler)
+        self.assertIsInstance(redirect_handler, gateway.PackyImageRedirectHandler)
         opener.open.assert_called_once()
         return result
 
@@ -1056,7 +1190,7 @@ class ImageDownloadTests(unittest.TestCase):
     def test_oversized_image_is_rejected_from_streamed_body(self):
         response = make_response(b"x" * 9)
         del response.headers["Content-Length"]
-        with mock.patch.object(gateway, "MAX_IMAGE_BYTES", 8):
+        with mock.patch.object(config, "MAX_IMAGE_BYTES", 8):
             with self.assertRaises(gateway.ImageGatewayError) as raised:
                 self.download_with_response(response, (2, 2))
         self.assertEqual(str(raised.exception), "Generated image exceeds 20 MiB.")
@@ -1065,7 +1199,7 @@ class ImageDownloadTests(unittest.TestCase):
     def test_final_response_url_is_revalidated_after_redirects(self):
         response = make_response(
             make_png(2, 2),
-            url="https://example.test/final.png",
+            url="https://127.0.0.1/final.png",
         )
         with self.assertRaises(gateway.ImageGatewayError):
             self.download_with_response(response, (2, 2))
@@ -1080,12 +1214,16 @@ class ImageDownloadTests(unittest.TestCase):
             make_headers(content_type="application/xml"),
             BytesIO(b"<Error><Signature>secret-signature</Signature></Error>"),
         )
-        with mock.patch.object(gateway, "build_opener", return_value=opener):
+        with mock.patch.object(
+            gateway.socket,
+            "getaddrinfo",
+            return_value=[(2, 1, 6, "", ("8.8.8.8", 443))],
+        ), mock.patch.object(image_assets, "build_opener", return_value=opener):
             with self.assertRaises(gateway.ImageGatewayError) as raised:
                 gateway.download_generated_image(VALID_IMAGE_URL, (2, 2))
 
         error = raised.exception
-        self.assertEqual(error.code, "QWEN_IMAGE_DOWNLOAD_FAILED")
+        self.assertEqual(error.code, "PACKY_IMAGE_DOWNLOAD_FAILED")
         self.assertEqual(error.upstream_code, "HTTP_403")
         self.assertEqual(error.reason, "The generated image URL returned HTTP 403.")
         self.assertNotIn("secret-signature", error.reason)

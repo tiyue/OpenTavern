@@ -1,0 +1,80 @@
+
+<!-- ===== Announcement / Quick Start Modal (多语言支持) ===== -->
+<div id="announceModal" class="modal-overlay fixed inset-0 z-[200] flex items-center justify-center hidden">
+    <div class="absolute inset-0 bg-black/70 backdrop-blur-md" id="announceBackdrop"></div>
+    <div class="relative glass rounded-3xl w-[92%] max-w-lg p-6 shadow-2xl animate-fade-in max-h-[92vh] overflow-y-auto border border-white/10">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <div class="text-xs mb-1 uppercase tracking-wider text-zinc-500">OpenTavern</div>
+                <h2 class="text-xl font-bold text-zinc-100" data-i18n="announce_title">欢迎使用 OpenTavern</h2>
+                <p class="text-xs text-zinc-400 mt-0.5" data-i18n="announce_subtitle">快速开始 · 公共卡片库 30 秒导入角色</p>
+            </div>
+            <button id="announceCloseBtn" class="w-9 h-9 rounded-full glass flex items-center justify-center text-xl text-zinc-400 hover:text-zinc-200 transition-colors leading-none" aria-label="关闭">&times;</button>
+        </div>
+
+        <!-- Language switcher for first-time users (very important for non-Chinese speakers) -->
+        <div class="flex items-center justify-center gap-2 mb-4">
+            <span class="text-[10px] text-zinc-500 flex-shrink-0">云同步</span>
+            <div class="flex items-center">
+                <button type="button" class="cloud-sync-shortcut-btn inline-flex min-w-[92px] items-center justify-center px-3.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 bg-[#c87556] hover:bg-[#d18262] active:bg-[#b8664d] text-white shadow-none disabled:opacity-60 disabled:hover:bg-[#c87556]" data-label="+ 立即同步">+ 立即同步</button>
+                <div class="hidden" aria-hidden="true">
+                    <button class="announce-lang-btn lang-btn" data-lang="zh-CN" tabindex="-1">简</button>
+                    <button class="announce-lang-btn lang-btn" data-lang="zh-TW" tabindex="-1">繁</button>
+                    <button class="announce-lang-btn lang-btn" data-lang="en" tabindex="-1">EN</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Start Steps -->
+        <div class="space-y-3 mb-5 text-sm">
+            <div class="flex gap-3 p-3 glass rounded-2xl">
+                <div class="w-6 h-6 flex-shrink-0 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">1</div>
+                <div class="flex-1">
+                    <div class="font-medium text-zinc-200" data-i18n="announce_step1_title">1. 打开「公共卡片库」标签</div>
+                    <div class="text-xs text-zinc-400 mt-0.5" data-i18n="announce_step1_desc">卡片库默认就是首页，点上方「公共卡片库」标签即可看到大量现成角色</div>
+                </div>
+            </div>
+            <div class="flex gap-3 p-3 glass rounded-2xl">
+                <div class="w-6 h-6 flex-shrink-0 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">2</div>
+                <div class="flex-1">
+                    <div class="font-medium text-zinc-200" data-i18n="announce_step2_title">2. 点击想用的角色卡</div>
+                    <div class="text-xs text-zinc-400 mt-0.5" data-i18n="announce_step2_desc">浏览公开角色，点一个喜欢的就能看到详情和预览</div>
+                </div>
+            </div>
+            <div class="flex gap-3 p-3 glass rounded-2xl">
+                <div class="w-6 h-6 flex-shrink-0 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">3</div>
+                <div class="flex-1">
+                    <div class="font-medium text-zinc-200" data-i18n="announce_step3_title">3. 点击「导入并开始聊天」</div>
+                    <div class="text-xs text-zinc-400 mt-0.5" data-i18n="announce_step3_desc">一键导入到你的「我的」库，马上就能开始对话（记得先配好 API）</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-[11px] text-zinc-400 mb-4 px-1" data-i18n="announce_hint">
+            公共卡片库提供多种现成角色。导入后在设置中配置 API，即可开始聊天。
+        </div>
+
+        <!-- Do not show checkbox -->
+        <label class="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none mb-4 px-1">
+            <input type="checkbox" id="announceDontShow" class="accent-amber-500 w-4 h-4 flex-shrink-0">
+            <span data-i18n="announce_dont_show">下次不再显示此公告</span>
+        </label>
+        <p id="announceAckError" class="hidden -mt-2 mb-4 px-1 text-xs text-red-400" role="alert" data-i18n="announce_ack_required">请先勾选“下次不再显示此公告”，再开始使用。</p>
+
+        <!-- Primary action -->
+        <button id="announceGotItBtn"
+                class="w-full px-4 py-3 rounded-2xl text-sm font-semibold bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white shadow-lg shadow-amber-500/20 transition-all"
+                data-i18n="announce_got_it">
+            开始使用
+        </button>
+
+        <!-- Credits -->
+        <div class="mt-5 pt-4 border-t border-white/10 text-center">
+            <div class="text-[10px] text-zinc-500 leading-tight">
+                <span data-i18n="announce_credits_main">主要开发：哈基米德Hajimides</span><br>
+                <span data-i18n="announce_credits_test">辅助测试：一粒伊利尔</span>
+            </div>
+        </div>
+    </div>
+</div>

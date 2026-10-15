@@ -1,0 +1,254 @@
+
+<!-- ===== Main Layout ===== -->
+<div id="main-layout" class="flex h-[100dvh] min-h-[100dvh] relative z-10">
+    <!-- Left Sidebar -->
+    <aside id="sidebar" class="w-[270px] flex-shrink-0 flex flex-col border-r border-white/5 bg-zinc-950/25 backdrop-blur-xl">
+        <div class="px-5 py-4 flex items-center gap-3 border-b border-white/5">
+            <div class="w-9 h-9 rounded-xl ot-avatar-fill flex items-center justify-center text-white text-xs font-bold tracking-tighter">OT</div>
+            <div class="flex-1">
+                <div class="flex items-center gap-2">
+                    <p class="text-sm font-bold text-zinc-100 leading-tight">OpenTavern</p>
+                    <!-- 极简存储状态指示器 (Phase 1 补充) -->
+                    <div id="storageStatus" 
+                         class="text-[9px] px-1.5 py-px rounded bg-white/5 text-zinc-400 font-mono cursor-pointer select-none hover:bg-white/10 transition-colors"
+                         title="存储后端">
+                        OPFS
+                    </div>
+                </div>
+                <p class="text-[10px] text-zinc-500 leading-tight" data-i18n="app_subtitle">AI Character Chat</p>
+            </div>
+            <button id="sidebarCloseBtn" class="hamburger-close-btn w-7 h-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-white/10 transition-all" aria-label="Close menu">&times;</button>
+        </div>
+        <div class="px-3 py-3 space-y-2 border-b border-white/5">
+            <button id="newChatBtn" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-300 glass hover:bg-white/10 active:bg-white/15 transition-all">
+                <span class="text-base">+</span> <span data-i18n="new_chat">New Chat</span>
+            </button>
+
+            <!-- Character Card Block -->
+            <div class="glass rounded-xl px-3 py-2 space-y-1.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] text-zinc-500 uppercase tracking-wider" data-i18n="char_card_title">Character Card</span>
+                    <div id="charCardActions" class="flex items-center gap-0.5">
+                        <button id="charEditBtn" class="w-6 h-6 rounded-lg flex items-center justify-center text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10 transition-all text-xs hidden" data-i18n-title="char_edit_title">&#9998;</button>
+                        <button id="charExportBtn" class="w-6 h-6 rounded-lg flex items-center justify-center text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all text-xs hidden" data-i18n-title="char_export_title">&#128230;</button>
+                        <button id="charRemoveBtn" class="w-6 h-6 rounded-lg flex items-center justify-center text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-all text-xs hidden" data-i18n-title="char_remove_title">&#10005;</button>
+                    </div>
+                </div>
+
+                <!-- Preview state -->
+                <div id="charCardPreview" class="hidden">
+                    <div class="flex items-center gap-2 mb-1">
+                        <div id="charCardAvatar" class="w-7 h-7 rounded-lg ot-avatar-fill flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">?</div>
+                        <div class="min-w-0 flex-1">
+                            <p id="charCardName" class="text-xs font-medium text-zinc-200 truncate"></p>
+                            <p id="charCardTagCount" class="text-[9px] text-zinc-500"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty hint -->
+                <p id="charCardEmptyHint" class="text-[10px] text-zinc-500"><span data-i18n="char_card_empty">No character loaded</span></p>
+
+                <!-- Always-visible action buttons -->
+                <div class="flex gap-1.5">
+                    <button id="charImportBtn" class="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-medium text-zinc-400 bg-white/5 hover:bg-white/10 transition-all">
+                        <span>&#128229;</span> <span data-i18n="char_btn_import">Import</span>
+                    </button>
+                    <button id="charCreateBtn" class="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-medium text-zinc-500 bg-white/5 hover:bg-white/10 transition-all">
+                        <span>+</span> <span data-i18n="char_btn_create">Create</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- World Book quick access (below Character Card) -->
+            <div class="glass rounded-xl px-3 py-2 flex items-center gap-2 text-xs">
+                <span class="text-zinc-400 flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider">WI</span>
+                <span class="flex-1 text-zinc-300 truncate" data-i18n="world_book">World Book</span>
+                <span id="wiEntryCount" class="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 flex-shrink-0"></span>
+                <button id="worldBookBtn" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-amber-500/20 hover:text-amber-300 text-zinc-300 transition-all text-[11px] font-medium flex-shrink-0 min-h-[28px]" data-i18n="world_book_btn">管理</button>
+            </div>
+
+            <!-- (Public library button removed; search and public cards now integrated in main homepage library with tabs) -->
+        </div>
+        <div id="convList" class="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
+            <p id="noConvHint" class="text-xs text-zinc-500 text-center py-8 px-2" data-i18n="no_conversations">No saved conversations yet.<br>Start a new chat to begin.</p>
+        </div>
+        <div class="px-3 py-2 border-t border-white/5 space-y-1.5">
+            <div class="flex items-center gap-1.5">
+                <button id="exportAllBtn" class="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] text-zinc-500 glass hover:text-zinc-300 hover:bg-white/5 transition-all" data-i18n="conv_export_all_btn" data-i18n-title="conv_export_all_title">Export All</button>
+                <button id="importConvBtn" class="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] text-zinc-500 glass hover:text-zinc-300 hover:bg-white/5 transition-all" data-i18n="conv_import_btn" data-i18n-title="conv_import_title">Import</button>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <button id="sidebarSettingsBtn" class="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] text-zinc-500 glass hover:text-zinc-300 hover:bg-white/5 transition-all">
+                    <span data-i18n="settings">Settings</span>
+                </button>
+                <button id="viewPromptBtn" class="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] text-zinc-500 glass hover:text-zinc-300 hover:bg-white/5 transition-all" data-i18n-title="view_prompt_title">
+                    <span class="text-[10px] font-semibold uppercase tracking-wider">Prompt</span>
+                </button>
+            </div>
+        </div>
+        <input type="file" id="convImportFile" accept=".json" class="hidden">
+        <input type="file" id="wiImportFile" accept=".json" class="hidden">
+    </aside>
+
+    <!-- Sidebar Backdrop (mobile only) -->
+    <div id="sidebarBackdrop"></div>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Library View (homepage / default) -->
+        <div id="libraryView" class="flex-1 flex flex-col overflow-hidden">
+            <div class="flex-shrink-0 px-5 py-3 border-b border-white/5 bg-zinc-950/15 backdrop-blur-2xl">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <button id="libraryHamburgerBtn" class="hamburger-btn" aria-label="Menu">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                        </button>
+                        <h2 class="text-lg font-bold" data-i18n="library_title">卡片库</h2>
+                    </div>
+                    <!-- Sync shortcut -->
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <button type="button" class="cloud-sync-shortcut-btn inline-flex min-w-[92px] items-center justify-center px-3.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 bg-[#c87556] hover:bg-[#d18262] active:bg-[#b8664d] text-white shadow-none disabled:opacity-60 disabled:hover:bg-[#c87556]" data-label="+ 立即同步">+ 立即同步</button>
+                    </div>
+                </div>
+                <!-- Tabs for switching local, official public and contributor catalogs -->
+                <div class="mt-3 flex gap-1 border-b border-white/10 overflow-x-auto" role="tablist" aria-label="角色卡目录">
+                    <button id="tabMy" class="tab-btn active px-4 py-2 text-sm font-medium border-b-2 border-amber-500 text-amber-400 whitespace-nowrap" type="button" role="tab" aria-selected="true" data-tab="my" data-i18n="tab_my_cards">我的卡片</button>
+                    <button id="tabPublic" class="tab-btn px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 whitespace-nowrap" type="button" role="tab" aria-selected="false" tabindex="-1" data-tab="public" data-i18n="tab_public">公共卡片库</button>
+                    <button id="tabContributors" class="tab-btn px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 whitespace-nowrap" type="button" role="tab" aria-selected="false" tabindex="-1" data-tab="contributors" data-i18n="tab_contributors">贡献者卡片</button>
+                </div>
+
+                <!-- Search + academy/author filter while browsing a series -->
+                <div class="mt-2 flex items-center gap-2">
+                    <button id="publicSeriesBackBtn" type="button" class="hidden flex-shrink-0 px-2.5 py-1.5 text-xs rounded-xl glass text-zinc-300 hover:text-zinc-100 hover:bg-white/10 transition-colors" data-i18n="public_series_back">← 系列</button>
+                    <input id="librarySearch" type="text" class="flex-1 min-w-0 px-3 py-1.5 text-sm glass rounded-xl placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40" placeholder="搜索名称、标签、描述..." data-i18n-placeholder="library_search_placeholder">
+                    <div id="academyFilterWrap" class="relative flex-shrink-0 hidden">
+                        <button id="academyFilterToggle" type="button" class="px-2.5 py-1.5 text-xs rounded-xl glass text-zinc-300 hover:text-zinc-100 hover:bg-white/10 transition-colors flex items-center gap-1.5 max-w-[10rem]" aria-haspopup="menu" aria-expanded="false">
+                            <span id="academyFilterLabel" class="truncate" data-i18n="filter_academy">学院筛选</span>
+                            <svg class="w-3 h-3 flex-shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div id="academyFilterMenu" class="hidden absolute right-0 mt-1.5 z-30 min-w-[9.5rem] max-h-64 overflow-y-auto glass rounded-xl border border-white/10 p-1 shadow-xl" role="menu"></div>
+                    </div>
+                </div>
+                <div id="publicSeriesBreadcrumb" class="hidden mt-2 text-xs text-zinc-400 px-0.5">
+                    <span id="publicSeriesBreadcrumbRoot" data-i18n="tab_public">公共卡片库</span>
+                    <span class="mx-1 opacity-50">/</span>
+                    <span id="publicSeriesBreadcrumbName" class="text-zinc-200 font-medium"></span>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4">
+                <!-- My Cards Grid (3:4 preview + name/tags below) -->
+                <div id="myCardsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                    <!-- JS populated grid cards -->
+                </div>
+                <!-- Tailwind CDN hint: ensure dynamic button variants are generated -->
+                <span class="hidden opacity-0 md:opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 active:opacity-100 pointer-events-none group-hover:pointer-events-auto active:pointer-events-auto"></span>
+                <!-- Public series folders -->
+                <div id="publicSeriesGrid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                    <!-- JS populated -->
+                </div>
+                <!-- Cards in the selected public series -->
+                <div id="publicCardsGrid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                    <!-- JS populated -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat View (hidden by default, shown when card selected) -->
+        <div id="chatView" class="hidden flex-1 flex flex-col overflow-hidden">
+            <!-- Chat Top Bar -->
+            <div id="chatTopBar" class="flex-shrink-0 px-5 py-3 flex items-center justify-between border-b border-white/5 bg-zinc-950/15 backdrop-blur-2xl">
+            <div class="flex items-center gap-3 min-w-0">
+                <button id="hamburgerBtn" class="hamburger-btn" aria-label="Menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                </button>
+                <div id="charAvatar" class="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-zinc-500 text-[10px] font-semibold uppercase flex-shrink-0">Chat</div>
+                <div class="min-w-0">
+                    <h3 id="chatTitle" class="text-sm font-semibold text-zinc-200 truncate" data-i18n="new_chat_title">New Chat</h3>
+                    <p id="chatSubtitle" class="text-[10px] text-zinc-500 truncate" data-i18n="no_character">No character loaded</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0 topbar-actions">
+                <button type="button" class="cloud-sync-shortcut-btn inline-flex min-w-[92px] items-center justify-center px-3.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 bg-[#c87556] hover:bg-[#d18262] active:bg-[#b8664d] text-white shadow-none disabled:opacity-60 disabled:hover:bg-[#c87556]" data-label="+ 立即同步">+ 立即同步</button>
+                <button id="summarizeBtn" 
+                        class="px-2 sm:px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-500 glass hover:text-zinc-300 hover:bg-white/10 transition-all flex items-center justify-center"
+                        data-i18n-title="summary_manager_title">
+                    <!-- Desktop: full text | Mobile: emoji only (适配移动端) -->
+                    <span data-i18n="summary_btn" class="hidden sm:inline">总结</span>
+                    <span class="sm:hidden text-[10px] font-semibold uppercase leading-none">Sum</span>
+                </button>
+                <button id="archiveBtn" class="mobile-hide-sm px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-500 glass hover:text-zinc-300 hover:bg-white/10 transition-all" data-i18n="archive" data-i18n-title="archive_title">Archive</button>
+                <button id="topSettingsBtn" class="w-8 h-8 rounded-xl glass flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors" aria-label="Settings">Set</button>
+
+            </div>
+        </div>
+
+        <!-- World Info Budget Warning Banner -->
+        <div id="wiBudgetWarning" class="hidden mx-4 mt-3 px-4 py-2 rounded-2xl glass text-xs flex items-center gap-3 border border-amber-500/20 text-amber-300">
+            <span id="wiBudgetWarningText" class="flex-1"></span>
+            <button id="wiBudgetWarningDismiss" class="px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[10px] transition-colors flex-shrink-0"></button>
+        </div>
+
+        <!-- Messages Area -->
+        <div id="messagesContainer" class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+            <div id="emptyState" class="flex flex-col items-center justify-center h-full text-center">
+                <div class="w-20 h-20 rounded-3xl glass flex items-center justify-center text-3xl mb-4">OT</div>
+                <p class="text-zinc-400 text-sm font-medium mb-1" data-i18n="welcome_title">Welcome to OpenTavern</p>
+                <p class="text-zinc-600 text-xs max-w-xs" data-i18n="welcome_hint">Import a character card to get started, or just type a message below.</p>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="flex-shrink-0 px-4 py-3 border-t border-white/5 bg-zinc-950/15 backdrop-blur-2xl">
+            <div id="tokenInfo" class="flex items-center justify-between mb-2 px-1 hidden">
+                <span class="text-[10px] text-zinc-500"><span data-i18n="context_label">Context:</span> <span id="tokenCount">0</span> <span data-i18n="msgs_label">msgs</span></span>
+                <div class="flex-1 mx-3 h-1 bg-white/5 rounded-full overflow-hidden">
+                    <div id="tokenBar" class="token-bar h-full bg-amber-500/60 rounded-full" style="width:0%"></div>
+                </div>
+                <span id="tokenMax" class="text-[10px] text-zinc-500">max 10</span>
+            </div>
+            <div class="flex items-center gap-2 sm:gap-2.5">
+                <!-- @ 按钮移到左侧，与输入框高度对齐（手机端优化） -->
+                <button id="mentionBtn"
+                        class="flex-shrink-0 w-11 h-11 rounded-xl glass text-zinc-400 hover:text-amber-300 hover:bg-white/10 active:bg-white/15 transition-all flex items-center justify-center text-xl font-bold touch-manipulation"
+                        data-i18n-title="mention_button_title"
+                        aria-label="Mention Character">
+                    @
+                </button>
+
+                <!-- @ 指定气泡（非编辑态）：点击@按钮选择后在此显示角色名 + 关闭按钮，只指定一个角色 -->
+                <div id="mentionPill"
+                     class="hidden flex-shrink-0 items-center gap-0.5 px-1.5 py-0.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-medium max-w-[82px] sm:max-w-[105px] overflow-hidden cursor-pointer min-w-0">
+                    <span id="mentionPillName" class="truncate select-none min-w-0"></span>
+                    <button id="mentionPillClear"
+                            type="button"
+                            class="ml-0.5 w-3 h-3 flex items-center justify-center text-amber-400 hover:text-red-400 hover:bg-white/10 rounded-full leading-none text-[11px]"
+                            aria-label="清除@指定">×</button>
+                </div>
+
+                <button id="userDraftBtn" type="button" class="flex-shrink-0 w-11 h-11 rounded-xl glass text-xs text-zinc-400 disabled:opacity-30" title="按用户设定生成草稿，确认后自行发送" aria-label="按用户设定生成草稿" disabled>代写</button>
+                <textarea id="messageInput" rows="1"
+                          class="flex-1 px-4 py-3 glass rounded-2xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none transition-all min-h-[44px]"
+                          data-i18n-placeholder="input_placeholder"
+                          disabled></textarea>
+                <button id="imageGenerationBtn"
+                        class="hidden flex flex-shrink-0 w-11 h-11 rounded-2xl glass text-zinc-400 hover:text-amber-300 hover:bg-white/10 active:bg-white/15 transition-all duration-200 items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="生成图片"
+                        aria-label="生成图片"
+                        disabled>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><path d="M14 14l2 2"/></svg>
+                </button>
+                <button id="sendBtn"
+                        class="flex-shrink-0 w-11 h-11 rounded-2xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white font-semibold shadow-lg shadow-amber-500/20 hover:shadow-amber-500/35 transition-all duration-200 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+                        disabled>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                </button>
+                <button id="stopBtn"
+                        class="flex-shrink-0 w-11 h-11 rounded-2xl glass text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200 flex items-center justify-center hidden">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+                </button>
+            </div>
+        </div>
+        </div> <!-- end chatView -->
+    </div>
+</div> <!-- end main content -->

@@ -1,0 +1,274 @@
+
+<!-- ===== World Book / World Info Modal ===== -->
+<div id="worldBookModal" class="modal-overlay fixed inset-0 z-[110] flex items-center justify-center hidden">
+    <div class="absolute inset-0 bg-black/70 backdrop-blur-md" id="worldBookBackdrop"></div>
+    <div class="relative glass rounded-3xl w-[96%] max-w-[1080px] shadow-2xl animate-fade-in max-h-[94vh] flex flex-col overflow-hidden border border-white/10">
+        <!-- Header -->
+        <div class="px-5 py-3 border-b border-white/10 flex items-center gap-3 flex-shrink-0 bg-black/20">
+            <div class="flex items-center gap-2 flex-1 min-w-0">
+                <span class="text-xs font-semibold uppercase tracking-wider text-zinc-500">WI</span>
+                <span class="font-bold text-lg text-zinc-100" data-i18n="world_book_title">世界书 / World Info</span>
+                <input id="wiBookName" class="ml-2 flex-1 max-w-[260px] px-3 py-1.5 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40" placeholder="Lorebook name (optional)">
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <button id="wiNewBookBtn" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition-all" data-i18n="world_book_new">+ 新建世界书</button>
+                <button id="wiImportBtn" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition-all" data-i18n="world_book_import">导入 JSON</button>
+                <button id="wiExportBtn" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition-all" data-i18n="world_book_export">导出 JSON</button>
+                <button id="wiDeleteAllBtn" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all" data-i18n="world_book_delete_all">一键删除全部</button>
+                <button id="wiAddEntryBtn" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white shadow shadow-amber-500/20 transition-all" data-i18n="world_book_add_entry">+ 新建条目</button>
+                <button id="wiCloseBtn" class="w-9 h-9 rounded-full glass flex items-center justify-center text-xl text-zinc-400 hover:text-zinc-200 transition-colors leading-none">&times;</button>
+            </div>
+        </div>
+
+        <!-- Body: list + editor -->
+        <div class="flex-1 flex overflow-hidden min-h-0">
+            <!-- Left: Entry List -->
+            <div class="w-72 border-r border-white/10 flex flex-col bg-black/10">
+                <div class="p-2.5 border-b border-white/5">
+                    <input id="wiSearch" type="text" class="w-full px-3 py-2 text-sm glass rounded-xl placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/30" data-i18n-placeholder="world_book_search" placeholder="搜索关键字或备注...">
+                </div>
+                <div id="wiEntryList" class="flex-1 overflow-y-auto p-2 space-y-1.5 text-sm custom-scroll"></div>
+                <div class="p-2 text-[10px] text-center text-zinc-500 border-t border-white/5" id="wiEntryStats"></div>
+            </div>
+
+            <!-- Right: Editor -->
+            <div class="flex-1 flex flex-col overflow-y-auto p-4 bg-zinc-950/30" id="wiEditorContainer">
+                <div id="wiNoSelection" class="flex-1 flex items-center justify-center text-center text-zinc-500 text-sm">
+                    <div>
+                        <div class="text-xs mb-3 opacity-70 uppercase tracking-wider">World Info</div>
+                        <div data-i18n="world_book_no_selection">选择左侧条目进行编辑，或点击“新建条目”</div>
+                    </div>
+                </div>
+
+                <div id="wiEditorForm" class="hidden space-y-4">
+                    <!-- Quick row -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <label class="flex items-center gap-2 text-sm cursor-pointer">
+                                <input type="checkbox" id="wiDisable" class="accent-amber-500">
+                                <span class="text-zinc-400" data-i18n="wi_disable">禁用此条目</span>
+                            </label>
+                            <span id="wiUidBadge" class="text-[10px] text-zinc-500 font-mono"></span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button id="wiDuplicateBtn" class="px-2.5 py-1 text-xs rounded-lg glass hover:bg-white/10" data-i18n="world_book_duplicate">复制</button>
+                            <button id="wiDeleteEntryBtn" class="px-2.5 py-1 text-xs rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20" data-i18n="world_book_delete">删除</button>
+                        </div>
+                    </div>
+
+                    <!-- Core fields -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="wi_comment">备注 (Memo)</label>
+                            <input id="wiComment" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-1 focus:ring-amber-500/40">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="wi_order">插入顺序 (Order)</label>
+                            <input id="wiOrder" type="number" value="100" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-1 focus:ring-amber-500/40">
+                        </div>
+                    </div>
+
+                    <!-- Keys -->
+                    <div>
+                        <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="wi_keys">激活关键字 (Keys)</label>
+                        <div id="wiKeyChips" class="mt-1 min-h-[34px] flex flex-wrap gap-1 p-2 glass rounded-xl bg-black/20"></div>
+                        <div class="flex gap-2 mt-1.5">
+                            <input id="wiKeyInput" type="text" class="flex-1 px-3 py-1.5 text-sm glass rounded-xl" placeholder="输入关键字后回车或点击添加">
+                            <button id="wiAddKeyBtn" class="px-4 text-xs font-semibold rounded-xl glass hover:bg-white/10">添加</button>
+                        </div>
+                        <div class="text-[10px] text-zinc-500 mt-0.5" data-i18n="wi_keys_hint">支持正则表达式：/rainy|storm/i</div>
+                    </div>
+
+                    <!-- Secondary + Logic -->
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                        <div class="md:col-span-3">
+                            <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="wi_secondary">可选过滤关键字</label>
+                            <div id="wiSecChips" class="mt-1 min-h-[34px] flex flex-wrap gap-1 p-2 glass rounded-xl bg-black/20"></div>
+                            <div class="flex gap-2 mt-1.5">
+                                <input id="wiSecInput" type="text" class="flex-1 px-3 py-1.5 text-sm glass rounded-xl" placeholder="可选关键字">
+                                <button id="wiAddSecBtn" class="px-4 text-xs font-semibold rounded-xl glass hover:bg-white/10">添加</button>
+                            </div>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="wi_selective_logic">选择逻辑</label>
+                            <select id="wiSelectiveLogic" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none">
+                                <option value="0" data-i18n="logic_and_any">AND ANY (任一)</option>
+                                <option value="1" data-i18n="logic_and_all">AND ALL (全部)</option>
+                                <option value="2" data-i18n="logic_not_any">NOT ANY (无任一)</option>
+                                <option value="3" data-i18n="logic_not_all">NOT ALL (无全部)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Content -->
+                    <div>
+                        <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="wi_content">内容 (插入到提示词)</label>
+                        <textarea id="wiContent" rows="7" class="w-full mt-1 px-3 py-2 text-sm glass rounded-2xl text-zinc-200 font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-amber-500/30 resize-y"></textarea>
+                    </div>
+
+                    <!-- Strategy & Probability -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                            <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="wi_strategy">策略</label>
+                            <div class="flex mt-1.5 gap-1">
+                                <button id="wiStratConstant" class="flex-1 px-2 py-1.5 text-xs rounded-xl border border-white/10 hover:border-amber-500/50 data-active:bg-amber-500/20 data-active:border-amber-500" data-active="false">恒常</button>
+                                <button id="wiStratSelective" class="flex-1 px-2 py-1.5 text-xs rounded-xl border border-white/10 hover:border-amber-500/50 data-active:bg-amber-500/20 data-active:border-amber-500" data-active="true">关键字</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1" data-i18n="wi_probability">触发概率</label>
+                            <div class="flex items-center gap-2 mt-1">
+                                <input id="wiProbability" type="range" min="0" max="100" step="5" value="100" class="flex-1">
+                                <span id="wiProbVal" class="w-9 text-right text-sm tabular-nums">100</span>
+                                <label class="flex items-center gap-1 text-xs"><input type="checkbox" id="wiUseProb" class="accent-amber-500"> <span data-i18n="wi_use_probability">启用</span></label>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">包含组 (Group)</label>
+                            <input id="wiGroup" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl" placeholder="group-name">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">组权重</label>
+                            <div class="flex gap-2 mt-1">
+                                <input id="wiGroupWeight" type="number" value="100" class="flex-1 px-3 py-2 text-sm glass rounded-xl">
+                                <label class="flex items-center gap-1 text-[10px] whitespace-nowrap"><input type="checkbox" id="wiPrioritize" class="accent-amber-500"> <span data-i18n="wi_prioritize">优先</span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Position -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="md:col-span-1">
+                            <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="wi_position">插入位置</label>
+                            <select id="wiPosition" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl">
+                                <option value="0" data-i18n="pos_before_char">Before Char Defs</option>
+                                <option value="1" data-i18n="pos_after_char">After Char Defs</option>
+                                <option value="2" data-i18n="pos_before_ex">Before Example Msgs</option>
+                                <option value="3" data-i18n="pos_after_ex">After Example Msgs</option>
+                                <option value="4" data-i18n="pos_top_an">Top of Author's Note</option>
+                                <option value="5" data-i18n="pos_bottom_an">Bottom of Author's Note</option>
+                                <option value="6" data-i18n="pos_at_depth">@ Depth</option>
+                                <option value="7" data-i18n="pos_outlet">Outlet (named)</option>
+                            </select>
+                        </div>
+                        <div id="wiDepthRow" class="hidden md:col-span-1">
+                            <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="wi_depth">深度 (Depth, 0=底部)</label>
+                            <div class="flex gap-2 mt-1">
+                                <input id="wiDepth" type="number" min="0" value="4" class="flex-1 px-3 py-2 text-sm glass rounded-xl">
+                                <select id="wiRole" class="flex-1 px-2 py-2 text-sm glass rounded-xl">
+                                    <option value="0" data-i18n="role_system">System</option>
+                                    <option value="1" data-i18n="role_user">User</option>
+                                    <option value="2" data-i18n="role_assistant">Assistant</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="wiOutletRow" class="hidden md:col-span-1">
+                            <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="wi_outlet">Outlet 名称</label>
+                            <input id="wiOutletName" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl" placeholder="my_outlet">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="wi_use_group_scoring">组评分 / Use Group Scoring</label>
+                            <div class="mt-2 flex gap-4">
+                                <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" id="wiUseGroupScoring" class="accent-amber-500"> <span>启用</span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Timed Effects + Recursion -->
+                    <details class="glass rounded-2xl p-3">
+                        <summary class="cursor-pointer text-xs font-semibold text-zinc-400 select-none" data-i18n="wi_timed">定时效果 & 递归 (Timed & Recursion)</summary>
+                        <div class="grid grid-cols-3 gap-3 mt-3">
+                            <div>
+                                <label class="text-xs text-zinc-400">Sticky</label>
+                                <input id="wiSticky" type="number" min="0" value="0" class="w-full mt-1 px-3 py-1.5 text-sm glass rounded-xl">
+                            </div>
+                            <div>
+                                <label class="text-xs text-zinc-400">Cooldown</label>
+                                <input id="wiCooldown" type="number" min="0" value="0" class="w-full mt-1 px-3 py-1.5 text-sm glass rounded-xl">
+                            </div>
+                            <div>
+                                <label class="text-xs text-zinc-400">Delay</label>
+                                <input id="wiDelay" type="number" min="0" value="0" class="w-full mt-1 px-3 py-1.5 text-sm glass rounded-xl">
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-x-5 gap-y-2 mt-3 text-sm">
+                            <label class="flex items-center gap-2"><input type="checkbox" id="wiExcludeRec" class="accent-amber-500"> <span class="text-xs" data-i18n="wi_exclude_recursion">排除递归激活</span></label>
+                            <label class="flex items-center gap-2"><input type="checkbox" id="wiPreventRec" class="accent-amber-500"> <span class="text-xs" data-i18n="wi_prevent_recursion">阻止进一步递归</span></label>
+                            <label class="flex items-center gap-2"><input type="checkbox" id="wiDelayRec" class="accent-amber-500"> <span class="text-xs" data-i18n="wi_delay_until_recursion">仅递归时激活</span></label>
+                        </div>
+                    </details>
+
+                    <!-- Filters & Advanced -->
+                    <details class="glass rounded-2xl p-3">
+                        <summary class="cursor-pointer text-xs font-semibold text-zinc-400 select-none" data-i18n="wi_filters">过滤、触发器与高级 (Filters & Advanced)</summary>
+                        <div class="mt-3 space-y-3">
+                            <!-- Character Filter -->
+                            <div>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xs text-zinc-400 font-semibold" data-i18n="wi_char_filter">角色过滤</span>
+                                    <label class="flex items-center gap-1 text-xs ml-auto"><input type="checkbox" id="wiCharExclude" class="accent-amber-500"> <span data-i18n="wi_is_exclude">排除模式</span></label>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input id="wiCharNames" type="text" placeholder="角色名 (逗号分隔)" class="px-3 py-1.5 text-xs glass rounded-xl">
+                                    <input id="wiCharTags" type="text" placeholder="角色标签 (逗号分隔)" class="px-3 py-1.5 text-xs glass rounded-xl">
+                                </div>
+                            </div>
+
+                            <!-- Triggers -->
+                            <div>
+                                <span class="text-xs text-zinc-400 font-semibold" data-i18n="wi_triggers">触发生成类型 (留空=全部)</span>
+                                <div class="grid grid-cols-3 md:grid-cols-6 gap-x-3 gap-y-1 mt-1 text-xs">
+                                    <label><input type="checkbox" value="normal" class="wi-trigger accent-amber-500"> Normal</label>
+                                    <label><input type="checkbox" value="continue" class="wi-trigger accent-amber-500"> Continue</label>
+                                    <label><input type="checkbox" value="impersonate" class="wi-trigger accent-amber-500"> Impersonate</label>
+                                    <label><input type="checkbox" value="swipe" class="wi-trigger accent-amber-500"> Swipe</label>
+                                    <label><input type="checkbox" value="regenerate" class="wi-trigger accent-amber-500"> Regenerate</label>
+                                    <label><input type="checkbox" value="quiet" class="wi-trigger accent-amber-500"> Quiet</label>
+                                </div>
+                            </div>
+
+                            <!-- Additional match sources -->
+                            <div>
+                                <span class="text-xs text-zinc-400 font-semibold" data-i18n="wi_additional_match">额外匹配源</span>
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-1 mt-1 text-xs">
+                                    <label class="flex items-center gap-1"><input type="checkbox" id="wiMatchCharDesc" class="accent-amber-500"> 角色描述</label>
+                                    <label class="flex items-center gap-1"><input type="checkbox" id="wiMatchCharPers" class="accent-amber-500"> 角色性格</label>
+                                    <label class="flex items-center gap-1"><input type="checkbox" id="wiMatchScenario" class="accent-amber-500"> 场景</label>
+                                    <label class="flex items-center gap-1"><input type="checkbox" id="wiMatchPersona" class="accent-amber-500"> 人设描述</label>
+                                    <label class="flex items-center gap-1"><input type="checkbox" id="wiMatchCharNote" class="accent-amber-500"> 角色备注</label>
+                                    <label class="flex items-center gap-1"><input type="checkbox" id="wiMatchCreatorNotes" class="accent-amber-500"> 作者备注</label>
+                                </div>
+                            </div>
+
+                            <!-- Advanced overrides -->
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs pt-1 border-t border-white/5">
+                                <div>
+                                    <label class="text-zinc-400">Scan Depth 覆盖</label>
+                                    <input id="wiScanDepth" type="number" min="0" placeholder="全局" class="w-full mt-0.5 px-2 py-1 glass rounded-lg">
+                                </div>
+                                <div class="flex items-end gap-2">
+                                    <label class="flex items-center gap-1"><input type="checkbox" id="wiCaseSens" class="accent-amber-500"> <span data-i18n="wi_case_sensitive">大小写敏感</span></label>
+                                </div>
+                                <div class="flex items-end gap-2">
+                                    <label class="flex items-center gap-1"><input type="checkbox" id="wiMatchWhole" class="accent-amber-500"> <span data-i18n="wi_match_whole">全词匹配</span></label>
+                                </div>
+                                <div class="flex items-end gap-2">
+                                    <label class="flex items-center gap-1"><input type="checkbox" id="wiIgnoreBudget" class="accent-amber-500"> <span data-i18n="wi_ignore_budget">忽略预算</span></label>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="text-zinc-400">Automation ID</label>
+                                    <input id="wiAutomationId" type="text" class="w-full mt-0.5 px-2 py-1 text-xs glass rounded-lg" placeholder="automation_id">
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </div>
+        <!-- Tiny footer -->
+        <div class="px-4 py-2 text-[10px] text-zinc-500 border-t border-white/5 flex justify-between flex-shrink-0">
+            <span>基于 SillyTavern World Info 规范实现 · 支持完整字段</span>
+            <span id="wiDirtyIndicator" class="text-amber-400 hidden">未保存</span>
+        </div>
+    </div>
+</div>

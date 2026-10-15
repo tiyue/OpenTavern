@@ -1,0 +1,364 @@
+{
+  "schemaVersion": 1,
+  "status": "code_complete_published_basic_real_acceptance_passed",
+  "auditBaseline": "c951506a75e80d434bbf623e5978093956443ef2",
+  "provider": "mimo",
+  "mode": "workspace-write",
+  "timeoutSeconds": 1800,
+  "tasks": [
+    {
+      "id": "T01",
+      "status": "accepted_published",
+      "title": "停止提示词构建与宏变量提交",
+      "taskFile": "docs/tasks/MIMO_T01_PROMPT_CANCEL.md",
+      "dependsOn": [],
+      "role": "mimo",
+      "allowedFiles": [
+        "src/app/generation/50-generation-integrations.js",
+        "src/app/generation/52-generation-message-lifecycle.js",
+        "src/app/prompt/41-prompt-message-builder.js",
+        "src/app/prompt/40-sillytavern-macro-runtime.js",
+        "scripts/test-prompt-controls-runtime.mjs",
+        "scripts/test-prompt-controls-browser.mjs",
+        "docs/spec.md"
+      ],
+      "plannedNewFiles": [],
+      "executorChecks": [
+        "npm run check:prompt-controls",
+        "npm run check:message-reliability"
+      ]
+    },
+    {
+      "id": "T02",
+      "status": "accepted_published",
+      "title": "SSE 与 JSON 完成原因及失败保护",
+      "taskFile": "docs/tasks/MIMO_T02_RESPONSE_COMPLETION.md",
+      "dependsOn": [
+        "T01"
+      ],
+      "role": "mimo",
+      "allowedFiles": [
+        "src/app/generation/50-generation-response-stream.js",
+        "src/app/generation/50-generation-integrations.js",
+        "src/app/generation/50-generation-stream-state.js",
+        "src/app/generation/52-generation-runtime.js",
+        "src/app/generation/52-generation-second-stage-runtime.js",
+        "src/app/chat/67-message-regeneration-runtime.js",
+        "scripts/tests/frontend/generation.mjs",
+        "scripts/test-message-reliability-runtime.mjs",
+        "scripts/test-message-reliability-browser.mjs",
+        "docs/spec.md"
+      ],
+      "plannedNewFiles": [],
+      "executorChecks": [
+        "node scripts/test-sync-function.mjs",
+        "npm run check:message-reliability"
+      ]
+    },
+    {
+      "id": "T03",
+      "title": "XML 选项控制块与代码示例隔离",
+      "taskFile": "docs/tasks/MIMO_T03_OPTIONS_CODE_BOUNDARIES.md",
+      "dependsOn": [
+        "T02"
+      ],
+      "role": "mimo",
+      "allowedFiles": [
+        "src/app/prompt/41-second-stage-content-isolation.js",
+        "src/app/prompt/41-prompt-history-messages.js",
+        "src/app/generation/52-generation-runtime.js",
+        "src/app/chat/61-message-content-render.js",
+        "src/app/chat/61-message-options-render.js",
+        "scripts/tests/frontend/prompt.mjs",
+        "scripts/tests/frontend/chat.mjs",
+        "scripts/test-generation-format-browser.mjs",
+        "scripts/test-static-message-browser.mjs",
+        "docs/spec.md"
+      ],
+      "plannedNewFiles": [],
+      "executorChecks": [
+        "node scripts/test-sync-function.mjs",
+        "npm run check:message-reliability"
+      ],
+      "status": "accepted_published"
+    },
+    {
+      "id": "T04",
+      "title": "历史消息 MVU 与同步异步正则上下文",
+      "taskFile": "docs/tasks/MIMO_T04_MVU_REGEX_CONTEXT.md",
+      "dependsOn": [
+        "T03"
+      ],
+      "role": "mimo",
+      "allowedFiles": [
+        "src/app/prompt/40-regex-worker-runtime.js",
+        "src/app/prompt/40-character-regex-runtime.js",
+        "src/app/prompt/40-character-prompt-helpers.js",
+        "src/app/prompt/41-prompt-message-builder.js",
+        "src/app/prompt/41-prompt-history-messages.js",
+        "scripts/test-regex-queue-runtime.mjs",
+        "scripts/test-prompt-controls-runtime.mjs",
+        "scripts/test-prompt-controls-browser.mjs",
+        "docs/spec.md"
+      ],
+      "plannedNewFiles": [],
+      "executorChecks": [
+        "node scripts/test-regex-queue-runtime.mjs",
+        "npm run check:prompt-controls",
+        "npm run check:mvu"
+      ],
+      "status": "accepted_published"
+    },
+    {
+      "id": "T05",
+      "title": "卡片静态预览与原始源码分离",
+      "taskFile": "docs/tasks/MIMO_T05_CARD_STATIC_PREVIEW.md",
+      "dependsOn": [
+        "T04"
+      ],
+      "role": "mimo",
+      "allowedFiles": [
+        "src/app/chat/61-message-content-render.js",
+        "src/app/card-runtime/61-card-runtime-frame.js",
+        "scripts/tests/frontend/prompt.mjs",
+        "scripts/test-generation-format-browser.mjs",
+        "scripts/test-static-message-browser.mjs",
+        "scripts/test-card-execution-runtime.mjs",
+        "docs/spec.md"
+      ],
+      "plannedNewFiles": [],
+      "executorChecks": [
+        "node scripts/test-sync-function.mjs",
+        "npm run check:card-execution"
+      ],
+      "status": "accepted_published"
+    },
+    {
+      "id": "T06",
+      "title": "生成操作、设置快照与阶段诊断",
+      "taskFile": "docs/tasks/MIMO_T06_OPERATION_CONTEXT_DIAGNOSTICS.md",
+      "dependsOn": [
+        "T05"
+      ],
+      "role": "mimo",
+      "allowedFiles": [
+        "src/app/generation/50-generation-integrations.js",
+        "src/app/generation/50-generation-stream-state.js",
+        "src/app/generation/50-generation-response-stream.js",
+        "src/app/generation/50-request-diagnostics.js",
+        "src/app/generation/52-generation-message-lifecycle.js",
+        "src/app/generation/52-generation-runtime.js",
+        "src/app/generation/52-generation-second-stage-runtime.js",
+        "src/app/chat/67-message-regeneration-runtime.js",
+        "src/app/prompt/41-prompt-message-builder.js",
+        "src/app/prompt/41-second-stage-prompt-builder.js",
+        "src/app/prompt/41-prompt-second-stage-context.js",
+        "src/app/prompt/41-prompt-controls.js",
+        "scripts/tests/frontend/generation.mjs",
+        "scripts/test-message-reliability-runtime.mjs",
+        "scripts/test-prompt-controls-runtime.mjs",
+        "scripts/test-generation-format-browser.mjs",
+        "docs/spec.md",
+        "docs/SOURCE_STRUCTURE.md"
+      ],
+      "plannedNewFiles": [],
+      "executorChecks": [
+        "node scripts/test-sync-function.mjs",
+        "npm run check:message-reliability",
+        "npm run check:prompt-controls",
+        "npm run check:private-settings"
+      ],
+      "status": "accepted_published"
+    },
+    {
+      "id": "T07",
+      "title": "消息格式化与静态显示业务接口",
+      "taskFile": "docs/tasks/MIMO_T07_MESSAGE_DISPLAY_MODULE.md",
+      "dependsOn": [
+        "T06"
+      ],
+      "role": "mimo",
+      "allowedFiles": [
+        "src/app/chat/61-message-display-model.js",
+        "src/app/chat/61-message-content-render.js",
+        "src/app/chat/61-message-options-render.js",
+        "src/app/chat/61-static-message-render.js",
+        "src/app/chat/61-message-text-format.js",
+        "src/app/card-runtime/61-card-runtime-frame.js",
+        "src/app/generation/52-generation-stream-animation.js",
+        "src/app/generation/52-generation-message-lifecycle.js",
+        "src/app/prompt/40-character-regex-runtime.js",
+        "src/app/prompt/40-regex-worker-runtime.js",
+        "src/app/manifest.json",
+        "scripts/tests/frontend/chat.mjs",
+        "scripts/tests/frontend/prompt.mjs",
+        "scripts/tests/frontend/generation.mjs",
+        "scripts/test-static-message-browser.mjs",
+        "scripts/test-generation-format-browser.mjs",
+        "scripts/test-card-execution-runtime.mjs",
+        "docs/spec.md",
+        "docs/SOURCE_STRUCTURE.md"
+      ],
+      "plannedNewFiles": [
+        "src/app/chat/61-message-display-model.js"
+      ],
+      "executorChecks": [
+        "node scripts/test-sync-function.mjs",
+        "npm run check:prompt-controls",
+        "npm run check:card-execution"
+      ],
+      "status": "accepted_published"
+    },
+    {
+      "id": "T08",
+      "title": "生成传输与流程业务模块解耦",
+      "taskFile": "docs/tasks/MIMO_T08_GENERATION_TRANSPORT_MODULE.md",
+      "dependsOn": [
+        "T07"
+      ],
+      "role": "mimo",
+      "allowedFiles": [
+        "src/app/generation/50-generation-transport-module.js",
+        "src/app/generation/50-generation-api-request.js",
+        "src/app/generation/50-generation-response-stream.js",
+        "src/app/generation/50-generation-stream-state.js",
+        "src/app/generation/50-generation-integrations.js",
+        "src/app/generation/50-generation-usage.js",
+        "src/app/generation/50-generation-cot-utils.js",
+        "src/app/generation/50-request-diagnostics.js",
+        "src/app/generation/52-generation-runtime.js",
+        "src/app/generation/52-generation-second-stage-runtime.js",
+        "src/app/chat/67-message-regeneration-runtime.js",
+        "src/app/manifest.json",
+        "scripts/tests/frontend/generation.mjs",
+        "scripts/test-message-reliability-runtime.mjs",
+        "scripts/test-message-reliability-browser.mjs",
+        "scripts/test-generation-format-browser.mjs",
+        "docs/spec.md",
+        "docs/SOURCE_STRUCTURE.md",
+        "scripts/test-prompt-controls-runtime.mjs",
+        "scripts/test-interface-onboarding-runtime.mjs"
+      ],
+      "plannedNewFiles": [
+        "src/app/generation/50-generation-transport-module.js"
+      ],
+      "executorChecks": [
+        "node scripts/test-sync-function.mjs",
+        "npm run check:message-reliability",
+        "npm run check:prompt-controls"
+      ],
+      "status": "accepted_published"
+    },
+    {
+      "id": "T09",
+      "title": "重复符号处理与模块契约检查",
+      "taskFile": "docs/tasks/MIMO_T09_SYMBOL_DEPENDENCY_CHECK.md",
+      "dependsOn": [
+        "T08"
+      ],
+      "role": "mimo",
+      "allowedFiles": [
+        "src/app/library/60-public-card-text-ui.js",
+        "src/app/chat/61-message-text-format.js",
+        "src/app/transfer/63-conversation-import-merge.js",
+        "src/app/character/66-character-import-conversation.js",
+        "scripts/check-app-contracts.mjs",
+        "scripts/test-app-contracts.mjs",
+        "scripts/tests/frontend/library.mjs",
+        "scripts/tests/frontend/chat.mjs",
+        "scripts/tests/frontend/transfer.mjs",
+        "scripts/tests/frontend/conversation.mjs",
+        "scripts/test-source-structure.mjs",
+        "scripts/build-app.js",
+        "package.json",
+        "docs/spec.md",
+        "docs/SOURCE_STRUCTURE.md"
+      ],
+      "plannedNewFiles": [
+        "scripts/check-app-contracts.mjs",
+        "scripts/test-app-contracts.mjs"
+      ],
+      "executorChecks": [
+        "node scripts/test-app-contracts.mjs",
+        "node scripts/check-app-contracts.mjs",
+        "node scripts/test-sync-function.mjs",
+        "npm run check:transfer"
+      ],
+      "status": "accepted_published"
+    },
+    {
+      "id": "T10",
+      "title": "可重复的浏览器交叉验收与产物检查入口",
+      "taskFile": "docs/tasks/MIMO_T10_RELEASE_GATE.md",
+      "dependsOn": [
+        "T09"
+      ],
+      "role": "mimo",
+      "allowedFiles": [
+        "scripts/check-release.mjs",
+        "scripts/test-release-gate.mjs",
+        "scripts/test-generation-format-browser.mjs",
+        "scripts/test-static-message-browser.mjs",
+        "scripts/test-regex-queue-browser.mjs",
+        "scripts/test-prompt-controls-browser.mjs",
+        "scripts/test-message-reliability-browser.mjs",
+        "scripts/test-card-runtime-browser.mjs",
+        "scripts/test-sites-build.mjs",
+        "package.json",
+        "docs/spec.md",
+        "docs/SOURCE_STRUCTURE.md",
+        "docs/SITES.md",
+        "src/ui/html/99-document-end.html"
+      ],
+      "plannedNewFiles": [
+        "scripts/check-release.mjs",
+        "scripts/test-release-gate.mjs"
+      ],
+      "executorChecks": [
+        "node scripts/test-release-gate.mjs",
+        "git diff --check"
+      ],
+      "status": "accepted_published"
+    },
+    {
+      "id": "T11",
+      "title": "全量验收、真实样本、合并与发布交接",
+      "taskFile": "docs/tasks/MIMO_T11_FINAL_ACCEPTANCE_RELEASE.md",
+      "dependsOn": [
+        "T10"
+      ],
+      "role": "coordinator",
+      "allowedFiles": [
+        "docs/MIMO_ACCEPTANCE_RECORD.md",
+        "docs/spec.md",
+        "docs/SOURCE_STRUCTURE.md",
+        "docs/SITES.md",
+        "AGENTS.md"
+      ],
+      "plannedNewFiles": [
+        "docs/MIMO_ACCEPTANCE_RECORD.md"
+      ],
+      "executorChecks": [
+        "git diff --check"
+      ],
+      "status": "accepted_published_with_documented_real_acceptance_limits"
+    }
+  ],
+  "activeExecutor": "gpt_coordinator",
+  "takeoverReason": "User requested coordinator takeover after MiMo quota exhaustion; no further MiMo calls.",
+  "release": {
+    "version": 13,
+    "sourceCommit": "330e0d4f0b529607a1aa43fa6edcfcc6c7083129",
+    "deploymentId": "<site-deployment-id>",
+    "localGate": "passed",
+    "onlineAssets": "matched",
+    "realBasicAcceptance": "passed",
+    "realUntested": [
+      "custom second-stage prompt",
+      "forced format correction",
+      "all-regex exhaustive sample",
+      "physical phone and production dual device"
+    ]
+  },
+  "executionBoundary": "GPT writes and reviews code; DeepSeek may only receive application acceptance requests. No further MiMo/DeepSeek coding worker dispatch."
+}

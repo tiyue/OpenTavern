@@ -11,25 +11,55 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checkAppContracts } from './check-app-contracts.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(__dirname, '..');
-const srcDir = path.join(root, 'src', 'app');
-const manifestPath = path.join(srcDir, 'manifest.json');
-const outPath = path.join(root, 'assets', 'js', 'app.js');
+const defaultRoot = path.resolve(__dirname, '..');
+
+// 正则 Worker 的源码由本次 bundle 内嵌：runtime 分片留一个 null 占位，构建时用本地脚本精确替换，
+// 保证执行期不再额外取网。占位缺失/重复或本地脚本缺失都会在写入 app.js 之前失败（不部分覆盖）。
+const REGEX_WORKER_RUNTIME_CHUNK = 'prompt/40-regex-worker-runtime.js';
+const REGEX_WORKER_SOURCE_FILE = path.join('assets', 'js', 'regex-worker.js');
+const REGEX_WORKER_PLACEHOLDER = 'var REGEX_WORKER_SOURCE = null; // @@REGEX_WORKER_SOURCE@@';
 
 function readText(filePath) {
   return fs.readFileSync(filePath, 'utf8').replace(/\s*$/, '\n');
 }
 
-function main() {
+export function buildApp(options = {}) {
+  const root = options.root || defaultRoot;
+  const checkContracts = options.checkContracts || checkAppContracts;
+  const contractErrors = checkContracts({ root });
+  if (contractErrors.length) {
+    throw new Error(`App contract check failed:\n${contractErrors.map((error) => `- ${error}`).join('\n')}`);
+  }
+  const srcDir = path.join(root, 'src', 'app');
+  const manifestPath = path.join(srcDir, 'manifest.json');
+  const outPath = path.join(root, 'assets', 'js', 'app.js');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  // 仅在装配清单包含 runtime 分片时才读取并内嵌本地 Worker 源码；不含该分片的小型构建夹具继续可用。
+  let regexWorkerSource = null;
+  if (manifest.includes(REGEX_WORKER_RUNTIME_CHUNK)) {
+    const workerPath = path.join(root, REGEX_WORKER_SOURCE_FILE);
+    if (!fs.existsSync(workerPath)) {
+      throw new Error(`Missing regex worker source: ${REGEX_WORKER_SOURCE_FILE}`);
+    }
+    regexWorkerSource = readText(workerPath);
+  }
   const parts = manifest.map((fileName) => {
     const filePath = path.join(srcDir, fileName);
     if (!fs.existsSync(filePath)) {
       throw new Error(`Missing app source chunk: ${fileName}`);
     }
-    return readText(filePath);
+    const text = readText(filePath);
+    if (fileName !== REGEX_WORKER_RUNTIME_CHUNK) return text;
+    const occurrences = text.split(REGEX_WORKER_PLACEHOLDER).length - 1;
+    if (occurrences !== 1) {
+      throw new Error(`Regex worker placeholder must appear exactly once in ${fileName}, found ${occurrences}`);
+    }
+    // 用函数式替换：Worker 源码里含 `$'`/`$$` 等序列，字符串替换会把它们当成捕获组引用而导致内容被破坏。
+    const embedded = `var REGEX_WORKER_SOURCE = ${JSON.stringify(regexWorkerSource)}; // @@REGEX_WORKER_SOURCE@@`;
+    return text.replace(REGEX_WORKER_PLACEHOLDER, () => embedded);
   });
 
   const bundle = parts.join('').replace(/\s*$/, '\n');
@@ -37,4 +67,4 @@ function main() {
   console.log(`Built ${path.relative(root, outPath)} from ${manifest.length} chunks.`);
 }
 
-main();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) buildApp();

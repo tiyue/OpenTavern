@@ -1,0 +1,108 @@
+            <section id="settingsPanelExtensions" class="settings-panel space-y-5" role="tabpanel" aria-labelledby="settingsTabExtensions" hidden>
+            <!-- Packy GPT Image generation -->
+            <div class="glass rounded-2xl p-3 border border-white/5">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Packy GPT Image 图片生成</label>
+                        <p class="text-[10px] text-zinc-600 mt-0.5">使用文本模型总结最近主回复，再把总结和对应角色卡图片发送到 Packy GPT Image 网关。</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                        <input type="checkbox" id="imageGenerationEnabled" class="sr-only peer">
+                        <div class="w-9 h-5 bg-white/10 rounded-full peer-checked:bg-amber-500/60 peer-checked:ring-1 peer-checked:ring-amber-500/40 transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                    </label>
+                </div>
+                <div class="mt-3 space-y-2">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400">服务端点</label>
+                        <input id="imageGenerationEndpoint" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="/api/image/generate">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400">访问令牌</label>
+                        <input id="imageGenerationToken" type="password" autocomplete="off" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="图片网关访问令牌">
+                        <p class="text-[10px] text-zinc-600 mt-1">令牌仅保存在当前浏览器；Packy API Key 只配置在服务端。</p>
+                    </div>
+                    <div>
+                        <div>
+                            <label class="text-xs font-semibold text-zinc-400">默认画面比例</label>
+                            <select id="imageGenerationSize" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30">
+                                <optgroup label="Packy 标准尺寸">
+                                    <option value="1024x1024">1:1 · 1024 × 1024</option>
+                                    <option value="1536x1024">3:2 · 1536 × 1024</option>
+                                    <option value="1024x1536">2:3 · 1024 × 1536</option>
+                                </optgroup>
+                                <optgroup label="兼容高分辨率尺寸">
+                                    <option value="2048*2048">1:1 · 2048 × 2048</option>
+                                    <option value="2688*1536">16:9 · 2688 × 1536</option>
+                                    <option value="1536*2688">9:16 · 1536 × 2688</option>
+                                    <option value="2368*1728">4:3 · 2368 × 1728</option>
+                                    <option value="1728*2368">3:4 · 1728 × 2368</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400">默认风格提示词</label>
+                        <textarea id="imageGenerationStylePrompt" rows="3" maxlength="1000" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 resize-y" placeholder="画面中的人物均为二次元角色，整体参考《碧蓝档案》的高质量日系动画插画风格。"></textarea>
+                        <p class="text-[10px] text-zinc-600 mt-1">在正文总结完成后追加到最终生图提示词，不会参与正文采集或总结。</p>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="border-white/5">
+            <!-- Cloud sync -->
+            <div class="glass rounded-2xl p-3 border border-white/5">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">云同步</label>
+                        <p class="text-[10px] text-zinc-600 mt-0.5">将聊天记录、设置、角色卡和世界书保存到兼容的 OpenTavern 同步端点。</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                        <input type="checkbox" id="cloudSyncEnabled" class="sr-only peer">
+                        <div class="w-9 h-5 bg-white/10 rounded-full peer-checked:bg-amber-500/60 peer-checked:ring-1 peer-checked:ring-amber-500/40 transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                    </label>
+                </div>
+                <div class="mt-3 space-y-2">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">自动上传</label>
+                            <p class="text-[10px] text-zinc-600 mt-0.5">配置端点和令牌后，本地保存时会自动上传。</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                            <input type="checkbox" id="cloudSyncAutoUpload" class="sr-only peer">
+                            <div class="w-9 h-5 bg-white/10 rounded-full peer-checked:bg-amber-500/60 peer-checked:ring-1 peer-checked:ring-amber-500/40 transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                        </label>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400">同步端点</label>
+                        <input id="cloudSyncEndpoint" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="/api/sync">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400">同步令牌</label>
+                        <input id="cloudSyncToken" type="password" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="请输入较长的私密令牌">
+                        <p class="text-[10px] text-zinc-600 mt-1">同步令牌和 API 密钥只保存在本地，不会被写入云端快照。</p>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">加密上传内容（尚未实现）</label>
+                            <p id="cloudSyncEncryptionNotice" class="text-[10px] text-amber-300/80 mt-0.5">增量同步加密尚未实现，即使使用 HTTPS 也不能开启。若旧配置显示为已开启，上传会被阻止；请使用下方关闭按钮，再明确触发未加密上传。</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-not-allowed flex-shrink-0 ml-3 opacity-60">
+                            <input type="checkbox" id="cloudSyncEncrypted" class="sr-only peer" disabled aria-disabled="true" aria-describedby="cloudSyncEncryptionNotice">
+                            <div class="w-9 h-5 bg-white/10 rounded-full peer-checked:bg-amber-500/60 peer-checked:ring-1 peer-checked:ring-amber-500/40 transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4 peer-disabled:opacity-60"></div>
+                        </label>
+                    </div>
+                    <button id="cloudSyncDisableEncryptionBtn" type="button" class="hidden w-full px-3 py-2 text-xs rounded-lg bg-amber-500/10 hover:bg-amber-500/20 active:bg-amber-500/30 text-amber-200 border border-amber-500/20 transition-all font-medium" aria-describedby="cloudSyncEncryptionNotice">关闭加密上传（只保存设置，不自动上传）</button>
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-400">旧版 v1 加密快照密码</label>
+                        <input id="cloudSyncPassphrase" type="password" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" placeholder="下载旧版加密快照时填写">
+                        <p class="text-[10px] text-zinc-600 mt-1">仅用于恢复旧版已加密快照；密码只保存在本地，不会启用新的加密上传。</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="cloudSyncNowBtn" type="button" class="px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-emerald-500/20 active:bg-emerald-500/30 text-emerald-300 hover:text-emerald-200 border border-white/10 transition-all font-medium">立即同步</button>
+                        <button id="cloudSyncUploadBtn" type="button" class="px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-amber-500/20 active:bg-amber-500/30 text-amber-300 hover:text-amber-200 border border-white/10 transition-all font-medium">立即上传</button>
+                        <button id="cloudSyncDownloadBtn" type="button" class="px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-blue-500/20 active:bg-blue-500/30 text-blue-300 hover:text-blue-200 border border-white/10 transition-all font-medium">立即下载</button>
+                    </div>
+                    <div id="cloudSyncStatus" class="text-[10px] leading-relaxed text-zinc-500"></div>
+                </div>
+            </div>
+            </section>

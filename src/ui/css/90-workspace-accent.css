@@ -1,0 +1,269 @@
+
+/* === #D56C4E accent overrides for new workspace themes === */
+body.theme-new-light .accent-amber-500,
+body.theme-new-dark .accent-amber-500 { accent-color: #D56C4E !important; }
+
+body.theme-new-light .focus\:ring-amber-500\/30:focus,
+body.theme-new-light .focus\:ring-amber-500\/40:focus,
+body.theme-new-dark .focus\:ring-amber-500\/30:focus,
+body.theme-new-dark .focus\:ring-amber-500\/40:focus { --tw-ring-color: rgba(213,108,78,0.3) !important; }
+
+body.theme-new-light .shadow-amber-500\/20,
+body.theme-new-light .shadow-amber-500\/30,
+body.theme-new-light .hover\:shadow-amber-500\/35:hover,
+body.theme-new-dark .shadow-amber-500\/20,
+body.theme-new-dark .shadow-amber-500\/30,
+body.theme-new-dark .hover\:shadow-amber-500\/35:hover { --tw-shadow-color: rgba(213,108,78,0.2) !important; }
+
+/* Tab active: border + text */
+body.theme-new-light .tab-btn.active,
+body.theme-new-dark .tab-btn.active { border-color: #D56C4E !important; color: #D56C4E !important; }
+
+/* Filter buttons active */
+body.theme-new-light .filter-btn.bg-amber-500\/20,
+body.theme-new-dark .filter-btn.bg-amber-500\/20 { background-color: rgba(213,108,78,0.2) !important; color: #D56C4E !important; }
+
+/* Create/Import card dashed borders */
+body.theme-new-light .border-dashed.border-amber-500\/50,
+body.theme-new-dark .border-dashed.border-amber-500\/50 { border-color: rgba(213,108,78,0.5) !important; }
+
+/* Mention pill in chat input */
+body.theme-new-light #mentionPill,
+body.theme-new-dark #mentionPill { background-color: rgba(213,108,78,0.15) !important; border-color: rgba(213,108,78,0.35) !important; color: #D56C4E !important; }
+body.theme-new-light #mentionPillClear,
+body.theme-new-dark #mentionPillClear { color: #D56C4E !important; }
+
+/* @ mention button hover */
+body.theme-new-light #mentionBtn:hover,
+body.theme-new-dark #mentionBtn:hover { color: #D56C4E !important; }
+
+/* Qwen image button hover */
+body.theme-new-light #imageGenerationBtn:hover,
+body.theme-new-dark #imageGenerationBtn:hover { color: #D56C4E !important; }
+
+/* Edit buttons hover (character card + summary) */
+body.theme-new-light #charEditBtn:hover,
+body.theme-new-dark #charEditBtn:hover,
+body.theme-new-light .summary-edit-btn:hover,
+body.theme-new-dark .summary-edit-btn:hover { color: #D56C4E !important; background-color: rgba(213,108,78,0.1) !important; }
+
+/* World Book button hover */
+body.theme-new-light #worldBookBtn:hover,
+body.theme-new-dark #worldBookBtn:hover { color: #D56C4E !important; background-color: rgba(213,108,78,0.2) !important; }
+
+/* Storage usage bar */
+body.theme-new-light #storageUsageBar,
+body.theme-new-dark #storageUsageBar { background-color: #D56C4E !important; }
+
+/* Toast notification */
+body.theme-new-light .fixed.bottom-4 .text-amber-300,
+body.theme-new-dark .fixed.bottom-4 .text-amber-300 { color: #D56C4E !important; }
+body.theme-new-light .fixed.bottom-4 .border-amber-500\/30,
+body.theme-new-dark .fixed.bottom-4 .border-amber-500\/30 { border-color: rgba(213,108,78,0.35) !important; }
+
+/* Search text highlight in library/cards */
+body.theme-new-light .bg-amber-500\/30,
+body.theme-new-dark .bg-amber-500\/30 { background-color: rgba(213,108,78,0.3) !important; }
+
+/* WI strategy buttons data-active state */
+body.theme-new-light [data-active="true"].data-active\:bg-amber-500\/20,
+body.theme-new-dark [data-active="true"].data-active\:bg-amber-500\/20 { background-color: rgba(213,108,78,0.2) !important; }
+body.theme-new-light [data-active="true"].data-active\:border-amber-500,
+body.theme-new-dark [data-active="true"].data-active\:border-amber-500 { border-color: #D56C4E !important; }
+
+/* WI dirty indicator */
+body.theme-new-light #wiDirtyIndicator,
+body.theme-new-dark #wiDirtyIndicator { color: #D56C4E !important; }
+
+/* App dialog icon */
+body.theme-new-light #appDialogIcon,
+body.theme-new-dark #appDialogIcon { background-color: rgba(213,108,78,0.15) !important; color: #D56C4E !important; }
+
+/* Card image button hover/active */
+body.theme-new-light .char-img-btn:hover,
+body.theme-new-dark .char-img-btn:hover,
+body.theme-new-light .char-img-btn:active,
+body.theme-new-dark .char-img-btn:active { color: #D56C4E !important; }
+
+/* New chat picker multi-select check badge */
+body.theme-new-light .bg-amber-400,
+body.theme-new-dark .bg-amber-400 { background-color: #D56C4E !important; }
+body.theme-new-light .border-amber-300,
+body.theme-new-dark .border-amber-300 { border-color: rgba(213,108,78,0.6) !important; }
+
+/* Announcement step badges */
+body.theme-new-light .bg-amber-500\/20.text-amber-400,
+body.theme-new-dark .bg-amber-500\/20.text-amber-400 { background-color: rgba(213,108,78,0.15) !important; color: #D56C4E !important; }
+
+/* Copy prompt button */
+body.theme-new-light #copyPromptBtn,
+body.theme-new-dark #copyPromptBtn { background-color: rgba(213,108,78,0.2) !important; color: #D56C4E !important; }
+
+/* Lang switcher active state → #D56C4E */
+body.theme-new-light .lang-btn.active,
+body.theme-new-dark .lang-btn.active { background: #D56C4E !important; color: #fff !important; }
+
+/* text-amber opacity shorthand classes produce rgba -- need explicit overrides */
+body.theme-new-light .text-amber-400\/90,
+body.theme-new-dark .text-amber-400\/90,
+body.theme-new-light .text-amber-300\/90,
+body.theme-new-dark .text-amber-300\/90 { color: #D56C4E !important; }
+
+/* API test result / suggestion text (JS-generated) */
+body.theme-new-light #apiTestResult .text-amber-300\/90,
+body.theme-new-dark #apiTestResult .text-amber-300\/90,
+body.theme-new-light #apiTestResult .text-amber-400,
+body.theme-new-dark #apiTestResult .text-amber-400 { color: #D56C4E !important; }
+
+/* WI "back to book list" row */
+body.theme-new-light .text-xs.text-amber-400,
+body.theme-new-dark .text-xs.text-amber-400 { color: #D56C4E !important; }
+
+/* Import modal code badge */
+body.theme-new-light code.text-amber-400,
+body.theme-new-dark code.text-amber-400 { color: #D56C4E !important; background-color: rgba(213,108,78,0.1) !important; }
+
+/* Summary preview button */
+body.theme-new-light #previewRangeBtn,
+body.theme-new-dark #previewRangeBtn { color: #D56C4E !important; }
+
+/* Summary threshold warning */
+body.theme-new-light #summaryThresholdWarning,
+body.theme-new-dark #summaryThresholdWarning { color: #D56C4E !important; }
+
+/* New chat picker multi bar */
+body.theme-new-light #newChatPickerMultiBar,
+body.theme-new-dark #newChatPickerMultiBar { color: #D56C4E !important; }
+
+/* New chat card "+" icon in library */
+body.theme-new-light .text-amber-400.text-4xl,
+body.theme-new-dark .text-amber-400.text-4xl { color: #D56C4E !important; }
+
+/* WI budget warning */
+body.theme-new-light #wiBudgetWarning,
+body.theme-new-dark #wiBudgetWarning { color: #D56C4E !important; border-color: rgba(213,108,78,0.2) !important; }
+
+/* Fill roleplay prompt button */
+body.theme-new-light #fillRoleplayPromptBtn,
+body.theme-new-dark #fillRoleplayPromptBtn { color: #D56C4E !important; background-color: rgba(213,108,78,0.15) !important; border-color: rgba(213,108,78,0.2) !important; }
+
+body.theme-new-light .msg-sender-name,
+body.theme-new-light .msg-token-meta { color: #7c7469; }
+body.theme-new-dark .msg-sender-name,
+body.theme-new-dark .msg-token-meta { color: #a39a8d; }
+body.theme-new-light .settings-toggle-track,
+body.theme-new-light .settings-value-pill { background: rgba(39,35,31,0.10); }
+body.theme-new-light .settings-detail-region { border-left-color: rgba(39,35,31,0.14); }
+
+/* mentionPill clear button hover overrides */
+body.theme-new-light #mentionPillClear:hover,
+body.theme-new-dark #mentionPillClear:hover { color: #ef4444 !important; }
+
+body.theme-new-light .modal-overlay,
+body.theme-new-dark .modal-overlay {
+    padding: clamp(16px, 3vw, 32px) !important;
+}
+
+body.theme-new-light .modal-overlay .absolute.inset-0 {
+    background: rgba(39, 35, 31, 0.26) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+body.theme-new-dark .modal-overlay .absolute.inset-0 {
+    background: rgba(9, 8, 7, 0.62) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+body.theme-new-light .modal-overlay .relative.glass,
+body.theme-new-dark .modal-overlay .relative.glass {
+    border-radius: 24px !important;
+    outline: 1px solid rgba(255, 255, 255, 0.42) !important;
+    outline-offset: 8px !important;
+    background-clip: padding-box !important;
+}
+
+body.theme-new-light .modal-overlay .relative.glass {
+    background: rgba(255, 253, 248, 0.96) !important;
+    border-color: rgba(191, 181, 166, 0.66) !important;
+    box-shadow:
+        0 24px 70px rgba(39, 35, 31, 0.24),
+        0 0 0 1px rgba(255, 255, 255, 0.54) inset !important;
+}
+
+body.theme-new-dark .modal-overlay .relative.glass {
+    background: rgba(43, 41, 37, 0.96) !important;
+    border-color: rgba(102, 94, 82, 0.7) !important;
+    outline-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow:
+        0 24px 76px rgba(0, 0, 0, 0.58),
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset !important;
+}
+
+body.theme-new-light .modal-overlay .rounded-3xl,
+body.theme-new-light .modal-overlay .rounded-2xl,
+body.theme-new-dark .modal-overlay .rounded-3xl,
+body.theme-new-dark .modal-overlay .rounded-2xl {
+    border-radius: 24px !important;
+}
+
+@media (max-width: 767px) {
+    body.theme-new-light .modal-overlay,
+    body.theme-new-dark .modal-overlay {
+        padding: 12px !important;
+    }
+    body.theme-new-light .modal-overlay .relative.glass,
+    body.theme-new-dark .modal-overlay .relative.glass {
+        outline-offset: 4px !important;
+    }
+}
+
+body.theme-new-light .ot-avatar-fill,
+body.theme-new-light #myCardsGrid .bg-gradient-to-br,
+body.theme-new-light #publicCardsGrid .bg-gradient-to-br,
+body.theme-new-light #libraryView .bg-gradient-to-br {
+    background-image: linear-gradient(145deg, #D56C4E 0%, #e8825d 100%) !important;
+    background-color: #D56C4E !important;
+}
+
+body.theme-new-dark .ot-avatar-fill,
+body.theme-new-dark #myCardsGrid .bg-gradient-to-br,
+body.theme-new-dark #publicCardsGrid .bg-gradient-to-br,
+body.theme-new-dark #libraryView .bg-gradient-to-br {
+    background-image: linear-gradient(145deg, #D56C4E 0%, #e8825d 100%) !important;
+    background-color: #D56C4E !important;
+    color: #fff !important;
+}
+
+body.theme-new-light ::-webkit-scrollbar-thumb,
+body.theme-new-dark ::-webkit-scrollbar-thumb {
+    background: rgba(40, 35, 31, 0.18);
+    border-radius: 999px;
+}
+body.theme-new-light ::-webkit-scrollbar-thumb:hover,
+body.theme-new-dark ::-webkit-scrollbar-thumb:hover { background: rgba(40, 35, 31, 0.28); }
+
+@media (max-width: 767px) {
+    body.theme-new-light #main-layout,
+    body.theme-new-dark #main-layout { background: var(--ot-bg) !important; }
+    body.theme-new-light #messagesContainer,
+    body.theme-new-dark #messagesContainer {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+    body.theme-new-light #messagesContainer .msg-wrapper,
+    body.theme-new-dark #messagesContainer .msg-wrapper {
+        max-width: 92% !important;
+    }
+    body.theme-new-light #sidebar,
+    body.theme-new-dark #sidebar {
+        box-shadow: none !important;
+    }
+    body.theme-new-light #sidebarBackdrop,
+    body.theme-new-dark #sidebarBackdrop {
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+}

@@ -1,0 +1,16 @@
+
+/* F19 execution controls reuse the existing light/dark feature tokens. */
+.card-runtime { min-width: 0; width: 100%; }
+.card-runtime [hidden] { display: none; }
+.card-runtime-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-block: 8px; }
+.card-runtime-toolbar .feature-hint { flex: 1 1 160px; margin: 0; }
+.card-runtime-frame { display: block; max-width: 100%; background: var(--ot-surface, transparent); border-radius: 8px; color-scheme: light dark; }
+.card-runtime-permissions { display: grid; gap: 8px; }
+.card-runtime-permissions label { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.5; }
+.card-runtime-permissions input[type=checkbox] { flex: 0 0 auto; margin-top: 4px; }
+.card-runtime-review { min-width: 0; overflow-wrap: anywhere; }
+.card-runtime-dependency { padding-block: 8px; border-bottom: 1px solid var(--ot-border, currentColor); font-size: 12px; }
+.card-runtime-dependency code { white-space: normal; overflow-wrap: anywhere; }
+.card-runtime-network { display: grid; gap: 8px; }
+.card-runtime-network[hidden] { display: none; }
+@media (max-width: 480px) { .card-runtime-toolbar .feature-entry { padding: 8px; } }

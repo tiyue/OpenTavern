@@ -1,0 +1,51 @@
+
+/* Hide character card and world book in sidebar when in library view (card library page) */
+#sidebar.library-mode .glass.rounded-xl.p-3,
+#sidebar.library-mode .glass.rounded-xl.px-3.py-2 {
+    display: none !important;
+}
+
+/* ========== 效能模式（低功耗 / low-power）视觉降级规则 ==========
+   当 body.low-power 存在时：
+   - 完全禁用/隐藏 shaderCanvas（最耗电的持续 60fps WebGL）
+   - 强制移除所有 .glass 和气泡的 backdrop-filter（手机上最耗电的 CSS 属性之一）
+   - 把 blur 强度 var 置 0
+   - 停止 typing 光标无限动画（静态显示）
+   - 极短过渡避免完全无反馈，但仍大幅降低合成负载
+*/
+body.low-power #shaderCanvas,
+body.low-power #vignetteOverlay {
+    display: none !important;
+}
+body.low-power {
+    --blur-intensity: 0px;
+}
+body.low-power .glass,
+body.low-power .msg-bubble,
+body.low-power #sidebar,
+body.low-power .modal-overlay .glass,
+body.low-power .onboarding-dialog,
+body.low-power #chatTopBar,
+body.low-power #main-layout .flex-shrink-0.px-4.py-3,
+body.low-power #summaryManagerModal .glass,
+body.low-power #worldBookModal .glass {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+body.low-power .onboarding-dialog::backdrop {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+body.low-power .typing-cursor::after {
+    animation: none !important;
+    opacity: 0.6;
+}
+body.low-power .conv-item,
+body.low-power .glass,
+body.low-power .msg-bubble,
+body.low-power button,
+body.low-power .modal-overlay {
+    /* 极短过渡保留可点击反馈，其余动画已禁用 */
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+}

@@ -1,0 +1,89 @@
+
+<!-- ===== Four-step onboarding ===== -->
+<dialog id="onboardingDialog" class="onboarding-dialog glass" aria-labelledby="onboardingTitle">
+    <div class="onboarding-shell">
+        <header class="onboarding-header">
+            <div class="min-w-0">
+                <p class="onboarding-kicker">OpenTavern</p>
+                <h2 id="onboardingTitle" data-i18n="onboarding_title">快速配置</h2>
+            </div>
+            <button id="onboardingSkipAllBtn" type="button" class="onboarding-text-button" data-i18n="onboarding_skip_all">跳过全部</button>
+        </header>
+
+        <div class="onboarding-progress" aria-label="Onboarding progress">
+            <span id="onboardingStepMeta">1 / 4</span>
+            <div id="onboardingProgressDots" class="onboarding-progress-dots" aria-hidden="true">
+                <span class="is-active"></span><span></span><span></span><span></span>
+            </div>
+        </div>
+
+        <div class="onboarding-body custom-scroll">
+            <section class="onboarding-step" data-onboarding-step="0">
+                <div class="onboarding-step-heading">
+                    <span class="onboarding-step-number">01</span>
+                    <div><h3 data-i18n="onboarding_api_title">连接模型 API</h3><p data-i18n="onboarding_api_hint">支持 OpenAI 兼容接口；连接后可直接选择模型。</p></div>
+                </div>
+                <div class="onboarding-fields">
+                    <label for="onboardingApiEndpoint" data-i18n="settings_api_endpoint">API 端点</label>
+                    <input id="onboardingApiEndpoint" type="text" autocomplete="url" placeholder="https://api.openai.com/v1/chat/completions">
+                    <label for="onboardingApiKey" data-i18n="settings_api_key">API 密钥</label>
+                    <input id="onboardingApiKey" type="password" autocomplete="off" placeholder="sk-...">
+                    <label class="onboarding-checkbox"><input id="onboardingSaveApiKey" type="checkbox"><span data-i18n="settings_save_api_key">将 API Key 保存到浏览器本地存储</span></label>
+                    <button id="onboardingApiConnectBtn" type="button" class="onboarding-secondary-button" data-i18n="api_connect_models">连接并加载模型</button>
+                    <p id="onboardingApiStatus" class="onboarding-status" role="status" aria-live="polite"></p>
+                    <label for="onboardingModelCatalog" data-i18n="settings_model_catalog">从列表选择</label>
+                    <select id="onboardingModelCatalog"><option value="" data-i18n="settings_model_custom_option">— 自定义 / 手动填写 —</option></select>
+                    <label for="onboardingModelName" data-i18n="settings_model_manual">模型 ID（手动填写）</label>
+                    <input id="onboardingModelName" type="text" placeholder="gpt-4o">
+                </div>
+            </section>
+
+            <section class="onboarding-step" data-onboarding-step="1" hidden>
+                <div class="onboarding-step-heading">
+                    <span class="onboarding-step-number">02</span>
+                    <div><h3 data-i18n="onboarding_persona_title">创建用户设定</h3><p data-i18n="onboarding_persona_hint">这些信息会作为 {{user}} 的身份参与角色扮演。</p></div>
+                </div>
+                <div class="onboarding-fields">
+                    <label for="onboardingPersonaName" data-i18n="settings_user_persona_name">设定名称</label>
+                    <input id="onboardingPersonaName" type="text" data-i18n-placeholder="settings_user_persona_name_placeholder" placeholder="校园日常">
+                    <label for="onboardingUserName" data-i18n="settings_user_name">你的名字（替换 {{user}}）</label>
+                    <input id="onboardingUserName" type="text" placeholder="User">
+                    <label for="onboardingUserDescription" data-i18n="settings_user_description">用户描述 / 人设</label>
+                    <textarea id="onboardingUserDescription" rows="6" data-i18n-placeholder="settings_user_description_placeholder"></textarea>
+                </div>
+            </section>
+
+            <section class="onboarding-step" data-onboarding-step="2" hidden>
+                <div class="onboarding-step-heading">
+                    <span class="onboarding-step-number">03</span>
+                    <div><h3 data-i18n="onboarding_prompt_title">角色扮演提示词</h3><p data-i18n="onboarding_prompt_hint">可一键使用内置提示词，也可以保留当前设置。</p></div>
+                </div>
+                <div class="onboarding-choice-grid" role="group" aria-label="Prompt choice">
+                    <button id="onboardingPromptYesBtn" type="button" class="onboarding-choice is-selected" aria-pressed="true">
+                        <strong data-i18n="onboarding_prompt_yes">使用内置提示词</strong><span data-i18n="onboarding_prompt_yes_hint">适合直接开始沉浸式角色扮演</span>
+                    </button>
+                    <button id="onboardingPromptNoBtn" type="button" class="onboarding-choice" aria-pressed="false">
+                        <strong data-i18n="onboarding_prompt_no">保留当前设置</strong><span data-i18n="onboarding_prompt_no_hint">不覆盖已有系统提示词</span>
+                    </button>
+                </div>
+                <p id="onboardingPromptFeedback" class="onboarding-status" data-i18n="onboarding_prompt_selected">完成引导时将写入内置角色扮演提示词。</p>
+            </section>
+
+            <section class="onboarding-step" data-onboarding-step="3" hidden>
+                <div class="onboarding-step-heading">
+                    <span class="onboarding-step-number">04</span>
+                    <div><h3 data-i18n="onboarding_cards_title">选择推荐角色卡</h3><p data-i18n="onboarding_cards_hint">可多选；完成后会导入你的本地角色库。</p></div>
+                </div>
+                <div id="onboardingFeaturedCards" class="onboarding-card-grid"></div>
+                <p id="onboardingCardsStatus" class="onboarding-status" role="status" aria-live="polite"></p>
+            </section>
+        </div>
+
+        <footer class="onboarding-footer">
+            <button id="onboardingBackBtn" type="button" class="onboarding-secondary-button" data-i18n="onboarding_back">上一步</button>
+            <div class="onboarding-footer-spacer"></div>
+            <button id="onboardingSkipStepBtn" type="button" class="onboarding-text-button" data-i18n="onboarding_skip_step">跳过本步</button>
+            <button id="onboardingNextBtn" type="button" class="onboarding-primary-button" data-i18n="onboarding_next">下一步</button>
+        </footer>
+    </div>
+</dialog>

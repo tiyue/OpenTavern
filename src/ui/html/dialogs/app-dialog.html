@@ -1,0 +1,21 @@
+
+
+<!-- ===== Glass Alert / Confirm Dialog ===== -->
+<div id="appDialogModal" class="modal-overlay fixed inset-0 z-[220] flex items-center justify-center hidden">
+    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" id="appDialogBackdrop"></div>
+    <div class="relative glass rounded-3xl w-[92%] max-w-md p-6 shadow-2xl animate-fade-in">
+        <div class="flex items-start gap-3 mb-4">
+            <div id="appDialogIcon" class="w-9 h-9 rounded-2xl bg-amber-500/15 text-amber-300 flex items-center justify-center text-lg flex-shrink-0">!</div>
+            <div class="min-w-0">
+                <h2 id="appDialogTitle" class="text-lg font-bold text-zinc-100">提示</h2>
+                <div id="appDialogMessage" class="mt-2 text-sm text-zinc-300 leading-relaxed whitespace-pre-line break-words"></div>
+            </div>
+        </div>
+        <div id="appDialogActions" class="flex gap-3 justify-end">
+            <button id="appDialogCancelBtn"
+                    class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/15 text-zinc-300 transition-all">取消</button>
+            <button id="appDialogOkBtn"
+                    class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white shadow-lg shadow-amber-500/20 transition-all">确定</button>
+        </div>
+    </div>
+</div>
