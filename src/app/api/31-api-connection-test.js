@@ -13,14 +13,19 @@ window.testMainApiConnection = async function() {
     var epEl = document.getElementById('apiEndpoint');
     var keyEl = document.getElementById('apiKey');
     var modelEl = document.getElementById('modelName');
+    var protocolEl = document.getElementById('apiProtocol');
     var resultEl = document.getElementById('apiTestResult');
 
     var rawEndpoint = epEl ? epEl.value.trim() : '';
     var apiKey = keyEl ? keyEl.value.trim() : '';
     var model = modelEl ? modelEl.value.trim() || 'gpt-3.5-turbo' : 'gpt-3.5-turbo';
     var settingsTarget = typeof getSettingsFormTarget === 'function' ? getSettingsFormTarget() : state.settings;
+    var protocol = normalizeApiProtocol(protocolEl ? protocolEl.value : settingsTarget.apiProtocol);
+    var profileDraftRevision = typeof getConnectionProfileDraftRevision === 'function' ? getConnectionProfileDraftRevision() : 0;
     function isCurrentTest() {
-        return (typeof getSettingsFormTarget !== 'function' || settingsTarget === getSettingsFormTarget()) && (!epEl || epEl.value.trim() === rawEndpoint) && (!keyEl || keyEl.value.trim() === apiKey);
+        return (typeof getSettingsFormTarget !== 'function' || settingsTarget === getSettingsFormTarget()) &&
+            (typeof getConnectionProfileDraftRevision !== 'function' || profileDraftRevision === getConnectionProfileDraftRevision()) &&
+            (!epEl || epEl.value.trim() === rawEndpoint) && (!keyEl || keyEl.value.trim() === apiKey) && (!protocolEl || normalizeApiProtocol(protocolEl.value) === protocol);
     }
 
     if (!resultEl) return;
@@ -34,15 +39,15 @@ window.testMainApiConnection = async function() {
         return { ok: false, models: [] };
     }
 
-    var modelsUrl = deriveApiModelsEndpoint(rawEndpoint);
-    var chatUrl = normalizeApiEndpoint(rawEndpoint);
+    var modelsUrl = deriveApiModelsEndpoint(rawEndpoint, protocol);
+    var chatUrl = resolveChatEndpoint(rawEndpoint, protocol);
     var tested = [];
     var modelsErrInfo = '';
     setApiModelCatalogBusy(true);
 
     try {
         try {
-            var modelsResult = await runApiModelsEndpointTest(modelsUrl, apiKey, tested);
+            var modelsResult = await runApiModelsEndpointTest(modelsUrl, apiKey, tested, protocol);
             if (!isCurrentTest()) return { ok: false, stale: true, models: [] };
             if (modelsResult.ok) {
                 applyDiscoveredApiModels(modelsResult.models || [], settingsTarget);
@@ -57,7 +62,7 @@ window.testMainApiConnection = async function() {
         }
 
         if (!isCurrentTest()) return { ok: false, stale: true, models: [] };
-        var chatResult = await runApiChatCompletionFallbackTest(chatUrl, apiKey, model, tested);
+        var chatResult = await runApiChatCompletionFallbackTest(chatUrl, apiKey, model, tested, protocol);
         if (!isCurrentTest()) return { ok: false, stale: true, models: [] };
 
         var detail = t('api_test_models_failed_prefix') + (modelsErrInfo || t('api_test_unknown_error'));

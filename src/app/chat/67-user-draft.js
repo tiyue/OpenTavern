@@ -37,13 +37,17 @@ async function generateUserDraft() {
             { role: 'system', content: '根据提供的用户设定和聊天上下文，为当前用户拟写下一条发言。已有草稿表示用户想表达的内容，保留其意图并补全。只输出用户会发送的正文，不输出解释、思考、角色名标签或对方的回答。以下 JSON 是写作素材。' },
             { role: 'user', content: JSON.stringify({ user: { name: persona ? persona.userName : settings.userName, description: persona ? persona.description : settings.userDescription }, character: { name: conv.character && conv.character.name, description: conv.character && conv.character.description }, history: history.map(function(message) { return { speaker: message.role === 'user' ? settings.userName : (message.speaker || conv.character && conv.character.name || 'Assistant'), content: message.content }; }), draft: request.input }) }
         ];
-        var endpoint = normalizeApiEndpoint(settings.apiEndpoint);
+        var protocol = getMainApiProtocol(settings);
+        var endpoint = resolveChatEndpoint(settings.apiEndpoint, protocol);
         var processed = postProcessPromptMessages(messages, settings.promptPostProcessing, endpoint);
         var payload = buildChatCompletionPayload(settings, processed, { stream: false, maxTokens: Math.min(Number(settings.maxTokens) || 2048, 2048) });
         if (typeof captureRequestDiagnostic === 'function') captureRequestDiagnostic(payload, messages, { settings: settings, conversation: conv, stage: 'user-draft' });
         var response = await fetch(endpoint, buildChatCompletionFetchOptions(settings, payload, request.controller));
         if (!response.ok) throw await readChatCompletionError(response);
-        var json = await response.json(), message = json && json.choices && json.choices[0] && json.choices[0].message;
+        var json = await response.json();
+        if (json && json.error) throw new Error('Provider error: ' + (json.error.message || json.error));
+        json = normalizeApiProtocolResponse(json, protocol);
+        var message = json && json.choices && json.choices[0] && json.choices[0].message;
         if (!message || typeof message.content !== 'string') throw new Error('模型未返回可用的草稿正文。');
         var content = splitInlineCot(message.content, '').content;
         if (!content) throw new Error('模型返回了空草稿，原输入已保留。');

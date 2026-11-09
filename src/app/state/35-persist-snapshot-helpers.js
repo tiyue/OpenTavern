@@ -35,7 +35,8 @@ function rememberCloudSyncConversationBaseline(snapshot) {
     _cloudSyncConversationSignature = buildCloudSyncConversationSignature(snapshot || {
         conversations: state.conversations,
         conversationOrder: getPersistableConversationOrder(state.conversationOrder, state.conversations),
-        activeConvId: getPersistableActiveConversationId(state.activeConvId, state.conversationOrder, state.conversations)
+        activeConvId: getPersistableActiveConversationId(state.activeConvId, state.conversationOrder, state.conversations),
+        documents: state.documents || {}
     });
 }
 
@@ -62,6 +63,7 @@ function buildCloudSyncConversationSignature(snapshot) {
             settings: getCloudSyncSignatureSettings(snapshot && snapshot.settings),
             characters: snapshot && snapshot.characters || {},
             worldBooks: snapshot && snapshot.worldBooks || {},
+            documents: snapshot && snapshot.documents || {},
             charactersMigrated: !!(snapshot && snapshot.charactersMigrated)
         });
     } catch (_) {

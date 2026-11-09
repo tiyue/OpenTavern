@@ -30,6 +30,11 @@ async function loadConversation(id) {
         if (!await showGlassConfirm(t('generation_abort_confirm'), { title: '\u505c\u6b62\u751f\u6210' })) return;
         stopGeneration();
     }
+    if (typeof cancelGroupAutoRounds === 'function') cancelGroupAutoRounds();
+    var automationPreviousId = state.activeConvId;
+    if (automationPreviousId && automationPreviousId !== id && typeof cancelAutomationRuntime === 'function') {
+        cancelAutomationRuntime(t('automation_conversation_switched'), automationPreviousId);
+    }
     saveCurrentConversation();
     state.activeConvId = id;
     if (typeof syncActiveConversationUserPersona === 'function') syncActiveConversationUserPersona();
@@ -59,10 +64,19 @@ async function loadConversation(id) {
     }
 
     if (isMobile()) closeSidebar();
+
+    if (automationPreviousId !== id && state.conversations[id] && typeof dispatchAutomationEvent === 'function') {
+        Promise.resolve(dispatchAutomationEvent('conversation-entered', state.conversations[id], {})).catch(function(error) {
+            if (typeof reportPersistPostSaveError === 'function') reportPersistPostSaveError('automation conversation entered event', error);
+        });
+    }
 }
 
 async function deleteConversation(id) {
     if (!await showGlassConfirm(t('delete_confirm'), { title: '\u5220\u9664\u5bf9\u8bdd', danger: true, okText: '\u5220\u9664' })) return;
+    if (typeof cancelGroupAutoRounds === 'function' && typeof groupAutoRoundState !== 'undefined' && groupAutoRoundState && groupAutoRoundState.conversationId === id) cancelGroupAutoRounds();
+    if (typeof cancelAutomationRuntime === 'function') cancelAutomationRuntime(t('automation_conversation_deleted'), id);
+    if (typeof clearSceneFailure === 'function') clearSceneFailure(id);
     deleteConversationFromLibraryState(id);
     persistState();
     requestRender(['conversations', 'conversationOrder', 'activeConvId']);

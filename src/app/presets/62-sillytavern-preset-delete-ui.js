@@ -9,17 +9,15 @@
  * 修改时注意：预设顺序与启用状态决定最终提示词，未知字段应尽量保留以便再次导出。
  */
 // ==================== SillyTavern Preset Delete UI ====================
-function deleteSillyTavernPreset() {
+async function deleteSillyTavernPreset() {
     var preset = ensureSillyTavernPresetSettings();
     if (!preset.prompts.length && !preset.regexScripts.length) {
         alert(t('settings_st_preset_empty'));
         return;
     }
     if (!confirm(t('settings_st_preset_delete_confirm'))) return;
-    removeLibraryPreset(preset.id);
-    renderSillyTavernPresetSettings();
-    persistState(true);
-    renderTokenBar();
-    appStore.notify('settings');
-    alert(t('settings_st_preset_delete_success'));
+    try {
+        await removeLibraryPreset(preset.id);
+        alert(t('settings_st_preset_delete_success'));
+    } catch (error) { alert(error.message); }
 }

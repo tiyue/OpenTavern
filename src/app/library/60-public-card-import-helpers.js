@@ -30,7 +30,9 @@ async function persistImportedPublicCardRecords(character, book) {
     var roots = { characters: state.characters, worldBooks: state.worldBooks };
     var records = [];
     if (character && character.name) records.push({ container: 'characters', key: character.name.trim().toLowerCase(), value: character });
-    if (book && book.id) records.push({ container: 'worldBooks', key: book.id, value: book });
+    (Array.isArray(book) ? book : book && book.id ? [book] : []).forEach(function(value) {
+        records.push({ container: 'worldBooks', key: value.id, value: value });
+    });
     records.forEach(function(record) {
         record.hadValue = Object.prototype.hasOwnProperty.call(state[record.container] || {}, record.key);
         record.previous = record.hadValue ? JSON.stringify(state[record.container][record.key]) : null;

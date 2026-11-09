@@ -9,7 +9,8 @@
  * 修改时注意：不同服务的接口格式不完全相同，修改时要保留 OpenAI 与 Ollama 兼容分支。
  */
 // ==================== API Connection Test Endpoints ====================
-function deriveApiModelsEndpoint(raw) {
+function deriveApiModelsEndpoint(raw, protocol) {
+    if (protocol === 'anthropic') return getAnthropicApiBase(raw) + '/models?limit=1000';
     var url = String(raw || '').trim().replace(/\/+$/, '');
     url = url.replace(/\/chat\/completions$/i, '');
     if (/\/(v[0-9]+|openai\/v1|paas\/v[0-9]+)$/.test(url)) {

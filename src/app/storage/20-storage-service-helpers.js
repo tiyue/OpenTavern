@@ -46,7 +46,8 @@ function storageHasUserData(data) {
     return !!(data && (
         Object.keys(data.conversations || {}).length > 0 ||
         Object.keys(data.characters || {}).length > 0 ||
-        Object.keys(data.worldBooks || {}).length > 0
+        Object.keys(data.worldBooks || {}).length > 0 ||
+        Object.keys(data.documents || {}).length > 0
     ));
 }
 
@@ -63,5 +64,12 @@ function storageSnapshotTime(data) {
 }
 
 function storageCloneForPersist(data) {
-    return data ? JSON.parse(JSON.stringify(data)) : data;
+    var cloned = data ? JSON.parse(JSON.stringify(data)) : data;
+    if (cloned && typeof cloned === 'object' && !Object.prototype.hasOwnProperty.call(cloned, 'documents') &&
+        typeof state !== 'undefined' && state && state.documents) {
+        // A few legacy callers build partial canonical snapshots. Preserve document text
+        // instead of letting those older save paths silently drop the new entity.
+        cloned.documents = JSON.parse(JSON.stringify(state.documents));
+    }
+    return cloned;
 }

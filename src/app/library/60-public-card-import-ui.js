@@ -29,29 +29,14 @@ async function importPublicCard(cardMeta) {
             await requestCharacterRegexConsent(character);
         }
 
-        // 2. 准备内嵌世界书记录（如果有），只构造独立对象，不写入 state.worldBooks；
-        //    形状与 createNewWorldBook 保持一致（wb-Date-Mathrandom id），落盘确认后再合并进 state。
-        let embeddedBook = null;
-        try {
-            const cb = getEmbeddedCharacterBook(jsonData);
-            const normalized = cb && normalizeImportedWorldInfo(cb);
-            if (normalized && normalized.entries && Object.keys(normalized.entries).length > 0) {
-                embeddedBook = {
-                    id: 'wb-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
-                    name: normalized.name || getImportedCharacterBookName(cb, character.name),
-                    entries: normalized.entries,
-                    created: Date.now()
-                };
-            }
-        } catch (e) {
-            console.warn('[Card Library] 嵌入世界书导入失败（不影响角色导入）:', e);
-        }
+        // 2. 主书与额外世界书只在独立导入候选中准备，保存确认后合并。
+        const preparedBooks = prepareCharacterWorldBookRecords(jsonData, character).books;
 
         // 3. 从公共库元数据附加预览图（关键修复：让从公共库导入的角色卡在“我的卡片”里能显示图片）
         applyPublicCardImportMetadata(character, cardMeta);
 
         // 4. 可靠保存：角色/世界书先写入隔离快照，确认落盘成功后才提交到 live state 并提示成功
-        const committed = await persistImportedPublicCardRecords(character, embeddedBook);
+        const committed = await persistImportedPublicCardRecords(character, preparedBooks);
         if (!committed) throw new Error('角色卡保存未确认，请重试。');
 
         // 5. 刷新界面

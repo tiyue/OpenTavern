@@ -90,15 +90,18 @@ async function startPrimaryMessageRegeneration(conv, target, continuation) {
     }
     async function saveCandidate(candidate, second, interrupted) {
         if (!matchesTarget()) throw new Error(t('generation_target_changed'));
+        if (generationContext && generationContext._streamDraft) candidate.recoveryDraftId = generationContext._streamDraft.id;
         var prepared = prepareResponseVersions(conv, target);
         var versions = prepared.versions;
         var version = { id: makeId(), created: Date.now(), message: cloneResponseMessage(candidate), secondMessages: second ? [second] : [] };
+        if (typeof getResponseUserVersionLink === 'function') Object.assign(version, getResponseUserVersionLink(conv, target));
         if (interrupted) version.interrupted = true;
         versions.push(version);
         var selected = interrupted ? prepared.current : version;
         var committed = await commitResponseVersion(conv, target, selected, versions, function(current) {
             return isGenerationRuntimeOwned(generationContext) && sourcesMatch(current);
         });
+        if (typeof finishStreamDraft === 'function') await finishStreamDraft(generationContext);
         var current = conv.messages.find(function(message) { return message.id === target.id && message.stage !== 'second'; });
         if (!current || current.selectedResponseVersionId !== selected.id || getMessageRevision(current) !== getMessageRevision(committed)) {
             throw new Error(t('generation_target_changed'));
@@ -117,9 +120,12 @@ async function startPrimaryMessageRegeneration(conv, target, continuation) {
         if (state._promptBuildOperation === operation) state._promptBuildOperation = null;
     }
     try {
+        if (!generationContext.modelToolContext && typeof resolveModelToolRequestContext === 'function') {
+            generationContext.modelToolContext = resolveModelToolRequestContext(conv, generationContext.settings, generationContext.stage);
+        }
         operation.setSource(capturePromptBuildSource(requestConv));
         messages = typeof buildMessagesForAPIAsync === 'function'
-            ? await buildMessagesForAPIAsync(requestConv, { operation: operation, settings: generationContext.settings })
+            ? await buildMessagesForAPIAsync(requestConv, { operation: operation, settings: generationContext.settings, modelTools: generationContext.modelToolContext })
             : buildMessagesForAPI(requestConv);
         if (continuation) messages.push({ role: 'system', content: '紧接最后一条助手正文继续写作。只返回新增正文，不重复已有内容，不输出操作选项。' });
     } catch (error) {
@@ -149,12 +155,18 @@ async function startPrimaryMessageRegeneration(conv, target, continuation) {
         var delta = typeof fullContent === 'string' ? isolatePrimaryStageContentWithSettings(fullContent, generationContext.settings) : '';
         var content = delta.trim() ? (continuation ? target.content + delta : delta.trim()) : '';
         var candidate = continuation ? Object.assign(cloneResponseMessage(target), { content: content }) : { id: target.id, role: 'assistant', stage: 'main', content: content };
+        var completionToolTrace = completion && completion._modelToolTrace;
+        if (completionToolTrace) {
+            candidate.toolTrace = continuation && target.toolTrace && typeof mergeModelToolTraces === 'function'
+                ? mergeModelToolTraces(target.toolTrace, completionToolTrace)
+                : completionToolTrace;
+        }
         if (typeof clearMvuManualOverride === 'function') clearMvuManualOverride(candidate);
         if (target.speaker) candidate.speaker = target.speaker;
         if (fullCot) candidate.cot = fullCot;
         if (usage) candidate.usage = usage;
         try {
-            if (!content) throw new Error(t('regeneration_failed_preserved'));
+            if (!content && !candidate.toolTrace) throw new Error(t('regeneration_failed_preserved'));
             if (completion && completion.interrupted) {
                 await saveCandidate(candidate, null, true);
                 var interruptionReason = completion.finishReason || completion.completionReason;
@@ -190,7 +202,26 @@ async function startPrimaryMessageRegeneration(conv, target, continuation) {
         settings: generationContext.settings,
         generationContext: generationContext,
         promptBuildOperation: operation,
-        operation: sequence
+        operation: sequence,
+        modelToolContext: generationContext.modelToolContext
     });
+    updateInputState();
+}
+
+
+function startUserMessageRegeneration(conv, userMessageId) {
+    if (!isLiveConversation(conv) || getActiveConv() !== conv || state.isGenerating || conv._messageCommitInProgress) return;
+    var userIndex = conv.messages.findIndex(function(message) { return message.id === userMessageId && message.role === 'user'; });
+    if (userIndex < 0 || conv.messages.slice(userIndex + 1).some(function(message) { return message.role === 'user'; })) return;
+    var reply = conv.messages.find(function(message, index) { return index > userIndex && message.role === 'assistant' && message.stage !== 'second'; });
+    if (reply) return startPrimaryMessageRegeneration(conv, reply);
+    prepareGroupSpeakerForRegeneration(conv, conv.messages[userIndex]);
+    streamChat(function(token, content, cot) {
+        if (getActiveConv() === conv) updateStreamingBubble(content, conv, getCurrentGeneratingSpeakerName(conv), cot);
+    }, function(content, cot, usage, completion) {
+        return handlePrimaryAssistantComplete(content, cot, usage, conv, completion);
+    }, function(error) {
+        handlePrimaryRegenerationError(error, state._generationRuntime);
+    }, conv);
     updateInputState();
 }

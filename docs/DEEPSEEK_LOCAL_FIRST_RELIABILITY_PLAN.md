@@ -61,11 +61,11 @@
 
 证据在本机：
 
-- `<local-evidence>/opentavern-local-first-audit-20261015/browser-audit.json`
-- `<local-evidence>/opentavern-local-first-audit-20261015/network-audit.json`
-- `<local-evidence>/opentavern-local-first-audit-20261015/real-deepseek-audit.json`
-- `<local-evidence>/opentavern-local-first-audit-20261015/real-browser-deepseek-audit.json`
-- `<local-evidence>/opentavern-local-first-audit-20261015/regex-worker-audit.json`
+- `/path/to/local-release-evidence`
+- `/path/to/local-release-evidence`
+- `/path/to/local-release-evidence`
+- `/path/to/local-release-evidence`
+- `/path/to/local-release-evidence`
 
 原环境提示的 8765 当时连接被拒绝，因此另启只读 8877 静态服务完成隔离审查；这说明本地服务未运行也需要单独排查，不能全部解释成代理故障。匿名 HTTP 客户端直连正式域取得 403，未验证该响应的边缘挑战原因，不能用它判断真实浏览器是否可访问或断言站点必须使用代理。
 
@@ -95,7 +95,7 @@
 
 实施及返工通过全局 DeepSeek 在独立副本完成；两轮 CLI 正常退出且 `runtime_cleanup=removed`。原始执行报告均标为 failed：首轮仅因构建生成 app.js/index.html 未登记白名单；返工轮因协调者在其运行期间生成 `.sites-public/` 预览而被范围检查计入。已逐项核对这些偏差均为构建产物，没有额外业务源码越界，未将执行器报告冒充验收通过。协调者另行审查实际 diff，在正常环境运行验收；执行器内部 spawn EPERM 的结构/浏览器限制没有被当成通过证据。
 
-证据目录：`<local-evidence>/opentavern-regex-20261015-1700/`，包含正式站原始探测、同域隔离基线、修复版完全断网报告、`regex-browser-offline/` 截图；两轮执行报告分别在 `work/runs/2026-10-15T09-03-28-142Z-29100` 与 `work/runs/2026-10-15T09-18-10-048Z-15804`。新增浏览器脚本为 `scripts/test-regex-worker-browser.mjs`，已接入七组门禁。没有实现全站 Service Worker、版本清单、公共库完整本地准备或局部渲染 R6。
+证据目录：`/path/to/local-release-evidence`，包含正式站原始探测、同域隔离基线、修复版完全断网报告、`regex-browser-offline/` 截图；两轮执行报告分别在 `work/runs/2026-10-15T09-03-28-142Z-29100` 与 `work/runs/2026-10-15T09-18-10-048Z-15804`。新增浏览器脚本为 `scripts/test-regex-worker-browser.mjs`，已接入七组门禁。没有实现全站 Service Worker、版本清单、公共库完整本地准备或局部渲染 R6。
 
 最终结果：完整 check/七组浏览器/完整资源树门禁通过，报告在上述目录 `final-release-gate/release-2026-10-15T09-35-12-736Z-33876/release-report.json`。原生成格式测试的 HTTP 装载计数改为真实内嵌 Worker 构造与 900ms 就绪握手，保留原超时、旧协议、二阶段和显示安全断言。协调者另用现有凭据完成正则处理后 DeepSeek `deepseek-flash` 真请求，回复 OK、stop、生成状态释放；工具报告的供应商 not-run 未被篡改，单独结果为 `real-deepseek-after.json` 和 `coordinator-release-decision.json`。
 
@@ -396,9 +396,9 @@ AGENTS.md
 
 ## 8. 全局 DeepSeek 执行方式
 
-协调者先建立 `<local-evidence>/` 下的独立源码工作副本，保留用户主目录修改；将本任务书、相关规格及本项目标/实际白名单写入独立 TaskFile。`AllowedFiles` 必须是当前任务的真实相对路径数组，不使用整个目录或 `**`。每项独立执行、审查后合并，避免多个任务覆盖共享 manifest/package/build 文件。
+协调者先建立 `/path/to/local-release-evidence` 下的独立源码工作副本，保留用户主目录修改；将本任务书、相关规格及本项目标/实际白名单写入独立 TaskFile。`AllowedFiles` 必须是当前任务的真实相对路径数组，不使用整个目录或 `**`。每项独立执行、审查后合并，避免多个任务覆盖共享 manifest/package/build 文件。
 
-已核对本机入口：`<worker-root>/worker.ps1`，PowerShell 7，`Provider=deepseek`，写入使用 `Mode=workspace-write`；参数包括 `Workspace/TaskFile/AllowedFiles/TimeoutSeconds`。具体调用规则见本机 `<worker-root>/README.md`，不要把凭据写入任务、命令或源码。
+已核对本机入口：`/path/to/local-release-evidence`，PowerShell 7，`Provider=deepseek`，写入使用 `Mode=workspace-write`；参数包括 `Workspace/TaskFile/AllowedFiles/TimeoutSeconds`。具体调用规则见本机 `/path/to/local-release-evidence`，不要把凭据写入任务、命令或源码。
 
 执行器不得递归启动模型/执行器，不负责提交、推送或发布。结束后协调者检查 `report.json`、`last-message.md`、实际 diff、测试和 `runtime_cleanup`；失败明确返工，不能只采信自述。若需要扩白名单或独立 Blob 存储等设计变化，先补充本文后再下发。任务结束按项目规则检查其他同项目会话，再决定提交。
 
@@ -428,7 +428,7 @@ AGENTS.md
 | R6 | 稳定 ID 对齐、零多余子树变更、150/151/500 窗口及加载更早保留节点、焦点/滚动；通知合并绘制最终状态。正则异步链及 MVU 显示依赖纳入失效判断。 |
 | R7 | 六组 `check:local-first` 契约接入完整检查，保留原七组浏览器并增加两组；根快照与整个预览/dist 树纳入资源一致性门禁。最终报告见发布记录。 |
 
-独立副本与证据根为 `<local-evidence>/opentavern-local-first-20261015/`。资源、渲染、私有媒体初轮及资源/构建/渲染/图片/公共导入返工由全局 DeepSeek 按精确白名单执行，原始报告均无范围越界、`runtime_cleanup=removed`。协调者另审查差异、运行正常环境检查并补跨模块修复，不修改模型或用户凭据。
+独立副本与证据根为 `/path/to/local-release-evidence`。资源、渲染、私有媒体初轮及资源/构建/渲染/图片/公共导入返工由全局 DeepSeek 按精确白名单执行，原始报告均无范围越界、`runtime_cleanup=removed`。协调者另审查差异、运行正常环境检查并补跨模块修复，不修改模型或用户凭据。
 
 返工修复了发现新版提前改资源定位、未读取表单草稿、只限制响应头未限制正文、缓存响应已读后再次 clone、渲染合并丢后续状态、无 MVU 时整后缀重建、系统消息索引、异步正则完成未显示等问题。`scripts/tests/frontend/core.mjs` 仅调整微任务等待；`library.mjs` 保留原 UI 断言并增加 ACK 边界，真实保存故障由新套件覆盖，没有删除门禁。
 

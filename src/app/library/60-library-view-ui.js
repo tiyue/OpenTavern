@@ -47,6 +47,7 @@ function showChatView(libraryV, chatV) {
     setLibrarySidebarMode(false);
 
     if (typeof renderConversationList === 'function') renderConversationList();
+    if (typeof alignChatMessagesToLatestOnEntry === 'function') alignChatMessagesToLatestOnEntry();
 }
 
 function renderLibrary() {

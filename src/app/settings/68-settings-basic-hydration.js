@@ -10,6 +10,7 @@
  */
 // ==================== Settings Basic Hydration ====================
 function hydratePrimaryApiSettings() {
+    hydrateValueControl(dom.apiProtocol, getMainApiProtocol(state.settings));
     hydrateValueControl(dom.apiEndpoint, state.settings.apiEndpoint);
     hydrateValueControl(dom.apiKey, state.settings.apiKey);
     hydrateCheckboxControl(dom.saveApiKey, state.settings.saveApiKey);

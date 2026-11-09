@@ -55,7 +55,8 @@ function createGenerationResponseTransport(controller, requestDiagnostic, reques
         settings: requestSettings,
         helpers: {
             parseProviderError: parseProviderResponseError,
-            parseUsage: parseApiUsage,
+            normalizeResponse: function(json) { return normalizeApiProtocolResponse(json, getMainApiProtocol(requestSettings)); },
+            parseUsage: function(json) { return parseApiProtocolUsage(json, getMainApiProtocol(requestSettings)); },
             extractCot: extractCotDelta,
             buildCotParts: buildCotAwareParts,
             finalizeUsage: finalizeUsageMeta,

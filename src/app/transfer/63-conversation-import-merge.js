@@ -56,6 +56,32 @@ function mergeImportedWorldBooks(worldBooks) {
     });
 }
 
+function mergeImportedDocuments(documents, importResult) {
+    if (!documents || typeof documents !== 'object') return;
+    if (typeof ensureDocumentsState === 'function') ensureDocumentsState();
+    if (!state.documents) state.documents = {};
+    var idMap = importResult && importResult.idMap || {};
+    Object.keys(documents).forEach(function(sourceId) {
+        var record = normalizeDocumentRecord(documents[sourceId], sourceId);
+        if (!record) return;
+        var bindings = record.bindings.map(function(binding) {
+            if (binding.scope !== 'conversation') return binding;
+            var mapped = idMap[binding.targetId];
+            return { scope: binding.scope, targetId: mapped || binding.targetId };
+        }).filter(function(binding) {
+            return binding.scope !== 'conversation' || !!state.conversations[binding.targetId];
+        });
+        record.bindings = bindings;
+        var existing = state.documents[record.id];
+        if (existing && JSON.stringify(existing) === JSON.stringify(record)) return;
+        if (existing) record.id = makeId();
+        record.name = uniqueDocumentName(record.name, record.id);
+        record.revision = computeDocumentRevision(record.content);
+        record.updatedAt = Date.now();
+        state.documents[record.id] = record;
+    });
+}
+
 function mergeImportedPortableSettings(settings) {
     if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return;
     var current = state.settings || {};
@@ -90,6 +116,7 @@ function applySuccessfulConversationImport(data, importResult) {
     mergeImportedTopLevelCharacters(data.characters);
     registerImportedConversationCharacters(importResult.conversations);
     mergeImportedWorldBooks(data.worldBooks);
+    mergeImportedDocuments(data.documents, importResult);
 
     if (isFullExport) {
         mergeImportedPortableSettings(data.settings);

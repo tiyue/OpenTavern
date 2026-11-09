@@ -23,6 +23,8 @@
         if (!p) return;
         var ep = document.getElementById('apiEndpoint');
         var md = document.getElementById('modelName');
+        var protocol = document.getElementById('apiProtocol');
+        if (protocol) protocol.value = 'openai';
         if (ep) ep.value = p.endpoint;
         if (md && p.model) {
             // 只在用户还没手动改过或为空时建议填充，避免覆盖用户自定义模型
@@ -37,6 +39,8 @@
         if (!p) return;
         var ep = document.getElementById('summarizeApiEndpoint');
         var md = document.getElementById('summarizeModel');
+        var protocol = document.getElementById('summarizeApiProtocol');
+        if (protocol) protocol.value = 'openai';
         if (ep) ep.value = p.endpoint;
         if (md && p.model) {
             md.value = p.model;

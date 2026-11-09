@@ -19,5 +19,6 @@ function readSettingsFormIntoState(target) {
     readSummarizationApiSettingsFromForm(target);
     readImageGenerationSettingsFromForm(target);
     readCloudSyncSettingsFromForm(target);
+    if (typeof readRetrievalSettingsFromForm === 'function') readRetrievalSettingsFromForm(target);
     if (typeof readReadingAppearanceSettingsFromForm === 'function') readReadingAppearanceSettingsFromForm(target);
 }

@@ -11,26 +11,11 @@
 // ==================== Group Chat Speaker Helpers ====================
 function getNextGroupSpeaker(conv) {
     if (!isGroupChat(conv)) return null;
-
-    var members = getGroupMembers(conv).filter(m => !m.muted);
-    if (members.length === 0) return null;
-
-    var lastAssistant = [...(conv.messages || [])].reverse().find(m =>
-        m.role === 'assistant' && m.speaker
-    );
-
-    var lastIndex = -1;
-    if (lastAssistant && lastAssistant.speaker) {
-        var sp = lastAssistant.speaker;
-        lastIndex = members.findIndex(m => m.character.name === sp);
-        if (lastIndex === -1) {
-            var lower = sp.toLowerCase();
-            lastIndex = members.findIndex(m => (m.character.name || '').toLowerCase() === lower);
-        }
+    if (typeof getGroupSpeakerStrategy === 'function') {
+        var strategy = getGroupSpeakerStrategy(conv);
+        if (strategy.mode !== 'round-robin') return getGroupSpeakerForMode(conv, strategy.mode);
     }
-
-    var nextIndex = (lastIndex + 1) % members.length;
-    return members[nextIndex] ? members[nextIndex].character : members[0].character;
+    return typeof getRoundRobinGroupSpeaker === 'function' ? getRoundRobinGroupSpeaker(conv) : null;
 }
 
 function getCurrentSpeakerCharacter(conv) {

@@ -5,6 +5,7 @@ import { captureBrowserEvidence } from './check-release.mjs';
  * 使用已有 Playwright/Chrome（OPENTAVERN_PLAYWRIGHT_MODULE 指定模块路径），不自动安装依赖。
  * 入口默认 /.sites-public/opentavern.html，可被 OPENTAVERN_TEST_URL 覆盖；需先运行 npm run build 与 npm run prepare:sites。
  * 关键点：先制造 >256 的显示积压，再立即发送，用请求时刻抓取的 backlog 快照证明 prompt 优先而不是等待整个显示队列。
+ * 发送会等待真实本地持久化，因此测试在探针内对空闲显示调度施加背压，避免持久化期间显示队列自行清空；提示词任务始终走原调度器。
  */
 import assert from 'node:assert/strict';
 import path from 'node:path';
@@ -47,12 +48,18 @@ await context.route('**/*', async route => {
             '});\n' +
             'window.__messageRenderTimes = [];\n' +
             'var originalMessageRender = renderMessagesOnly; renderMessagesOnly = function() { var start = performance.now(); var result = originalMessageRender(); window.__messageRenderTimes.push(performance.now() - start); return result; };\n' +
+            'window.__regexTestBarrier = false;\n' +
+            'var __origScheduleRegexWorkerDispatch = scheduleRegexWorkerDispatch;\n' +
+            'var __origRunNextRegexWorkerTask = runNextRegexWorkerTask;\n' +
+            'runNextRegexWorkerTask = function() { if (window.__regexTestBarrier && regexPromptQueue.length === 0) return; return __origRunNextRegexWorkerTask(); };\n' +
+            'scheduleRegexWorkerDispatch = function() { if (window.__regexTestBarrier && regexPromptQueue.length === 0) return; return __origScheduleRegexWorkerDispatch(); };\n' +
+            'window.__setRegexTestBarrier = function(enabled) { window.__regexTestBarrier = !!enabled; if (!window.__regexTestBarrier) __origScheduleRegexWorkerDispatch(); };\n' +
             'window.__requestBacklogs = [];\n' +
             'if (typeof window.fetch === "function") {\n' +
             '  var __origFetch = window.fetch.bind(window);\n' +
             '  window.fetch = function(input) {\n' +
             '    var target = typeof input === "string" ? input : (input && input.url) || "";\n' +
-            '    if (target.indexOf("/__mock_model") !== -1) { try { window.__requestBacklogs.push(window.__regexProbe()); } catch (_) {} }\n' +
+            '    if (target.indexOf("/__mock_model") !== -1) { try { window.__requestBacklogs.push(window.__regexProbe()); } catch (_) {} if (window.__regexTestBarrier) window.__setRegexTestBarrier(false); }\n' +
             '    return __origFetch.apply(null, arguments);\n' +
             '  };\n' +
             '}\n';
@@ -80,6 +87,7 @@ try {
 
     const endpoint = new URL('/__mock_model', url).href;
     const backlog = await page.evaluate(ep => {
+        window.__setRegexTestBarrier(true);
         Object.assign(state.settings, {
             apiEndpoint: ep, apiKey: 'mock-key', model: 'mock',
             summaryEnabled: false, streamEnabled: false, contextLength: 14,
@@ -208,5 +216,6 @@ try {
     await page.screenshot({ path: path.join(output, 'failure.png'), animations: 'disabled' });
     throw error;
 } finally {
+    await page.evaluate(() => window.__setRegexTestBarrier(false)).catch(() => {});
     await browser.close();
 }

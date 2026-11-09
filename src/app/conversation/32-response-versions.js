@@ -6,15 +6,16 @@ function cloneResponseMessage(msg) {
     return clone;
 }
 
-function captureResponseVersion(conv, msg) {
+function captureResponseVersion(conv, msg, preferredId) {
     var version = {
-        id: makeId(),
+        id: preferredId || makeId(),
         created: Date.now(),
         message: cloneResponseMessage(msg),
         secondMessages: conv.messages.filter(function(m) {
             return m.stage === 'second' && m.parentId === msg.id;
         }).map(cloneResponseMessage)
     };
+    if (typeof getResponseUserVersionLink === 'function') Object.assign(version, getResponseUserVersionLink(conv, msg));
     if (typeof bindMvuResponseVersion === 'function') bindMvuResponseVersion(conv, msg, version);
     return version;
 }
@@ -22,25 +23,47 @@ function captureResponseVersion(conv, msg) {
 function getResponseVersions(msg) {
     return (Array.isArray(msg && msg.responseVersions) ? msg.responseVersions : []).filter(function(version) {
         return version && typeof version.id === 'string' && version.id && version.message && version.message.role === 'assistant' &&
-            version.message.stage !== 'second' && typeof version.message.content === 'string' && version.message.content.trim() &&
+            version.message.stage !== 'second' && typeof version.message.content === 'string' &&
+            (version.message.content.trim() || typeof hasModelToolTrace === 'function' && hasModelToolTrace(version.message.toolTrace)) &&
             Array.isArray(version.secondMessages) && version.secondMessages.every(function(second) {
                 return second && typeof second.id === 'string' && second.id && second.role === 'assistant' && second.stage === 'second' && typeof second.content === 'string';
             });
     });
 }
 
+function responseVersionIdUsed(versions, id) {
+    return versions.some(function(version) { return version && version.id === id; });
+}
+
 function prepareResponseVersions(conv, msg) {
     var versions = Array.isArray(msg.responseVersions) ? msg.responseVersions.slice() : [];
     var seconds = conv.messages.filter(function(m) { return m.stage === 'second' && m.parentId === msg.id; });
-    var current = getResponseVersions(msg).find(function(version) {
-        return version.id === msg.selectedResponseVersionId && getMessageRevision(version.message) === getMessageRevision(msg) &&
+    var valid = getResponseVersions(msg);
+    function matchesEffectiveVersion(version) {
+        return getMessageRevision(version.message) === getMessageRevision(msg) &&
             (typeof mvuResponseVersionMatches !== 'function' || mvuResponseVersionMatches(msg, version)) &&
             version.secondMessages.length === seconds.length && version.secondMessages.every(function(second, index) {
                 return second.id === seconds[index].id && getMessageRevision(second) === getMessageRevision(seconds[index]);
             });
+    }
+    var current = valid.find(function(version) {
+        return version.id === msg.selectedResponseVersionId && matchesEffectiveVersion(version);
     });
+    // 旧备份允许版本簿存在但 selected ID 缺省：历史里已有同一有效原版本时直接复用，不插入同 ID 副本。
+    if (!current && !msg.selectedResponseVersionId && msg.id) {
+        current = valid.find(function(version) {
+            return version.id === 'base:' + msg.id && matchesEffectiveVersion(version);
+        });
+    }
     if (!current) {
-        current = captureResponseVersion(conv, msg);
+        // 未物化的原始回复沿用 base:<消息ID>；该 ID 已被其他正文/手动状态占用时生成新 ID，
+        // 旧版本完整保留，当前回复仍按未物化来源身份处理。
+        var baseId = msg.id ? 'base:' + msg.id : '';
+        var preferredId = (msg.selectedResponseVersionId || !baseId) ? '' : baseId;
+        var id = preferredId && !responseVersionIdUsed(versions, preferredId) ? preferredId : '';
+        while (!id || responseVersionIdUsed(versions, id)) id = makeId();
+        current = captureResponseVersion(conv, msg, id);
+        if (preferredId && id !== preferredId) current.baseIdentity = true;
         versions.push(current);
     }
     return { versions: versions, current: current };
@@ -64,6 +87,7 @@ async function commitResponseVersion(conv, target, version, versions, sourcesMat
     var before = conv.messages.slice();
     var oldUpdated = conv.updated;
     var oldRevision = getMessageRevision(target);
+    var userSource = typeof responseUserVersionSource === 'function' ? responseUserVersionSource(conv, target) : null;
     var mvuSource = typeof getMvuContextStamp === 'function' ? getMvuContextStamp(conv) : null;
     var message = cloneResponseMessage(version.message);
     message.id = target.id;
@@ -72,14 +96,21 @@ async function commitResponseVersion(conv, target, version, versions, sourcesMat
     var seconds = version.secondMessages.map(cloneResponseMessage);
     seconds.forEach(function(m) { m.parentId = message.id; m.parentRevision = getMessageRevision(message); });
     var candidate = Object.assign({}, conv, { messages: conv.messages.slice(), summaries: (conv.summaries || []).map(function(s) { return Object.assign({}, s); }), mvu: conv.mvu ? JSON.parse(JSON.stringify(conv.mvu)) : undefined });
+    // 用户正文与回复组同属一个可靠保存候选，确认前不修改当前会话。
+    var associatedUser = typeof findResponseUserMessage === 'function' ? findResponseUserMessage(conv, target) : null;
+    var oldUser = associatedUser ? JSON.parse(JSON.stringify(associatedUser)) : null;
+    if (associatedUser) candidate.messages = candidate.messages.map(function(item) { return item.id === associatedUser.id ? JSON.parse(JSON.stringify(item)) : item; });
+    if (typeof restoreResponseUserVersion === 'function') restoreResponseUserVersion(candidate, target, version);
+    var writtenUser = associatedUser ? candidate.messages.find(function(item) { return item.id === associatedUser.id; }) : null;
     replaceResponseGroup(candidate, target.id, message, seconds);
     if (typeof refreshMvuCandidate === 'function') refreshMvuCandidate(candidate);
     var commitUpdated = candidate.updated;
     function commit(c, validateOnly) {
         var current = c.messages.find(function(m) { return m.id === target.id && m.stage !== 'second'; });
-        if (!current || getMessageRevision(current) !== oldRevision || (mvuSource !== null && getMvuContextStamp(c) !== mvuSource) || (sourcesMatch && !sourcesMatch(c))) return false;
+        if (!current || getMessageRevision(current) !== oldRevision || (userSource !== null && responseUserVersionSource(c, current) !== userSource) || (mvuSource !== null && getMvuContextStamp(c) !== mvuSource) || (sourcesMatch && !sourcesMatch(c))) return false;
         if (validateOnly) return true;
         var currentUpdated = c.updated;
+        if (typeof restoreResponseUserVersion === 'function') restoreResponseUserVersion(c, current, version);
         replaceResponseGroup(c, target.id, JSON.parse(JSON.stringify(message)), seconds.map(function(m) { return JSON.parse(JSON.stringify(m)); }));
         c.updated = currentUpdated === oldUpdated ? commitUpdated : currentUpdated;
         if (typeof commitMvuCandidate === 'function') commitMvuCandidate(c, candidate);
@@ -93,6 +124,7 @@ async function commitResponseVersion(conv, target, version, versions, sourcesMat
         var oldIds = new Set(before.map(function(m) { return m.id; }));
         var extra = c.messages.filter(function(m) { return !oldIds.has(m.id) && !candidateIds.has(m.id); });
         c.messages = before.map(function(m) {
+            if (oldUser && m.id === oldUser.id && JSON.stringify(currentById.get(m.id)) === JSON.stringify(writtenUser)) return JSON.parse(JSON.stringify(oldUser));
             return m.id === target.id || (m.stage === 'second' && m.parentId === target.id) ? JSON.parse(JSON.stringify(m)) : (currentById.get(m.id) || m);
         }).concat(extra);
         if (c.updated === commitUpdated) c.updated = oldUpdated;

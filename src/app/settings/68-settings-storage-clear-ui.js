@@ -39,6 +39,9 @@ function bindClearAllStorageButton(backend) {
                     const empty = JSON.stringify({lastSaved: Date.now(), conversations: {}, characters: {}, worldBooks: {}});
                     localStorage.setItem(STORAGE_KEY, empty);
                 } catch (e) {}
+                if (typeof clearRetrievalIndexDatabase === 'function') {
+                    try { await clearRetrievalIndexDatabase(); } catch (_) {}
+                }
             }
 
             try {

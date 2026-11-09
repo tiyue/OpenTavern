@@ -20,18 +20,78 @@
  *
  * isGenerating 是防止连点产生并行请求的锁。无论成功还是失败，都必须最终把它恢复为 false。
  */
-function sendMessage() {
-    if (state.isGenerating) return;
-    var text = dom.messageInput.value.trim();
-    if (!text) return;
+async function sendMessage(options) {
+    options = options || {};
+    var automationParentChain = options.automationChain || null;
+    if (state.isGenerating || composerSendInProgress) return { started: false, reason: 'busy' };
     var conv = getActiveConv();
-    if (!conv) return;
-
-    appendUserMessageToConversation(conv, text);
-    prepareGroupSpeakerForUserMessage(conv, text);
-    resetMessageComposerInput();
-    persistState();
+    if (!conv) return { started: false, reason: 'no-conversation' };
+    var capture = captureComposerMessage(conv);
+    if (!capture || !capture.text && !capture.attachments.length) return { started: false, reason: 'empty' };
+    var groupBlockReason = typeof getGroupSendBlockReason === 'function' ? getGroupSendBlockReason(conv, capture.text) : '';
+    if (groupBlockReason) { alert(groupBlockReason); return { started: false, reason: 'group-blocked' }; }
+    if (typeof cancelGroupAutoRounds === 'function') cancelGroupAutoRounds();
+    composerSendInProgress = true;
+    updateInputState();
+    var sendSettings;
+    var title;
+    var savedUserId = '';
+    var automationToken = '';
+    try {
+        if (typeof runAutomationBeforeSend === 'function') {
+            var automationResult = await runAutomationBeforeSend(conv, capture, { chain: automationParentChain });
+            if (automationResult && automationResult.blocked) {
+                alert(t('automation_send_blocked') + (automationResult.reason || ''));
+                return { started: false, reason: 'automation-blocked' };
+            }
+            automationToken = automationResult && automationResult.token || '';
+        }
+        if (!capture.text && !capture.attachments.length) return { started: false, reason: 'empty' };
+        sendSettings = JSON.parse(JSON.stringify(state.settings));
+        await persistConversationMessageMutation(conv, function(candidate) {
+            appendUserMessageToConversation(candidate, capture.text, capture.attachments);
+            var appended = candidate.messages[candidate.messages.length - 1];
+            if (appended) savedUserId = appended.id;
+            title = candidate.title;
+            return true;
+        });
+        conv.title = title;
+        conv._wiBudgetWarning = false;
+        if (getActiveConv() === conv) prepareGroupSpeakerForUserMessage(conv, capture.text);
+        clearCommittedComposerMessage(conv, capture);
+        if (typeof dispatchAutomationEvent === 'function' && savedUserId) {
+            var savedUserMessage = conv.messages.find(function(message) { return message.id === savedUserId; });
+            await Promise.resolve().then(function() {
+                return dispatchAutomationEvent('user-message-saved', conv, {
+                    eventId: 'user-saved:' + savedUserId + '@' + (savedUserMessage && getMessageRevision(savedUserMessage)),
+                    role: 'user',
+                    text: capture.text,
+                    messageId: savedUserId,
+                    messageRevision: savedUserMessage && getMessageRevision(savedUserMessage)
+                }, { chain: automationParentChain });
+            }).catch(function(error) {
+                if (typeof reportPersistPostSaveError === 'function') reportPersistPostSaveError('automation user message event', error);
+            });
+        }
+    } catch (error) {
+        if (typeof cancelAutomationRuntime === 'function') cancelAutomationRuntime(t('automation_generation_failed'), conv.id);
+        alert(t('generation_save_failed') + ': ' + error.message);
+        return { started: false, reason: 'save-failed' };
+    } finally {
+        composerSendInProgress = false;
+        updateInputState();
+    }
     requestFullRender();
+    // 切换会话发生在本地保存期间时，消息留在原会话，避免从新会话发起请求。
+    if (getActiveConv() !== conv || !isLiveConversation(conv)) return { started: false, reason: 'conversation-changed' };
+
+    var generationChain = automationParentChain
+        ? {
+            depth: (Number(automationParentChain.depth) || 0) + 1,
+            hits: Object.assign({}, automationParentChain.hits || {}),
+            steps: Number(automationParentChain.steps) || 0
+        }
+        : null;
 
     var start = function() {
         streamChat(
@@ -44,13 +104,15 @@ function sendMessage() {
                 if (streamingEl) streamingEl.remove();
                 state.isGenerating = false;
                 appStore.notify('isGenerating');
+                if (typeof cancelAutomationRuntime === 'function') cancelAutomationRuntime(t('automation_generation_failed'), conv.id);
                 renderMessagesOnly();
                 alert('Error: ' + (err.message || err));
             },
-            conv
+            conv, sendSettings, { automationChain: generationChain, fragmentToken: automationToken }
         );
         updateInputState();
     };
 
     start();
+    return { started: true };
 }

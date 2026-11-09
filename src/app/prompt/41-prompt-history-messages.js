@@ -37,14 +37,17 @@ function getRegularPromptMessages(conv, maxMsgs) {
     // 总结范围使用全部非 system 消息的下标。只移除确实被总结覆盖的消息，
     // 不能仅按最大的 coveredEnd 裁掉前缀，否则手动总结最近范围时会丢失更早的未总结历史。
     regularMsgs = regularMsgs.filter(function(m, index) {
-        return !isPromptMessageCoveredBySummary(index, coverageRanges);
+        // 目前摘要仅包含文本；图片原始语义继续随历史发送，不能被文本摘要代替。
+        return getUserVisionAttachments(m).length || !isPromptMessageCoveredBySummary(index, coverageRanges);
     });
 
     regularMsgs = regularMsgs.filter(function(m) {
-        return m.stage !== 'second' && String(m.content || '').trim();
+        return m.stage !== 'second' && (String(m.content || '').trim() || getUserVisionAttachments(m).length);
     }).map(function(m) {
         var content = m.role === 'assistant' ? isolatePrimaryStageContent(m.content) : m.content;
         var message = { role: m.role, content: content };
+        var images = validateUserImageAttachments(m);
+        if (images.length) message._userImages = images;
         Object.defineProperty(message, '__promptSource', {
             value: {
                 message: m,
@@ -54,7 +57,7 @@ function getRegularPromptMessages(conv, maxMsgs) {
         });
         return message;
     }).filter(function(m) {
-        return String(m.content || '').trim();
+        return String(m.content || '').trim() || m._userImages && m._userImages.length;
     });
 
     if (regularMsgs.length > maxMsgs) {

@@ -23,14 +23,16 @@ function readSummaryCompletionError(response) {
     });
 }
 
-function requestSummaryCompletion(endpoint, apiKey, model, summaryMessages, maxTokens) {
+function requestSummaryCompletion(endpoint, apiKey, model, summaryMessages, maxTokens, protocol) {
     var settings = state.settings;
+    protocol = protocol || getSummaryApiProtocol(settings);
     var payload = { model: model, messages: summaryMessages, max_tokens: maxTokens, temperature: settings.summaryTemperature == null ? 0.3 : settings.summaryTemperature, stream: false };
     if (typeof applyExplicitReasoningParameters === 'function') applyExplicitReasoningParameters(payload, settings, true);
+    try { payload = toApiProtocolPayload(payload, protocol); } catch (error) { return Promise.reject(error); }
     if (typeof captureRequestDiagnostic === 'function') captureRequestDiagnostic(payload, summaryMessages, { stage: 'summary' });
     return fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+        headers: buildApiAuthHeaders(apiKey, protocol, true),
         body: JSON.stringify(payload)
     }).then(function(r) {
         if (!r.ok) {
@@ -40,6 +42,9 @@ function requestSummaryCompletion(endpoint, apiKey, model, summaryMessages, maxT
         }
         return r.json().catch(function() {
             throw new Error('Summary API returned invalid JSON.');
+        }).then(function(data) {
+            if (data && data.error) throw new Error('Provider error: ' + (data.error.message || data.error));
+            return normalizeApiProtocolResponse(data, protocol);
         });
     });
 }

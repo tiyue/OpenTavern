@@ -30,7 +30,7 @@ function exportAllConversations() {
 }
 
 function downloadJsonFile(data, filename) {
-    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    var blob = typeof buildSegmentedJsonBlob === 'function' ? buildSegmentedJsonBlob(data) : new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
@@ -42,6 +42,12 @@ function downloadJsonFile(data, filename) {
 }
 
 function importConversations(file) {
+    if (typeof readConversationTransferFile === 'function' && file && typeof file.slice === 'function') {
+        return readConversationTransferFile(file).then(function(data) { return openBackupRestorePreview(data); }).catch(function(error) {
+            alert(t('import_conv_error') + ' ' + error.message);
+        });
+    }
+
     var reader = new FileReader();
     reader.onload = function(ev) {
         try {

@@ -34,6 +34,10 @@ async function persistConversationMutation(conv, rollback, candidate, commit) {
                 snapshot.activeConvId = getPersistableActiveConversationId(snapshot.activeConvId, snapshot.conversationOrder, snapshot.conversations);
             }
         });
+        if (typeof notifyPluginRuntimeConversationSaved === 'function') {
+            try { notifyPluginRuntimeConversationSaved(conv); }
+            catch (error) { reportPersistPostSaveError('plugin runtime conversation event', error); }
+        }
     } finally {
         delete conv._messageCommitInProgress;
     }
@@ -59,7 +63,12 @@ async function persistConversationMessageMutation(conv, mutate, options) {
     function commit(c, validateOnly) {
         if (JSON.stringify(c.messages) !== source || (mvuSource !== null && getMvuContextStamp(c) !== mvuSource) || (options.validate && !options.validate(c))) return false;
         if (validateOnly) return true;
-        c.messages = JSON.parse(JSON.stringify(candidate.messages));
+        // Unchanged messages keep ownership of pending display work and cached rows.
+        var existingMessages = new Map(c.messages.map(function(message) { return [message.id, message]; }));
+        c.messages = candidate.messages.map(function(message) {
+            var existing = existingMessages.get(message.id);
+            return existing && JSON.stringify(existing) === JSON.stringify(message) ? existing : JSON.parse(JSON.stringify(message));
+        });
         c.summaries = JSON.parse(JSON.stringify(candidate.summaries));
         c.updated = candidate.updated;
         c._wiCache = null;

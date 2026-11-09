@@ -404,6 +404,8 @@ async function assertFrontendPublicCardListUI() {
 
 async function assertFrontendPublicCardImportFlow() {
   const sources = await Promise.all([
+    '../../../src/app/worldbook/42-worldbook-st-export-format.js',
+    '../../../src/app/worldbook/42-worldbook-bindings.js',
     '../../../src/app/library/60-public-card-import-helpers.js',
     '../../../src/app/library/60-public-card-import-ui.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
@@ -421,6 +423,7 @@ async function assertFrontendPublicCardImportFlow() {
   const context = {
     dom: { cardLibraryModal: modal },
     state: { characters: {}, worldBooks: {} },
+    makeId: () => 'public-book-test',
     currentView: 'library',
     async fetch(url) {
       events.push(`fetch:${url}`);

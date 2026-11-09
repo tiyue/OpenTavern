@@ -41,6 +41,10 @@ function captureRequestDiagnostic(payload, beforeMessages, options) {
         postProcessing: settings.promptPostProcessing || 'auto', estimatedTokens: estimatedTokens, modelCapacity: capacity,
         capacityNotice: capacity ? (estimatedTokens + (payload.max_tokens || 0) > capacity ? '估算可能超出容量；未自动删减历史' : '估算未超出容量') : '容量未知；估算不能证明请求安全',
         actualMaxTokens: payload.max_tokens, corrected: options.corrected === true,
+        retrieval: (payload && (payload._retrieval || (payload.messages && payload.messages._retrieval))) ||
+            (beforeMessages && beforeMessages._retrieval) || null,
+        retrievalPreviewNote: (payload && (payload._retrievalPreviewNote || (payload.messages && payload.messages._retrievalPreviewNote))) ||
+            (beforeMessages && beforeMessages._retrievalPreviewNote) || '',
         beforeMessages: JSON.parse(JSON.stringify(beforeMessages)), payload: JSON.parse(JSON.stringify(payload))
     };
     recentRequestDiagnostics.push(diagnostic);

@@ -51,6 +51,7 @@ function buildAppDataSnapshot(options) {
         activeConvId: getCloudSyncSnapshotActiveConversationId(),
         worldBooks: cloneCloudSyncSnapshotValue(state.worldBooks, {}),
         characters: cloneCloudSyncSnapshotValue(state.characters, {}),
+        documents: cloneCloudSyncSnapshotValue(state.documents, {}),
         charactersMigrated: !!state._charactersMigrated,
         lastSaved: Number.isFinite(Number(options.lastSaved)) ? Number(options.lastSaved) : Date.now()
     };

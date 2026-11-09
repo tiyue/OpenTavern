@@ -16,7 +16,8 @@ function createStorageRecoveryCandidate(backend, data) {
         lastSaved: data.lastSaved || 0,
         convCount: Object.keys(data.conversations || {}).length,
         charCount: Object.keys(data.characters || {}).length,
-        wbCount: Object.keys(data.worldBooks || {}).length
+        wbCount: Object.keys(data.worldBooks || {}).length,
+        docCount: Object.keys(data.documents || {}).length
     };
 }
 
@@ -25,6 +26,7 @@ function hasRecoverableStorageData(data) {
         Object.keys(data.conversations || {}).length > 0 ||
         Object.keys(data.characters || {}).length > 0 ||
         Object.keys(data.worldBooks || {}).length > 0 ||
+        Object.keys(data.documents || {}).length > 0 ||
         data.lastSaved ||
         data.settings
     ));
@@ -32,7 +34,7 @@ function hasRecoverableStorageData(data) {
 
 function sortStorageRecoveryCandidates(candidates) {
     candidates.forEach(function(candidate) {
-        candidate.hasUserData = !!(candidate.convCount || candidate.charCount || candidate.wbCount);
+        candidate.hasUserData = !!(candidate.convCount || candidate.charCount || candidate.wbCount || candidate.docCount);
     });
     candidates.sort(function(a, b) {
         return ((b.hasUserData ? 1 : 0) - (a.hasUserData ? 1 : 0)) || ((b.lastSaved || 0) - (a.lastSaved || 0));

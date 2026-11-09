@@ -14,8 +14,9 @@ function collectWorldInfoActivationEntries(conv) {
     if (!conv) return entries;
     if (conv.worldBookMode === 'off') return entries;
 
-    if (Array.isArray(conv.worldBookIds) && conv.worldBookIds.length > 0) {
-        conv.worldBookIds.forEach(function(wbId) {
+    var effectiveIds = typeof getEffectiveWorldBookIds === 'function' ? getEffectiveWorldBookIds(conv) : (conv.worldBookIds || []);
+    if (effectiveIds.length > 0) {
+        effectiveIds.forEach(function(wbId) {
             var wb = state.worldBooks && state.worldBooks[wbId];
             if (wb && wb.entries) {
                 Object.keys(wb.entries).forEach(function(uid) {
@@ -25,6 +26,10 @@ function collectWorldInfoActivationEntries(conv) {
                 });
             }
         });
+    }
+
+    if (typeof getContentModuleWorldBookEntries === 'function') {
+        getContentModuleWorldBookEntries(conv).forEach(function(entry) { entries.push(entry); });
     }
 
     if (conv.worldInfo && conv.worldInfo.entries) {
@@ -41,7 +46,7 @@ function collectWorldInfoActivationEntries(conv) {
 function buildCombinedWorldInfo(entries) {
     var wi = { entries: {} };
     entries.forEach(function(e) {
-        var uid = e.uid != null ? String(e.uid) : Date.now().toString();
+        var uid = (e._sourceWorldBookId || 'inline') + ':' + (e.uid != null ? String(e.uid) : Object.keys(wi.entries).length);
         wi.entries[uid] = e;
     });
     return wi;

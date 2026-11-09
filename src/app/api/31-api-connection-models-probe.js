@@ -9,10 +9,9 @@
  * 修改时注意：不同服务的接口格式不完全相同，修改时要保留 OpenAI 与 Ollama 兼容分支。
  */
 // ==================== API Connection Models Probe ====================
-async function runApiModelsEndpointTest(modelsUrl, apiKey, tested) {
+async function runApiModelsEndpointTest(modelsUrl, apiKey, tested, protocol) {
     tested.push('GET ' + modelsUrl);
-    var headers = {};
-    if (apiKey) headers.Authorization = 'Bearer ' + apiKey;
+    var headers = buildApiAuthHeaders(apiKey, protocol, false);
     var resp = await fetchApiTestWithTimeout(modelsUrl, { method: 'GET', headers: headers });
 
     if (resp.ok) {

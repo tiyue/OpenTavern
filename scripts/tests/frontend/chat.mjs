@@ -13,6 +13,8 @@ async function assertFrontendMessageContentHelpers() {
     '../../../src/app/chat/61-message-cot-render.js',
     '../../../src/app/chat/61-message-content-render.js',
     '../../../src/app/chat/61-message-display-model.js',
+    '../../../src/app/chat/60-composer-images.js',
+    '../../../src/app/conversation/32-user-message-versions.js',
     '../../../src/app/chat/61-chat-message-html.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 

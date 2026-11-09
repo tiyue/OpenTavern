@@ -9,13 +9,15 @@
  * 修改时注意：初始化只能执行一次，否则一个点击会触发多次相同操作。
  */
 // ==================== Send Message Helpers ====================
-function appendUserMessageToConversation(conv, text) {
-    conv.messages.push({ role: 'user', content: text, id: makeId() });
+function appendUserMessageToConversation(conv, text, attachments) {
+    var message = { role: 'user', content: text, id: makeId() };
+    if (attachments && attachments.length) message.attachments = JSON.parse(JSON.stringify(attachments));
+    conv.messages.push(message);
     normalizeConversationMessageIdentity(conv);
     conv.updated = Date.now();
     conv._wiBudgetWarning = false;
     if (conv.title === t('title_new_chat_match')) {
-        conv.title = text.slice(0, 50) + (text.length > 50 ? '...' : '');
+        conv.title = text ? text.slice(0, 50) + (text.length > 50 ? '...' : '') : '图片对话';
     }
 }
 
@@ -30,9 +32,16 @@ function getMentionedGroupSpeakerForMessage(text, conv) {
 
 function prepareGroupSpeakerForUserMessage(conv, text) {
     if (!isGroupChat(conv)) return;
-
-    var mentioned = getMentionedGroupSpeakerForMessage(text, conv);
-    conv._nextGroupSpeaker = mentioned || getNextGroupSpeaker(conv);
+    var mentioned = pendingGroupMention;
+    if (mentioned && findGroupMemberByName(conv, mentioned.name) && findGroupMemberByName(conv, mentioned.name).muted) mentioned = null;
+    if (pendingGroupMention) clearPendingGroupMention();
+    if (mentioned) { conv._nextGroupSpeaker = mentioned; return; }
+    if (typeof getGroupSpeakerForUserMessage === 'function') {
+        var resolved = getGroupSpeakerForUserMessage(conv, text);
+        conv._nextGroupSpeaker = resolved.speaker;
+        return;
+    }
+    conv._nextGroupSpeaker = getNextGroupSpeaker(conv);
 }
 
 function resetMessageComposerInput() {

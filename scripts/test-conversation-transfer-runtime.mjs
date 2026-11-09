@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourceFiles = [
+  'src/app/api/31-api-protocol.js',
   'src/app/sync/19-cloud-sync-settings-policy.js',
   'src/app/sync/22-cloud-sync-apply-settings.js',
   'src/app/conversation/32-message-identity.js',

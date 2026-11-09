@@ -87,7 +87,7 @@
                 </button>
             </div>
         </div>
-        <input type="file" id="convImportFile" accept=".json" class="hidden">
+        <input type="file" id="convImportFile" accept=".json,.jsonl,application/json" class="hidden">
         <input type="file" id="wiImportFile" accept=".json" class="hidden">
     </aside>
 
@@ -199,7 +199,7 @@
         </div>
 
         <!-- Input Area -->
-        <div class="flex-shrink-0 px-4 py-3 border-t border-white/5 bg-zinc-950/15 backdrop-blur-2xl">
+        <div id="chatComposer" class="flex-shrink-0 px-4 py-3 border-t border-white/5 bg-zinc-950/15 backdrop-blur-2xl">
             <div id="tokenInfo" class="flex items-center justify-between mb-2 px-1 hidden">
                 <span class="text-[10px] text-zinc-500"><span data-i18n="context_label">Context:</span> <span id="tokenCount">0</span> <span data-i18n="msgs_label">msgs</span></span>
                 <div class="flex-1 mx-3 h-1 bg-white/5 rounded-full overflow-hidden">
@@ -207,6 +207,13 @@
                 </div>
                 <span id="tokenMax" class="text-[10px] text-zinc-500">max 10</span>
             </div>
+            <div id="quickReplyBar" class="quick-reply-bar" role="group" hidden></div>
+            <div class="composer-image-tools">
+                <button id="composerImageBtn" type="button" aria-label="添加图片">图片</button>
+                <span id="composerImageStatus" role="status" aria-live="polite">最多 4 张 · 需视觉模型</span>
+                <input id="composerImageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
+            </div>
+            <div id="composerImagePreview" class="composer-image-preview" hidden></div>
             <div class="flex items-center gap-2 sm:gap-2.5">
                 <!-- @ 按钮移到左侧，与输入框高度对齐（手机端优化） -->
                 <button id="mentionBtn"

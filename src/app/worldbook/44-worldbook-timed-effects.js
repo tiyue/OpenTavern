@@ -25,7 +25,7 @@ function processTimedEffects(conv, activatedEntries) {
 
     for (var i = 0; i < activatedEntries.length; i++) {
         var e = activatedEntries[i];
-        var uid = String(e.uid);
+        var uid = typeof getWorldInfoActivationEntryId === 'function' ? getWorldInfoActivationEntryId(e) : String(e.uid);
         var state = timed[uid] || { sticky: 0, cooldown: 0, delay: 0, lastActivated: 0 };
 
         var delay = e.delay || 0;

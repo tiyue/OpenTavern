@@ -15,7 +15,7 @@ const context = {
   notifyCloudSyncSnapshotApplied() {},
 };
 vm.createContext(context);
-for (const file of ['conversation/19-conversation-order-helpers.js', 'sync/19-cloud-sync-settings-policy.js', 'sync/22-cloud-sync-apply-settings.js', 'storage/24-storage-compat.js', 'state/30-state-default-settings.js', 'presets/62-sillytavern-preset-model.js', 'transfer/63-conversation-export-helpers.js', 'sync/22-cloud-sync-apply.js']) {
+for (const file of ['api/31-api-protocol.js', 'conversation/19-conversation-order-helpers.js', 'sync/19-cloud-sync-settings-policy.js', 'sync/22-cloud-sync-apply-settings.js', 'storage/24-storage-compat.js', 'state/30-state-default-settings.js', 'presets/62-sillytavern-preset-model.js', 'transfer/63-conversation-export-helpers.js', 'sync/22-cloud-sync-apply.js']) {
   vm.runInContext(fs.readFileSync(path.join(root, 'src/app', file), 'utf8'), context, { filename: file });
 }
 
@@ -28,6 +28,7 @@ const privateFields = {
   cloudSyncEncrypted: true, cloudSyncPassphrase: 'remote-test-passphrase',
   cardRuntime: { enabled: true, grants: ['read-all'] }, cardRuntimeEnabled: true,
   cardRuntimeGrants: { card: ['read-all'] }, cardRuntimePermissions: ['network'],
+  pluginGrants: { 'conversation-stats': { fingerprint: 'sha256:' + '0'.repeat(64) } },
 };
 const remote = {
   settings: { ...privateFields, temperature: 0, maxTokens: 4096, showMsgTokenUsage: true, futurePublicOption: { value: 7 }, apiEndpoint: 'https://remote.invalid/v1', summarizeApiEndpoint: 'https://remote.invalid/summary' },
@@ -43,8 +44,9 @@ context.applyCloudSyncSnapshot(remote);
 assert.equal(context.state.settings.futureAccessToken, undefined, 'Remote future credentials must not enter local settings.');
 for (const key of Object.keys(privateFields)) {
   assert.equal(context.getCloudSyncPortableSettings(privateFields)[key], undefined, `Outgoing ${key} must be excluded.`);
-  assert.equal(context.saved.settings[key], context.defaultSettings()[key], `Incoming ${key} must not be adopted.`);
+  assert.equal(JSON.stringify(context.saved.settings[key]), JSON.stringify(context.defaultSettings()[key]), `Incoming ${key} must not be adopted.`);
 }
+assert.equal(context.getCloudSyncPortableSettings({ contentModuleGrants: { module: { approved: { '1.0.0': 'c1:1:2:3' } } } }).contentModuleGrants, undefined, 'Outgoing content module grants must be excluded.');
 assert.equal(context.state.settings.temperature, 0);
 assert.equal(context.state.settings.maxTokens, 4096);
 assert.equal(context.state.settings.showMsgTokenUsage, true);

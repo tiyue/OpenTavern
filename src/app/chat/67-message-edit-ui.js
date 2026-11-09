@@ -18,64 +18,46 @@ function copyMessageText(text) {
 }
 
 function editMessage(actualIdx, triggerBtn) {
-    var conv = getActiveConv();
-    if (!conv || !conv.messages[actualIdx]) return;
-    if (state.isGenerating) return;
-
-    var originalContent = conv.messages[actualIdx].content || '';
-    var targetId = conv.messages[actualIdx].id;
-    var targetRevision = getMessageRevision(conv.messages[actualIdx]);
+    var conv = getActiveConv(), msg = conv && conv.messages[actualIdx];
+    if (!msg || state.isGenerating || conv._messageCommitInProgress) return;
+    var originalContent = msg.content || '', targetId = msg.id, targetRevision = getMessageRevision(msg);
     var bubble = findEditableMessageBubble(actualIdx, triggerBtn);
-    if (!bubble) {
-        renderMessagesOnly();
-        return;
-    }
-
+    if (!bubble) return;
     var originalHTML = bubble.innerHTML;
     var ta = createMessageEditTextarea(originalContent, bubble.offsetWidth);
-    var closed = false;
-
-    bubble.innerHTML = '';
-    bubble.appendChild(ta);
-    ta.focus();
-    ta.setSelectionRange(ta.value.length, ta.value.length);
-
-    function restoreOriginal() {
-        closed = true;
-        bubble.innerHTML = originalHTML;
-    }
-
-    async function saveEdit() {
-        if (closed) return;
-        closed = true;
-
-        ta.disabled = true;
+    var controls = document.createElement('div'); controls.className = 'flex flex-wrap gap-2 mt-2';
+    var errorText = document.createElement('p'); errorText.className = 'feature-error'; errorText.setAttribute('role', 'alert');
+    var saving = false, closed = false;
+    bubble.replaceChildren(ta, controls, errorText); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+    function restore() { if (saving) return; closed = true; bubble.innerHTML = originalHTML; }
+    async function save(regenerate) {
+        if (saving || closed) return;
+        if (!ta.value.trim()) { errorText.textContent = '正文不能为空。'; ta.focus(); return; }
+        if (ta.value.trim() === originalContent && !regenerate) { restore(); return; }
+        if (msg.role === 'user' && regenerate && conv.messages.slice(actualIdx + 1).some(function(item) { return item.role === 'user'; })) {
+            if (!await confirmFeatureAction('将创建新分支重新生成，原会话和后续消息完整保留。', '保存并重新生成')) return;
+        }
+        saving = true; ta.disabled = true; controls.querySelectorAll('button').forEach(function(button) { button.disabled = true; });
         try {
-            var result = await persistConversationMessageMutation(conv, function(candidate) {
-                var index = candidate.messages.findIndex(function(message) { return message.id === targetId && getMessageRevision(message) === targetRevision; });
+            if (msg.role === 'user') await saveUserMessageEdit(conv, targetId, targetRevision, ta.value, regenerate);
+            else await persistConversationMessageMutation(conv, function(candidate) {
+                var index = candidate.messages.findIndex(function(item) { return item.id === targetId && getMessageRevision(item) === targetRevision; });
                 if (index < 0) throw new Error(t('generation_target_changed'));
                 return applyMessageEditContent(candidate, index, originalContent, ta.value);
-            });
-            if (result === 'changed') {
-                if (getActiveConv() === conv) renderMessagesOnly();
-                renderConversationListOnly();
-            } else bubble.innerHTML = originalHTML;
-        } catch (error) {
-            bubble.innerHTML = originalHTML;
-            alert(t('generation_save_failed') + ': ' + error.message);
-        }
+            }, { validate: function() { return !state.isGenerating && getActiveConv() === conv; } });
+            closed = true;
+            if (getActiveConv() === conv) renderMessagesOnly();
+            renderConversationListOnly();
+        } catch (error) { errorText.textContent = t('generation_save_failed') + ': ' + error.message; }
+        finally { saving = false; ta.disabled = false; controls.querySelectorAll('button').forEach(function(button) { button.disabled = false; }); }
     }
-
-    ta.addEventListener('input', function() { autoResizeMessageEditTextarea(ta); });
-    ta.addEventListener('blur', saveEdit);
-    ta.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-            e.preventDefault();
-            saveEdit();
-        } else if (e.key === 'Escape') {
-            e.preventDefault();
-            restoreOriginal();
-        }
+    (msg.role === 'user' ? [['保存并重新生成', function() { return save(true); }], ['仅保存', function() { return save(false); }]] : [['保存', function() { return save(false); }]]).concat([['取消', restore]]).forEach(function(item) {
+        var button = document.createElement('button'); button.type = 'button'; button.className = 'msg-action-btn message-text-action'; button.textContent = item[0]; button.addEventListener('click', item[1]); controls.appendChild(button);
     });
-    setTimeout(function() { autoResizeMessageEditTextarea(ta); }, 0);
+    ta.addEventListener('input', function() { autoResizeMessageEditTextarea(ta); });
+    ta.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') { event.preventDefault(); restore(); }
+        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); save(msg.role === 'user'); }
+    });
+    autoResizeMessageEditTextarea(ta);
 }

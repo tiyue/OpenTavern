@@ -10,6 +10,7 @@
  */
 // 设置保存后的副作用：刷新界面、存储状态及相关集成功能。
 function applyClosedSettingsEffects() {
+    if (typeof enforceConnectionProfileCredentialPersistencePolicy === 'function') enforceConnectionProfileCredentialPersistencePolicy();
     persistState();
     dom.settingsModal.classList.add('hidden');
 

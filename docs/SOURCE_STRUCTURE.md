@@ -1,12 +1,14 @@
 # 源码结构与拆分边界
 
-当前聊天应用的 JS 业务源码位于 `src/app/` 的 24 个业务目录，HTML/CSS 源文件位于 `src/ui/`。新增 `offline/` 只负责应用资源缓存、更新与私有图片副本；用户存储、两套同步协议和 F18/F19 权限边界沿用现有实现。
+当前聊天应用的 JS 业务源码位于 `src/app/` 的 33 个业务目录，HTML/CSS 源文件位于 `src/ui/`。新增 `offline/` 只负责应用资源缓存、更新与私有图片副本；用户存储、两套同步协议和 F18/F19 权限边界沿用现有实现。阶段 B 新增 `retrieval/` 与 `documents/`：向量与查询缓存只在本机派生 IndexedDB，资料原文属于 canonical 用户数据；阶段 C1 新增 `automation/`：规则定义属于普通设置，本机授权与执行记录不进入同步，运行队列只在内存；阶段 C2 新增 `scenarios/`：场景包定义属于普通设置，本机授权与执行记录不进入同步，剧情进度依附会话消息与来源修订；阶段 C3 新增 `modules/`：模块定义/绑定/会话停用记录属于普通设置，本机内容许可不进入同步/备份，运行时只读投影世界书、正则、C1 规则、C2 场景与 MVU InitVar。阶段 D1 新增 `tools/`：工具注册/schema/本机会话许可、原生协议累积、工具轮运行时与只读界面；会话授权不进入同步/备份，工具 trace 随消息版本进入 canonical 数据。阶段 D2 新增 `plugins/`：本地插件包/严格 manifest/内容摘要、sandbox iframe + Blob DedicatedWorker 隔离、独立本机能力授权、受检事件/统计/私有存储/UI/网络 RPC 与二级管理界面；插件定义与私有数据进入同步/备份，授权和运行状态不进入。
 
 ## 当前业务目录
 
 正则 Worker 专项（2026-10-15）：`assets/js/regex-worker.js` 是隔离程序的唯一源码；`scripts/build-app.js` 在装配 `prompt/40-regex-worker-runtime.js` 时精确替换源码占位，将其作为字符串内嵌。运行时优先使用 Blob Worker 并串行复用，异常/超时销毁后按需重建；同源脚本保留旧标签页和不支持 Blob 的兼容。不额外新增业务分片；缺少源码或占位异常会在写入 bundle 前拒绝构建。构建产物不能手改。`test-regex-worker-browser.mjs` 已纳入第七组发布浏览器检查，覆盖首次完全断网、复用、真实超时后重建、任务关联与同源回退。
 
-`src/app/manifest.json` 保存相对于 `src/app/` 的路径，当前 487 项。新增 `core/10-runtime-assets.js` 与 `offline/` 三个分片；原有分片相对顺序保持，目录不决定执行顺序。
+`src/app/manifest.json` 保存相对于 `src/app/` 的路径，当前 503 项。2026-10-22 工程整理移除 28 个仅含注释的历史分片，保留 459 项；该轮主站功能对齐新增 8 个业务分片，分别负责协议、图片输入、用户版本、流式恢复、显式重试、预设事务、分段传输与世界书绑定；2026-11-07 酒馆扩展阶段 A 新增 10 个业务分片（连接档案、快捷回复、群聊策略、分支图、预设差异），阶段 B 新增 7 个业务分片（共享索引存储、Embedding 适配、来源分块、检索运行、检索设置界面、资料实体、资料管理界面），阶段 C1 新增 4 个业务分片（自动化规则定义、声明式条件、有界运行时、管理界面），阶段 C2 新增 3 个业务分片（场景包定义、剧情运行时、管理/预演界面），阶段 C3 新增 4 个业务分片（模块素材、模块定义、只读装配运行时、管理界面），阶段 D1 新增 4 个业务分片（工具注册/schema/许可、原生工具协议累积、工具轮运行时、消息与设置界面，位于 `tools/`），阶段 D2 新增 4 个业务分片（严格插件包/摘要/授权、隔离文档与 Worker SDK、运行/RPC、管理界面，位于 `plugins/`）。目录不决定执行顺序。
+
+`examples/plugins/conversation-stats-v1.json` 与 `v2.json` 是可通过管理界面实际导入的完整插件包；它们不进入 `src/app/manifest.json`，也不改变核心启动路径。
 
 离线构建先生成锁定的本地运行资源，再从规范 HTML、核心及公共字节生成 releaseId、不可变快照和清单。`scripts/build-offline-manifest.mjs` 的纯计算接口也供漂移检查使用；生成目录、根清单及 SW 不能手改。`src/offline/opentavern-sw.js` 是独立 SW 唯一源码，不进入应用 IIFE；页面资源管理器与 SW 通过受限消息协作，均不改用户存储。
 
@@ -20,12 +22,22 @@
 | `storage/`、`sync/` | OPFS/IndexedDB、恢复、状态显示；云同步加密、传输、合并和调度 |
 | `state/`、`api/` | 应用设置/初始化/可靠保存；供应商兼容、连接与模型探测 |
 | `conversation/` | 消息身份、回复版本、群聊、开场、新聊天和会话列表 |
+| `connections/`、`quick-replies/` | 命名连接档案与按用途选择/本机凭据配对；全局/角色/会话快捷回复按钮组与输入区按钮条 |
+| `automation/` | 事件触发自动化的规则定义/修订、声明式条件、本机授权、六类事件运行、去重/限流、试算与二级管理界面 |
+| `scenarios/` | 剧情场景包/事件定义、含稳定事件 ID 的内容指纹授权、开场（含空会话显式开始）与保存后运行、共用步数上限/取消、原子剧情+变量+一次性记录、消息前缀/选中版本来源、纯回放进度、分支/版本失效、预演与二级管理界面 |
+| `modules/` | 跨角色可启停声明式内容模块：稳定模块 ID/精确版本/逐段编码内部身份、依赖/宿主引用校验、SHA-256 本机内容与发送许可、世界书/正则/C1 规则/C2 场景/MVU InitVar 只读投影、绑定与会话停用继承、有界本地素材、导入导出/差异更新/回退与二级管理界面 |
+| `tools/` | 模型工具注册/严格 schema/本机会话许可、原生协议累积与工具轮运行时、只读当前会话搜索；消息内调用记录与设置页授权/说明/执行记录 |
+| `plugins/` | 通用插件：本地包/manifest/来源/版本/摘要/依赖/权限、sandbox iframe + Blob DedicatedWorker 隔离、本机能力授权、有界事件/当前会话统计/私有命名空间/受控 UI/受检网络 RPC、候选更新差异/回退/卸载与数据导出 |
+| `retrieval/` | 独立本机派生索引、OpenAI 兼容 Embedding 适配、来源修订/分块、相似度检索、预算、注入诊断与设置界面 |
+| `documents/` | UTF-8 TXT/Markdown 资料实体、修订、全局/角色/会话绑定、可靠保存与二级资料库界面 |
 | `prompt/`、`worldbook/`、`mvu/` | 提示词/宏/正则；世界书导入编辑与激活；变量解析、模板和回放 |
 | `generation/`、`image/`、`summary/` | 模型请求/流式、共享 operation/runtime 与消息提交；图片生成；摘要生成、来源校验与管理 |
 | `library/`、`character/` | 公共与私有卡库/拖动排序；角色导入、编辑、导出和注册 |
 | `chat/`、`card-runtime/` | 聊天气泡、静态渲染与消息操作；卡片许可、依赖、网络、桥接和隔离窗口 |
 | `presets/`、`transfer/` | 预设导入/编辑/执行；备份计划、可靠恢复和会话传输 |
 | `settings/`、`events/` | 设置草稿、分类表单与保存；各功能的 DOM 事件绑定 |
+
+主站对齐的六组专项运行回归由 `npm run check:upstream` 执行；原生协议/图片/版本/草稿/预设/JSONL/世界书的真实浏览器操作纳入第十组发布门禁，详见 [对齐记录](upstream-alignment-20261022.md)。
 
 ### 页面与样式
 
@@ -62,8 +74,11 @@ Python `server/opentavern_sync_server.py` 从 2332 行降为 124 行，继续负
 - `check:structure` 检查 JS 清单完整性、HTML/CSS 精确装配、产物漂移拒绝和缺失片段不产生部分写入，已纳入 `npm run check`。
 - T09 新增 `scripts/check-app-contracts.mjs`：用 TypeScript AST 解析 classic 分片和独立 ESM 模块，拒绝顶层同词法作用域重复符号、manifest 重复登记、T07/T08 显式接口/注入依赖/装配顺序缺项；函数、块、IIFE 和独立模块局部同名不误报。该检查只证明静态声明、返回接口和已列调用接线，不证明全部动态全局调用。`scripts/test-app-contracts.mjs` 覆盖重复/局部同名/注释字符串、依赖顺序/导出/重复登记非法夹具，以及失败构建保留原产物字节。
 - `npm run check:app-contracts` 运行上述夹具与契约检查；`npm run build` 的 app 拼装入口先执行契约检查，失败时不会写入 `assets/js/app.js`。
-- T10 `npm run check:release` 编排 Sites 构建、完整 check、Sites 产物检查和六组 Chrome 回归，记录源码提交与受控文件、完整 dist/预览树哈希，拒绝源码/产物漂移或预览与部署字节不一致。每组截图与机器报告单独存放，覆盖 390/1280px 浅暗与真实系统主题切换。`check:release-tool` 检查失败路径、端口归属及 Windows npm 启动；工具不调用供应商或部署 API。
+- T10 `npm run check:release` 编排 Sites 构建、完整 check、Sites 产物检查和十组 Chrome 回归，记录源码提交与受控文件、完整 dist/预览树哈希，拒绝源码/产物漂移或预览与部署字节不一致。每组截图与机器报告单独存放，覆盖 390/1280px 浅暗与真实系统主题切换。`check:release-tool` 检查失败路径、端口归属及 Windows npm 启动；工具不调用供应商或部署 API。
 - `scripts/test-message-reliability-runtime.mjs` 的 VM 夹具装载真实 `generation/50-generation-transport-module.js` 与 `generation/50-generation-integrations.js`，覆盖传输协议失败和共享序号、operation/runtime、重生成/续写的候选保存；测试通过真实 `commitResponseVersion` 与持久化队列验证成功写入、迟到拒绝和旧版本保护。
+- `scripts/test-tavern-stage-c3-runtime.mjs` 装载真实 `modules/`、C1 自动化、C2 场景与 `persistState`，覆盖内容模块严格包格式/依赖/许可、分隔符身份与作者引用重映射、超量/重复/旧版校验、包大小、SHA-256 指纹、伪造 ready 标记、`StorageService.saveAll` 拒绝、多范围去重、会话停用继承、世界书/正则/C1/C2/MVU 投影、提示词来源和同步排除；协调者外部证据 `stage-c3-browser-review-6` 已通过真实 Chrome 主流程，最终 release `c80cc7f03d08160a2bc46ff8` 已通过协调者完整检查、实际 Chrome、可靠保存故障注入、真实素材与 v1/v2 双端同步；证据见开发验收记录。
+- `scripts/test-tavern-stage-d1-runtime.mjs` 装载真实 API 协议、工具注册/协议/运行时、传输、消息身份/版本和便携设置策略，覆盖 OpenAI/Anthropic JSON/SSE 多调用与任意字节切分、中文 UTF-8、`input_json_delta` 完整关闭、原生 thinking/signature/redacted 顺序、同 ID/重复 ID/未知/未授权/非法/超量参数、轮数/调用/意外 EOF、停止/撤权/切会话/源变化、off-path、原生历史回放、持久 trace、无 trace 旧修订和本地授权排除；`scripts/test-tavern-stage-d1-browser.mjs` 使用真实扩展设置与合成供应商检查 wire payload、刷新零重放、导出不含本机授权和主题矩阵，本轮执行器未启动 Chrome。
+- `scripts/test-tavern-stage-d2-runtime.mjs` 装载真实插件包、隔离文档、运行时、便携设置策略与备份恢复夹具，覆盖保留 ID/未知字段/超量包/入口/资源/摘要、原型键、授权指纹、依赖缺失/循环、真实 v1/v2 示例代码、统计边界、私有命名空间、UI 文本/按钮限制、网络 origin/method/header/credentials/redirect/body/response 限制、探针拒绝、重复/限频/迟到调用与设置保存失败；`scripts/test-tavern-stage-d2-browser.mjs` 为完整管理 UI、隔离绕过、真实统计/更新/回退/数据边界与 390/1280 浅暗/系统截图脚本，本轮执行器仅运行 runtime，未启动 Chrome。
 
 ### T08 生成传输模块边界
 
@@ -103,9 +118,29 @@ flowchart LR
 | `card-runtime/` | L3 不同来源的独立运行服务；与主应用分开配置、启动和部署 |
 | `scripts/` | 拼接/部署构建、契约和 VM 回归、隔离浏览器冒烟 |
 
-本次未拆分 `60-public-card-data.js` 和国际化词典。它们主要是成组数据，体积大不等于职责混杂；拆成更多文件不能改善调用边界。其他已经较小的分片继续保持原样。
+### 生成物、本机状态与可选平台
+
+| 路径 | 管理方式 |
+| --- | --- |
+| `node_modules/` | 已忽略的开发依赖，由 `npm ci` 恢复；不是应用业务源码 |
+| `.sites-public/`、`dist/` | 已忽略的 Sites 中间目录和部署包，由 `npm run build:sites` 重建；不要手工修改 |
+| `assets/offline/`、`offline-manifest.json`、`opentavern-sw.js` | 已忽略的本地版本快照与入口配套产物，由 `npm run build` 重建；SW 源码在 `src/offline/` |
+| `.next/`、`.vinext/`、`.sites-runtime/` | 框架生成或旧工具留下的本机目录，不承载业务源码；确认没有运行中的预览后才清理 |
+| `.wrangler/` | 本机 Workers 运行状态，可能包含本地数据库；不能当作普通缓存批量删除 |
+| `android/` | 已忽略的可选平台工作区，包含网页和资源副本；未纳入当前 npm 构建命令，本次保留 |
+| `.idea/`、`.qoder/`、`.agents/`、`.codex/` | 编辑器或代理工具目录；不作为应用资源打包，不随业务源码整理删除 |
+
+`cards/` 是原始角色卡与素材，部署准备阶段只复制公开目录实际引用的资源。构建副本可重建，不代表原始素材、Android 工作区或本地数据库可以删除。
+
+### 整理边界
+
+2026-10-22 只删除无执行语句的注释分片，不移动有行为的函数或改变共享作用域。用整理前后的去注释 AST 输出对照确认行为代码一致，并运行构建、完整检查和浏览器冒烟。此轮为本地工程整理，不构成新的线上发布。
+
+`60-public-card-data.js` 和国际化词典主要是成组数据，体积大不等于职责混杂；不继续拆成更多文件。尚存的共享作用域依赖应按业务接口逐步处理，不能将目录归类视为全仓模块化完成。
 
 ## 第一轮文件职责拆分
+
+以下为历次拆分记录；当前有效文件与执行顺序始终以 `src/app/manifest.json` 为准，仅含注释的旧入口已在本轮移除。
 
 以下每组从上到下保持原源码顺序，仍在原清单位置连续装配。可靠保存位于 `src/app/state/`，MVU 位于 `src/app/mvu/`，卡片排序位于 `src/app/library/`，子窗口/宿主位于 `src/app/card-runtime/`。表中列出分片 basename；完整路径由清单记录。保留全部代码、注释、共享状态和函数名；新增文件开头的空行也用于保持拼接结果一致。
 

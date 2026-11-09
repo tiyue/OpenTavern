@@ -79,8 +79,6 @@ async function assertFrontendWorldBookFormatHelpers() {
     '../../../src/app/worldbook/42-worldbook-import-format.js',
     '../../../src/app/worldbook/42-worldbook-st-export-format.js',
     '../../../src/app/worldbook/42-worldbook-character-book-export.js',
-    '../../../src/app/worldbook/42-worldbook-export-format.js',
-    '../../../src/app/worldbook/42-worldbook-format.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
   const context = {
@@ -160,10 +158,8 @@ async function assertFrontendWorldBookActivation() {
     '../../../src/app/worldbook/44-worldbook-match-keys.js',
     '../../../src/app/worldbook/44-worldbook-match-filters.js',
     '../../../src/app/worldbook/44-worldbook-scan-text.js',
-    '../../../src/app/worldbook/44-worldbook-matching.js',
     '../../../src/app/worldbook/44-worldbook-budget.js',
     '../../../src/app/worldbook/44-worldbook-timed-effects.js',
-    '../../../src/app/worldbook/44-worldbook-activation-helpers.js',
     '../../../src/app/worldbook/44-worldbook-activation-collection.js',
     '../../../src/app/worldbook/44-worldbook-activation-cache.js',
     '../../../src/app/worldbook/44-worldbook-activation-groups.js',
@@ -358,6 +354,7 @@ async function assertFrontendWorldBookActivationHelpers() {
 
 async function assertFrontendWorldBookMatchingHelpers() {
   const sources = await Promise.all([
+    '../../../src/app/chat/60-composer-images.js',
     '../../../src/app/prompt/41-prompt-controls.js',
     '../../../src/app/presets/62-sillytavern-preset-model.js',
     '../../../src/app/worldbook/44-worldbook-match-keys.js',
@@ -513,6 +510,7 @@ async function assertFrontendWorldBookEntryListUIHelpers() {
   const context = {
     dom: { wiEntryStats: { textContent: '' } },
     wiState: { selectedUid: 'e1', currentWorldBookId: 'wb1', viewMode: 'entries', dirty: false },
+    appendWorldBookBindingButtons(container, id) { container.appendChild(fakeElement()); events.push('bindings:' + id); },
     document: { createElement: fakeElement },
     t: (key) => key,
     escapeHtml: (value) => String(value),
@@ -536,8 +534,7 @@ async function assertFrontendWorldBookEntryListUIHelpers() {
   headerContainer.children[0].listeners.click();
   assert(context.wiState.viewMode === 'books' && context.wiState.currentWorldBookId === null && events.includes('header'), 'World book header back row should return to the book list.');
   context.wiState.currentWorldBookId = 'wb1';
-  headerContainer.children[1]._button.listeners.click();
-  assert(activeConv.worldBookIds.length === 0 && events.includes('dirty') && events.includes('books:filter'), 'World book association row should unlink the active book and refresh views.');
+  assert(events.includes('bindings:wb1') && headerContainer.children[1].children.length === 1, 'World book association row should delegate to the shared durable conversation/global binding controls.');
   headerContainer.children[2]._button.listeners.click();
   assert(events.includes('delete:wb1'), 'World book delete row should delete the active book.');
 

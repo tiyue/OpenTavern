@@ -33,7 +33,6 @@ function createWorldBookListRow(wb, linkedIds) {
             <div class="flex items-center gap-1 flex-shrink-0">
                 ${isLinked ? `
                     <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">${t('world_book_linked')}</span>
-                    <button class="world-book-unlink-btn opacity-0 group-hover:opacity-100 px-1.5 py-0 text-[10px] rounded bg-red-500/10 text-red-400 hover:bg-red-500/20" title="${t('world_book_unlink')}">${t('world_book_unlink')}</button>
                 ` : ''}
                 <button class="world-book-del-btn opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center text-red-400 hover:text-red-500 hover:bg-red-500/10 rounded text-xs transition-all" title="${t('world_book_delete_book')}">&times;</button>
             </div>
@@ -41,7 +40,7 @@ function createWorldBookListRow(wb, linkedIds) {
     `;
 
     row.addEventListener('click', function(e) {
-        if (e.target.closest('.world-book-del-btn') || e.target.closest('.world-book-unlink-btn')) return;
+        if (e.target.closest('button')) return;
         openWorldBookFromList(wb);
     });
 
@@ -53,12 +52,13 @@ function createWorldBookListRow(wb, linkedIds) {
         });
     }
 
-    var unlinkBtn = row.querySelector('.world-book-unlink-btn');
-    if (unlinkBtn) {
-        unlinkBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            unlinkWorldBookFromCurrentConversation(wb.id);
-        });
+    if (typeof appendWorldBookBindingButtons === 'function') {
+        var controls = document.createElement('div');
+        controls.className = 'flex flex-wrap items-center gap-2';
+        appendWorldBookBindingButtons(controls, wb.id);
+        var order = getWorldBookDisplayIds();
+        appendWorldBookOrderButtons(controls, order.indexOf(wb.id), order.length, function(direction) { return moveWorldBookDisplay(wb.id, direction); });
+        row.appendChild(controls);
     }
 
     return row;

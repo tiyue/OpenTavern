@@ -47,6 +47,7 @@ function exportSillyTavernPreset() {
                 });
             })
         }],
+        squashSystemMessages: preset.squashSystemMessages === true,
         extensions: Object.assign({}, preset.extensions || {}, {
             regex_scripts: regexScripts.map(function(script) {
                 return JSON.parse(JSON.stringify(script));

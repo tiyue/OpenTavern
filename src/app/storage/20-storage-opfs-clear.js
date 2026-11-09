@@ -15,6 +15,7 @@ function createEmptyOPFSSnapshot() {
         conversations: {},
         characters: {},
         worldBooks: {},
+        documents: {},
         conversationOrder: [],
         activeConvId: null,
         settings: {}

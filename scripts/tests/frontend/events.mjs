@@ -184,33 +184,25 @@ async function assertFrontendMessageOptionInteractions() {
 }
 
 async function assertFrontendSendMessageHelpers() {
-  const source = await readFile(new URL('../../../src/app/events/70-send-message-helpers.js', import.meta.url), 'utf8');
-  const events = [];
+  const sources = await Promise.all([
+    '../../../src/app/conversation/32-group-chat-members.js',
+    '../../../src/app/conversation/32-group-chat-speakers.js',
+    '../../../src/app/conversation/32-group-chat-message-helpers.js',
+    '../../../src/app/conversation/32-group-chat-strategies.js',
+    '../../../src/app/conversation/32-group-mention-pill.js',
+    '../../../src/app/conversation/32-group-mention-ui.js',
+    '../../../src/app/events/70-send-message-helpers.js',
+  ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const context = {
     pendingGroupMention: null,
     dom: { messageInput: { value: 'draft', style: { height: '42px' } } },
     makeId: () => 'user-id',
     Date: { now: () => 777 },
     t: (key) => (key === 'title_new_chat_match' ? 'New Chat' : key),
-    clearPendingGroupMention() {
-      events.push('clear');
-      context.pendingGroupMention = null;
-    },
-    parseGroupMention(text) {
-      events.push('parse:' + text);
-      return text.indexOf('@Plana') !== -1 ? { name: 'Plana' } : null;
-    },
-    getNextGroupSpeaker() {
-      events.push('next');
-      return { name: 'Next' };
-    },
-    isGroupChat(conv) {
-      return !!(conv && conv.group);
-    },
     String,
   };
 
-  vm.runInNewContext(`${messageIdentitySource}\n${source}\nthis.__append = appendUserMessageToConversation;\nthis.__speaker = prepareGroupSpeakerForUserMessage;\nthis.__reset = resetMessageComposerInput;`, context);
+  vm.runInNewContext(`${messageIdentitySource}\n${sources.join('\n')}\nthis.__append = appendUserMessageToConversation;\nthis.__speaker = prepareGroupSpeakerForUserMessage;\nthis.__reset = resetMessageComposerInput;`, context);
 
   const conv = { title: 'New Chat', messages: [], _wiBudgetWarning: true };
   const longText = 'x'.repeat(55);
@@ -218,24 +210,42 @@ async function assertFrontendSendMessageHelpers() {
   assert(conv.messages[0].content === longText && conv.updated === 777 && conv._wiBudgetWarning === false, 'Send message helper should append the user message and clear transient warnings.');
   assert(conv.title === longText.slice(0, 50) + '...', 'Send message helper should retitle new conversations from the first user message.');
 
-  const groupConv = { group: { members: [] } };
-  context.pendingGroupMention = { name: 'Clicked' };
+  // The real round-robin strategy reads ordered members and the last assistant speaker:
+  // after Plana spoke, the next unmuted member in order is Next.
+  const groupConv = {
+    group: {
+      members: [
+        { character: { name: 'Clicked' }, order: 0, muted: false },
+        { character: { name: 'Plana' }, order: 1, muted: false },
+        { character: { name: 'Next' }, order: 2, muted: false },
+      ],
+    },
+    messages: [{ role: 'assistant', content: 'Plana speaking', speaker: 'Plana' }],
+  };
+  context.pendingGroupMention = groupConv.group.members[0].character;
   context.__speaker(groupConv, 'hello');
-  assert(groupConv._nextGroupSpeaker.name === 'Clicked' && events.includes('clear'), 'Send message group helper should prefer clicked mention selections.');
+  assert(groupConv._nextGroupSpeaker.name === 'Clicked' && context.pendingGroupMention === null, 'Send message group helper should prefer clicked mention selections and clear the pending mention.');
 
-  events.length = 0;
   context.__speaker(groupConv, '@Plana hello');
-  assert(groupConv._nextGroupSpeaker.name === 'Plana' && events.includes('parse:@Plana hello'), 'Send message group helper should fall back to typed mentions.');
+  assert(groupConv._nextGroupSpeaker.name === 'Plana', 'Send message group helper should fall back to typed mentions.');
 
-  events.length = 0;
+  // The real strategy has no mock call trace; the resolved speaker is the observable
+  // equivalent of the old mocked "next" event.
   context.__speaker(groupConv, 'hello');
-  assert(groupConv._nextGroupSpeaker.name === 'Next' && events.includes('next'), 'Send message group helper should use natural speaker order without mentions.');
+  assert(groupConv._nextGroupSpeaker.name === 'Next', 'Send message group helper should use round-robin speaker order without mentions.');
 
   const singleConv = {};
   context.__speaker(singleConv, 'hello');
   assert(!singleConv._nextGroupSpeaker, 'Send message group helper should leave single-character chats unchanged.');
 
+  context.pendingGroupMention = groupConv.group.members[1].character;
   context.__reset();
-  assert(context.dom.messageInput.value === '' && context.dom.messageInput.style.height === 'auto' && events.includes('clear'), 'Send message reset helper should clear the composer and pending mention.');
+  assert(context.dom.messageInput.value === '' && context.dom.messageInput.style.height === 'auto' && context.pendingGroupMention === null, 'Send message reset helper should clear the composer and pending mention.');
+
+  const sendSource = await readFile(new URL('../../../src/app/events/70-events-init.js', import.meta.url), 'utf8');
+  assert(sendSource.includes('runAutomationBeforeSend(conv, capture'), 'The send flow must run before-send automation on the captured candidate.');
+  assert(sendSource.indexOf('runAutomationBeforeSend(conv, capture') < sendSource.indexOf('persistConversationMessageMutation(conv'), 'Before-send automation must evaluate before the user message is persisted.');
+  assert(sendSource.indexOf('clearCommittedComposerMessage(conv, capture)') < sendSource.indexOf("'user-message-saved'"), 'User-saved automation must dispatch after the committed composer is cleared.');
+  assert(sendSource.includes("cancelAutomationRuntime(t('automation_generation_failed'), conv.id)"), 'A failed generation must release queued automation sends and stale fragments.');
 }
 export { assertFrontendSettingsEventBindings, assertFrontendMessageOptionInteractions, assertFrontendSendMessageHelpers };

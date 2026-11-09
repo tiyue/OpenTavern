@@ -23,6 +23,10 @@ function ensurePresetLibrary(settings) {
 }
 
 function selectLibraryPreset(id) {
+    if (typeof savePresetLibraryChange === 'function') return savePresetLibraryChange(function(settings) {
+        if (!ensurePresetLibrary(settings).some(function(item) { return item.id === id; })) throw new Error('预设不存在');
+        settings.activePresetId = id; ensurePresetLibrary(settings);
+    });
     var settings = state.settings;
     var preset = ensurePresetLibrary(settings).find(function(item) { return item.id === id; });
     if (!preset) throw new Error('预设不存在');
@@ -35,6 +39,10 @@ function selectLibraryPreset(id) {
 }
 
 function addLibraryPreset(preset) {
+    if (typeof savePresetLibraryChange === 'function') return savePresetLibraryChange(function(settings) {
+        var copy = JSON.parse(JSON.stringify(preset)); copy.id = makeId();
+        ensurePresetLibrary(settings).push(copy); settings.activePresetId = copy.id; ensurePresetLibrary(settings);
+    });
     var library = ensurePresetLibrary();
     preset.id = makeId();
     library.push(preset);
@@ -43,6 +51,9 @@ function addLibraryPreset(preset) {
 }
 
 function removeLibraryPreset(id) {
+    if (typeof savePresetLibraryChange === 'function') return savePresetLibraryChange(function(settings) {
+        settings.presetLibrary = ensurePresetLibrary(settings).filter(function(item) { return item.id !== id; }); ensurePresetLibrary(settings);
+    });
     var library = ensurePresetLibrary();
     state.settings.presetLibrary = library.filter(function(item) { return item.id !== id; });
     ensurePresetLibrary();

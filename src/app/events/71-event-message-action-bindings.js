@@ -30,6 +30,7 @@ function bindMessageActionEvents() {
         }
         if (isNaN(idx)) return;
 
+        if (action === 'version-history') { openMessageVersionHistory(idx); return; }
         if (action === 'copy') {
             var conv = getActiveConv();
             if (conv && conv.messages[idx]) {

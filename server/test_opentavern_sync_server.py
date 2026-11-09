@@ -793,7 +793,7 @@ class PackyUrlValidationTests(unittest.TestCase):
         with mock.patch.object(image_provider, "build_opener", return_value=opener) as build_opener:
             result = gateway.open_packy_api_request(request, 123)
         self.assertIs(result, sentinel)
-        self.assertIsInstance(build_opener.call_args.args[0], gateway.PackyApiNoRedirectHandler)
+        self.assertIsInstance(build_opener.call_args[0][0], gateway.PackyApiNoRedirectHandler)
         opener.open.assert_called_once_with(request, timeout=123)
 
 
@@ -869,11 +869,11 @@ class PackyApiTests(unittest.TestCase):
             )
 
         self.assertEqual(result, ({"data": generated_image}, "request-123", "gpt-image-test"))
-        request = api_open.call_args.args[0]
+        request = api_open.call_args[0][0]
         self.assertEqual(request.get_method(), "POST")
         self.assertEqual(request.full_url, "https://www.packyapi.com/v1/images/edits")
         self.assertEqual(request.get_header("Authorization"), "Bearer packy-secret")
-        self.assertEqual(api_open.call_args.args[1], gateway.PACKY_REQUEST_TIMEOUT_SECONDS)
+        self.assertEqual(api_open.call_args[0][1], gateway.PACKY_REQUEST_TIMEOUT_SECONDS)
         content_type = request.get_header("Content-type")
         self.assertTrue(content_type.startswith("multipart/form-data; boundary="))
         body = request.data
@@ -1142,7 +1142,7 @@ class ImageDownloadTests(unittest.TestCase):
             return_value=[(2, 1, 6, "", ("8.8.8.8", 443))],
         ), mock.patch.object(image_assets, "build_opener", return_value=opener) as build_opener:
             result = gateway.download_generated_image(VALID_IMAGE_URL, expected_size)
-        redirect_handler = build_opener.call_args.args[0]
+        redirect_handler = build_opener.call_args[0][0]
         self.assertIsInstance(redirect_handler, gateway.PackyImageRedirectHandler)
         opener.open.assert_called_once()
         return result

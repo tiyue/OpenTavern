@@ -5,13 +5,14 @@ import vm from 'node:vm';
 
 async function assertFrontendApiConnectionHelpers() {
   const helperSources = await Promise.all([
+    '../../../src/app/chat/60-composer-images.js',
+    '../../../src/app/api/31-api-protocol.js',
     '../../../src/app/api/31-api-connection-test-config.js',
     '../../../src/app/api/31-api-connection-endpoints.js',
     '../../../src/app/api/31-api-connection-result-ui.js',
     '../../../src/app/api/31-api-connection-response-helpers.js',
     '../../../src/app/api/31-api-connection-models-probe.js',
     '../../../src/app/api/31-api-connection-chat-probe.js',
-    '../../../src/app/api/31-api-connection-test-helpers.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const translations = {
     api_test_success_title: 'Connection OK',
@@ -90,9 +91,10 @@ async function assertFrontendApiConnectionHelpers() {
 
 async function assertFrontendApiCompatibilityHelpers() {
   const sources = await Promise.all([
+    '../../../src/app/chat/60-composer-images.js',
+    '../../../src/app/api/31-api-protocol.js',
     '../../../src/app/api/31-api-endpoint-normalizer.js',
     '../../../src/app/api/31-api-ollama-compat.js',
-    '../../../src/app/api/31-api-compat.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const context = {
     state: { settings: {} },

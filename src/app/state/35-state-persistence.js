@@ -24,6 +24,7 @@ function persistState(immediate, options) {
         activeConvId: getPersistableActiveConversationId(state.activeConvId, state.conversationOrder, state.conversations),
         worldBooks: state.worldBooks || {},
         characters: state.characters || {},
+        documents: state.documents || {},
         charactersMigrated: !!state._charactersMigrated,
         lastSaved: snapshotLastSaved
     };
@@ -99,6 +100,7 @@ function persistState(immediate, options) {
                         activeConvId: getPersistableActiveConversationId(state.activeConvId, state.conversationOrder, state.conversations),
                         worldBooks: state.worldBooks || {},
                         characters: state.characters || {},
+                        documents: state.documents || {},
                         charactersMigrated: !!state._charactersMigrated,
                         lastSaved: Math.max(Date.now(), (Number(rejectedSnapshot.lastSaved) || 0) + 1)
                     });

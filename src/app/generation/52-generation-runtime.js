@@ -15,6 +15,7 @@ function completeGenerationTurn(conv, generationContext) {
         return;
     }
     if (!isLiveConversation(conv)) {
+        if (typeof cancelAutomationRuntime === 'function') cancelAutomationRuntime(t('automation_target_changed'), conv && conv.id);
         if (generationContext) releaseGenerationRuntimeState(generationContext);
         else {
             state.isGenerating = false;
@@ -23,7 +24,8 @@ function completeGenerationTurn(conv, generationContext) {
         return;
     }
     if (isGroupChat(conv)) {
-        conv._nextGroupSpeaker = getNextGroupSpeaker(conv);
+        if (typeof completeGroupSpeakerTurn === 'function') completeGroupSpeakerTurn(conv);
+        else conv._nextGroupSpeaker = getNextGroupSpeaker(conv);
     } else {
         delete conv._nextGroupSpeaker;
     }
@@ -40,6 +42,8 @@ function completeGenerationTurn(conv, generationContext) {
     if (settings.summaryEnabled) {
         setTimeout(function() { if (isLiveConversation(conv)) autoSummarize(conv); }, 500);
     }
+    if (typeof advanceGroupAutoRounds === 'function') advanceGroupAutoRounds(conv);
+    if (typeof settleAutomationAfterTurn === 'function') settleAutomationAfterTurn(conv);
 }
 
 async function handlePrimaryAssistantComplete(fullContent, fullCot, usage, conversation, completion, generationContext) {
@@ -53,7 +57,10 @@ async function handlePrimaryAssistantComplete(fullContent, fullCot, usage, conve
         ? isolatePrimaryStageContentWithSettings(fullContent, settings)
         : settings.twoStageEnabled ? isolatePrimaryStageContent(fullContent) : String(fullContent == null ? '' : fullContent);
     var conv = conversation || getActiveConv();
-    if (!isLiveConversation(conv) || !fullContent) {
+    var completionToolTrace = completion && completion._modelToolTrace;
+    if (!isLiveConversation(conv) || (!fullContent && !completionToolTrace)) {
+        if (typeof failGroupAutoRounds === 'function') failGroupAutoRounds(conv, t('group_strategy_auto_failed'));
+        if (typeof cancelAutomationRuntime === 'function') cancelAutomationRuntime(t('automation_target_changed'), conv && conv.id);
         if (generationContext) releaseGenerationRuntimeState(generationContext);
         else {
             state.isGenerating = false;
@@ -71,6 +78,8 @@ async function handlePrimaryAssistantComplete(fullContent, fullCot, usage, conve
         appStore.notify('isGenerating');
         firstStageMsg = await finishAssistantMessage(conv, fullContent, speakerForMsg, 'main', null, fullCot, usage, completion, generationContext);
     } catch (error) {
+        if (typeof failGroupAutoRounds === 'function') failGroupAutoRounds(conv, t('group_strategy_auto_failed') + ': ' + error.message);
+        if (typeof cancelAutomationRuntime === 'function') cancelAutomationRuntime(t('automation_target_changed'), conv && conv.id);
         if (generationContext) releaseGenerationRuntimeState(generationContext);
         else {
             state.isGenerating = false;
@@ -85,7 +94,21 @@ async function handlePrimaryAssistantComplete(fullContent, fullCot, usage, conve
         releaseGenerationRuntimeState(generationContext);
         return;
     }
-    if (settings.twoStageEnabled && firstStageMsg && !(completion && completion.interrupted)) {
+    if (!fullContent && firstStageMsg) renderMessagesOnly();
+    if (typeof dispatchAutomationEvent === 'function' && firstStageMsg) {
+        await Promise.resolve().then(function() {
+            return dispatchAutomationEvent('assistant-message-saved', conv, {
+                eventId: 'assistant-saved:' + firstStageMsg.id + '@' + getMessageRevision(firstStageMsg),
+                role: 'assistant',
+                text: firstStageMsg.content || fullContent,
+                messageId: firstStageMsg.id,
+                messageRevision: getMessageRevision(firstStageMsg)
+            });
+        }).catch(function(error) {
+            if (typeof reportPersistPostSaveError === 'function') reportPersistPostSaveError('automation assistant message event', error);
+        });
+    }
+    if (settings.twoStageEnabled && firstStageMsg && fullContent && !(completion && completion.interrupted)) {
         runSecondStageGeneration(firstStageMsg, function() {
             completeGenerationTurn(conv, generationContext);
         }, null, conv, false, generationContext);

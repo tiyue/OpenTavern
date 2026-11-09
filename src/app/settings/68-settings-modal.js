@@ -35,6 +35,8 @@ function openSettings() {
     if (typeof beginSettingsDraft === 'function' && !beginSettingsDraft()) return;
     applyTranslations();
     activateSettingsTab('settingsTabModel', false);
+    if (typeof hydrateConnectionProfileControls === 'function') hydrateConnectionProfileControls();
+    if (typeof bindConnectionProfileEvents === 'function') bindConnectionProfileEvents();
     hydratePrimaryApiSettings();
     hydrateGenerationSettings();
     hydratePromptSettings();
@@ -49,6 +51,13 @@ function openSettings() {
     hydrateImageGenerationSettingsControls();
     hydrateCloudSyncSettingsControls();
     if (typeof hydratePromptControlsSettings === 'function') hydratePromptControlsSettings();
+    if (typeof hydrateRetrievalSettings === 'function') hydrateRetrievalSettings();
+    if (typeof bindRetrievalSettingsEvents === 'function') bindRetrievalSettingsEvents();
+    if (typeof hydrateAutomationSettings === 'function') hydrateAutomationSettings();
+    if (typeof hydrateSceneSettings === 'function') hydrateSceneSettings();
+    if (typeof hydrateContentModuleSettings === 'function') hydrateContentModuleSettings();
+    if (typeof hydratePluginSettings === 'function') hydratePluginSettings();
+    if (typeof hydrateModelToolsSettings === 'function') hydrateModelToolsSettings();
     toggleSummarizeCustomSection();
     bindSettingsStorageControls();
     if (typeof captureSettingsFormBaseline === 'function') captureSettingsFormBaseline();

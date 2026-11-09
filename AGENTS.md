@@ -2,26 +2,31 @@
 
 ## 功能规格
 
-- [应用功能规格](docs/spec.md)：包含设置弹窗的信息架构、交互与验收要求，以及公开源码脱敏规则。
+- [应用功能规格](docs/spec.md)：当前能力与发布基线、设置交互和验收要求、公开源码脱敏规则，以及工程整理边界；历史进度单独标注。
 
 ## 专题文档
 
 - [本地优先与代理故障可靠性开发任务书](docs/DEEPSEEK_LOCAL_FIRST_RELIABILITY_PLAN.md)：R0–R7 实施、返工与验收；资源快照/离线更新、296 项公共资料、私有媒体可靠保存与局部渲染已随第 16 版发布，证据见 [SITES](docs/SITES.md)。
 - [MiMo 开发指导与验收任务书](docs/MIMO_DEVELOPMENT_GUIDE.md)：全量开发指南；[T01–T11 完整任务包](docs/tasks/README.md) 与 [逐文件执行清单](docs/tasks/mimo-task-plan.json) 覆盖修复、业务模块和发布门禁；T01–T10 已完成并发布第 13 版，实际进度、返工、真实基础验收与限制见 [MiMo 验收记录](docs/MIMO_ACCEPTANCE_RECORD.md)。
-- [源码结构与拆分边界](docs/SOURCE_STRUCTURE.md)：24 个 JS 业务目录、487 项源码装配、离线构建、两套同步后端及测试边界。
+- [源码结构与拆分边界](docs/SOURCE_STRUCTURE.md)：业务目录与源码装配清单（阶段 D2 后为 33 个 JS 业务目录、503 项源码装配）、生成物与可选平台边界、离线构建、两套同步后端及测试边界。
 - [云同步](docs/CLOUD_SYNC.md)：云同步协议、配置与运维说明。
 - [Sites 部署与数据迁移](docs/SITES.md)：Sites 构建、私有发布、外置服务和旧数据迁移说明。
+- [ECS 备份部署与回退](docs/ECS.md)：与 Sites 同步发布的第二入口、Python 3.6/SQLite 3.7 验收、不可变资源缓存、数据备份和回退边界。
 - [F18/F19 主站源码仿写方案](docs/F18-F19-主站源码仿写方案.md)：当前主站函数依据、声明式 MVU、运行层级、可靠保存接入、文件清单与验收矩阵；支持 HTTP/本机/HTTPS；F18 与 F19 主应用 L0–L3 已随第 10 版发布，支持/验收见 spec，L3 独立服务未部署。
 - [角色卡运行时专项设计](docs/card-runtime-security.md)：F19 的隔离、逐卡授权、消息契约、可选不同来源 broker 与验收门槛；不强制 HTTPS；主应用已发布，L3 远端服务未部署。
 - [主站与分站功能对比](docs/主站分站功能对比.md)：主站功能审计、分站缺失项、主动裁剪项与分阶段补齐建议。
 - [主站功能对齐开发方案](docs/主站功能对齐开发方案.md)：F01–F24 分阶段开发、文件边界、数据兼容、测试验收与风险回退方案；M1–M3/F17/M5 与 F18/F19 主应用已发布，L3 独立服务未部署，支持范围见现行规格。
 - [独立卡片联网运行服务](card-runtime/README.md)：L3 HTTP/HTTPS 独立来源服务的配置、启动与运行限制。
 
+- [2026-10-22 主站功能对齐](docs/upstream-alignment-20261022.md)：原生 Anthropic、图片消息、用户版本/分支、流式恢复、JSONL/分段备份、世界书与预设可靠保存的来源、边界及验收。
+- [酒馆扩展功能需求与开发方案](docs/tavern-feature-plan-20261107.md)：保留的 12 项均通过协调者最终本地验收，06/07/08 已取消；本批未发布。
+- [酒馆扩展功能开发验收记录](docs/tavern-feature-acceptance-20261107.md)：各阶段范围、真实复现、返工与最终验收；D2 最终 33 组检查、Chrome 24 流程、三来源隔离、HTTP/存储/终止及 35 请求 v1/v2 同步和旧阶段回归通过；供应商、真机与部署未验收。
+
 ## 工程结构
 
 ### 前端源码分片（src/app）
 
-- 前端源码放在 `src/app/` 的业务目录中，如 `storage/`、`sync/`、`conversation/`、`mvu/`、`card-runtime/`；文件保留数字前缀，完整目录表见源码结构文档。
+- 前端源码放在 `src/app/` 的业务目录中，如 `storage/`、`sync/`、`conversation/`、`mvu/`、`card-runtime/`、`modules/`；文件保留数字前缀，完整目录表见源码结构文档。
 - [src/app/manifest.json](src/app/manifest.json) 是装配清单，**数组顺序即代码执行顺序**；后面的分片可能调用前面刚定义的函数，不要随意调整顺序。
 - 新增分片文件必须登记进 manifest.json，否则不会被打包；清单中缺失的文件会在构建时直接报错。
 - 日常修改应发生在 `src/app/` 分片中。
@@ -41,7 +46,9 @@
 
 ## 验证命令
 
-- `npm run check:local-first`：本地运行资源、确定性版本清单、离线缓存与更新、消息局部渲染、私有图片和公共卡可靠导入；已纳入完整检查。`test-local-first-browser.mjs` 与 `test-local-render-browser.mjs` 纳入九组发布门禁。
+- `npm run check:local-first`：本地运行资源、确定性版本清单、离线缓存与更新、消息局部渲染、私有图片和公共卡可靠导入；已纳入完整检查。`test-local-first-browser.mjs` 与 `test-local-render-browser.mjs` 纳入十组发布门禁。
+
+- `npm run check:upstream`：主站新增能力六组运行回归；`node scripts/test-upstream-alignment-browser.mjs` 覆盖实际导入、保存失败、刷新恢复及移动/桌面浅暗/系统主题，已纳入第十组发布门禁。
 
 修改代码后按需运行：
 
@@ -50,14 +57,20 @@
 - `npm run check:structure`：源码清单完整、模板精确装配、漂移拒绝及缺失片段不会部分写入；已纳入完整检查。
 - `npm run check:app-contracts`：AST 顶层符号、显示/传输模块接口与装配顺序检查；已纳入 app 构建和完整检查。
 - `npm run check:release-tool`：发布门禁负向夹具和真实 Windows npm 启动冒烟。
-- `npm run check:release`：同一源码的 Sites 构建、完整检查、七组浏览器与部署资源哈希核对；真实供应商和实际发布单独记录。
+- `npm run check:release`：同一源码的 Sites 构建、完整检查、十组浏览器与部署资源哈希核对；真实供应商和实际发布单独记录。
 - `npm run build:sites`：生成 Sites Worker、打包实际引用的公共角色卡并执行部署产物检查。
 - `npm run check`：完整检查面——语法检查（build 脚本、`assets/js/` 脚本、`functions/api/`）、同步相关脚本测试与 Python 服务端单元测试。
 - `npm run check:sites`：检查已有 `dist/` 是否满足 Sites 部署结构及公共角色卡资源完整性。
 - `npm run check:message-reliability`：消息身份、摘要来源、回复版本与可靠保存故障回归（已纳入完整检查）。
+- `npm run check:storage-timeouts`：IndexedDB 打开/事务有界失败、迟到连接隔离、中止失败后的只读回读/不确定性、localStorage 兜底、发送/摘要超时恢复（已纳入完整检查）。
 - `npm run check:prompt-controls`：M2 预设迁移/排序/往返、Note/Depth、正则隔离、只读预览、请求参数及停止保护（已纳入完整检查）。
 - `npm run check:chat-operations`：M3 收藏/搜索、成员与历史身份、开场及 JSON/PNG 往返（已纳入完整检查）；续写故障保护在 `check:message-reliability` 中。
 - `npm run check:convenience`：M5 代写竞态、设置草稿、persona 操作、六类分项恢复、非法输入及真实保存队列故障（已纳入完整检查）。
+- `npm run check:tavern-stage-a`：03 连接档案、04 快捷回复、09 群聊策略、10 分支图、13 预设差异的运行回归（已纳入完整检查）；`node scripts/test-tavern-stage-a-browser.mjs` 为对应隔离浏览器脚本，使用合成模型覆盖管理界面、保存/刷新、390/1280、浅暗/系统主题与故障路径。
+- `npm run check:tavern-stage-c1`：原编号 11 事件触发自动化的严格输入/内容指纹授权/六事件/去重/真实 composer 清空/发送所有权/定时器撤销/因果链/串行 MVU/试算/队列回归（已纳入完整检查）；`node scripts/test-tavern-stage-c1-browser.mjs` 为对应隔离浏览器脚本，使用合成模型真实创建/导航/保存/世界书请求、规则正文自动发送、二阶段、停止/撤权/迟到输入竞态、流式保存事件、MVU 与 390/1280 浅暗/系统主题截图。
+- `npm run check:tavern-stage-c2`：原编号 12 场景包/事件的严格定义、内容指纹授权、长正文、有效用户/助手/MVU 版本与消息前缀来源、空会话开场、有界取消/去重、离开时长、原子保存、失败重试原内容/前缀基线、分支回放与只读预演，已纳入完整检查；`node scripts/test-tavern-stage-c2-browser.mjs` 已通过实际界面、版本/分支、失败恢复、刷新、导入导出与 390/1280 浅暗/系统主题验收。
+- `npm run check:tavern-stage-c3`：原编号 14 内容模块的逐段编码内部身份、严格包格式、超量/重复/旧版校验、包大小、依赖/循环/宿主引用、SHA-256 内容与发送许可、伪造 ready 标记、真实 `persistState`/`StorageService.saveAll` 拒绝、多范围去重、会话停用继承、世界书顺序/缓存、正则顺序、C1 规则与 C2 场景真实运行、MVU InitVar 边界、提示词来源签名和同步排除，已纳入完整检查；`node scripts/test-tavern-stage-c3-browser.mjs` 已通过协调者实际 Chrome 主流程/三语言无占位、18 张截图及独立故障/同步/媒体验收，见验收记录。
+- `npm run check:tavern-stage-d1`：原编号 05 模型工具注册/严格 schema/本机会话授权、OpenAI `tools/tool_calls/tool` 与 Anthropic `tools/tool_use/tool_result` 的 JSON/SSE 累积（含任意字节切分与中文 UTF-8）、原生 thinking/signature/redacted 块保留、同 ID 回传、未知/未授权/非法/超量参数、重复 ID 缓存、多调用、轮数/调用/结果/任务预算、停止/撤权/切会话/源变化、意外 EOF、off-path、持久 trace、旧修订与导出/同步排除；已纳入完整检查。`node scripts/test-tavern-stage-d1-browser.mjs` 为对应隔离浏览器脚本，覆盖当前会话授权、实际 wire payload、刷新零重放、导出不含本机授权、关闭工具后的普通路径及 390/1280 浅暗/系统截图；已由协调者完成实际 Chrome、独立 HTTP/恢复/存储/ACK 与双端同步验收，见验收记录。
 - `npm run check:private-settings`：设置双向过滤、本机凭据/端点配对、运行时命名排除、结构保留名及原始元数据保留（已纳入完整检查）。
 - `node scripts/test-prompt-controls-browser.mjs`：M2 隔离浏览器请求/诊断与移动浅暗界面冒烟；使用已有 Playwright 和本地服务，离线验收入口为 `/.sites-public/opentavern.html`（先运行 `npm run prepare:sites`）。
 - `node scripts/test-static-message-browser.mjs`：F17 Markdown/静态 HTML、恶意输入、禁止外链加载、流式一致性及移动浅暗视觉冒烟；使用同一隔离浏览器入口。

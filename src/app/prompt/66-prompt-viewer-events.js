@@ -10,6 +10,24 @@
  */
 // ==================== Prompt Viewer Events ====================
 var promptViewerRequestId = 0;
+
+function renderPromptRetrievalSources(retrieval, note) {
+    var node = typeof document !== 'undefined' ? document.getElementById('promptRetrievalSources') : null;
+    if (!node) return;
+    var lines = [];
+    if (retrieval && retrieval.sources && retrieval.sources.length) {
+        retrieval.sources.forEach(function(source) {
+            lines.push((source.type === 'document' ? t('retrieval_source_document') : t('retrieval_source_memory')) +
+                ' · ' + (source.label || source.sourceId) + ' · ' + t('retrieval_source_chunk') + ' ' + (Number(source.chunkIndex) + 1) +
+                ' · ' + t('retrieval_source_revision') + ' ' + String(source.revision || '').slice(0, 24) +
+                ' · ' + t('retrieval_source_score') + ' ' + Number(source.score || 0).toFixed(3));
+        });
+    }
+    if (retrieval && retrieval.requests) lines.push(t('retrieval_status_requests').replace('{n}', String(retrieval.requests)));
+    if (note) lines.push(note);
+    node.textContent = lines.join('\n');
+}
+
 async function refreshPromptViewer() {
     var requestId = ++promptViewerRequestId;
     var conversationId = typeof getActiveConv === 'function' ? (getActiveConv() || {}).id : null;
@@ -18,6 +36,7 @@ async function refreshPromptViewer() {
         if (selector && selector.value === 'actual') {
             var recent = recentRequestDiagnostics.filter(function(item) { return item.conversationId === conversationId && (currentPromptViewerStage === 'second' ? item.stage === 'second' : item.stage !== 'second' && item.stage !== 'summary'); }).slice(-1)[0];
             dom.promptViewerContent.textContent = recent ? JSON.stringify(recent, null, 2) : '当前会话暂无该阶段的实际请求。';
+            renderPromptRetrievalSources(recent && recent.retrieval, recent && recent.retrieval && recent.retrieval.note || '');
             return;
         }
         var messages;
@@ -28,13 +47,19 @@ async function refreshPromptViewer() {
         } else {
             messages = typeof buildMessagesForAPIAsync === 'function' ? await buildMessagesForAPIAsync(conv, { preview: true }) : buildMessagesForAPI(conv, { preview: true });
         }
+        var retrievalMeta = messages && messages._retrieval || null;
+        var retrievalPreviewNote = messages && messages._retrievalPreviewNote || '';
         if (typeof postProcessPromptMessages === 'function') messages = postProcessPromptMessages(messages, state.settings.promptPostProcessing, state.settings.apiEndpoint);
         if (requestId !== promptViewerRequestId || typeof getActiveConv === 'function' && conversationId !== (getActiveConv() || {}).id) return;
         var text = '下一次预览（只读，含随机宏的结果可能变化）\n估算 Token：' + Math.ceil(messages.reduce(function(count, message) { return count + message.content.length; }, 0) / 2) + '\n\n' + formatPromptMessages(messages);
         dom.promptViewerContent.textContent = text || t('no_messages_to_send');
+        renderPromptRetrievalSources(retrievalMeta, retrievalPreviewNote);
     } catch (err) {
         console.error('showFullPrompt error:', err);
-        if (requestId === promptViewerRequestId) dom.promptViewerContent.textContent = '无法生成提示词预览：' + (err.message || err);
+        if (requestId === promptViewerRequestId) {
+            dom.promptViewerContent.textContent = '无法生成提示词预览：' + (err.message || err);
+            renderPromptRetrievalSources(null, '');
+        }
     }
 }
 

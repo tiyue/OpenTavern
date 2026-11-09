@@ -27,4 +27,6 @@ function preserveCloudSyncEndpointForLocalCredential(target, source, credentialK
     var endpoint = source[endpointKey];
     if (endpoint === undefined || endpoint === null) return;
     target[endpointKey] = endpoint;
+    var protocolKey = endpointKey === 'summarizeApiEndpoint' ? 'summarizeApiProtocol' : 'apiProtocol';
+    target[protocolKey] = normalizeApiProtocol(source[protocolKey] || source.apiProtocol);
 }

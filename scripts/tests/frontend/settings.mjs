@@ -28,6 +28,7 @@ async function assertFrontendCloudSyncLegacyStatusMigration() {
 
 async function assertFrontendSettingsSaveHelpers() {
   const sources = await Promise.all([
+    '../../../src/app/api/31-api-protocol.js',
     '../../../src/app/settings/68-settings-cloud-sync-form.js',
     '../../../src/app/settings/68-settings-save-form-helpers.js',
     '../../../src/app/settings/68-settings-save-main-form.js',
@@ -183,6 +184,7 @@ async function assertFrontendSettingsSaveHelpers() {
 
 async function assertFrontendSettingsHydrationHelpers() {
   const sources = await Promise.all([
+    '../../../src/app/api/31-api-protocol.js',
     '../../../src/app/settings/68-settings-draft.js',
     '../../../src/app/image/51-image-generation-settings.js',
     '../../../src/app/settings/68-settings-basic-hydration.js',

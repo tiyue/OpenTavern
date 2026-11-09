@@ -44,6 +44,7 @@ function buildAllConversationsExportData(conversations, exportedAt) {
         activeConvId: state.activeConvId || null,
         characters: state.characters || {},
         worldBooks: state.worldBooks || {},
+        documents: state.documents || {},
         charactersMigrated: !!state._charactersMigrated
     };
 }

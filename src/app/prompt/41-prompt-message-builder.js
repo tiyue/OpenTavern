@@ -24,14 +24,21 @@
  *
  * 调试模型行为时，formatPromptMessages() 可以把数组转换为便于人阅读的分段文本。
  */
-function* buildPromptMessageSteps(conv, macroEnv, settings) {
+function* buildPromptMessageSteps(conv, macroEnv, settings, retrievalMessages, buildOptions) {
     settings = settings || state.settings;
+    buildOptions = buildOptions || {};
     var isGroup = isGroupChat(conv);
     var currentChar = isGroup ? getCurrentSpeakerCharacter(conv) : conv.character;
     var charName = currentChar ? currentChar.name : (conv.character ? conv.character.name : 'Assistant');
     var userName = settings.userName || 'User';
     var maxMsgs = settings.contextLength;
         var wiResult = getActivatedWorldInfo(conv);
+        if (!buildOptions.preview && buildOptions.operation && typeof dispatchAutomationWorldbookEvent === 'function') {
+            dispatchAutomationWorldbookEvent(conv, wiResult.entries || [], {
+                owner: buildOptions.build || null,
+                operation: buildOptions.operation
+            });
+        }
         var wiByPos = yield { groups: wiResult.byPosition || {}, character: currentChar };
         var wiOutlets = yield { groups: wiResult.outlets || {}, character: currentChar };
         var systemWI = Object.assign({}, wiByPos);
@@ -53,9 +60,28 @@ function* buildPromptMessageSteps(conv, macroEnv, settings) {
                 return { role: message.role, content: message.content };
             }));
         }
+        if (!buildOptions.preview && typeof takeAutomationPromptFragments === 'function') {
+            var automationFragments = takeAutomationPromptFragments(conv, {
+                fragmentToken: buildOptions.fragmentToken || '',
+                owner: buildOptions.build || null
+            });
+            if (buildOptions.build) buildOptions.build.automationFragments = automationFragments;
+            automationFragments.forEach(function(fragment) {
+                apiMessages.push({ role: fragment.role, content: fragment.content });
+            });
+        }
 
         var summaryMessage = buildPromptSummaryMessage(getValidConversationSummaries(conv), settings.lang || 'zh-CN');
         if (summaryMessage) apiMessages.push(summaryMessage);
+        if (retrievalMessages && retrievalMessages.length) {
+            retrievalMessages.forEach(function(message) {
+                if (message && message.content) apiMessages.push({
+                    role: message.role || 'system',
+                    content: message.content,
+                    __retrievalReference: message.__retrievalReference === true
+                });
+            });
+        }
         apiMessages = apiMessages.concat(getRegularPromptMessages(conv, maxMsgs));
 
         if (presetBuckets.afterHistory.length > 0) {
@@ -68,7 +94,10 @@ function* buildPromptMessageSteps(conv, macroEnv, settings) {
         insertMessagesAtDepth(apiMessages, depthEntries, charName, userName);
         insertMessagesAtDepth(apiMessages, presetBuckets.inChat, charName, userName);
         insertAdditionalPromptMessages(apiMessages, conv, currentChar, wiByPos, charName, userName, settings);
+        var retrievalReferences = apiMessages.filter(function(message) { return message && message.__retrievalReference === true; })
+            .map(function(message) { return { message: message, content: message.content }; });
         resolvePromptOutletPlaceholders(apiMessages, wiOutlets, charName, userName);
+        retrievalReferences.forEach(function(item) { item.message.content = item.content; });
 
         var promptDepths = {};
         var promptDepth = 0;
@@ -85,7 +114,8 @@ function* buildPromptMessageSteps(conv, macroEnv, settings) {
             var source = message.__promptSource || null;
             var sourceMessage = source && source.message;
             var historySnapshot = source ? getMvuDataForMessage(conv, sourceMessage) : null;
-            if (Object.prototype.hasOwnProperty.call(promptDepths, index) && typeof formatMessage === 'function') {
+            var retrievalReference = message.__retrievalReference === true;
+            if (!retrievalReference && Object.prototype.hasOwnProperty.call(promptDepths, index) && typeof formatMessage === 'function') {
                 content = yield { text: content, context: {
                     conv: conv,
                     character: currentChar,
@@ -115,12 +145,30 @@ function* buildPromptMessageSteps(conv, macroEnv, settings) {
                 depth: promptDepths[index]
             };
             if (source) replacementExtras.mvuData = historySnapshot;
-            result.push({
+            var prepared = {
                 role: message.role,
-                content: replacePlaceholders(content, charName, userName, replacementExtras)
-            });
+                content: retrievalReference ? String(content == null ? '' : content) : replacePlaceholders(content, charName, userName, replacementExtras)
+            };
+            if (message._userImages) prepared._userImages = message._userImages;
+            var expanded = sourceMessage && buildOptions.modelTools && typeof buildModelToolHistoryMessages === 'function'
+                ? buildModelToolHistoryMessages(sourceMessage, prepared, buildOptions.modelTools)
+                : null;
+            if (expanded && expanded.length) result.push.apply(result, expanded);
+            else result.push(prepared);
         }
-        return result;
+        return applyUserImagesPreservingModelTools(result, 4);
+}
+
+function applyUserImagesPreservingModelTools(messages, maxImages) {
+    if (typeof applyUserImagesToApiMessages !== 'function') return messages;
+    var hasProtocolMessages = typeof isModelToolProtocolMessage === 'function' && messages.some(function(message) { return isModelToolProtocolMessage(message); });
+    if (!hasProtocolMessages) return applyUserImagesToApiMessages(messages, maxImages);
+    var ordinaryMessages = messages.filter(function(message) { return !isModelToolProtocolMessage(message); });
+    var processedOrdinary = applyUserImagesToApiMessages(ordinaryMessages, maxImages);
+    var ordinaryIndex = 0;
+    return messages.map(function(message) {
+        return isModelToolProtocolMessage(message) ? message : processedOrdinary[ordinaryIndex++];
+    });
 }
 
 function capturePromptBuildSource(conv) {
@@ -129,6 +177,14 @@ function capturePromptBuildSource(conv) {
         conversation: conv || null,
         conversationId: conv && conv.id,
         live: typeof isLiveConversation !== 'function' || isLiveConversation(conv),
+        characterStamp: JSON.stringify([
+            conv && conv.character ? String(conv.character.name || '') : null,
+            conv && conv.group && Array.isArray(conv.group.members)
+                ? conv.group.members.map(function(member) { return [member && member.character && member.character.name || '', !!member.muted, member && member.order]; })
+                : null
+        ]),
+        mvuStamp: typeof captureMvuSources === 'function' ? JSON.stringify(captureMvuSources(conv)) : '',
+        moduleStamp: typeof getContentModuleAssemblyStamp === 'function' ? getContentModuleAssemblyStamp(conv) : '',
         messages: messages.map(function(message) {
             return {
                 id: message && message.id,
@@ -143,6 +199,14 @@ function isPromptBuildSourceCurrent(source) {
     var conv = source.conversation;
     if (!conv || conv.id !== source.conversationId) return false;
     if (source.live && typeof isLiveConversation === 'function' && !isLiveConversation(conv)) return false;
+    if (source.characterStamp !== undefined && source.characterStamp !== JSON.stringify([
+        conv.character ? String(conv.character.name || '') : null,
+        conv.group && Array.isArray(conv.group.members)
+            ? conv.group.members.map(function(member) { return [member && member.character && member.character.name || '', !!member.muted, member && member.order]; })
+            : null
+    ])) return false;
+    if (source.mvuStamp !== undefined && source.mvuStamp !== (typeof captureMvuSources === 'function' ? JSON.stringify(captureMvuSources(conv)) : '')) return false;
+    if (source.moduleStamp !== undefined && source.moduleStamp !== (typeof getContentModuleAssemblyStamp === 'function' ? getContentModuleAssemblyStamp(conv) : '')) return false;
     var messages = Array.isArray(conv.messages) ? conv.messages : [];
     if (messages.length !== source.messages.length) return false;
     return source.messages.every(function(message, index) {
@@ -154,7 +218,17 @@ function isPromptBuildSourceCurrent(source) {
 
 function isPromptBuildCurrent(build) {
     if (build.operation && typeof build.operation.isCurrent === 'function' && !build.operation.isCurrent()) return false;
+    if (build.connectionStamp && getPromptBuildConnectionStamp(state.settings) !== build.connectionStamp) return false;
     return isPromptBuildSourceCurrent(build.source);
+}
+
+function getPromptBuildConnectionStamp(settings) {
+    settings = settings || state.settings || {};
+    var ids = settings.activeConnectionProfileIds || {};
+    return JSON.stringify([
+        settings.apiProtocol, settings.apiEndpoint, settings.model,
+        ids.main || '', ids.summary || '', ids.embedding || ''
+    ]);
 }
 
 function createPromptBuild(conversation, options) {
@@ -167,14 +241,26 @@ function createPromptBuild(conversation, options) {
         conv: conv,
         source: capturePromptBuildSource(conv),
         settings: options.settings || JSON.parse(JSON.stringify(state.settings)),
-        operation: options.operation || null
+        operation: options.operation || null,
+        connectionStamp: ''
     };
+    if (typeof markContentModuleSettingsReady === 'function') markContentModuleSettingsReady(build.settings);
+    build.connectionStamp = getPromptBuildConnectionStamp(build.settings);
     if (build.operation && typeof build.operation.setSource === 'function') build.operation.setSource(build.source);
     build.env = createSillyTavernMacroEnv(conv, {
         charName: character && character.name || 'Assistant', historyMessages: conv.messages, persist: !options.preview,
         persistCheck: function() { return isPromptBuildCurrent(build); }
     });
-    build.iterator = buildPromptMessageSteps(conv, build.env, build.settings);
+    build.retrievalMessages = [];
+    build.automationFragments = [];
+    build.modelTools = options.modelTools || null;
+    build.iterator = buildPromptMessageSteps(conv, build.env, build.settings, build.retrievalMessages, {
+        preview: !!options.preview,
+        fragmentToken: options.fragmentToken || '',
+        operation: build.operation,
+        build: build,
+        modelTools: build.modelTools
+    });
     return build;
 }
 
@@ -205,6 +291,41 @@ function buildMessagesForAPI(conversation, options) {
 
 async function buildMessagesForAPIAsync(conversation, options) {
     var build = createPromptBuild(conversation, options);
+    var retrievalResult = null;
+    if (typeof prepareRetrievalForPrompt === 'function') {
+        try {
+            retrievalResult = await prepareRetrievalForPrompt(build.conv, build.settings, {
+                preview: !!(options && options.preview),
+                operation: build.operation
+            });
+        } catch (retrievalError) {
+            retrievalResult = {
+                status: 'error',
+                sources: [],
+                injected: [],
+                requests: 0,
+                batches: 0,
+                serviceModel: '',
+                dimensions: 0,
+                signature: '',
+                note: retrievalError && retrievalError.message || String(retrievalError)
+            };
+        }
+        var retrievalMessages = typeof buildRetrievalPromptMessages === 'function'
+            ? buildRetrievalPromptMessages(retrievalResult, build.settings)
+            : [];
+        if (options && options.preview) {
+            build.retrievalMessages.push.apply(build.retrievalMessages, retrievalMessages);
+        } else if (retrievalResult && retrievalResult.status === 'cancelled') {
+            return null;
+        } else {
+            build.retrievalMessages.push.apply(build.retrievalMessages, retrievalMessages);
+        }
+    }
+    if (!(options && options.preview) && retrievalResult && retrievalResult.status !== 'disabled' &&
+        build.conv && build.conv.id && state.activeConvId && state.activeConvId !== build.conv.id) {
+        return null;
+    }
     if (!isPromptBuildCurrent(build)) return null;
     var step = advancePromptBuild(build);
     while (!step.done) {
@@ -233,11 +354,24 @@ async function buildMessagesForAPIAsync(conversation, options) {
         step = advancePromptBuild(build, value);
     }
     if (!isPromptBuildCurrent(build)) return null;
+    if (retrievalResult && typeof retrievalResult._stillCurrent === 'function' && !retrievalResult._stillCurrent()) return null;
     persistSillyTavernMacroEnv(build.env);
     if (!isPromptBuildCurrent(build)) return null;
     Object.defineProperty(step.value, '_requestSettings', { value: build.settings });
     Object.defineProperty(step.value, '_requestConversation', { value: build.conv });
     if (build.operation) Object.defineProperty(step.value, '_promptBuildOperation', { value: build.operation });
+    if (build.automationFragments && build.automationFragments.length && typeof automationFragmentsStillCurrent === 'function') {
+        Object.defineProperty(step.value, '_automationStillCurrent', { value: function() {
+            return automationFragmentsStillCurrent(build.automationFragments, build);
+        } });
+    }
+    if (retrievalResult) {
+        Object.defineProperty(step.value, '_retrieval', { value: typeof getRetrievalDiagnostics === 'function' ? getRetrievalDiagnostics(retrievalResult) : null });
+        Object.defineProperty(step.value, '_retrievalPreviewNote', { value: (options && options.preview) && typeof getRetrievalPreviewNote === 'function' ? getRetrievalPreviewNote(retrievalResult) : '' });
+        if (typeof retrievalResult._stillCurrent === 'function') {
+            Object.defineProperty(step.value, '_retrievalStillCurrent', { value: retrievalResult._stillCurrent });
+        }
+    }
     return step.value;
 }
 
@@ -245,7 +379,11 @@ function formatPromptMessages(messages) {
     var text = '';
     for (var i = 0; i < messages.length; i++) {
         var role = String(messages[i].role || '').toUpperCase();
-        var content = messages[i].content || '';
+        var content = getMessagePlainText(messages[i].content);
+        if (Array.isArray(messages[i].content)) {
+            var count = messages[i].content.filter(function(part) { return part.type === 'image_url'; }).length;
+            if (count) content += '\n[用户图片 × ' + count + ']';
+        }
         if (content) {
             text += '=== ' + role + ' ===\n';
             text += content + '\n\n';

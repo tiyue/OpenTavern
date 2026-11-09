@@ -16,6 +16,7 @@ var appStore = createReactiveStore({
     activeConvId: null,
     worldBooks: {},
     characters: {},
+    documents: {},
     isGenerating: false,
     abortController: null
 });

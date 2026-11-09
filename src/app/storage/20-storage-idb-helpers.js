@@ -15,6 +15,22 @@ function normalizeIDBStorageData(data) {
     return value || null;
 }
 
+function idbStorageSnapshotMatches(stored, candidate) {
+    if (!stored || !candidate) return stored === candidate;
+    try {
+        const storedValue = JSON.parse(JSON.stringify(stored));
+        const candidateValue = JSON.parse(JSON.stringify(candidate));
+        // 旧调用方可能不带 lastSaved；读取路径会补上它，比较时忽略这个补出的值。
+        if (!candidateValue.lastSaved) {
+            delete storedValue.lastSaved;
+            delete candidateValue.lastSaved;
+        }
+        return JSON.stringify(storedValue) === JSON.stringify(candidateValue);
+    } catch (_) {
+        return false;
+    }
+}
+
 async function getIDBStorageInfo(storage) {
     try {
         const data = await storage.loadAll({ fresh: true });
@@ -27,14 +43,63 @@ async function getIDBStorageInfo(storage) {
 function runIDBStorageTransaction(db, storage, mode, action, messages) {
     messages = messages || {};
     return new Promise((resolve, reject) => {
-        let tx;
+        let settled = false;
+        let timer = null;
+        let tx = null;
+
+        const clearTransactionTimer = () => {
+            if (timer) {
+                clearTimeout(timer);
+                timer = null;
+            }
+        };
+        const succeed = (value) => {
+            if (settled) return;
+            settled = true;
+            clearTransactionTimer();
+            resolve(value);
+        };
+        const fail = (error, knownAborted) => {
+            if (settled) return;
+            settled = true;
+            clearTransactionTimer();
+            let abortFailed = false;
+            if (tx) {
+                // 原生 onabort 事件已发生表示回滚已知，不再重复中止；其他失败先请求中止，
+                // 中止失败意味着事务可能已经完成，不能断言回滚成功。
+                if (!knownAborted) {
+                    try { tx.abort(); } catch (_) { abortFailed = true; }
+                }
+                try {
+                    tx.oncomplete = null;
+                    tx.onerror = null;
+                    tx.onabort = null;
+                } catch (_) {}
+            }
+            // 只读事务不修改数据；中止失败仍可按普通失败重试，只有写事务需要核对未知的提交结果。
+            if (abortFailed && mode === 'readwrite') {
+                const uncertain = new Error((error && error.message ? error.message : 'IndexedDB transaction failed') +
+                    '; abort failed, transaction completion is uncertain');
+                uncertain.idbAbortUncertain = true;
+                if (error && error.name) uncertain.name = error.name;
+                if (error && error.code) uncertain.code = error.code;
+                reject(uncertain);
+                return;
+            }
+            reject(error);
+        };
+
         try {
             tx = db.transaction(storage._storeName, mode);
-            tx.onerror = () => reject(tx.error || new Error(messages.error || 'IndexedDB transaction failed'));
-            tx.onabort = () => reject(tx.error || new Error(messages.abort || 'IndexedDB transaction aborted'));
-            action(tx, resolve, reject);
+            timer = setTimeout(() => {
+                timer = null;
+                fail(new Error(messages.timeout || 'IndexedDB transaction timed out'));
+            }, IDB_STORAGE_TRANSACTION_TIMEOUT_MS);
+            tx.onerror = () => fail(tx.error || new Error(messages.error || 'IndexedDB transaction failed'));
+            tx.onabort = () => fail(tx.error || new Error(messages.abort || 'IndexedDB transaction aborted'), true);
+            action(tx, succeed, fail);
         } catch (e) {
-            reject(e);
+            fail(e);
         }
     });
 }

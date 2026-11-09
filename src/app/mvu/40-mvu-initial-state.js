@@ -42,6 +42,11 @@ function collectMvuWorldBookEntries(conv) {
         var book = books && mvuOwn(books, id) ? books[id] : null;
         append(book, book && book.name || id);
     });
+    if (typeof getContentModuleWorldBookEntries === 'function') {
+        getContentModuleWorldBookEntries(conv).forEach(function(entry) {
+            append({ entries: [entry] }, 'module:' + String(entry._moduleId || '') + ':' + String(entry._moduleEntryId || ''));
+        });
+    }
     if (conv && conv.worldInfo) append(conv.worldInfo, conv.worldInfo.name || 'conversation');
     getMvuConversationCharacters(conv).forEach(function(character) {
         var raw = character.rawCard;

@@ -5,6 +5,7 @@ function isBackupRestorePending() { return backupRestorePending; }
 
 function beginStorageReplacement() {
     if (backupRestorePending || storageReplacementActive > 0 || typeof cloudSyncActiveOperations !== 'undefined' && cloudSyncActiveOperations > 0) throw new Error('另一项恢复、清空或云同步正在进行，请完成后重试。');
+    if (typeof cancelAutomationRuntime === 'function') cancelAutomationRuntime(t('automation_restore_cancelled'));
     storageReplacementActive++;
     return function() { storageReplacementActive--; };
 }
@@ -16,10 +17,13 @@ function assertBackupRestorePlanCurrent(plan) {
     Object.keys(plan.settingsPatch).forEach(function(key) {
         if (!backupEqual(state.settings[key], plan.baselineSettings[key])) throw new Error('选中的设置已变化，请重新预览。');
     });
-    [['apiEndpoint', 'apiKey'], ['summarizeApiEndpoint', 'summarizeApiKey']].forEach(function(pair) {
-        if (backupHas(plan.settingsPatch, pair[0]) && String(state.settings[pair[1]] || '') && !backupEqual(plan.settingsPatch[pair[0]], state.settings[pair[0]])) throw new Error('本机 API 凭据已变化，请重新预览恢复。');
+    [['apiEndpoint', 'apiKey', 'apiProtocol'], ['summarizeApiEndpoint', 'summarizeApiKey', 'summarizeApiProtocol']].forEach(function(pair) {
+        if (!String(state.settings[pair[1]] || '')) return;
+        var endpointChanged = backupHas(plan.settingsPatch, pair[0]) && !backupEqual(plan.settingsPatch[pair[0]], state.settings[pair[0]]);
+        var protocolChanged = backupHas(plan.settingsPatch, pair[2]) && normalizeApiProtocol(plan.settingsPatch[pair[2]] || (pair[2] === 'summarizeApiProtocol' ? plan.settingsPatch.apiProtocol || state.settings.apiProtocol : 'openai')) !== normalizeApiProtocol(state.settings[pair[2]] || state.settings.apiProtocol);
+        if (endpointChanged || protocolChanged) throw new Error('本机 API 凭据已变化，请重新预览恢复。');
     });
-    ['conversations', 'characters', 'worldBooks'].forEach(function(key) {
+    ['conversations', 'characters', 'worldBooks', 'documents'].forEach(function(key) {
         Object.keys(plan.additions[key]).forEach(function(id) {
             if (backupHas(state[key], id)) throw new Error('恢复目标 ID 已被其他操作使用，请重新预览。');
         });
@@ -30,7 +34,7 @@ function assertBackupRestorePlanCurrent(plan) {
 }
 
 function applyBackupRestorePlanToSnapshot(snapshot, plan) {
-    ['conversations', 'characters', 'worldBooks'].forEach(function(key) {
+    ['conversations', 'characters', 'worldBooks', 'documents'].forEach(function(key) {
         if (!plan.selection[key]) return;
         if (!snapshot[key]) snapshot[key] = {};
         Object.keys(plan.additions[key]).forEach(function(id) { backupSet(snapshot[key], id, backupClone(plan.additions[key][id])); });
@@ -63,10 +67,11 @@ async function commitBackupRestorePlan(plan) {
             beforePersist: function() { assertBackupRestorePlanCurrent(plan); },
             onPersistSuccess: function() {
                 assertBackupRestorePlanCurrent(plan);
-                var applied = applyBackupRestorePlanToSnapshot({ settings: state.settings, conversations: state.conversations, characters: state.characters, worldBooks: state.worldBooks, conversationOrder: state.conversationOrder, activeConvId: state.activeConvId, charactersMigrated: state._charactersMigrated }, plan);
+                var applied = applyBackupRestorePlanToSnapshot({ settings: state.settings, conversations: state.conversations, characters: state.characters, worldBooks: state.worldBooks, documents: state.documents, conversationOrder: state.conversationOrder, activeConvId: state.activeConvId, charactersMigrated: state._charactersMigrated }, plan);
                 if (plan.selection.conversations) { state.conversations = applied.conversations; state.conversationOrder = applied.conversationOrder; state.activeConvId = applied.activeConvId; }
                 if (plan.selection.characters) { state.characters = applied.characters; state._charactersMigrated = applied.charactersMigrated; }
                 if (plan.selection.worldBooks) state.worldBooks = applied.worldBooks;
+                if (plan.selection.documents) { state.documents = applied.documents; if (typeof ensureDocumentsState === 'function') ensureDocumentsState(); }
                 committed = true;
             },
             commitPendingSnapshot: function(snapshot) { applyBackupRestorePlanToSnapshot(snapshot, plan); }
@@ -78,11 +83,14 @@ async function commitBackupRestorePlan(plan) {
         }
     }
     if (committed) {
+        if (plan.selection.settings && typeof stopAllPluginInstances === 'function') {
+            stopAllPluginInstances(t('plugin_backup_restore_stopped'), { skipDependents: true });
+        }
         try {
             if (plan.selection.settings && typeof settingsFormDraft !== 'undefined' && settingsFormDraft) discardSettingsDraft();
             if (typeof applyUiTheme === 'function') applyUiTheme(state.settings.uiTheme);
             if (typeof applyReadingAppearance === 'function') applyReadingAppearance(state.settings);
-            appStore.notify(['settings', 'conversations', 'characters', 'worldBooks', 'activeConvId']);
+            appStore.notify(['settings', 'conversations', 'characters', 'worldBooks', 'documents', 'activeConvId']);
             if (typeof renderLibraryGrids === 'function') renderLibraryGrids();
             if (typeof renderMyCards === 'function') renderMyCards();
             if (typeof requestFullRender === 'function') requestFullRender();

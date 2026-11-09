@@ -13,7 +13,8 @@ function isDangerouslyEmptyStorageSnapshot(data) {
     const convs = Object.values((data && data.conversations) || {});
     const hasChars = Object.keys((data && data.characters) || {}).length > 0;
     const hasWorldBooks = Object.keys((data && data.worldBooks) || {}).length > 0;
-    if (hasChars || hasWorldBooks) return false;
+    const hasDocuments = Object.keys((data && data.documents) || {}).length > 0;
+    if (hasChars || hasWorldBooks || hasDocuments) return false;
     if (convs.length === 0) return true;
     if (convs.length > 1) return false;
     const c = convs[0] || {};

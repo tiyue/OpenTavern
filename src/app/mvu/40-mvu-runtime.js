@@ -32,7 +32,9 @@ function validateMvuSources(conv, sources) {
     return !!conv && !!sources && conv.id === sources.id && getMvuContextStamp(conv) === sources.stamp;
 }
 
-function getMvuManualState(message, diagnostics) {
+function getMvuManualState(message, diagnostics, conv, sceneIndex) {
+    if (message && message.stage === 'scene' &&
+        (typeof isSceneMessageRecordValid !== 'function' || !isSceneMessageRecordValid(conv, message, sceneIndex))) return null;
     if (!mvuOwn(message, 'mvuManualData')) return null;
     if (message.mvuManualVersionId !== getMvuMessageVersionId(message) ||
         (message.selectedResponseVersionId && (!getMvuSelectedResponseVersion(message) || !mvuResponseVersionMatches(message, getMvuSelectedResponseVersion(message))))) {
@@ -44,13 +46,28 @@ function getMvuManualState(message, diagnostics) {
     return checked.data;
 }
 
-function replayMvuMessage(data, message, diagnostics) {
+function replayMvuMessage(data, message, diagnostics, conv, sceneIndex) {
     if (!message || message.role !== 'assistant' || message.stage === 'second') return data;
+    // 场景消息的变量与一次性记录同属一个可靠候选；来源失效或正文/状态被修改后，回放必须忽略其变量。
+    if (message.stage === 'scene' && (typeof isSceneMessageRecordValid !== 'function' || !isSceneMessageRecordValid(conv, message, sceneIndex))) return data;
     var selected = getMvuSelectedResponseVersion(message);
     if (message.interrupted === true || selected && selected.interrupted === true) return data;
     var applied = applyMvuContent(data, String(message.content || ''));
     diagnostics.push.apply(diagnostics, applied.diagnostics);
-    return getMvuManualState(message, diagnostics) || applied.data;
+    var manual = getMvuManualState(message, diagnostics, conv, sceneIndex);
+    if (message.stage === 'scene' && manual && message.sceneEvent && message.sceneEvent.mvuBaseDigest) {
+        // 前序状态链变化后，不能把后来完整 manual 快照里已经失效的前事重新引入；
+        // 只按本事件自己声明的变量变更重放到当前状态。
+        var expected = 'b1:' + fingerprintMessageText(canonicalMvuRuntimeValue(data));
+        if (expected !== message.sceneEvent.mvuBaseDigest) {
+            var fallback = applied.data;
+            (message.sceneEvent.mvuChanges || []).forEach(function(change) {
+                fallback = writeAutomationMvuValue(fallback, change.path, parseAutomationActionValue(change));
+            });
+            return fallback;
+        }
+    }
+    return manual || applied.data;
 }
 
 function cacheMvuRuntimeSnapshot(record, index, data) {
@@ -73,9 +90,10 @@ function getMvuReplayRecord(conv) {
     var initial = getMvuInitialResult(conv), data = normalizeMvuData(initial.data);
     var report = mvuRuntimeInitialReports.get(conv);
     var record = { stamp: stamp, initial: cloneMvuRuntimeValue(data), current: null, diagnostics: (report ? report.diagnostics : initial.diagnostics).map(function(item) { return Object.assign({}, item, { messageIndex: -1 }); }), snapshots: new Map(), bytes: 0, messages: Array.isArray(conv.messages) ? conv.messages.slice() : [] };
+    record.sceneIndex = typeof buildScenePrefixIndex === 'function' ? buildScenePrefixIndex(conv) : null;
     record.messages.forEach(function(message, index) {
         var diagnostics = [];
-        data = replayMvuMessage(data, message, diagnostics);
+        data = replayMvuMessage(data, message, diagnostics, conv, record.sceneIndex);
         diagnostics.forEach(function(item) { record.diagnostics.push(Object.assign({}, item, { messageId: message && message.id, messageIndex: index })); });
         if ((index + 1) % 100 === 0) cacheMvuRuntimeSnapshot(record, index, data);
     });
@@ -99,7 +117,7 @@ function getMvuDataForMessage(conv, message) {
     var start = -1, data = record.initial;
     record.snapshots.forEach(function(snapshot, position) { if (position <= index && position > start) { start = position; data = snapshot.data; } });
     data = cloneMvuRuntimeValue(data);
-    for (var i = start + 1; i <= index; i++) data = replayMvuMessage(data, record.messages[i], []);
+    for (var i = start + 1; i <= index; i++) data = replayMvuMessage(data, record.messages[i], [], conv, record.sceneIndex);
     cacheMvuRuntimeSnapshot(record, index, data);
     return cloneMvuRuntimeValue(data);
 }

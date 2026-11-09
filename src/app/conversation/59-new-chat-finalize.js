@@ -45,7 +45,9 @@ async function persistPreparedConversation(candidate, options) {
     var source = previous ? JSON.stringify(sanitizeCloudSyncSignatureConversation(previous)) : null;
     var records = [];
     if (options.character && options.character.name) records.push({ container: 'characters', key: options.character.name.trim().toLowerCase(), value: options.character });
-    if (options.worldBook) records.push({ container: 'worldBooks', key: options.worldBook.id, value: options.worldBook });
+    (options.worldBooks || (options.worldBook ? [options.worldBook] : [])).forEach(function(book) {
+        records.push({ container: 'worldBooks', key: book.id, value: book });
+    });
     records.forEach(function(record) {
         record.hadValue = Object.prototype.hasOwnProperty.call(state[record.container] || {}, record.key);
         record.previous = record.hadValue ? JSON.stringify(state[record.container][record.key]) : null;
@@ -100,6 +102,15 @@ async function persistPreparedConversation(candidate, options) {
     }
     if (committed && typeof pruneCardRuntimeInstances === 'function') {
         try { pruneCardRuntimeInstances(); } catch (error) { reportPersistPostSaveError('conversation runtime cleanup', error); }
+    }
+    if (committed && beforeActive && beforeActive !== candidate.id && typeof cancelAutomationRuntime === 'function') {
+        cancelAutomationRuntime(t('automation_conversation_switched'), beforeActive);
+    }
+    var isPlainNewChat = !options.previous && !options.character && !options.worldBook && !(options.worldBooks && options.worldBooks.length);
+    if (committed && isPlainNewChat && typeof dispatchAutomationEvent === 'function') {
+        Promise.resolve(dispatchAutomationEvent('conversation-created', candidate, { eventId: 'conversation-created:' + candidate.id })).catch(function(error) {
+            if (typeof reportPersistPostSaveError === 'function') reportPersistPostSaveError('automation conversation created event', error);
+        });
     }
     return candidate;
 }

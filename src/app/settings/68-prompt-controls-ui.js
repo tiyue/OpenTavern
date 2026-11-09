@@ -67,7 +67,10 @@ function openConversationPromptControls() {
         persistState(true); renderTokenBar();
     });
     dialog.querySelector('#conversationNoteButton').onclick = function() { editAuthorNote(conv); };
-    dialog.querySelector('#conversationPresetChoice').onchange = function(event) { selectLibraryPreset(event.target.value); };
+    dialog.querySelector('#conversationPresetChoice').onchange = async function(event) {
+        try { await selectLibraryPreset(event.target.value); }
+        catch (error) { dialog.querySelector('.feature-error').textContent = error.message; event.target.value = state.settings.activePresetId; }
+    };
 }
 
 function hydrateDepthPromptEditor(character) {

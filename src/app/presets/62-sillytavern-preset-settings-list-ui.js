@@ -37,11 +37,15 @@ function renderSillyTavernPresetSettings() {
     dom.stPresetList.innerHTML = regexHtml + rows.map(buildSillyTavernPresetRowHtml).join('');
     var regexToggle = dom.stPresetList.querySelector('.st-preset-regex-toggle');
     if (regexToggle) {
-        regexToggle.addEventListener('change', function() {
-            preset.regexScriptsEnabled = regexToggle.checked;
-            preset.regexScriptsPrompted = true;
-            persistState(true);
-            appStore.notify('settings');
+        regexToggle.addEventListener('change', async function() {
+            regexToggle.disabled = true;
+            try {
+                await savePresetLibraryChange(function(settings) {
+                    settings.sillyTavernPreset.regexScriptsEnabled = regexToggle.checked;
+                    settings.sillyTavernPreset.regexScriptsPrompted = true;
+                });
+            } catch (error) { alert(error.message); renderSillyTavernPresetSettings(); }
+            finally { regexToggle.disabled = false; }
         });
     }
     bindSillyTavernPresetToggleEvents(preset);

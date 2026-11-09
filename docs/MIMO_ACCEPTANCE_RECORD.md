@@ -18,7 +18,7 @@
 
 ## T01 验收
 
-基线：`dfe70d978e7cf2e5a195ae65542824a4a86a314a`。执行副本及审查材料位于本机 `<local-evidence>/opentavern-mimo-20261013-071152`。后续任务从本次独立提交接续，不能把任务书准备当作代码完成。
+基线：`dfe70d978e7cf2e5a195ae65542824a4a86a314a`。执行副本及审查材料位于本机 `/path/to/local-release-evidence`。后续任务从本次独立提交接续，不能把任务书准备当作代码完成。
 
 - 修复前：真实源码回归确认停止后 `auditStopped` 被改为 `from_cancelled_build`，应保留 `user_change_after_stop`；基线 Chrome 也复现了同一变量覆盖。修复后独立 Chrome 复现值为 `user_change_after_stop`，中断回调一次、无模型请求。
 - 实现：四个生成/提示词文件保护操作身份、来源修订和异步恢复，宏候选按基线差异提交，冲突整批放弃；正常同步宏和只读预览保留。
@@ -119,13 +119,13 @@
 - T09 消除两组重名 helper，统一五类 HTML 字符转义。恢复原结构测试的真实 build/UI/drift CLI 子进程，未保留执行器为绕过 EPERM 而复制的检查实现。AST 检查精确核对调用接收者和 factory 链，增加实际源码通过、错误接收者与缺注入依赖负例。模块缺失/顺序/返回接口/重复登记及失败构建字节保护通过。
 - 完整 bundle 实际 Chrome 对照：同名角色完整元数据在改动前后均保留；单引号从未转义改为 `&#39;`，无 pageerror。有效角色名 `constructor` 被既有注册迁移跳过是范围外旧行为，未伪称本次修复。真实库搜索、角色 PNG 导出/解析、会话导入与设置/恢复竞态浏览器通过；原始数据与私有设置保护回归保留。
 - T10 14 项工具夹具及真实 Windows npm 启动通过。完整本地门禁实际通过 build:sites、完整 check（含 66 项 Python）、check:sites 和六组真实 Chrome；390/1280px 浅暗/系统主题及队列恢复、二阶段纠正、保存失败保护、静态安全和双来源 HTTP 卡片运行通过，预览与部署资产字节一致，子服务清理 removed。各组证据后来改为独立目录，专用最终副本仍须再跑门禁。
-- 证据根目录 `<local-evidence>/opentavern-mimo-20261013-071152`：`T09-import-before.json`/`after.json`、`T09-chat-browser.log`、`T09-convenience-browser.log`、`T10-root-gate/release-2026-10-13T12-02-49-681Z-31112/release-report.json`；移动暗色生成和桌面浅色搜索截图已人工查看。
+- 证据根目录 `/path/to/local-release-evidence`：`T09-import-before.json`/`after.json`、`T09-chat-browser.log`、`T09-convenience-browser.log`、`T10-root-gate/release-2026-10-13T12-02-49-681Z-31112/release-report.json`；移动暗色生成和桌面浅色搜索截图已人工查看。
 
 发布前阶段观察（后续结果见 T11）：当时尚未发布新版本，本地检查未把真实供应商记为成功。实际应用只读确认当前预设 `SillyTavern Preset`（32/84 启用、29 条 regex_scripts），已启用预设正则格式化；导出时浏览器控制连接中断，未获得完整去敏样本或进行真实生成。
 
 ## T11 最终同产物检查与发布
 
-最终源码实现提交 `c262b4c`，Sites 工具仅提交构建生成的 HTML 换行规范化为 `330e0d4f0b529607a1aa43fa6edcfcc6c7083129`。最终门禁 `<local-evidence>/opentavern-mimo-20261013-071152/final-release-gate/release-2026-10-13T12-13-02-715Z-6176/release-report.json` 全部通过；打包后完整源码/资产映射仍与门禁完全一致，保存准确推送提交和归档后部署第 13 版，版本 `<site-version-id>`、部署 `<site-deployment-id>`，状态 succeeded。
+最终源码实现提交 `c262b4c`，Sites 工具仅提交构建生成的 HTML 换行规范化为 `330e0d4f0b529607a1aa43fa6edcfcc6c7083129`。最终门禁 `/path/to/local-release-evidence` 全部通过；打包后完整源码/资产映射仍与门禁完全一致，保存准确推送提交和归档后部署第 13 版，版本 `[site-id]~[version-id]`、部署 `[deployment-id]`，状态 succeeded。
 
 线上公开访问保持，根页与正式 `/opentavern` 返回 200，应用、正则 Worker、两套 CSS 字节与被测产物一致。HTML 仅多出 Cloudflare 边缘脚本，严格移除此已识别脚本后应用 HTML 字节一致；原始响应不同未冒称一致。相关映射在证据根目录 `online-verification.json`。390px 系统浅色静态消息与 1280px 系统暗色卡片截图已人工查看。
 

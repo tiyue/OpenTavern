@@ -27,6 +27,7 @@ function createPromptBuildOperation(sequence, conversation) {
         rebindSourceAfterSave: function(nextSource, savedMessage) {
             if (!this.hasCurrentOwnership() || !nextSource || !savedMessage || !this.source) return false;
             if (this.source.conversation !== nextSource.conversation || this.source.conversationId !== nextSource.conversationId) return false;
+            if (String(nextSource.moduleStamp || '') !== String(this.source.moduleStamp || '')) return false;
             if (nextSource.messages.length !== this.source.messages.length + 1) return false;
             for (var index = 0; index < this.source.messages.length; index++) {
                 if (this.source.messages[index].id !== nextSource.messages[index].id || this.source.messages[index].revision !== nextSource.messages[index].revision) return false;
@@ -104,6 +105,13 @@ function streamChatWithMessages(messages, onToken, onComplete, onError, requestO
     requestOptions = requestOptions || {};
     var promptBuildOperation = requestOptions.promptBuildOperation || requestOptions.generationContext && requestOptions.generationContext.operation || messages._promptBuildOperation;
     if (promptBuildOperation && !promptBuildOperation.isCurrent()) return;
+    if (typeof messages._automationStillCurrent === 'function' && !messages._automationStillCurrent()) {
+        var staleContext = requestOptions.generationContext;
+        // 只有仍拥有当前运行态的请求才能结算锁和错误回调；旧请求不能干扰后来的生成。
+        if (!isGenerationRuntimeOwned(staleContext)) return;
+        releaseGenerationRuntimeState(staleContext);
+        return Promise.resolve(onError(new Error(t('automation_target_changed'))));
+    }
     if (!requestOptions.settings && messages._requestSettings) requestOptions.settings = messages._requestSettings;
     if (!requestOptions.conversation && messages._requestConversation) requestOptions.conversation = messages._requestConversation;
     var settings = requestOptions.settings || state.settings;
@@ -113,9 +121,33 @@ function streamChatWithMessages(messages, onToken, onComplete, onError, requestO
     if (!settings.apiEndpoint || !settings.apiKey) {
         return Promise.resolve().then(function() { return onError(new Error(t('no_api_error'))); });
     }
+    if (!requestOptions.retrySource && generationContext.conversation && typeof capturePromptBuildSource === 'function') requestOptions.retrySource = capturePromptBuildSource(generationContext.conversation);
+    var modelToolStageAllowed = typeof getModelToolAllowedStage === 'function' ? getModelToolAllowedStage(requestOptions.stage) : true;
+    if (!modelToolStageAllowed) {
+        requestOptions.modelToolContext = null;
+        requestOptions.modelTools = null;
+    }
+    if (modelToolStageAllowed && !requestOptions.modelToolContext && generationContext.modelToolContext) requestOptions.modelToolContext = generationContext.modelToolContext;
+    if (modelToolStageAllowed && !requestOptions.modelToolContext && typeof resolveModelToolRequestContext === 'function') {
+        requestOptions.modelToolContext = resolveModelToolRequestContext(generationContext.conversation, settings, requestOptions.stage);
+        if (requestOptions.modelToolContext) generationContext.modelToolContext = requestOptions.modelToolContext;
+    }
+    if (modelToolStageAllowed && requestOptions.modelToolContext && typeof createModelToolRuntime === 'function') {
+        requestOptions.modelToolContext.requestSourceCurrent = function() {
+            if (typeof messages._retrievalStillCurrent === 'function' && !messages._retrievalStillCurrent()) return false;
+            if (typeof messages._automationStillCurrent === 'function' && !messages._automationStillCurrent()) return false;
+            return true;
+        };
+        requestOptions.modelTools = createModelToolRuntime(requestOptions.modelToolContext, generationContext);
+    }
     var transport = createGenerationTransport({
         fetch: fetch,
-        clock: { now: Date.now, setTimeout: setTimeout, clearTimeout: clearTimeout },
+        // clock 方法按对象 receiver 调用，直接挂 Window 原生计时器会触发 Illegal invocation，故用薄包装直呼原生函数。
+        clock: {
+            now: Date.now,
+            setTimeout: function(callback, delay) { return setTimeout(callback, delay); },
+            clearTimeout: function(value) { return clearTimeout(value); }
+        },
         stateController: {
             begin: function(requestSettings) {
                 var controller = beginGenerationStreamState(requestSettings);
@@ -133,11 +165,12 @@ function streamChatWithMessages(messages, onToken, onComplete, onError, requestO
             buildPayload: buildChatCompletionPayload,
             buildFetchOptions: buildChatCompletionFetchOptions,
             readError: readChatCompletionError,
-            normalizeEndpoint: normalizeApiEndpoint,
+            normalizeEndpoint: resolveChatEndpoint,
             shouldUseOllamaCompat: shouldUseOllamaCompat,
             normalizeOllamaMessages: typeof normalizeMessagesForOllamaCompatibility === 'function' ? normalizeMessagesForOllamaCompatibility : undefined,
             postProcessMessages: typeof postProcessPromptMessages === 'function' ? postProcessPromptMessages : undefined,
-            parseUsage: typeof parseApiUsage === 'function' ? parseApiUsage : undefined,
+            normalizeResponse: function(json) { return normalizeApiProtocolResponse(json, getMainApiProtocol(settings)); },
+            parseUsage: function(json) { return parseApiProtocolUsage(json, getMainApiProtocol(settings)); },
             extractCot: typeof extractCotDelta === 'function' ? extractCotDelta : undefined,
             buildCotParts: typeof buildCotAwareParts === 'function' ? buildCotAwareParts : undefined,
             finalizeUsage: typeof finalizeUsageMeta === 'function' ? finalizeUsageMeta : undefined,
@@ -148,9 +181,27 @@ function streamChatWithMessages(messages, onToken, onComplete, onError, requestO
         }
     });
     return transport.request(messages, {
-        onToken: onToken,
+        onToken: function(delta, content, cot) {
+            if (typeof queueStreamDraft === 'function') queueStreamDraft(requestOptions.draftContext || generationContext, content, cot);
+            return onToken(delta, content, cot);
+        },
+        onToolRoundComplete: function(info) {
+            if (typeof queueStreamDraft !== 'function') return;
+            queueStreamDraft(requestOptions.draftContext || generationContext, info && info.content || '', info && info.cot || '', info && info.trace);
+            // 恢复记录必须真正写入后才允许下一轮；写入失败由传输层按 unknown 结算，不能吞掉后继续请求。
+            if (typeof flushStreamDraftWrites === 'function') return flushStreamDraftWrites();
+        },
         onComplete: onComplete,
-        onError: onError
+        onError: function(error) {
+            var result = onError(error);
+            if (typeof flushStreamDraftWrites === 'function') Promise.resolve(result).then(function() {
+                return flushStreamDraftWrites().then(function() {
+                    refreshStreamDraftRecoveryNotice().catch(reportStreamDraftError);
+                    if (typeof offerFailedRequestRetry === 'function') offerFailedRequestRetry(generationContext, messages, onToken, onComplete, onError, requestOptions);
+                });
+            }).catch(reportStreamDraftError);
+            return result;
+        }
     }, Object.assign({}, requestOptions, {
         settings: settings,
         generationContext: generationContext
@@ -161,11 +212,14 @@ function streamChatWithMessages(messages, onToken, onComplete, onError, requestO
  * 普通聊天生成的便捷入口：先构建当前会话提示词，再调用通用流式请求函数。
  * 提示词构建失败属于本地错误，此时要恢复 isGenerating 状态，不能继续发送空请求。
  */
-async function streamChat(onToken, onComplete, onError, conversation) {
+async function streamChat(onToken, onComplete, onError, conversation, requestSettings, automationOptions) {
+    automationOptions = automationOptions || {};
     var sequence = ++activePromptBuildSequence;
     var targetConversation = conversation || getActiveConv();
     var operation = createPromptBuildOperation(sequence, targetConversation);
-    var generationContext = createGenerationRuntimeContext(operation, state.settings, targetConversation, 'main');
+    var generationContext = createGenerationRuntimeContext(operation, requestSettings || state.settings, targetConversation, 'main');
+    generationContext.automationChain = automationOptions.automationChain || null;
+    generationContext.fragmentToken = automationOptions.fragmentToken || '';
     state._promptBuildPendingSequence = sequence;
     state._promptBuildOperation = operation;
     state._generationRuntime = generationContext;
@@ -184,9 +238,17 @@ async function streamChat(onToken, onComplete, onError, conversation) {
     }
     var messages;
     try {
+        if (!generationContext.modelToolContext && typeof resolveModelToolRequestContext === 'function') {
+            generationContext.modelToolContext = resolveModelToolRequestContext(targetConversation, generationContext.settings, 'main');
+        }
         if (!operation.source && typeof capturePromptBuildSource === 'function') operation.setSource(capturePromptBuildSource(targetConversation));
         messages = typeof buildMessagesForAPIAsync === 'function'
-            ? await buildMessagesForAPIAsync(targetConversation, { operation: operation, settings: generationContext.settings })
+            ? await buildMessagesForAPIAsync(targetConversation, {
+                operation: operation,
+                settings: generationContext.settings,
+                fragmentToken: generationContext.fragmentToken,
+                modelTools: generationContext.modelToolContext
+            })
             : buildMessagesForAPI(targetConversation);
     } catch (err) {
         if (!isLatest()) return;
@@ -215,12 +277,17 @@ async function streamChat(onToken, onComplete, onError, conversation) {
         releaseGenerationRuntimeState(generationContext);
         return;
     }
+    if (typeof messages._retrievalStillCurrent === 'function' && !messages._retrievalStillCurrent()) {
+        releaseGenerationRuntimeState(generationContext);
+        return;
+    }
     streamChatWithMessages(messages, onToken, onComplete, onError, {
         conversation: targetConversation,
         stage: 'main',
         settings: generationContext.settings,
         generationContext: generationContext,
         promptBuildOperation: operation,
-        operation: operation.sequence
+        operation: operation.sequence,
+        modelToolContext: generationContext.modelToolContext
     });
 }

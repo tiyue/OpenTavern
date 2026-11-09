@@ -9,12 +9,10 @@ async function assertFrontendFileProtocolOPFSSilence() {
     '../../../src/app/storage/20-storage-opfs-unsupported.js',
     '../../../src/app/storage/20-storage-opfs-root.js',
     '../../../src/app/storage/20-storage-opfs-probe.js',
-    '../../../src/app/storage/20-storage-opfs-environment.js',
     '../../../src/app/storage/20-storage-opfs-read-write-helpers.js',
     '../../../src/app/storage/20-storage-opfs-read-write.js',
     '../../../src/app/storage/20-storage-opfs-info.js',
     '../../../src/app/storage/20-storage-opfs-clear.js',
-    '../../../src/app/storage/20-storage-opfs-io.js',
     '../../../src/app/storage/20-storage-opfs.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
   const warnings = [];
@@ -297,6 +295,7 @@ async function assertFrontendIDBStorageHelpers() {
     Error,
     Promise,
     setTimeout,
+    clearTimeout,
   };
 
   vm.runInNewContext(`${sources.join('\n')}\nthis.__open = openIDBStorage;\nthis.__normalize = normalizeIDBStorageData;\nthis.__retry = withRetryIDBStorage;\nthis.__tx = runIDBStorageTransaction;`, context);

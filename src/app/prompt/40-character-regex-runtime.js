@@ -177,7 +177,9 @@ function buildRegexContextKey(context, replacement) {
             presetJailbreak: getSillyTavernPresetPromptContentFromSettings(settings, 'jailbreak'),
             globalRegexEnabled: settings.globalRegexEnabled === true,
             presetRegexEnabled: preset.regexScriptsEnabled === true
-        }
+        },
+        contentModules: typeof getContentModuleAssemblyStamp === 'function' && context.conv
+            ? getContentModuleAssemblyStamp(context.conv) : ''
     });
 }
 
@@ -198,6 +200,9 @@ function getEnabledRegexScripts(character, context) {
             ? character.regexScriptsPromptEnabled === true
             : character.regexScriptsEnabled === true;
         if (enabled) getCharacterRegexScripts(character).forEach(function(script) { scripts.push(script); });
+    }
+    if (context.conv && typeof getContentModuleRegexScripts === 'function') {
+        getContentModuleRegexScripts(context.conv).forEach(function(script) { scripts.push(script); });
     }
     return scripts;
 }

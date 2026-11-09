@@ -17,6 +17,7 @@ export const REQUIRED_BROWSER_TESTS = [
     'test-regex-worker-browser.mjs',
     'test-local-render-browser.mjs',
     'test-local-first-browser.mjs',
+    'test-upstream-alignment-browser.mjs',
 ];
 
 // Shared evidence capture for the existing isolated browser tests.

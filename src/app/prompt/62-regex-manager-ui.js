@@ -1,7 +1,7 @@
 function getRegexManagerTarget(layer) {
     if (layer === 'preset') {
-        var preset = ensureSillyTavernPresetSettings();
-        return { scripts: preset.regexScripts, enabled: preset.regexScriptsEnabled === true, setEnabled: function(value) { preset.regexScriptsEnabled = value; preset.regexScriptsPrompted = true; }, setScripts: function(value) { preset.regexScripts = value; } };
+        var draft = createPresetLibraryDraft(), preset = draft.settings.sillyTavernPreset;
+        return { scripts: preset.regexScripts, enabled: preset.regexScriptsEnabled === true, setEnabled: function(value) { preset.regexScriptsEnabled = value; preset.regexScriptsPrompted = true; }, setScripts: function(value) { preset.regexScripts = value; }, save: function() { return commitPresetLibraryDraft(draft); } };
     }
     if (layer === 'character') {
         var character = getActiveConv() && getActiveConv().character;
@@ -12,6 +12,10 @@ function getRegexManagerTarget(layer) {
     }
     if (!Array.isArray(state.settings.globalRegexScripts)) state.settings.globalRegexScripts = [];
     return { scripts: state.settings.globalRegexScripts, enabled: state.settings.globalRegexEnabled === true, setEnabled: function(value) { state.settings.globalRegexEnabled = value; }, setScripts: function(value) { state.settings.globalRegexScripts = value; } };
+}
+
+function saveRegexManagerTarget(target) {
+    return target.save ? target.save() : persistState(true);
 }
 
 function openRegexScriptEditor(target, script, refresh) {
@@ -25,7 +29,7 @@ function openRegexScriptEditor(target, script, refresh) {
         featureField('最大深度（留空不限）', 'regexMax', value.maxDepth, 'number', 'min="0" max="1000" step="1"') +
         '<label class="feature-check"><input id="regexEnabled" type="checkbox"' + (value.disabled !== true && value.enabled !== false ? ' checked' : '') + '>启用条目</label>' +
         '<label class="feature-check"><input id="regexOnEdit" type="checkbox"' + (value.runOnEdit ? ' checked' : '') + '>编辑后仍处理</label>';
-    openFeatureDialog('regexScriptEditor', '正则规则', body, function(dialog) {
+    openFeatureDialog('regexScriptEditor', '正则规则', body, async function(dialog) {
         var phase = dialog.querySelector('#regexPhase').value;
         var updated = Object.assign({}, value, {
             scriptName: dialog.querySelector('#regexName').value.trim(), findRegex: dialog.querySelector('#regexFind').value,
@@ -38,7 +42,7 @@ function openRegexScriptEditor(target, script, refresh) {
         });
         validateRegexScript(updated);
         if (script) Object.assign(script, updated); else target.scripts.push(updated);
-        persistState(true); refresh();
+        await saveRegexManagerTarget(target); refresh();
     });
 }
 
@@ -58,8 +62,8 @@ function openRegexManager(layer) {
         } catch (error) { dialog.querySelector('.feature-error').textContent = error.message; }
     }
     dialog.querySelector('#regexLayer').onchange = function(event) { layer = event.target.value; refresh(); };
-    dialog.querySelector('#regexLayerEnabled').onchange = function(event) {
-        try { var target = getRegexManagerTarget(layer); if (event.target.checked) target.scripts.forEach(validateRegexScript); target.setEnabled(event.target.checked); persistState(true); }
+    dialog.querySelector('#regexLayerEnabled').onchange = async function(event) {
+        try { var target = getRegexManagerTarget(layer); if (event.target.checked) target.scripts.forEach(validateRegexScript); target.setEnabled(event.target.checked); await saveRegexManagerTarget(target); }
         catch (error) { event.target.checked = false; dialog.querySelector('.feature-error').textContent = error.message; }
     };
     dialog.querySelector('[data-regex-file]').onchange = async function(event) {
@@ -72,11 +76,11 @@ function openRegexManager(layer) {
             scripts.forEach(validateRegexScript);
             var target = getRegexManagerTarget(layer);
             target.setScripts(target.scripts.concat(scripts)); target.setEnabled(false);
-            persistState(true); refresh();
+            await saveRegexManagerTarget(target); refresh();
         } catch (error) { dialog.querySelector('.feature-error').textContent = error.message; }
         event.target.value = '';
     };
-    dialog.addEventListener('click', function(event) {
+    dialog.addEventListener('click', async function(event) {
         var button = event.target.closest('button');
         if (!button) return;
         try {
@@ -85,10 +89,10 @@ function openRegexManager(layer) {
             if (action === 'import') dialog.querySelector('[data-regex-file]').click();
             if (action === 'export') downloadJsonFile({ regex_scripts: target.scripts }, 'opentavern-regex.json');
             if (button.dataset.regexEdit != null) openRegexScriptEditor(target, target.scripts[Number(button.dataset.regexEdit)], refresh);
-            if (button.dataset.regexDelete != null && confirm('删除此规则？')) { target.scripts.splice(Number(button.dataset.regexDelete), 1); persistState(true); refresh(); }
+            if (button.dataset.regexDelete != null && confirm('删除此规则？')) { target.scripts.splice(Number(button.dataset.regexDelete), 1); await saveRegexManagerTarget(target); refresh(); }
             if (button.dataset.regexMove != null) {
                 var from = Number(button.dataset.regexMove), to = from + Number(button.dataset.direction);
-                if (to >= 0 && to < target.scripts.length) { var moved = target.scripts.splice(from, 1)[0]; target.scripts.splice(to, 0, moved); persistState(true); refresh(); }
+                if (to >= 0 && to < target.scripts.length) { var moved = target.scripts.splice(from, 1)[0]; target.scripts.splice(to, 0, moved); await saveRegexManagerTarget(target); refresh(); }
             }
         } catch (error) { dialog.querySelector('.feature-error').textContent = error.message; }
     });

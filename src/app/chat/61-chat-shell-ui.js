@@ -64,4 +64,5 @@ function updateInputState() {
     } else {
         dom.messageInput.placeholder = t('input_placeholder');
     }
+    if (typeof updateComposerImagesState === 'function') updateComposerImagesState();
 }

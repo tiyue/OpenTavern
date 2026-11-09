@@ -11,15 +11,23 @@
 // ==================== Cloud Sync Apply Snapshot ====================
 function applyCloudSyncSnapshot(snapshot) {
     if (typeof isBackupRestorePending === 'function' && isBackupRestorePending()) throw new Error('备份恢复正在保存，请完成后再应用云端数据。');
+    if (typeof cancelAutomationRuntime === 'function') cancelAutomationRuntime(t('automation_restore_cancelled'));
+    if (typeof stopAllPluginInstances === 'function') stopAllPluginInstances(t('plugin_cloud_apply_stopped'), { skipDependents: true });
     var data = normalizeCloudSyncSnapshot(snapshot);
     var currentCloud = getCloudSyncLocalSettingsForRestore();
 
     state.settings = Object.assign(defaultSettings(), getCloudSyncPortableSettings(data.settings), currentCloud);
+    if (typeof ensureAutomationSettings === 'function') ensureAutomationSettings(state.settings);
+    if (typeof ensureSceneSettings === 'function') ensureSceneSettings(state.settings);
+    if (typeof ensureContentModuleSettings === 'function') ensureContentModuleSettings(state.settings);
+    if (typeof ensurePluginSettings === 'function') ensurePluginSettings(state.settings);
     state.conversations = data.conversations || {};
     state.conversationOrder = data.conversationOrder || Object.keys(state.conversations || {});
     state.activeConvId = data.activeConvId || null;
     state.worldBooks = data.worldBooks || {};
     state.characters = data.characters || {};
+    state.documents = data.documents || {};
+    if (typeof ensureDocumentsState === 'function') ensureDocumentsState();
     state._charactersMigrated = !!data.charactersMigrated;
 
     normalizeCloudSyncRestoredConversations();

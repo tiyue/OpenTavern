@@ -9,7 +9,7 @@ async function assertFrontendSummaryService() {
     '../../../src/app/summary/53-summary-prompt-limits.js',
     '../../../src/app/summary/53-summary-prompt-builder.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
-  const apiSource = await readFile(new URL('../../../src/app/summary/53-summary-api-client.js', import.meta.url), 'utf8');
+  const apiSource = await readFile(new URL('../../../src/app/api/31-api-protocol.js', import.meta.url), 'utf8') + '\n' + await readFile(new URL('../../../src/app/summary/53-summary-api-client.js', import.meta.url), 'utf8');
   const serviceSource = await readFile(new URL('../../../src/app/summary/53-summarization-service.js', import.meta.url), 'utf8');
   let capturedRequest = null;
   const context = {
@@ -102,6 +102,7 @@ async function assertFrontendSummaryService() {
 
 async function assertFrontendAutoSummarizationHelpers() {
   const sources = await Promise.all([
+    '../../../src/app/chat/60-composer-images.js',
     '../../../src/app/prompt/41-prompt-history-messages.js',
     '../../../src/app/summary/54-summarization-auto-threshold.js',
     '../../../src/app/summary/54-summarization-auto-selection.js',

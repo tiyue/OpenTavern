@@ -17,6 +17,9 @@ async function clearStorageServiceData(service) {
     await clearStorageServiceIDB(cleared);
     clearStorageServiceLocalSnapshot(emptyData, cleared);
     await clearStorageServiceLegacyIDB(cleared);
+    if (typeof clearRetrievalIndexDatabase === 'function') {
+        try { await clearRetrievalIndexDatabase(); } catch (error) { console.warn('[Storage] Retrieval index clear failed:', error.message); }
+    }
     console.log('[Storage] clearAllData result:', cleared);
     if (typeof updateStorageInfo === 'function') setTimeout(() => updateStorageInfo(), 80);
     return cleared;
@@ -30,6 +33,7 @@ function createEmptyStorageServiceSnapshot() {
         activeConvId: null,
         worldBooks: {},
         characters: {},
+        documents: {},
         settings: {},
         charactersMigrated: true
     };

@@ -153,7 +153,6 @@ async function assertFrontendCharacterImportEventHelpers() {
 
 async function assertFrontendNewChatPickerMultiSelection() {
   const sources = await Promise.all([
-    '../../../src/app/conversation/59-new-chat-picker-helpers.js',
     '../../../src/app/conversation/59-new-chat-picker-model.js',
     '../../../src/app/conversation/59-new-chat-picker-header.js',
     '../../../src/app/conversation/59-new-chat-picker-multi-bar.js',
@@ -162,7 +161,6 @@ async function assertFrontendNewChatPickerMultiSelection() {
     '../../../src/app/conversation/59-new-chat-picker-multi-session.js',
     '../../../src/app/conversation/59-new-chat-picker-multi-controls.js',
     '../../../src/app/conversation/59-new-chat-picker-multi-confirm.js',
-    '../../../src/app/conversation/59-new-chat-picker-multi-ui.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
   const context = {
@@ -354,6 +352,7 @@ async function assertFrontendGroupChatCoreHelpers() {
     '../../../src/app/conversation/32-group-chat-members.js',
     '../../../src/app/conversation/32-group-chat-speakers.js',
     '../../../src/app/conversation/32-group-chat-message-helpers.js',
+    '../../../src/app/conversation/32-group-chat-strategies.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
   const conv = {

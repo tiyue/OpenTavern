@@ -20,7 +20,15 @@ var CLOUD_SYNC_LOCAL_PRESERVED_SETTING_KEYS = [
     'cardRuntime',
     'cardRuntimeEnabled',
     'cardRuntimeGrants',
-    'cardRuntimePermissions'
+    'cardRuntimePermissions',
+    'automationRuleGrants',
+    'automationSendGrants',
+    'automationRecentRuns',
+    'scenePackageGrants',
+    'sceneRecentRuns',
+    'contentModuleGrants',
+    'pluginGrants',
+    'modelToolGrants'
 ];
 
 var CLOUD_SYNC_LOCAL_TRANSIENT_SETTING_KEYS = [
@@ -30,6 +38,29 @@ var CLOUD_SYNC_LOCAL_TRANSIENT_SETTING_KEYS = [
 ];
 
 var CLOUD_SYNC_SECRET_SETTING_KEY_PATTERN = /(?:apiKey|token|secret|passphrase|password|credential|privateKey)$/i;
+
+var CLOUD_SYNC_CONNECTION_PROFILE_KEYS = ['id', 'name', 'purpose', 'protocol', 'endpoint', 'model', 'description', 'parameters'];
+
+var CLOUD_SYNC_CONNECTION_PROFILE_PARAMETER_KEYS = [
+    'temperature',
+    'topP',
+    'maxTokens',
+    'contextLength',
+    'frequencyPenalty',
+    'presencePenalty',
+    'reasoningEffort',
+    'modelContextCapacity',
+    'presetId',
+    'thinking',
+    'useMain',
+    'summaryTemperature',
+    'summaryPromptMode',
+    'summaryReasoningEffort',
+    'summaryThinking',
+    'embeddingDimensions'
+];
+
+var CLOUD_SYNC_NESTED_SECRET_KEY_PATTERN = /(?:apiKey|api_key|token|secret|passphrase|password|credentials?|privateKey|authorization|headers)$/i;
 
 function isCloudSyncLocalPreservedSettingKey(key) {
     return CLOUD_SYNC_LOCAL_PRESERVED_SETTING_KEYS.indexOf(String(key || '')) >= 0;
@@ -56,7 +87,63 @@ function getCloudSyncPortableSettings(settings) {
     Object.keys(portable).forEach(function(key) {
         if (isCloudSyncLocalOnlySettingKey(key)) delete portable[key];
     });
+    if (Array.isArray(portable.connectionProfiles)) portable.connectionProfiles = getPortableConnectionProfileList(portable.connectionProfiles);
     return portable;
+}
+
+// Only the new connection-profile descriptors are whitelisted. Raw preset/character metadata
+// keeps its historical shape instead of being recursively stripped by the top-level policy.
+function getPortableConnectionProfileList(profiles) {
+    if (!Array.isArray(profiles)) return [];
+    return profiles.map(sanitizePortableConnectionProfile).filter(function(profile) { return !!profile; });
+}
+
+function sanitizePortableConnectionProfile(profile) {
+    if (!profile || typeof profile !== 'object' || Array.isArray(profile)) return null;
+    var result = {};
+    CLOUD_SYNC_CONNECTION_PROFILE_KEYS.forEach(function(key) {
+        if (key === 'parameters') return;
+        if (!Object.prototype.hasOwnProperty.call(profile, key)) return;
+        var value = profile[key];
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            Object.defineProperty(result, key, { value: value, writable: true, enumerable: true, configurable: true });
+        }
+    });
+    var parameters = profile.parameters;
+    if (parameters && typeof parameters === 'object' && !Array.isArray(parameters)) {
+        var safeParameters = {};
+        CLOUD_SYNC_CONNECTION_PROFILE_PARAMETER_KEYS.forEach(function(key) {
+            if (!Object.prototype.hasOwnProperty.call(parameters, key)) return;
+            var value = parameters[key];
+            if (key === 'thinking' || key === 'summaryThinking') {
+                var nested = sanitizePortableNestedObject(value, 0);
+                if (nested !== undefined) Object.defineProperty(safeParameters, key, { value: nested, writable: true, enumerable: true, configurable: true });
+                return;
+            }
+            if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+                Object.defineProperty(safeParameters, key, { value: value, writable: true, enumerable: true, configurable: true });
+            }
+        });
+        Object.defineProperty(result, 'parameters', { value: safeParameters, writable: true, enumerable: true, configurable: true });
+    }
+    return result;
+}
+
+function sanitizePortableNestedObject(value, depth) {
+    if (depth > 16) return undefined;
+    if (Array.isArray(value)) return value.map(function(item) {
+        var sanitized = sanitizePortableNestedObject(item, depth + 1);
+        return sanitized === undefined ? null : sanitized;
+    });
+    if (!value || typeof value !== 'object') return value;
+    var result = {};
+    Object.keys(value).forEach(function(key) {
+        if (['__proto__', 'constructor', 'prototype'].indexOf(key) >= 0) return;
+        if (CLOUD_SYNC_NESTED_SECRET_KEY_PATTERN.test(String(key || ''))) return;
+        var sanitized = sanitizePortableNestedObject(value[key], depth + 1);
+        if (sanitized !== undefined) Object.defineProperty(result, key, { value: sanitized, writable: true, enumerable: true, configurable: true });
+    });
+    return result;
 }
 
 function getCloudSyncPreservedLocalSettings(settings) {

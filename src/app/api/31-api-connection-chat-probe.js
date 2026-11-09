@@ -9,26 +9,25 @@
  * 修改时注意：不同服务的接口格式不完全相同，修改时要保留 OpenAI 与 Ollama 兼容分支。
  */
 // ==================== API Connection Chat Probe ====================
-async function runApiChatCompletionFallbackTest(chatUrl, apiKey, model, tested) {
+async function runApiChatCompletionFallbackTest(chatUrl, apiKey, model, tested, protocol) {
     try {
         tested.push('POST ' + chatUrl + ' (stream:false)');
-        var chatHeaders = { 'Content-Type': 'application/json' };
-        if (apiKey) chatHeaders.Authorization = 'Bearer ' + apiKey;
+        var chatHeaders = buildApiAuthHeaders(apiKey, protocol, true);
 
         var chatResp = await fetchApiTestWithTimeout(chatUrl, {
             method: 'POST',
             headers: chatHeaders,
-            body: JSON.stringify({
+            body: JSON.stringify(toApiProtocolPayload({
                 model: model,
                 messages: [{ role: 'user', content: 'hi' }],
                 max_tokens: 1,
                 temperature: 0,
                 stream: false
-            })
+            }, protocol))
         });
 
         if (chatResp.ok) {
-            var chatData = await chatResp.json().catch(function() { return {}; });
+            var chatData = normalizeApiProtocolResponse(await chatResp.json().catch(function() { return {}; }), protocol);
             var hasChoice = chatData && chatData.choices && chatData.choices[0];
             return t('api_test_fallback_success') + (hasChoice ? t('api_test_fallback_success_choice') : t('api_test_fallback_success_ok'));
         }

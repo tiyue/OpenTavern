@@ -36,7 +36,7 @@ T01–T05 是已复现问题的最小修复；T06 统一操作身份、设置快
 以下示例只说明未来调用方法，编写文档时没有启动 MiMo。PowerShell 7 中把 taskId 设为当前已满足前置条件的任务；不把整张清单放进无验收的自动循环。选择 MiMo 会将任务/相关源码发送至 MiMo 服务端，密钥由本机 MIMO_API_KEY 读取，不在命令或文档中填写密钥。
 
 ```powershell
-$sourceWorkspace = '<project-root>'
+$sourceWorkspace = '/path/to/local-release-evidence'
 $taskId = 'T01' # 完成并接收上一项后，依次改为 T02 ... T10
 $planFile = Join-Path $sourceWorkspace 'docs\tasks\mimo-task-plan.json'
 $taskPlan = Get-Content -LiteralPath $planFile -Raw | ConvertFrom-Json
@@ -54,13 +54,13 @@ if ($allowedTaskFiles.Count -eq 0) { throw '没有逐文件写入范围' }
 $pendingChanges = git -C $sourceWorkspace status --porcelain
 if ($LASTEXITCODE -ne 0) { throw '无法读取主工作区状态' }
 if ($pendingChanges) { throw '存在未提交修改，先准备保留修改的独立副本' }
-$mimoWorkspace = Join-Path '<worker-root>\work' ('opentavern-mimo-' + $taskId.ToLowerInvariant() + '-' + [guid]::NewGuid().ToString('N'))
+$mimoWorkspace = Join-Path '/path/to/local-release-evidence' ('opentavern-mimo-' + $taskId.ToLowerInvariant() + '-' + [guid]::NewGuid().ToString('N'))
 git clone --no-hardlinks $sourceWorkspace $mimoWorkspace
 if ($LASTEXITCODE -ne 0) { throw '独立副本创建失败' }
 git -C $mimoWorkspace rev-parse HEAD
 if ($LASTEXITCODE -ne 0) { throw '无法读取副本基线' }
 
-& '<worker-root>\worker.ps1' `
+& '/path/to/local-release-evidence' `
   -Workspace $mimoWorkspace `
   -TaskFile $taskFile `
   -Provider mimo `
@@ -70,7 +70,7 @@ if ($LASTEXITCODE -ne 0) { throw '无法读取副本基线' }
 if ($LASTEXITCODE -ne 0) { throw 'MiMo 失败：查看本次 report.json 和 last-message.md' }
 ```
 
-入口报告目录位于 `<local-evidence>/runs`。检查的是入口返回的本次运行，不按“最后一个目录”猜测，也不能手改报告。AllowedFiles 检测发生在结束后，因此必须独立审查实际文件差异。
+入口报告目录位于 `/path/to/local-release-evidence`。检查的是入口返回的本次运行，不按“最后一个目录”猜测，也不能手改报告。AllowedFiles 检测发生在结束后，因此必须独立审查实际文件差异。
 
 ## 全量完成的证据
 

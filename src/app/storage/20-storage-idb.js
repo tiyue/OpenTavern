@@ -15,6 +15,7 @@ const IDBStorage = {
     _key: 'main',
     _dbPromise: null,
     _db: null,
+    _dbOpenAttempt: 0,
 
     _resetConnection() {
         return resetIDBStorageConnection(this);

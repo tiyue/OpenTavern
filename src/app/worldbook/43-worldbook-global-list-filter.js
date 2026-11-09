@@ -12,7 +12,7 @@
 function getFilteredWorldBookList(filter) {
     if (!state.worldBooks) state.worldBooks = {};
 
-    var books = Object.values(state.worldBooks);
+    var books = typeof getWorldBookDisplayIds === 'function' ? getWorldBookDisplayIds().map(function(id) { return state.worldBooks[id]; }) : Object.values(state.worldBooks);
     if (!filter) return books;
 
     var f = filter.toLowerCase();

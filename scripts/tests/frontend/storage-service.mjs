@@ -260,6 +260,8 @@ async function assertFrontendStorageServiceLoadHelpers() {
     Object,
     Array,
     Promise,
+    setTimeout,
+    clearTimeout,
   };
 
   vm.runInNewContext(`${sources.join('\n')}\nthis.__collect = collectStorageServiceSnapshotCandidates;\nthis.__sync = syncStorageServiceSnapshotToAvailableBackends;`, context);

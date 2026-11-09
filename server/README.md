@@ -14,6 +14,9 @@ OpenTavern Server 是一个独立的 Python 标准库后端，为 OpenTavern 提
 - `opentavern-sync.tmpfiles.conf`：旧版 systemd 用于创建数据目录并修正权限的 tmpfiles 配置。
 - `opentavern-sync.env.example`：不含真实密钥的环境变量模板。
 - `nginx-opentavern-sync-location.conf`：Nginx 反向代理的 location 配置模板。
+- `nginx-opentavern-static-location.conf`：前端静态发布片段，只 include 在 OpenTavern 的 server 块；清单/SW 重校验，不可变离线快照长期缓存，缺失资源返回 404。
+
+已上线的 ECS 备用入口、版本目录、数据保留、实际运行时验收和回退流程见 [ECS 部署记录](../docs/ECS.md)。本文件的通用服务模板不替换生产机现有凭据或 systemd 配置。
 
 ## 默认访问端点
 

@@ -9,6 +9,15 @@
  * 修改时注意：模型文本属于外部内容，插入 HTML 前必须经过统一转义或安全格式化。
  */
 // ==================== Chat Message Window Render ====================
+// 进入聊天视图后容器才从隐藏变为可测量；此时把当前已渲染的最新消息对齐到视口底部。
+// 普通渲染仍走锚点恢复，因此编辑、加载更早和阅读旧消息不会被这里拉回底部。
+function alignChatMessagesToLatestOnEntry() {
+    var container = typeof dom !== 'undefined' && dom ? dom.messagesContainer : null;
+    if (!container || currentView !== 'chat') return;
+    if (container.scrollHeight <= container.clientHeight) return;
+    container.scrollTop = container.scrollHeight;
+}
+
 function appendIncrementalChatMessages(container, conv, windowState) {
     var fragment = document.createDocumentFragment();
     for (var i = windowState.lastRenderedCount; i < windowState.currentVisibleCount; i++) {

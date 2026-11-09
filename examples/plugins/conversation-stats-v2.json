@@ -1,0 +1,29 @@
+{
+  "type": "opentavern-plugin",
+  "formatVersion": 1,
+  "manifest": {
+    "id": "conversation-stats",
+    "name": "Conversation stats",
+    "version": "2.0.0",
+    "schemaVersion": 1,
+    "source": "examples/plugins/conversation-stats-v2.json",
+    "description": "Counts saved user/assistant messages and characters in the current conversation and keeps its own bounded state.",
+    "capabilities": [
+      "conversation.stats",
+      "events.conversation",
+      "storage.private",
+      "ui.panel"
+    ],
+    "dependencies": [],
+    "network": []
+  },
+  "entry": {
+    "code": "(function () {\n  var api = self.OpenTavernPlugin;\n  if (!api) return;\n  if (api.probe) { api.ready({ probe: true }); return; }\n  var KEY = 'stats';\n  var marker = api.resources.get('marker') || 'v2';\n  var lastMessage = '';\n  var refreshing = null;\n  var refreshQueued = false;\n\n  function summarize(stats) {\n    var counts = { messages: 0, user: 0, assistant: 0, characters: 0 };\n    (stats.messages || []).forEach(function (message) {\n      counts.messages += 1;\n      if (message.role === 'user') counts.user += 1;\n      if (message.role === 'assistant') counts.assistant += 1;\n      counts.characters += Number(message.characters) || 0;\n    });\n    return counts;\n  }\n\n  function renderFailure(error) {\n    return api.ui.render({\n      title: 'Conversation stats ' + marker,\n      text: 'Stats failed: ' + (error && error.message || error),\n      actions: [{ id: 'refresh', label: 'Retry' }]\n    }).catch(function () {});\n  }\n\n  function refresh() {\n    if (refreshing) {\n      refreshQueued = true;\n      return refreshing;\n    }\n    refreshing = api.stats.get().then(function (stats) {\n      if (!stats || !stats.available) {\n        return api.ui.render({\n          title: 'Conversation stats ' + marker,\n          text: 'No conversation is open.',\n          actions: [{ id: 'refresh', label: 'Refresh' }]\n        });\n      }\n      var counts = summarize(stats);\n      lastMessage = stats.messages && stats.messages.length ? stats.messages[stats.messages.length - 1].role : 'none';\n      var saved = {\n        version: marker,\n        conversation: stats.conversationId,\n        messages: counts.messages,\n        user: counts.user,\n        assistant: counts.assistant,\n        characters: counts.characters,\n        last: lastMessage,\n        updated: stats.updated\n      };\n      return api.storage.set(KEY, saved).then(function () {\n        return api.ui.render({\n          title: 'Conversation stats ' + marker,\n          text: marker + ' · messages ' + counts.messages + ' · user ' + counts.user + ' · assistant ' + counts.assistant + ' · characters ' + counts.characters + ' · last ' + lastMessage,\n          actions: [{ id: 'refresh', label: 'Refresh' }]\n        });\n      });\n    }).catch(renderFailure).then(function () {\n      refreshing = null;\n      if (refreshQueued) {\n        refreshQueued = false;\n        refresh();\n      }\n    });\n    return refreshing;\n  }\n\n  api.on('current-conversation-changed', refresh);\n  api.on('conversation-saved', refresh);\n  api.on('action', function (detail) {\n    if (detail && detail.actionId === 'refresh') refresh();\n  });\n  api.ready();\n  refresh();\n})();"
+  },
+  "resources": [
+    {
+      "path": "marker",
+      "text": "v2"
+    }
+  ]
+}

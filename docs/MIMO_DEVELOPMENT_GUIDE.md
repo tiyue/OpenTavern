@@ -11,7 +11,7 @@
 本次用户最终要求（2026-10-14）：代码由 GPT 直接编写、修改和审查；DeepSeek 仅可用于应用验收请求。以下 MiMo 分工与入口保留为原任务计划和历史实施依据，不代表本次继续派发。实际结果以验收记录为准。
 
 - 主协调者负责准备任务与独立副本、审查实际差异、独立验收、合并、提交和发布。MiMo 负责指定任务的代码和回归实施，不能递归启动模型、执行器或其他代理，不能提交、推送或发布。
-- 使用全局入口 `<worker-root>\worker.ps1`，显式指定 `-Provider mimo`。按当前入口配置使用 `mimo-v2.6-pro` 和 MiMo Responses API；密钥由进程或 Windows 用户环境变量 `MIMO_API_KEY` 读取，不写入任务、源码、日志或命令参数。任务及相关源码会发送给 MiMo 服务端。
+- 使用全局入口 `/path/to/local-release-evidence`，显式指定 `-Provider mimo`。按当前入口配置使用 `mimo-v2.6-pro` 和 MiMo Responses API；密钥由进程或 Windows 用户环境变量 `MIMO_API_KEY` 读取，不写入任务、源码、日志或命令参数。任务及相关源码会发送给 MiMo 服务端。
 - 每次写入任务使用协调者准备的独立工作副本，提供 `Mode=workspace-write` 和逐文件 `AllowedFiles`。**不得修改无关部分，不得覆盖主工作区已有修改。** 发现必须增加文件时先报告调用关系和必要性，由协调者收窄或重发任务；不能自行扩大范围。
 - T01–T10 顺序执行，每个任务验收后再以已验收源码准备下一副本；T11 由协调者总验收和处理发布交接。多个任务共享提示词、生成与渲染文件，禁止同时修改这些文件。
 - 仅修改 `src/app/` 业务源码及该任务列明的测试、规格。`assets/js/app.js`、`index.html`、`assets/css/app.css` 是构建产物，不能手改；`dist/`、`.sites-public/` 由协调者构建生成。本批不修改后端、同步协议、依赖或 UI 样式。
@@ -32,7 +32,7 @@
 | T04 | P1 | 同一历史消息同步/异步正则使用不同 MVU 状态 | 完成后的两条路径使用相同来源消息与快照；API 不泄露内部元数据 |
 | T05 | P2 | 含脚本的卡片静态预览显示 dream 控制标签 | 静态正文与普通预览一致，可执行源码及授权摘要保持不变 |
 
-原始审查材料位于本机 `<local-evidence>/opentavern-review-20261013`，包含审查报告、复现脚本/JSON、检查日志与截图。该目录是补充证据；下面的反例和验收要求足以在其他独立副本重新复现，不依赖复制此目录。
+原始审查材料位于本机 `/path/to/local-release-evidence`，包含审查报告、复现脚本/JSON、检查日志与截图。该目录是补充证据；下面的反例和验收要求足以在其他独立副本重新复现，不依赖复制此目录。
 
 ## 3. 第一批：五个独立修复任务
 
@@ -223,7 +223,7 @@ node scripts/test-regex-queue-browser.mjs
 ```powershell
 npm run build
 npm run prepare:sites
-$env:OPENTAVERN_PLAYWRIGHT_MODULE = '<user-profile>\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\node_modules\playwright\index.mjs'
+$env:OPENTAVERN_PLAYWRIGHT_MODULE = '/path/to/local-release-evidence'
 $env:OPENTAVERN_TEST_URL = 'http://127.0.0.1:8765/.sites-public/opentavern.html'
 ```
 
@@ -281,6 +281,6 @@ $env:OPENTAVERN_TEST_URL = 'http://127.0.0.1:8765/.sites-public/opentavern.html'
 
 统一调用示例见 [全量任务包](tasks/README.md#任意-mimo-任务的统一调用)，通过 [mimo-task-plan.json](tasks/mimo-task-plan.json) 选择 T01–T10 中当前满足前置条件的任务，以真实 PowerShell 数组传入本项 AllowedFiles。每次使用独立副本，逐项独立验收；不能把全部任务串成无需审查的自动循环。T11 由协调者执行。
 
-首次准备任务书时尚未启动 MiMo，授权后的实际执行状态见验收记录。入口保持 `-Provider mimo`、`-Mode workspace-write`，运行记录位于 `<local-evidence>/runs`；核查本次 `report.json`、`last-message.md`、实际 diff 和 `runtime_cleanup`。范围检测发生在执行结束后，不能替代独立审查。
+首次准备任务书时尚未启动 MiMo，授权后的实际执行状态见验收记录。入口保持 `-Provider mimo`、`-Mode workspace-write`，运行记录位于 `/path/to/local-release-evidence`；核查本次 `report.json`、`last-message.md`、实际 diff 和 `runtime_cleanup`。范围检测发生在执行结束后，不能替代独立审查。
 
 全部计划项均须有完成证据，不能只交付一个任务就报告全量优化完成。未执行的真实预设、供应商或发布条目如实记录；只有部署成功才更新 [SITES.md](SITES.md) 的实际发布结果。

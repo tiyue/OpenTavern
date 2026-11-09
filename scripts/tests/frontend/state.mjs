@@ -185,7 +185,6 @@ async function assertFrontendStateInitialization() {
   const sources = await Promise.all([
     '../../../src/app/conversation/19-conversation-order-helpers.js',
     '../../../src/app/conversation/32-group-chat-members.js',
-    '../../../src/app/state/34-state-init-helpers.js',
     '../../../src/app/state/34-state-init-normalize.js',
     '../../../src/app/state/34-state-init-load.js',
     '../../../src/app/state/34-state-init-settings.js',

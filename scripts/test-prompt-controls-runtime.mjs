@@ -28,7 +28,7 @@ try {
 vm.createContext(context);
 const manifest = JSON.parse(fs.readFileSync(new URL('../src/app/manifest.json', import.meta.url), 'utf8'));
 const files = manifest.filter(name => /^32-/.test(name.split("/").pop()) || /^41-/.test(name.split("/").pop()) || /^42-/.test(name.split("/").pop()) || /^44-/.test(name.split("/").pop()) || /^62-sillytavern-preset-(?:model|normalizer|prompt-normalizer|order|placement|runtime)/.test(name.split("/").pop()));
-for (const file of ['state/30-state-default-settings.js', 'api/31-api-endpoint-normalizer.js', 'api/31-api-ollama-compat.js', ...manifest.filter(name => /^mvu\/40-/.test(name)), 'prompt/40-sillytavern-macro-runtime.js', 'prompt/40-character-prompt-helpers.js', 'prompt/40-character-regex-runtime.js', 'prompt/40-regex-worker-runtime.js', ...files, 'presets/62-preset-library.js', 'generation/50-generation-cot-utils.js', 'generation/50-generation-usage.js', 'generation/50-generation-api-request.js', 'generation/50-generation-stream-state.js', 'generation/50-generation-transport-module.js', 'generation/50-generation-response-stream.js', 'generation/50-request-diagnostics.js', 'summary/53-summary-default-prompts.js', 'summary/53-summary-prompt-limits.js', 'summary/53-summary-prompt-builder.js', 'summary/53-summary-api-client.js', 'sync/19-cloud-sync-settings-policy.js']) {
+for (const file of ['api/31-api-protocol.js', 'chat/60-composer-images.js', 'state/30-state-default-settings.js', 'api/31-api-endpoint-normalizer.js', 'api/31-api-ollama-compat.js', ...manifest.filter(name => /^mvu\/40-/.test(name)), 'prompt/40-sillytavern-macro-runtime.js', 'prompt/40-character-prompt-helpers.js', 'prompt/40-character-regex-runtime.js', 'prompt/40-regex-worker-runtime.js', ...files, 'presets/62-preset-library.js', 'generation/50-generation-cot-utils.js', 'generation/50-generation-usage.js', 'generation/50-generation-api-request.js', 'generation/50-generation-stream-state.js', 'generation/50-generation-transport-module.js', 'generation/50-generation-response-stream.js', 'generation/50-request-diagnostics.js', 'summary/53-summary-default-prompts.js', 'summary/53-summary-prompt-limits.js', 'summary/53-summary-prompt-builder.js', 'summary/53-summary-api-client.js', 'sync/19-cloud-sync-settings-policy.js']) {
     vm.runInContext(source(file), context, { filename: file });
 }
 context.state.settings = context.defaultSettings();
@@ -445,7 +445,23 @@ await requestRun.promise;
 assert.equal(requestRun.events.interrupted, 1, 'Stopping after fetch keeps the existing interrupted completion behavior.');
 assert.equal(context.state.isGenerating, false, 'Request cancellation must restore generation state.');
 
-console.log('M2 prompt checks passed: migration, selection, ordering, isolated regex timeout, read-only preview, notes/depth, world-book overrides, post-processing, reasoning, final request diagnostics, and cancelled prompt-build macro protection.');
+let automationDispatchCalls = 0;
+let automationFragmentCalls = 0;
+context.dispatchAutomationWorldbookEvent = () => { automationDispatchCalls += 1; };
+context.takeAutomationPromptFragments = () => {
+    automationFragmentCalls += 1;
+    return automationFragmentCalls === 1 ? [{ role: 'system', content: 'automation-fragment' }] : [];
+};
+const previewWithAutomation = await context.buildMessagesForAPIAsync(conv, { preview: true });
+assert.equal(automationDispatchCalls, 0, 'Read-only prompt preview must not dispatch the world-book automation event.');
+assert.ok(!JSON.stringify(previewWithAutomation).includes('automation-fragment'), 'Read-only prompt preview must not consume automation prompt fragments.');
+const liveWithAutomation = await context.buildMessagesForAPIAsync(conv, {
+    operation: { sequence: 1, isCurrent: () => true, setSource() {}, cancelled: false, settled: false }
+});
+assert.equal(automationDispatchCalls, 1, 'A real prompt build must dispatch the world-book automation event once.');
+assert.ok(liveWithAutomation.some(message => message.content === 'automation-fragment'), 'A real prompt build must include the pending automation prompt fragment once.');
+
+console.log('M2 prompt checks passed: migration, selection, ordering, isolated regex timeout, read-only preview, notes/depth, world-book overrides, post-processing, reasoning, final request diagnostics, cancelled prompt-build macro protection and automation fragment dispatch.');
 } finally {
     if (typeof context.resetRegexWorker === 'function') context.resetRegexWorker();
 }

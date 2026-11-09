@@ -18,7 +18,8 @@ async function loadAllIDBStorage(storage, options) {
             req.onerror = () => reject(req.error || tx.error || new Error('IndexedDB read failed'));
         }, {
             error: 'IndexedDB read transaction failed',
-            abort: 'IndexedDB read transaction aborted'
+            abort: 'IndexedDB read transaction aborted',
+            timeout: 'IndexedDB read timed out'
         }), { fresh: !!options.fresh, retries: options.retries == null ? 1 : options.retries });
     } catch (e) {
         console.warn('[IDB] loadAll failed:', e && e.message);
@@ -29,13 +30,27 @@ async function loadAllIDBStorage(storage, options) {
 
 async function saveAllIDBStorage(storage, data, options) {
     options = options || {};
-    return await storage._withRetry((db) => runIDBStorageTransaction(db, storage, 'readwrite', function(tx, resolve) {
-        tx.oncomplete = () => resolve();
-        tx.objectStore(storage._storeName).put({ data, lastSaved: data && data.lastSaved || Date.now() }, storage._key);
-    }, {
-        error: 'IndexedDB save failed',
-        abort: 'IndexedDB save aborted'
-    }), { fresh: !!options.fresh, retries: options.retries == null ? 1 : options.retries });
+    try {
+        return await storage._withRetry((db) => runIDBStorageTransaction(db, storage, 'readwrite', function(tx, resolve) {
+            tx.oncomplete = () => resolve();
+            tx.objectStore(storage._storeName).put({ data, lastSaved: data && data.lastSaved || Date.now() }, storage._key);
+        }, {
+            error: 'IndexedDB save failed',
+            abort: 'IndexedDB save aborted',
+            timeout: 'IndexedDB save timed out'
+        }), { fresh: !!options.fresh, retries: options.retries == null ? 1 : options.retries });
+    } catch (e) {
+        if (!(e && e.idbAbortUncertain)) throw e;
+        let stored = null;
+        try {
+            // 中止失败后只核对一次已落盘候选，禁止用自动重试或普通超时掩盖未知的提交结果。
+            stored = await loadAllIDBStorage(storage, { throwOnError: true, retries: 0 });
+        } catch (_) {}
+        if (idbStorageSnapshotMatches(stored, data)) return;
+        const uncertain = new Error('IndexedDB save completion is uncertain; the committed snapshot could not be verified');
+        uncertain.idbSaveUncertain = true;
+        throw uncertain;
+    }
 }
 
 async function clearIDBStorage(storage) {
@@ -45,7 +60,8 @@ async function clearIDBStorage(storage) {
             tx.objectStore(storage._storeName).delete(storage._key);
         }, {
             error: 'IndexedDB clear failed',
-            abort: 'IndexedDB clear aborted'
+            abort: 'IndexedDB clear aborted',
+            timeout: 'IndexedDB clear timed out'
         }), { retries: 1 });
     } catch (e) {
         console.warn('[IDB] clear failed:', e && e.message);

@@ -378,8 +378,10 @@ try {
     }, generationFixture);
 
     const requestsBeforeSecondStage = requests.length;
+    const snapshotMainRequest = page.waitForRequest(request => request.url() === endpointFixture.oldEndpoint && request.method() === 'POST');
     await page.locator('#messageInput').fill(SNAPSHOT_PRIMARY_MARKER);
     await page.locator('#sendBtn').click();
+    await snapshotMainRequest;
     await page.evaluate(payload => {
         Object.assign(state.settings, {
             apiEndpoint: payload.newEndpoint, model: 'new-model', maxTokens: 32,

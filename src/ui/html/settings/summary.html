@@ -58,6 +58,14 @@
                     <!-- Custom API Section -->
                     <div id="summarizeCustomApiSection" class="ml-6 space-y-2 border-l border-white/10 pl-3">
                         <div>
+                            <label for="summarizeApiProtocol" class="text-xs font-semibold text-zinc-400">API 协议</label>
+                            <select id="summarizeApiProtocol" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl">
+                                <option value="">跟随主 API 协议</option>
+                                <option value="openai">OpenAI Compatible</option>
+                                <option value="anthropic">Anthropic Messages</option>
+                            </select>
+                        </div>
+                        <div>
                             <label class="text-xs font-semibold text-zinc-400" data-i18n="settings_summarize_api_endpoint">API Endpoint</label>
                             <input id="summarizeApiEndpoint" type="text" class="w-full mt-1 px-3 py-2 text-sm glass rounded-xl" placeholder="https://api.deepseek.com （推荐）">
                             <div class="mt-1">
@@ -97,6 +105,47 @@
                     <span id="worldInfoBudgetVal" class="text-xs text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full">2048</span>
                 </div>
                 <input type="range" id="worldInfoBudget" min="256" max="8192" step="256" value="2048" class="w-full">
+            </div>
+
+            <!-- Semantic memory and document library -->
+            <hr class="border-white/5">
+            <div class="retrieval-settings">
+                <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider" data-i18n="retrieval_section_title">语义记忆与资料库</label>
+                <p class="text-[10px] text-zinc-600 mt-0.5" data-i18n="retrieval_section_hint">默认关闭。启用后只在发送消息时使用所选 Embedding 档案建立/查询索引；预览、打开设置和恢复数据不会自动发送 Embedding。</p>
+                <div class="feature-grid mt-3">
+                    <label class="feature-check"><input type="checkbox" id="retrievalMemoryEnabled"><span data-i18n="retrieval_memory_enabled">启用语义长期记忆</span></label>
+                    <label class="feature-check"><input type="checkbox" id="retrievalDocumentsEnabled"><span data-i18n="retrieval_documents_enabled">启用资料库检索</span></label>
+                </div>
+                <p class="feature-hint" id="retrievalEmbeddingProfileStatus" role="status" aria-live="polite"></p>
+                <p class="feature-hint" data-i18n="retrieval_embedding_endpoint_hint">Embedding 需使用 OpenAI 兼容的 /embeddings 端点；Anthropic/DeepSeek 聊天端点不能直接用于 Embedding。</p>
+                <div class="feature-toolbar">
+                    <button type="button" id="retrievalTestEmbeddingBtn" class="feature-entry" data-i18n="retrieval_test_embedding">测试 Embedding 连接</button>
+                    <button type="button" id="retrievalOpenMemorySourcesBtn" class="feature-entry" data-i18n="retrieval_manage_memory_sources">记忆来源</button>
+                    <button type="button" id="retrievalOpenDocumentsBtn" class="feature-entry" data-i18n="retrieval_open_documents">资料库</button>
+                </div>
+                <p class="feature-hint" id="retrievalTestEmbeddingHint" data-i18n="retrieval_test_embedding_hint">测试会向当前 Embedding 档案发送一段固定测试文字并计费，不会保存索引。</p>
+                <p class="feature-hint" data-i18n="retrieval_index_committed_hint">索引与连接测试使用已点击“完成”的设置；未完成的修改请先完成设置。</p>
+                <div class="feature-grid">
+                    <label class="feature-field" for="retrievalTopK"><span data-i18n="retrieval_top_k">每次最多片段</span>
+                        <input id="retrievalTopK" type="number" min="1" max="12" step="1" value="6">
+                    </label>
+                    <label class="feature-field" for="retrievalMinScore"><span data-i18n="retrieval_min_score">最低相似度</span>
+                        <input id="retrievalMinScore" type="number" min="-1" max="1" step="0.01" value="0.15">
+                    </label>
+                    <label class="feature-field" for="retrievalMemoryBudgetTokens"><span data-i18n="retrieval_memory_budget">记忆注入预算（估算 Token）</span>
+                        <input id="retrievalMemoryBudgetTokens" type="number" min="100" max="2000" step="50" value="500">
+                    </label>
+                    <label class="feature-field" for="retrievalDocumentBudgetTokens"><span data-i18n="retrieval_document_budget">资料注入预算（估算 Token）</span>
+                        <input id="retrievalDocumentBudgetTokens" type="number" min="100" max="2000" step="50" value="500">
+                    </label>
+                </div>
+                <div class="feature-toolbar">
+                    <button type="button" id="retrievalIndexCurrentBtn" class="feature-entry" data-i18n="retrieval_index_current">建立/更新当前索引</button>
+                    <button type="button" id="retrievalCancelIndexBtn" class="feature-entry" data-i18n="retrieval_cancel_index">取消索引</button>
+                    <button type="button" id="retrievalClearIndexBtn" class="feature-entry" data-i18n="retrieval_clear_index">清除本机索引</button>
+                </div>
+                <p class="feature-hint" id="retrievalIndexStatus" role="status" aria-live="polite"></p>
+                <p class="feature-hint" data-i18n="retrieval_index_limits_hint">索引批大小 8 个片段/请求，单次请求超时 30 秒；发送边界自动索引每次最多 80 个片段，手动索引每次最多 600 个片段、80 批请求。</p>
             </div>
 
             </section>

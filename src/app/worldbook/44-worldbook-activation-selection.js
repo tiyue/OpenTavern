@@ -54,10 +54,11 @@ function expandRecursiveWorldInfoEntries(activated, all, charName, charTags) {
 }
 
 function dedupeWorldInfoEntries(entries) {
-    var seen = {};
+    var seen = Object.create(null);
     return entries.filter(function(e) {
-        if (seen[e.uid]) return false;
-        seen[e.uid] = true;
+        var id = typeof getWorldInfoActivationEntryId === 'function' ? getWorldInfoActivationEntryId(e) : e.uid;
+        if (seen[id]) return false;
+        seen[id] = true;
         return true;
     });
 }

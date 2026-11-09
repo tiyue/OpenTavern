@@ -252,7 +252,8 @@ function splitCloudSyncSnapshotItems(snapshot) {
     var maps = [
         ['conversation:', source.conversations],
         ['character:', source.characters],
-        ['worldBook:', source.worldBooks]
+        ['worldBook:', source.worldBooks],
+        ['document:', source.documents]
     ];
     maps.forEach(function(entry) {
         var map = entry[1] && typeof entry[1] === 'object' ? entry[1] : {};
@@ -273,6 +274,7 @@ function rebuildCloudSyncSnapshotFromItems(items, lastSaved) {
         activeConvId: null,
         worldBooks: Object.create(null),
         characters: Object.create(null),
+        documents: Object.create(null),
         charactersMigrated: false,
         lastSaved: normalizedLastSaved
     };
@@ -285,6 +287,7 @@ function rebuildCloudSyncSnapshotFromItems(items, lastSaved) {
         else if (itemKey.indexOf('conversation:') === 0) snapshot.conversations[itemKey.slice(13)] = value;
         else if (itemKey.indexOf('character:') === 0) snapshot.characters[itemKey.slice(10)] = value;
         else if (itemKey.indexOf('worldBook:') === 0) snapshot.worldBooks[itemKey.slice(10)] = value;
+        else if (itemKey.indexOf('document:') === 0) snapshot.documents[itemKey.slice(9)] = value;
     });
     return normalizeCloudSyncSnapshot(snapshot);
 }
@@ -337,7 +340,8 @@ function validateCloudSyncV2Manifest(manifest, manifestChunks) {
             itemKey === 'activeConvId' || itemKey === 'charactersMigrated' ||
             (itemKey.indexOf('conversation:') === 0 && itemKey.length > 13) ||
             (itemKey.indexOf('character:') === 0 && itemKey.length > 10) ||
-            (itemKey.indexOf('worldBook:') === 0 && itemKey.length > 10);
+            (itemKey.indexOf('worldBook:') === 0 && itemKey.length > 10) ||
+            (itemKey.indexOf('document:') === 0 && itemKey.length > 9);
         if (!validItemKey) throw new Error('云端增量同步对象键无效：' + itemKey);
         if (!descriptor || !isCloudSyncSha256Hex(descriptor.hash) || !isCloudSyncSha256Hex(descriptor.objectHash)) {
             throw new Error('云端增量同步对象描述无效：' + itemKey);

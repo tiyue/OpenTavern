@@ -11,6 +11,7 @@
 // ==================== Settings Save Main Form ====================
 function readMainSettingsFromForm(target) {
     var settings = target || (typeof getSettingsFormTarget === 'function' ? getSettingsFormTarget() : state.settings);
+    if (dom.apiProtocol) settings.apiProtocol = normalizeApiProtocol(dom.apiProtocol.value);
     settings.apiEndpoint = readTrimmedControlValue(dom.apiEndpoint);
     settings.apiKey = readTrimmedControlValue(dom.apiKey);
     settings.saveApiKey = readCheckboxControlValue(dom.saveApiKey, false);

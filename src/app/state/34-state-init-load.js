@@ -52,6 +52,8 @@ function applySavedStateSnapshot(saved) {
     }
     if (isSavedStateObjectMap(saved.worldBooks)) state.worldBooks = saved.worldBooks;
     if (isSavedStateObjectMap(saved.characters)) state.characters = saved.characters;
+    if (isSavedStateObjectMap(saved.documents)) state.documents = saved.documents;
+    if (typeof ensureDocumentsState === 'function') ensureDocumentsState();
     if (typeof saved.charactersMigrated !== 'undefined') {
         state._charactersMigrated = normalizeSavedStateBoolean(saved.charactersMigrated);
     }

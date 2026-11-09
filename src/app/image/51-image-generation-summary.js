@@ -19,6 +19,7 @@ function getImageGenerationSummaryCredentials(settings) {
     settings = settings || {};
     var useMainAPI = settings.summarizeUseMainAPI !== false;
     return {
+        protocol: getSummaryApiProtocol(settings),
         apiEndpoint: useMainAPI ? settings.apiEndpoint : (settings.summarizeApiEndpoint || settings.apiEndpoint),
         apiKey: useMainAPI ? settings.apiKey : (settings.summarizeApiKey || settings.apiKey),
         model: useMainAPI ? settings.model : (settings.summarizeModel || settings.model || 'deepseek-chat')
@@ -67,12 +68,10 @@ async function generateImageGenerationSceneSummary(sourceText, userSupplement, s
     if (!credentials.apiEndpoint || !credentials.apiKey || !credentials.model) {
         throw new Error('文字总结模型尚未配置，请检查 API 端点、密钥和模型。');
     }
-    var endpoint = typeof normalizeApiEndpoint === 'function'
-        ? normalizeApiEndpoint(credentials.apiEndpoint)
-        : String(credentials.apiEndpoint || '').trim();
+    var endpoint = resolveChatEndpoint(credentials.apiEndpoint, credentials.protocol);
     var messages = buildImageGenerationSummaryMessages(sourceText, userSupplement);
     if (
-        typeof shouldUseOllamaCompat === 'function' &&
+        credentials.protocol !== 'anthropic' && typeof shouldUseOllamaCompat === 'function' &&
         shouldUseOllamaCompat(credentials.apiEndpoint) &&
         typeof normalizeMessagesForOllamaCompatibility === 'function'
     ) {
@@ -83,18 +82,15 @@ async function generateImageGenerationSceneSummary(sourceText, userSupplement, s
     try {
         response = await fetch(endpoint, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + credentials.apiKey
-            },
-            body: JSON.stringify({
+            headers: buildApiAuthHeaders(credentials.apiKey, credentials.protocol, true),
+            body: JSON.stringify(toApiProtocolPayload({
                 model: credentials.model,
                 messages: messages,
                 max_tokens: IMAGE_GENERATION_SUMMARY_MAX_TOKENS,
                 temperature: 0.2,
                 top_p: 0.85,
                 stream: false
-            }),
+            }, credentials.protocol)),
             signal: signal
         });
     } catch (error) {
@@ -112,6 +108,8 @@ async function generateImageGenerationSceneSummary(sourceText, userSupplement, s
         );
     }
 
+    if (data && data.error) throw new Error('文字总结模型请求失败：' + getImageGenerationSummaryResponseMessage(data));
+    data = normalizeApiProtocolResponse(data, credentials.protocol);
     var choice = data && data.choices && data.choices[0];
     var summary = cleanImageGenerationSummaryOutput(choice && choice.message && choice.message.content);
     if (choice && (choice.finish_reason === 'length' || choice.finish_reason === 'max_tokens')) {

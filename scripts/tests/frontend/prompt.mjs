@@ -323,6 +323,7 @@ async function assertFrontendPromptMessageHelpers() {
     '../../../src/app/prompt/41-prompt-depth-insert.js',
     '../../../src/app/prompt/41-prompt-summary-messages.js',
     '../../../src/app/prompt/41-second-stage-content-isolation.js',
+    '../../../src/app/chat/60-composer-images.js',
     '../../../src/app/prompt/41-prompt-history-messages.js',
     '../../../src/app/prompt/41-prompt-outlet-resolution.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));

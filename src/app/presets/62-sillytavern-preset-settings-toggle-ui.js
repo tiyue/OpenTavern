@@ -11,14 +11,16 @@
 // ==================== SillyTavern Preset Settings Toggle UI ====================
 function bindSillyTavernPresetToggleEvents(preset) {
     dom.stPresetList.querySelectorAll('.st-preset-toggle').forEach(function(input) {
-        input.addEventListener('change', function() {
+        input.addEventListener('change', async function() {
             var idx = parseInt(this.getAttribute('data-index'), 10);
             if (!isNaN(idx) && preset.prompts[idx]) {
-                preset.prompts[idx].enabled = this.checked;
-                persistState(true);
-                renderSillyTavernPresetSettings();
-                renderTokenBar();
-                appStore.notify('settings');
+                input.disabled = true;
+                try {
+                    await savePresetLibraryChange(function(settings) {
+                        settings.sillyTavernPreset.prompts[idx].enabled = input.checked;
+                    });
+                } catch (error) { alert(error.message); renderSillyTavernPresetSettings(); }
+                finally { input.disabled = false; }
             }
         });
     });

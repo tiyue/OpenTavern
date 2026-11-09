@@ -51,6 +51,9 @@ function getSafeSettingsForPersist() {
         s.apiKey = '';
         s.summarizeApiKey = '';
     }
+    if (typeof getPortableConnectionProfileList === 'function' && Array.isArray(s.connectionProfiles)) {
+        s.connectionProfiles = getPortableConnectionProfileList(s.connectionProfiles);
+    }
     return s;
 }
 

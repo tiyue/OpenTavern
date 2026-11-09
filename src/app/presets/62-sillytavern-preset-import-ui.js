@@ -17,9 +17,12 @@ function importSillyTavernPresetFile(file) {
             var raw = JSON.parse(ev.target.result);
             if (raw.type === 'opentavern-preset-library') {
                 var imported = importPresetLibraryData(raw);
-                var library = ensurePresetLibrary();
-                imported.forEach(function(item) { library.push(item); });
-                if (imported.length) selectLibraryPreset(imported.activePresetId);
+                await savePresetLibraryChange(function(settings) {
+                    var library = ensurePresetLibrary(settings);
+                    imported.forEach(function(item) { library.push(item); });
+                    if (imported.length) settings.activePresetId = imported.activePresetId;
+                });
+                alert(t('settings_st_preset_import_success'));
                 return;
             }
             var preset = normalizeSillyTavernPreset(raw);
@@ -27,12 +30,11 @@ function importSillyTavernPresetFile(file) {
             if (typeof requestSillyTavernPresetRegexConsent === 'function') {
                 await requestSillyTavernPresetRegexConsent(preset);
             }
-            addLibraryPreset(preset);
-            renderSillyTavernPresetSettings();
-            persistState(true);
-            renderTokenBar();
-            appStore.notify('settings');
-            alert(t('settings_st_preset_import_success'));
+            if (typeof openPresetDiffForImport === 'function') openPresetDiffForImport(preset);
+            else {
+                await addLibraryPreset(preset);
+                alert(t('settings_st_preset_import_success'));
+            }
         } catch (err) {
             console.error('[SillyTavern Preset] import failed:', err);
             alert(t('settings_st_preset_import_error') + ': ' + (err.message || err));

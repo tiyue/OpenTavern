@@ -156,6 +156,7 @@ async function assertFrontendCloudSnapshotApply() {
   const orderSource = await readFile(new URL('../../../src/app/conversation/19-conversation-order-helpers.js', import.meta.url), 'utf8');
   const normalizeSource = await readFile(new URL('../../../src/app/sync/22-cloud-sync-normalize.js', import.meta.url), 'utf8');
   const applySources = await Promise.all([
+    '../../../src/app/api/31-api-protocol.js',
     '../../../src/app/sync/22-cloud-sync-apply-settings.js',
     '../../../src/app/sync/22-cloud-sync-apply-conversations.js',
     '../../../src/app/sync/22-cloud-sync-apply-effects.js',
@@ -399,7 +400,6 @@ async function assertFrontendCloudSyncCrypto() {
     '../../../src/app/sync/22-cloud-sync-base64.js',
     '../../../src/app/sync/22-cloud-sync-key-derivation.js',
     '../../../src/app/sync/22-cloud-sync-decrypt.js',
-    '../../../src/app/sync/22-cloud-sync-crypto.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
   const snapshot = {
@@ -614,7 +614,6 @@ async function assertFrontendCloudSyncOperations() {
     '../../../src/app/sync/22-cloud-sync-upload.js',
     '../../../src/app/sync/22-cloud-sync-download.js',
     '../../../src/app/sync/22-cloud-sync-sync.js',
-    '../../../src/app/sync/22-cloud-sync-operations.js',
   ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 
   const explicitStatus = { textContent: '', className: '' };

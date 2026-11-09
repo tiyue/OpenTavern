@@ -31,6 +31,7 @@ function renderMessageActionButtons(actualIdx, isUser, msg) {
         html += '<button class="msg-action-btn retry-btn" data-action="retry" data-msg-idx="' + actualIdx + '" title="' + t('regenerate') + '"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></button>';
     }
     if (!isUser && msg.stage !== 'second') html += renderResponseVersionControls(msg, actualIdx);
+    if (msg && msg.stage !== 'second' && typeof openMessageVersionHistory === 'function' && (isUser || getResponseVersions(msg).length)) html += '<button type="button" class="msg-action-btn" data-action="version-history" data-msg-idx="' + actualIdx + '">历史</button>';
     var conv = typeof getActiveConv === 'function' ? getActiveConv() : null;
     if (typeof canContinueMessage === 'function' && canContinueMessage(conv, msg)) html += '<button class="msg-action-btn" data-action="continue" data-msg-idx="' + actualIdx + '">续写</button>';
     if (conv && typeof normalizeConversationFavorites === 'function') {

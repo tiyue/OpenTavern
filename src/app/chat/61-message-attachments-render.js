@@ -18,7 +18,7 @@ function renderMessageAttachments(msg) {
         if (!src) return;
         html += '<figure>';
         // Keep generation metadata on the attachment for persistence/debugging, but never expose it in chat.
-        html += '<img class="msg-attachment-image" src="' + escapeHtml(src) + '" alt="Generated image" loading="lazy">';
+        html += '<img class="msg-attachment-image" src="' + escapeHtml(src) + '" alt="' + escapeHtml(att.source === 'user' ? att.name || '用户图片' : 'Generated image') + '" loading="lazy">';
         html += '</figure>';
     });
     html += '</div>';

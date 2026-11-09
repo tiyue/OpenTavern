@@ -37,7 +37,7 @@ function bindCharacterImportModalEvents() {
             normalizeConversation(conv);
             if (typeof refreshMvuCandidate === 'function') refreshMvuCandidate(conv);
             conv.updated = Date.now();
-            await persistPreparedConversation(conv, { previous: previous, character: character, worldBook: embeddedBook });
+            await persistPreparedConversation(conv, { previous: previous, character: character, worldBooks: embeddedBook && embeddedBook.preparedBooks, worldBook: embeddedBook });
             currentCharacterName = character.name;
             try {
                 if (typeof renderLibraryGrids === 'function') renderLibraryGrids();

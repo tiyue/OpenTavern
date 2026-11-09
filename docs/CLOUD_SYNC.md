@@ -6,6 +6,7 @@ Cloud Sync stores the same application snapshot used by local persistence:
 - settings
 - character cards
 - world books
+- document library text, revisions and explicit global/character/conversation bindings
 - active conversation metadata
 
 The browser keeps using local storage first. Cloud Sync is an additional backup and restore layer.
@@ -40,7 +41,7 @@ not portable application settings.
 ## Incremental Sync Protocol
 
 New clients prefer protocol v2. A snapshot is split into settings, individual conversations,
-individual character cards, individual world books, and small metadata values. Each object is
+individual character cards, individual world books, individual documents, and small metadata values. Each object is
 addressed by its SHA-256 hash and transferred in fixed small chunks of 393216 bytes.
 
 Only objects whose content hash changed are uploaded. A manifest references the complete object
@@ -53,6 +54,12 @@ Content-addressed chunks are immutable. Re-uploading the same chunk is idempoten
 to replace the same object hash and chunk index with different data is rejected as a conflict.
 
 Local-versus-cloud recency is determined solely by the snapshot's `lastSaved` value.
+
+Document records use the `document:` item prefix in v2 and remain opaque to both backends, so no
+server whitelist change is required. The retrieval index, query cache and vectors are not part of
+the snapshot, are never uploaded, and can be rebuilt from document text and saved messages after a
+restore. Old snapshots without `documents` load with an empty document library; old clients that do
+not know the field must treat it as unknown data and must not delete it when forwarding a snapshot.
 
 Protocol v1 remains available for existing deployments and old snapshots. When a v2-capable
 backend has only a v1 snapshot, the client can still download it and a later forced upload migrates

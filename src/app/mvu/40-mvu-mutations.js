@@ -16,7 +16,7 @@ function bindMvuResponseVersion(conv, message, version) {
     if (!version || !version.message) return version;
     if (getMessageRevision(message) !== getMessageRevision(version.message)) clearMvuManualOverride(version.message);
     else {
-        var manual = getMvuManualState(message, []);
+        var manual = getMvuManualState(message, [], conv);
         if (manual) { version.message.mvuManualData = cloneMvuRuntimeValue(manual); version.message.mvuManualVersionId = version.id; }
     }
     var first = getMvuMainMessages(conv)[0];

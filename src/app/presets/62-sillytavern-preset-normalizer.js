@@ -36,6 +36,7 @@ function normalizeSillyTavernPreset(raw) {
     return Object.assign({}, src, {
         name: String(src.name || src.preset_name || raw.name || 'SillyTavern Preset'),
         importedAt: new Date().toISOString(),
+        squashSystemMessages: src.squashSystemMessages === true,
         promptOrder: serializeSillyTavernPromptOrderItems(orderItems),
         regexScripts: regexScripts,
         regexScriptsEnabled: false,

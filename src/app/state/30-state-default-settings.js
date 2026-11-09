@@ -55,6 +55,7 @@ function formatStreamIdleTimeoutLabel(value) {
 function defaultSettings() {
     return {
         apiEndpoint: 'https://api.openai.com/v1/chat/completions',
+        apiProtocol: 'openai',
         apiKey: '',
         saveApiKey: false,
         model: 'gpt-4o',
@@ -119,6 +120,7 @@ function defaultSettings() {
         streamTextAnimStagger: 12,
         streamIdleTimeoutSec: 0,
         summarizeUseMainAPI: true,
+        summarizeApiProtocol: '',
         summarizeApiEndpoint: '',
         summarizeApiKey: '',
         summarizeModel: 'deepseek-chat',
@@ -140,6 +142,25 @@ function defaultSettings() {
         cloudSyncPassphrase: '',
         cloudSyncLastAt: 0,
         cloudSyncLastStatus: '',
+        connectionProfiles: [],
+        activeConnectionProfileIds: { main: '', summary: '', embedding: '' },
+        quickReplyGroups: [],
+        automationRules: [],
+        automationRuleGrants: {},
+        automationSendGrants: {},
+        automationRecentRuns: [],
+        scenePackages: [],
+        scenePackageGrants: {},
+        sceneRecentRuns: [],
+        contentModules: [],
+        contentModuleBindings: [],
+        contentModuleConversationDisabled: {},
+        contentModuleGrants: {},
+        plugins: [],
+        pluginPrivateData: {},
+        pluginGrants: {},
+        modelToolGrants: {},
+        retrieval: { memoryEnabled: false, documentsEnabled: false, topK: 6, memoryBudgetTokens: 500, documentBudgetTokens: 500, minScore: 0.15 },
         myCardOrder: []
     };
 }

@@ -16,7 +16,7 @@ function getCharacterBookForExport(conv) {
     var names = [];
 
     if (Array.isArray(conv.worldBookIds) && conv.worldBookIds.length > 0) {
-        conv.worldBookIds.forEach(function(wbId) {
+        conv.worldBookIds.filter(function(id) { return !(conv.character && conv.character.linkedExtraWorldBookIds || []).includes(id); }).forEach(function(wbId) {
             var wb = state.worldBooks && state.worldBooks[wbId];
             if (!wb || !wb.entries) return;
 

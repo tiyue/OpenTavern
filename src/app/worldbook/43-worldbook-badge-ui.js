@@ -22,8 +22,9 @@ function renderWorldInfoBadge() {
 
     var count = 0;
 
-    if (Array.isArray(conv.worldBookIds) && conv.worldBookIds.length > 0) {
-        conv.worldBookIds.forEach(function(wbId) {
+    var bookIds = typeof getEffectiveWorldBookIds === 'function' ? getEffectiveWorldBookIds(conv) : (conv.worldBookIds || []);
+    if (bookIds.length > 0) {
+        bookIds.forEach(function(wbId) {
             var wb = state.worldBooks && state.worldBooks[wbId];
             if (wb && wb.entries) {
                 count += Object.keys(wb.entries).length;
@@ -40,8 +41,9 @@ function renderWorldInfoBadge() {
 }
 
 function buildWorldInfoBadgeSourceSuffix(conv) {
-    if (!conv.worldBookIds || conv.worldBookIds.length <= 1) return '';
-    return ' (\u6765\u81ea ' + conv.worldBookIds.length + ' \u4e2a\u4e16\u754c\u4e66)';
+    var bookIds = typeof getEffectiveWorldBookIds === 'function' ? getEffectiveWorldBookIds(conv) : (conv.worldBookIds || []);
+    if (bookIds.length <= 1) return '';
+    return ' (\u6765\u81ea ' + bookIds.length + ' \u4e2a\u4e16\u754c\u4e66)';
 }
 
 function renderWorldInfoBudgetWarning() {

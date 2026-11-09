@@ -14,7 +14,8 @@ function getCurrentWorldBookFilter() {
 }
 
 function getFilteredWorldInfoEntries(wi, filter) {
-    var entries = Object.keys(wi.entries).map(function(k) {
+    var ids = typeof getWorldBookEntryDisplayIds === 'function' ? getWorldBookEntryDisplayIds(wi) : Object.keys(wi.entries);
+    var entries = ids.map(function(k) {
         return normalizeWIEntry(wi.entries[k]) || wi.entries[k];
     });
 
@@ -28,6 +29,6 @@ function getFilteredWorldInfoEntries(wi, filter) {
         });
     }
 
-    entries.sort(function(a, b) { return (b.order || 0) - (a.order || 0); });
+    if (typeof getWorldBookEntryDisplayIds !== 'function') entries.sort(function(a, b) { return (b.order || 0) - (a.order || 0); });
     return entries;
 }

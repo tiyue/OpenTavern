@@ -39,7 +39,7 @@ function insertAdditionalPromptMessages(messages, conv, character, wiByPos, char
 }
 
 function postProcessPromptMessages(messages, mode, endpoint) {
-    var copy = messages.map(function(message) { return { role: message.role, content: String(message.content || '') }; });
+    var copy = messages.map(function(message) { return { role: message.role, content: clonePromptContent(message.content) }; });
     mode = mode || 'auto';
     if (mode === 'auto') return shouldUseOllamaCompat(endpoint) ? normalizeMessagesForOllamaCompatibility(copy) : copy;
     if (mode === 'system_to_user' || mode === 'user_last') {
@@ -52,7 +52,7 @@ function postProcessPromptMessages(messages, mode, endpoint) {
     if (mode === 'merge' || mode === 'system_to_user' || mode === 'user_last') {
         copy = copy.reduce(function(result, message) {
             var last = result[result.length - 1];
-            if (last && last.role === message.role) last.content += '\n\n' + message.content;
+            if (last && last.role === message.role) last.content = mergePromptContents(last.content, message.content);
             else result.push(message);
             return result;
         }, []);

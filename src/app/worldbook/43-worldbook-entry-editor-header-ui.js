@@ -10,6 +10,7 @@
  */
 // ==================== World Book Entry Editor Header UI ====================
 function updateWorldBookModalHeader() {
+    if (dom.worldBookModal) dom.worldBookModal.classList.toggle('worldbook-list-view', wiState.viewMode === 'books');
     const titleEl = document.querySelector('#worldBookModal .font-bold.text-lg');
     if (!titleEl) return;
 

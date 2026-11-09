@@ -10,9 +10,19 @@
  */
 // ==================== State Initialization Settings Helpers ====================
 function ensureStateSettingDefaults() {
+    if (typeof normalizeApiProtocolSettings === 'function') normalizeApiProtocolSettings(state.settings);
     if (!state.settings.lang) state.settings.lang = 'zh-CN';
     if (!Array.isArray(state.settings.apiModelCatalog)) state.settings.apiModelCatalog = [];
     if (typeof ensurePresetLibrary === 'function') ensurePresetLibrary(state.settings);
+    if (typeof ensureConnectionProfiles === 'function') ensureConnectionProfiles(state.settings);
+    if (typeof ensureQuickReplyGroups === 'function') ensureQuickReplyGroups(state.settings);
+    if (typeof ensureAutomationSettings === 'function') ensureAutomationSettings(state.settings);
+    if (typeof ensureSceneSettings === 'function') ensureSceneSettings(state.settings);
+    if (typeof ensureContentModuleSettings === 'function') ensureContentModuleSettings(state.settings);
+    if (typeof ensurePluginSettings === 'function') ensurePluginSettings(state.settings);
+    if (typeof normalizeModelToolGrants === 'function') state.settings.modelToolGrants = normalizeModelToolGrants(state.settings.modelToolGrants);
+    if (typeof ensureRetrievalSettings === 'function') ensureRetrievalSettings(state.settings);
+    if (typeof ensureDocumentsState === 'function') ensureDocumentsState();
     if (!state.settings.authorNote) state.settings.authorNote = { enabled: false, content: '', role: 'system', position: 'in_chat', depth: 4, interval: 1 };
     if (!Array.isArray(state.settings.globalRegexScripts)) state.settings.globalRegexScripts = [];
     if (typeof state.settings.summaryTemperature !== 'number') state.settings.summaryTemperature = 0.3;
@@ -89,8 +99,11 @@ function applyApiKeyPersistencePolicy() {
     if (typeof state.settings.saveApiKey === 'undefined') {
         state.settings.saveApiKey = hadApiKey;
     }
+    // A device-store write failure must not abort startup; the editor reports retryable failures.
+    try { if (typeof migrateLegacyConnectionProfileCredentials === 'function') migrateLegacyConnectionProfileCredentials(); } catch (error) { console.warn('[ConnectionProfiles] Legacy credential migration deferred:', error.message); }
     if (!state.settings.saveApiKey) {
         state.settings.apiKey = '';
         state.settings.summarizeApiKey = '';
     }
+    if (typeof enforceConnectionProfileCredentialPersistencePolicy === 'function') enforceConnectionProfileCredentialPersistencePolicy();
 }

@@ -13,6 +13,19 @@ function resetIDBStorageConnection(storage) {
     try { if (storage._db) storage._db.close(); } catch (_) {}
     storage._db = null;
     storage._dbPromise = null;
+    // 使仍在等待的旧打开请求失效；迟到成功不得接入新连接。
+    storage._dbOpenAttempt = (Number(storage._dbOpenAttempt) || 0) + 1;
+}
+
+// 失败清理只针对本次操作仍持有的连接/打开请求；不能把后来建立的健康连接一并清掉。
+function resetIDBStorageConnectionIfCurrent(storage, db, openPromise) {
+    if (db) {
+        if (storage._db !== db) return false;
+    } else if (storage._db || (openPromise && storage._dbPromise && storage._dbPromise !== openPromise)) {
+        return false;
+    }
+    storage._resetConnection();
+    return true;
 }
 
 function openIDBStorage(storage, options) {
@@ -23,8 +36,13 @@ function openIDBStorage(storage, options) {
     if (storage._db) return Promise.resolve(storage._db);
     if (storage._dbPromise) return storage._dbPromise;
 
-    storage._dbPromise = createIDBStorageOpenPromise(storage);
-    return storage._dbPromise;
+    const promise = createIDBStorageOpenPromise(storage);
+    storage._dbPromise = promise;
+    // 打开失败/超时后允许下一次重试；若已成功或已被更新的连接替代则保持原状。
+    promise.then(null, () => {
+        if (storage._dbPromise === promise && !storage._db) storage._dbPromise = null;
+    });
+    return promise;
 }
 
 function delayIDBStorage(ms) {
@@ -36,12 +54,17 @@ async function withRetryIDBStorage(storage, operation, options) {
     const retries = options.retries == null ? 1 : options.retries;
     let lastError = null;
     for (let attempt = 0; attempt <= retries; attempt++) {
+        let db = null;
+        let openPromise = null;
         try {
-            const db = await storage._open({ fresh: options.fresh || attempt > 0 });
+            openPromise = storage._open({ fresh: options.fresh || attempt > 0 });
+            db = await openPromise;
             return await operation(db);
         } catch (e) {
             lastError = e;
-            storage._resetConnection();
+            resetIDBStorageConnectionIfCurrent(storage, db, openPromise);
+            // 事务中止失败时无法判断是否已经提交；不自动重试，交由保存路径做一次有界只读核对。
+            if (e && e.idbAbortUncertain) throw e;
             if (attempt < retries) await storage._delay(40);
         }
     }

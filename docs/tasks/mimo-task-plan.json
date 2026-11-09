@@ -349,7 +349,7 @@
   "release": {
     "version": 13,
     "sourceCommit": "330e0d4f0b529607a1aa43fa6edcfcc6c7083129",
-    "deploymentId": "<site-deployment-id>",
+    "deploymentId": "[deployment-id]",
     "localGate": "passed",
     "onlineAssets": "matched",
     "realBasicAcceptance": "passed",

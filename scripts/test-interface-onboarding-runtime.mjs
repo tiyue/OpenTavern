@@ -206,6 +206,7 @@ const generationContext = {
 vm.createContext(generationContext);
 vm.runInContext([
     readSource('state/30-state-default-settings.js'),
+    readSource('api/31-api-protocol.js'),
     readSource('api/31-api-endpoint-normalizer.js'),
     readSource('api/31-api-ollama-compat.js'),
     readSource('generation/50-generation-cot-utils.js'),

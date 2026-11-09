@@ -89,4 +89,7 @@ function bindChatOperationsEntries() {
     [['messageSearchEntry', '搜索', function() { openMessageFinder(false); }], ['messageFavoritesEntry', '收藏', function() { openMessageFinder(true); }], ['conversationMembersEntry', '成员', openConversationMembers]].forEach(function(entry) {
         var button = document.createElement('button'); button.type = 'button'; button.id = entry[0]; button.className = 'feature-entry feature-entry-compact'; button.textContent = entry[1]; button.onclick = entry[2]; parent.appendChild(button);
     });
+    if (typeof addQuickReplyChatEntry === 'function') addQuickReplyChatEntry(parent);
+    if (typeof addGroupStrategyChatEntry === 'function') addGroupStrategyChatEntry(parent);
+    if (typeof addConversationBranchChatEntry === 'function') addConversationBranchChatEntry(parent);
 }

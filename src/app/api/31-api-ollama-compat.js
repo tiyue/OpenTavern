@@ -29,8 +29,8 @@ function normalizeMessagesForOllamaCompatibility(messages) {
     messages.forEach(function(msg) {
         if (!msg) return;
         var role = normalizePromptRole(msg.role || 'user');
-        var content = msg.content == null ? '' : String(msg.content);
-        if (!content.trim()) return;
+        var content = clonePromptContent(msg.content);
+        if (!Array.isArray(content) && !content.trim()) return;
 
         if (role === 'system') {
             if (!seenNonSystem) {
@@ -38,7 +38,7 @@ function normalizeMessagesForOllamaCompatibility(messages) {
             } else {
                 normalized.push({
                     role: 'user',
-                    content: '[System / developer instruction]\n' + content
+                    content: Array.isArray(content) ? mergePromptContents('[System / developer instruction]', content) : '[System / developer instruction]\n' + content
                 });
             }
             return;
@@ -57,7 +57,7 @@ function normalizeMessagesForOllamaCompatibility(messages) {
     return result.reduce(function(acc, msg) {
         var last = acc[acc.length - 1];
         if (last && last.role === msg.role) {
-            last.content += '\n\n' + msg.content;
+            last.content = mergePromptContents(last.content, msg.content);
         } else {
             acc.push({ role: msg.role, content: msg.content });
         }

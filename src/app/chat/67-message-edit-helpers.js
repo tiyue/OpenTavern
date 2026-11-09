@@ -55,8 +55,12 @@ function applyMessageEditContent(conv, actualIdx, originalContent, editedContent
     var parent = msg.stage === 'second' ? conv.messages.find(function(m) { return m.id === msg.parentId && m.stage !== 'second'; }) : msg;
     var prepared = parent && parent.role === 'assistant' && (getResponseVersions(parent).length || parent.mvuManualData) ? prepareResponseVersions(conv, parent) : null;
 
-    msg.content = newVal;
+    if (msg.role === 'user' && typeof selectUserMessageContent === 'function') {
+        rememberUserReplyVersions(conv, msg);
+        selectUserMessageContent(msg, newVal);
+    } else msg.content = newVal;
     if (typeof clearMvuManualOverride === 'function') clearMvuManualOverride(msg);
+    if (typeof clearSceneMessageRecord === 'function') clearSceneMessageRecord(msg);
     msg.revision = getMessageRevision(msg);
     if (msg.role === 'assistant' && msg.stage !== 'second') {
         removeLinkedSecondStageMessages(conv, msg);
@@ -71,4 +75,86 @@ function applyMessageEditContent(conv, actualIdx, originalContent, editedContent
     conv._wiCache = null;
     conv._lastRenderedVisibleCount = 0;
     return 'changed';
+}
+
+
+function createUserMessageEditBranch(conv, messageId, content) {
+    var sourceIndex = conv.messages.findIndex(function(message) { return message.id === messageId && message.role === 'user'; });
+    if (sourceIndex < 0) throw new Error(t('generation_target_changed'));
+    var candidate = JSON.parse(JSON.stringify(conv));
+    Object.keys(candidate).forEach(function(key) { if (key.charAt(0) === '_') delete candidate[key]; });
+    delete candidate.streamingDraft;
+    var nextUser = candidate.messages.findIndex(function(message, index) { return index > sourceIndex && message.role === 'user'; });
+    candidate.messages = candidate.messages.slice(0, nextUser < 0 ? candidate.messages.length : nextUser);
+    // A branch keeps this turn's first reply and its options as recoverable versions.
+    var main = candidate.messages.find(function(message, index) { return index > sourceIndex && message.role === 'assistant' && message.stage !== 'second' && message.stage !== 'scene'; });
+    candidate.messages = candidate.messages.filter(function(message, index) {
+        return index <= sourceIndex || (main && (message.id === main.id || message.stage === 'second' && message.parentId === main.id));
+    });
+    applyMessageEditContent(candidate, sourceIndex, candidate.messages[sourceIndex].content, content);
+    candidate.id = makeId();
+    candidate.title = String(conv.title || '聊天') + ' · 分支';
+    candidate.created = candidate.updated = Date.now();
+    candidate.branchOf = { conversationId: conv.id, userMessageId: messageId };
+    resetConversationAfterMessageMutation(candidate);
+    if (typeof reanchorSceneOpeningRecords === 'function') reanchorSceneOpeningRecords(candidate);
+    if (typeof refreshMvuCandidate === 'function') refreshMvuCandidate(candidate);
+    return candidate;
+}
+
+async function persistUserMessageEditBranch(conv, candidate) {
+    if (!isLiveConversation(conv) || conv._messageCommitInProgress || state.isGenerating || getActiveConv() !== conv) throw new Error(t('generation_target_changed'));
+    var conversations = state.conversations;
+    var source = JSON.stringify(conv.messages);
+    var mvuSource = typeof getMvuContextStamp === 'function' ? getMvuContextStamp(conv) : null;
+    function check() {
+        if (state.conversations !== conversations || !isLiveConversation(conv) || getActiveConv() !== conv || state.isGenerating || JSON.stringify(conv.messages) !== source ||
+            (mvuSource !== null && getMvuContextStamp(conv) !== mvuSource) || Object.prototype.hasOwnProperty.call(state.conversations, candidate.id)) throw new Error(t('generation_target_changed'));
+    }
+    function merge(snapshot, live) {
+        Object.defineProperty(snapshot.conversations, candidate.id, { value: live ? candidate : JSON.parse(JSON.stringify(candidate)), enumerable: true, configurable: true, writable: true });
+        snapshot.conversationOrder = getConversationIdsWithMissingFallback([candidate.id].concat(snapshot.conversationOrder || []), snapshot.conversations);
+        if (snapshot.activeConvId === conv.id) snapshot.activeConvId = candidate.id;
+        return snapshot;
+    }
+    Object.defineProperty(conv, '_messageCommitInProgress', { value: true, configurable: true, writable: true });
+    try {
+        await persistState(true, {
+            throwOnError: true,
+            transformSnapshot: function(snapshot) { return merge(snapshot, false); },
+            beforePersist: check,
+            onPersistSuccess: function() {
+                check();
+                var applied = merge({ conversations: state.conversations, conversationOrder: state.conversationOrder, activeConvId: state.activeConvId }, true);
+                state.conversationOrder = applied.conversationOrder;
+                state.activeConvId = applied.activeConvId;
+            },
+            commitPendingSnapshot: function(snapshot) { merge(snapshot, false); },
+            rollbackPendingSnapshot: function(snapshot) {
+                if (snapshot.conversations && !Object.prototype.hasOwnProperty.call(state.conversations, candidate.id)) delete snapshot.conversations[candidate.id];
+                snapshot.conversationOrder = getPersistableConversationOrder(snapshot.conversationOrder, snapshot.conversations);
+                snapshot.activeConvId = getPersistableActiveConversationId(snapshot.activeConvId, snapshot.conversationOrder, snapshot.conversations);
+            }
+        });
+    } finally { delete conv._messageCommitInProgress; }
+    return candidate;
+}
+
+async function saveUserMessageEdit(conv, messageId, revision, content, regenerate) {
+    if (typeof content !== 'string' || !content.trim()) throw new Error('用户消息正文必须是非空文本。');
+    if (!isLiveConversation(conv) || getActiveConv() !== conv || state.isGenerating || conv._messageCommitInProgress) throw new Error(t('generation_target_changed'));
+    var index = conv.messages.findIndex(function(message) { return message.id === messageId && message.role === 'user' && getMessageRevision(message) === revision; });
+    if (index < 0) throw new Error(t('generation_target_changed'));
+    var hasLaterTurn = conv.messages.slice(index + 1).some(function(message) { return message.role === 'user'; });
+    var destination = conv;
+    if (regenerate && hasLaterTurn) {
+        destination = await persistUserMessageEditBranch(conv, createUserMessageEditBranch(conv, messageId, content.trim()));
+    } else {
+        await persistConversationMessageMutation(conv, function(candidate) {
+            return applyMessageEditContent(candidate, index, conv.messages[index].content, content);
+        }, { validate: function() { return !state.isGenerating && getActiveConv() === conv; } });
+    }
+    if (getActiveConv() === destination) { renderMessagesOnly(); renderTokenBar(); renderConversationListOnly(); }
+    if (regenerate && getActiveConv() === destination && !state.isGenerating) startUserMessageRegeneration(destination, messageId);
+    return destination;
 }

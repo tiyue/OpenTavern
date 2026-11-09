@@ -11,6 +11,7 @@
 // ==================== Settings Save Summarization API Form ====================
 function readSummarizationApiSettingsFromForm(target) {
     var settings = target || (typeof getSettingsFormTarget === 'function' ? getSettingsFormTarget() : state.settings);
+    if (dom.summarizeApiProtocol) settings.summarizeApiProtocol = dom.summarizeApiProtocol.value ? normalizeApiProtocol(dom.summarizeApiProtocol.value) : '';
     settings.summarizeUseMainAPI = readCheckboxControlValue(dom.summarizeUseMainAPI, false);
     settings.summarizeApiEndpoint = readTrimmedControlValue(dom.summarizeApiEndpoint);
     settings.summarizeApiKey = readTrimmedControlValue(dom.summarizeApiKey);

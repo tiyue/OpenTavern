@@ -46,6 +46,7 @@ function hydrateThemePerformanceSettings() {
 }
 
 function hydrateSummarizationApiSettings() {
+    hydrateValueControl(dom.summarizeApiProtocol, state.settings.summarizeApiProtocol || '');
     hydrateCheckboxControlDefaultOn(dom.summarizeUseMainAPI, state.settings.summarizeUseMainAPI);
     hydrateValueControl(dom.summarizeApiEndpoint, state.settings.summarizeApiEndpoint || '');
     hydrateValueControl(dom.summarizeApiKey, state.settings.summarizeApiKey || '');

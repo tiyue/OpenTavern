@@ -110,5 +110,5 @@ function renderMessageBubbleContent(msg, isUser, context) {
         settings: context.settings || (typeof state !== 'undefined' && state.settings)
     });
     var content = isUser ? escapeHtml(prepared.formattedText) : renderPreparedAssistantContent(prepared);
-    return content + renderMessageAttachments(msg);
+    return content + renderMessageAttachments(msg) + (!isUser && typeof renderModelToolTrace === 'function' ? renderModelToolTrace(msg) : '');
 }

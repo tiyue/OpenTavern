@@ -28,7 +28,7 @@ function buildWorldInfoActivationCacheKey(conv, wi) {
         mode: conv.worldBookMode || 'default', entries: wi.entries,
         messages: messages.map(function(message) { return [message.role, message.content]; }), character: conv.character,
         budget: [state.settings.worldInfoBudgetEnabled, state.settings.worldInfoBudget]
-    });
+    }) + '|' + (typeof getContentModuleAssemblyStamp === 'function' ? getContentModuleAssemblyStamp(conv) : '');
 }
 
 function cacheActivatedWorldInfoResult(conv, cacheKey, result) {

@@ -37,7 +37,7 @@ function createWorldBookEntryListRow(entry, wi) {
         '</div>';
 
     row.addEventListener('click', function(e) {
-        if (e.target.classList.contains('wi-list-toggle') || e.target.classList.contains('wi-list-del')) return;
+        if (e.target.classList.contains('wi-list-toggle') || e.target.closest('button')) return;
         selectWIEntry(uidStr);
     });
 
@@ -63,5 +63,9 @@ function createWorldBookEntryListRow(entry, wi) {
         renderWIEntryList(getCurrentWorldBookFilter());
     });
 
+    if (typeof appendWorldBookOrderButtons === 'function') {
+        var order = getWorldBookEntryDisplayIds(wi);
+        appendWorldBookOrderButtons(row.querySelector('.text-right'), order.indexOf(uidStr), order.length, function(direction) { return moveWorldBookEntryDisplay(wi, uidStr, direction); });
+    }
     return row;
 }

@@ -9,14 +9,42 @@
  * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
  */
 // ==================== StorageService Load Candidate Readers ====================
+const STORAGE_SERVICE_OPFS_READ_TIMEOUT_MS = 5000;
+
 function canReadStorageServiceOPFSCandidate(service) {
     return !storageIsFileProtocol() && (service._opfsReadableAvailable || (navigator.storage && navigator.storage.getDirectory));
+}
+
+// 可选恢复读取只用于收集候选；超时后丢弃迟到结果，不能阻塞后面的 IndexedDB/localStorage。
+function readStorageServiceOPFSCandidateBounded() {
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        const timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            reject(new Error('OPFS recovery read timed out'));
+        }, STORAGE_SERVICE_OPFS_READ_TIMEOUT_MS);
+        Promise.resolve().then(() => OPFSStorage.loadAll()).then(
+            (data) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                resolve(data);
+            },
+            (error) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                reject(error);
+            }
+        );
+    });
 }
 
 async function collectStorageServiceOPFSCandidate(service, options, candidates) {
     try {
         if (!canReadStorageServiceOPFSCandidate(service)) return;
-        const data = await OPFSStorage.loadAll();
+        const data = await readStorageServiceOPFSCandidateBounded();
         if (service._isValidSnapshot(data)) candidates.push({ backend: 'opfs', data });
     } catch (e) {
         if (options.warnOPFS !== false) console.warn('[Storage] OPFS recovery read failed:', e && e.message);

@@ -49,6 +49,7 @@ function normalizeCloudSyncSnapshot(raw) {
     data.conversations = normalizeCloudSyncObjectMap(data.conversations);
     data.characters = normalizeCloudSyncObjectMap(data.characters);
     data.worldBooks = normalizeCloudSyncObjectMap(data.worldBooks);
+    data.documents = normalizeCloudSyncObjectMap(data.documents);
     normalizeCloudSyncConversationOrder(data);
     normalizeCloudSyncActiveConversation(data);
     data.charactersMigrated = normalizeCloudSyncBoolean(data.charactersMigrated);

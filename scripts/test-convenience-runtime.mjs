@@ -50,7 +50,7 @@ const draftContext = {
     splitInlineCot: text => ({ content: text }), fetch() { calls++; return new Promise(resolve => { resolveRequest = resolve; }); }
 };
 vm.createContext(draftContext);
-for (const name of ['conversation/32-message-identity.js', 'chat/67-user-draft.js']) vm.runInContext(fs.readFileSync(new URL('../src/app/' + name, import.meta.url), 'utf8'), draftContext, { filename: name });
+for (const name of ['api/31-api-protocol.js', 'chat/60-composer-images.js', 'conversation/32-message-identity.js', 'chat/67-user-draft.js']) vm.runInContext(fs.readFileSync(new URL('../src/app/' + name, import.meta.url), 'utf8'), draftContext, { filename: name });
 const conv = { id: 'draft-conv', character: { name: 'Character' }, messages: [{ id: 'm', role: 'assistant', content: 'history' }] }; draftContext.getActiveConv = () => conv;
 prepareFails = true; assert.equal(await draftContext.generateUserDraft(), false); assert.equal(draftContext.userDraftRequest, null); assert.equal(calls, 0); assert.match(alerts[0], /prepare failure/);
 prepareFails = false; operation = draftContext.generateUserDraft(); conv.messages[0].speaker = 'changed'; resolveRequest({ ok: true, json: async () => ({ choices: [{ message: { content: 'late draft' } }] }) });

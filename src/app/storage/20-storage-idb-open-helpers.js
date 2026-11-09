@@ -9,6 +9,10 @@
  * 修改时注意：这是用户数据安全相关代码；任何修改都要考虑写入失败、旧数据和回退路径。
  */
 // ==================== IndexedDB Storage Open Helpers ====================
+// 固定内部期限：没有用户选项，只用于让挂起的打开/事务以明确失败收尾。
+const IDB_STORAGE_OPEN_TIMEOUT_MS = 5000;
+const IDB_STORAGE_TRANSACTION_TIMEOUT_MS = 5000;
+
 function getIDBStorageUnsupportedError() {
     if (typeof window === 'undefined' || !('indexedDB' in window)) return new Error('IndexedDB not supported');
     return null;
@@ -22,31 +26,72 @@ function ensureIDBStorageObjectStore(db, storeName) {
 
 function attachIDBStorageConnectionHandlers(storage, db) {
     storage._db = db;
-    db.onversionchange = () => storage._resetConnection();
-    db.onclose = () => storage._resetConnection();
+    // 只清理自己这一个连接；迟到的旧连接事件不能销毁后来建立的健康连接。
+    db.onversionchange = () => { if (storage._db === db) storage._resetConnection(); };
+    db.onclose = () => { if (storage._db === db) storage._resetConnection(); };
     db.onerror = () => { /* transaction handlers report concrete errors */ };
     return db;
 }
 
 function createIDBStorageOpenPromise(storage) {
+    let settled = false;
+    let timer = null;
+    let request = null;
+    let rejectOpen = null;
+    const attemptToken = Number(storage._dbOpenAttempt) || 0;
+
+    const settleFailure = (error) => {
+        if (settled) return;
+        settled = true;
+        if (timer) {
+            clearTimeout(timer);
+            timer = null;
+        }
+        if (rejectOpen) rejectOpen(error);
+    };
+
     return new Promise((resolve, reject) => {
-        const req = indexedDB.open(storage._dbName, 1);
-        req.onupgradeneeded = (ev) => {
+        rejectOpen = reject;
+        timer = setTimeout(() => {
+            timer = null;
+            settleFailure(new Error('IndexedDB open timed out'));
+        }, IDB_STORAGE_OPEN_TIMEOUT_MS);
+
+        try {
+            request = indexedDB.open(storage._dbName, 1);
+        } catch (error) {
+            settleFailure(error);
+            return;
+        }
+
+        request.onupgradeneeded = (ev) => {
             ensureIDBStorageObjectStore(ev.target.result, storage._storeName);
         };
-        req.onsuccess = (ev) => {
-            resolve(attachIDBStorageConnectionHandlers(storage, ev.target.result));
+        request.onsuccess = (ev) => {
+            const db = ev.target.result;
+            if (settled) {
+                // 超时后迟到的打开结果只关闭，不接入当前连接，也不影响较新的连接。
+                try { db.close(); } catch (_) {}
+                return;
+            }
+            settled = true;
+            if (timer) {
+                clearTimeout(timer);
+                timer = null;
+            }
+            if (attemptToken !== (Number(storage._dbOpenAttempt) || 0)) {
+                // 已被 fresh 重开或连接重置取代的旧请求不能覆盖新连接。
+                try { db.close(); } catch (_) {}
+                if (rejectOpen) rejectOpen(new Error('IndexedDB open superseded'));
+                return;
+            }
+            resolve(attachIDBStorageConnectionHandlers(storage, db));
         };
-        req.onerror = () => {
-            storage._resetConnection();
-            reject(req.error || new Error('IndexedDB open failed'));
+        request.onerror = () => {
+            settleFailure(request.error || new Error('IndexedDB open failed'));
         };
-        req.onblocked = () => {
-            storage._resetConnection();
-            reject(new Error('IndexedDB open blocked'));
+        request.onblocked = () => {
+            settleFailure(new Error('IndexedDB open blocked'));
         };
-    }).catch((err) => {
-        storage._resetConnection();
-        throw err;
     });
 }

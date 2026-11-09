@@ -50,6 +50,10 @@ function startApp() {
         refreshStartupStorageStatus();
         showBackupReminderIfNeeded();
         startLocalResourceManager();
+        if (typeof refreshStreamDraftRecoveryNotice === 'function') {
+            refreshStreamDraftRecoveryNotice().catch(reportStreamDraftError);
+            window.addEventListener('pagehide', function() { flushStreamDraftWrites().catch(reportStreamDraftError); });
+        }
     }).catch(runFallbackInitialization);
 }
 

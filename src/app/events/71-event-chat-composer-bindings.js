@@ -18,6 +18,8 @@ function shouldSubmitComposerKeydown(event, settings) {
 
 function bindChatComposerEvents() {
     if (typeof bindUserDraftEvents === 'function') bindUserDraftEvents();
+    if (typeof bindComposerImageEvents === 'function') bindComposerImageEvents();
+    if (typeof bindQuickReplyEvents === 'function') bindQuickReplyEvents();
     dom.sendBtn.addEventListener('click', sendMessage);
     if (dom.imageGenerationBtn) dom.imageGenerationBtn.addEventListener('click', openImageGenerationPanel);
     if (dom.imageGenerationSubmitBtn) dom.imageGenerationSubmitBtn.addEventListener('click', generateImageForCurrentChat);

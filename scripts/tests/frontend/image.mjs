@@ -123,7 +123,7 @@ async function assertPackyImageGenerationContract() {
       const sources = await Promise.all(
         imageModuleFiles.map((file) => readFile(new URL(`../../../src/app/${file}`, import.meta.url), 'utf8'))
       );
-      sources.unshift(messageIdentitySource);
+      sources.unshift(messageIdentitySource, await readFile(new URL('../../../src/app/api/31-api-protocol.js', import.meta.url), 'utf8'));
       const events = [];
       const requests = [];
       const messageInput = { value: 'current input: sunset on the academy rooftop' };

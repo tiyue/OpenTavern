@@ -58,6 +58,7 @@ vm.runInContext([
     readSource('api/31-api-ollama-compat.js'),
     readSource('api/31-api-connection-response-helpers.js'),
     readSource('api/31-api-model-catalog.js'),
+    readSource('api/31-api-protocol.js'),
     readSource('generation/50-generation-api-request.js'),
     `globalThis.settingsRuntime={
         normalizeCatalog:normalizeApiModelCatalog,
@@ -117,5 +118,54 @@ assert.ok(
     indexHtml.indexOf('id="worldInfoBudget"') < indexHtml.indexOf('id="settingsPanelWorkspace"'),
     'World Info budget should live in the Memory panel.'
 );
+
+const defaultsSource = readSource('state/30-state-default-settings.js');
+assert.match(defaultsSource, /automationRules: \[\]/);
+assert.match(defaultsSource, /automationRuleGrants: \{\}/);
+assert.match(defaultsSource, /automationSendGrants: \{\}/);
+assert.match(defaultsSource, /automationRecentRuns: \[\]/);
+assert.match(defaultsSource, /contentModules: \[\]/);
+assert.match(defaultsSource, /contentModuleBindings: \[\]/);
+assert.match(defaultsSource, /contentModuleConversationDisabled: \{\}/);
+assert.match(defaultsSource, /contentModuleGrants: \{\}/);
+assert.match(defaultsSource, /plugins: \[\]/);
+assert.match(defaultsSource, /pluginPrivateData: \{\}/);
+assert.match(defaultsSource, /pluginGrants: \{\}/);
+const draftSource = readSource('settings/68-settings-draft.js');
+const formKeys = (draftSource.match(/var SETTINGS_FORM_KEYS = '([^']+)'/) || [])[1] || '';
+assert.ok(!/\bautomationRules\b/.test(formKeys) && !/\bautomationRuleGrants\b/.test(formKeys), 'Automation CRUD must not be committed by the ordinary settings Done/Discard form.');
+
+const policyContext = {};
+vm.createContext(policyContext);
+vm.runInContext(readSource('sync/19-cloud-sync-settings-policy.js') + '\n;globalThis.portable = getCloudSyncPortableSettings;', policyContext);
+const portable = policyContext.portable({
+    automationRules: [{ id: 'rule-1' }],
+    automationRuleGrants: { 'rule-1': { revision: 1, allowSend: true } },
+    automationSendGrants: { 'rule-1': true },
+    automationRecentRuns: [{ id: 'run-1' }],
+    temperature: 0.5
+});
+assert.equal(JSON.stringify(portable.automationRules), JSON.stringify([{ id: 'rule-1' }]), 'Automation definitions are portable user data.');
+assert.equal(portable.automationRuleGrants, undefined, 'Local run grants must not enter cloud snapshots.');
+assert.equal(portable.automationSendGrants, undefined, 'Local auto-send grants must not enter cloud snapshots.');
+assert.equal(portable.automationRecentRuns, undefined, 'Runtime records must stay local.');
+const modulePortable = policyContext.portable({
+    contentModules: [{ id: 'module-1' }],
+    contentModuleBindings: [{ id: 'binding-1' }],
+    contentModuleConversationDisabled: { conv: ['module-1'] },
+    contentModuleGrants: { 'module-1': { approved: { '1.0.0': 'c1:1:2:3' } } }
+});
+assert.deepEqual(JSON.parse(JSON.stringify(modulePortable.contentModules)), [{ id: 'module-1' }], 'Content module definitions are portable.');
+assert.deepEqual(JSON.parse(JSON.stringify(modulePortable.contentModuleBindings)), [{ id: 'binding-1' }], 'Content module bindings are portable.');
+assert.deepEqual(JSON.parse(JSON.stringify(modulePortable.contentModuleConversationDisabled)), { conv: ['module-1'] }, 'Conversation disables are portable.');
+assert.equal(modulePortable.contentModuleGrants, undefined, 'Local content module grants must not enter cloud snapshots.');
+const pluginPortable = policyContext.portable({
+    plugins: [{ id: 'conversation-stats' }],
+    pluginPrivateData: { 'conversation-stats': { messages: 2 } },
+    pluginGrants: { 'conversation-stats': { fingerprint: 'sha256:' + '0'.repeat(64) } }
+});
+assert.deepEqual(JSON.parse(JSON.stringify(pluginPortable.plugins)), [{ id: 'conversation-stats' }], 'Plugin definitions are portable data.');
+assert.deepEqual(JSON.parse(JSON.stringify(pluginPortable.pluginPrivateData)), { 'conversation-stats': { messages: 2 } }, 'Plugin private data is portable.');
+assert.equal(pluginPortable.pluginGrants, undefined, 'Local plugin grants must not enter cloud snapshots.');
 
 console.log('Settings runtime checks passed: legacy persona migration, conversation memory, model discovery, penalties, Ollama auto-compatibility, stream mode and tab structure.');

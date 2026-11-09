@@ -5,6 +5,7 @@ import vm from 'node:vm';
 
 async function assertFrontendGenerationHelpers() {
   const sources = await Promise.all([
+    '../../../src/app/api/31-api-protocol.js',
     '../../../src/app/generation/50-generation-cot-utils.js',
     '../../../src/app/generation/50-generation-usage.js',
     '../../../src/app/generation/50-generation-api-request.js',
@@ -113,7 +114,7 @@ async function assertFrontendGenerationHelpers() {
     setTimeout,
     clearTimeout,
   };
-  vm.runInNewContext(`${sources.slice(0, 6).join('\n')}\nthis.__streamResponse = streamChatCompletionResponse;\nthis.__readResponse = readChatCompletionResponse;\nthis.__transportFactory = createGenerationTransport;`, parserContext);
+  vm.runInNewContext(`${sources.slice(0, 7).join('\n')}\nthis.__streamResponse = streamChatCompletionResponse;\nthis.__readResponse = readChatCompletionResponse;\nthis.__transportFactory = createGenerationTransport;`, parserContext);
 
   const standaloneSseController = new AbortController();
   parserContext.state.abortController = standaloneSseController;
@@ -694,5 +695,9 @@ async function assertFrontendGenerationStageIsolation() {
   vm.runInNewContext(`${messageIdentitySource}\n${runtimeSource}\nthis.__completePrimary = handlePrimaryAssistantComplete;`, runtimeContext);
   await runtimeContext.__completePrimary(leaked, '');
   assert(runtimeEvents.includes('finish:正文内容') && runtimeEvents.includes('second:正文内容'), 'Completed primary messages should save only narrative content before starting stage two.');
+
+  assert(runtimeSource.includes("dispatchAutomationEvent('assistant-message-saved'"), 'Assistant saves must dispatch the saved automation event.');
+  assert(runtimeSource.indexOf("dispatchAutomationEvent('assistant-message-saved'") < runtimeSource.indexOf('runSecondStageGeneration(firstStageMsg'), 'Assistant-saved automation must run when the main reply is saved, before stage two settles the turn.');
+  assert(runtimeSource.indexOf('advanceGroupAutoRounds(conv)') < runtimeSource.indexOf('settleAutomationAfterTurn(conv)'), 'Automation sends must settle after group auto rounds.');
 }
 export { assertFrontendGenerationHelpers, assertFrontendGenerationStageIsolation };

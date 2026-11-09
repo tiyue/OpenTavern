@@ -144,6 +144,16 @@ function createFakeNode(tagName) {
     return null;
   };
   node.classList = {
+    add(name) {
+      const names = new Set(String(node.getAttribute('class') || '').split(/\s+/).filter(Boolean));
+      names.add(name);
+      node.setAttribute('class', Array.from(names).join(' '));
+    },
+    remove(name) {
+      const names = new Set(String(node.getAttribute('class') || '').split(/\s+/).filter(Boolean));
+      names.delete(name);
+      node.setAttribute('class', Array.from(names).join(' '));
+    },
     toggle(name, force) {
       const names = new Set(String(node.getAttribute('class') || '').split(/\s+/).filter(Boolean));
       const want = force === undefined ? !names.has(name) : !!force;
@@ -184,7 +194,7 @@ function parseHtml(html) {
   return root.childNodes.slice();
 }
 
-function createHarness() {
+function createHarness(options = {}) {
   const document = {
     body: createFakeNode('body'),
     createElement: (tag) => createFakeNode(tag),
@@ -315,6 +325,8 @@ function createHarness() {
     escapeHtml: (value) => String(value),
     currentView: 'chat',
     currentCharacterName: null,
+    showLibraryConversationList() {},
+    setLibrarySidebarMode() {},
     loadConversation(id) { state.activeConvId = id; },
     deleteConversation() {},
     exportConversation() {},
@@ -332,7 +344,7 @@ function createHarness() {
     'chat/61-chat-message-renderer.js',
     'conversation/64-conversation-list-helpers.js',
     'conversation/64-conversation-list-ui.js',
-  ].map(readSource).join('\n');
+  ].concat(options.includeLibraryView ? ['library/60-library-view-ui.js'] : []).map(readSource).join('\n');
 
   const names = Object.keys(env);
   const factory = new Function(...names, `${sources}\nreturn {
@@ -340,7 +352,9 @@ function createHarness() {
     renderChatMessageWindow,
     getChatMessageWindowState,
     getRenderableChatMessages,
-    renderConversationList
+    renderConversationList,
+    showChatView: typeof showChatView === 'function' ? showChatView : null,
+    switchView: typeof switchView === 'function' ? switchView : null
   };`);
   const api = factory(...names.map((name) => env[name]));
   return {
@@ -738,6 +752,30 @@ function testScrollBehavior() {
   assert.equal(container.scrollTop, 250, 'scroll anchor must keep the first visible row steady after an earlier change');
 }
 
+function testChatViewEntryAlignsToLatest() {
+  const harness = createHarness({ includeLibraryView: true });
+  const conv = makeConversation('c', 30);
+  harness.state.conversations[conv.id] = conv;
+  harness.state.conversationOrder = [conv.id];
+  harness.state.activeConvId = conv.id;
+
+  render(harness);
+  const container = harness.dom.messagesContainer;
+  container.scrollTop = 0;
+  const libraryView = createFakeNode('div');
+  const chatView = createFakeNode('div');
+  chatView.setAttribute('class', 'hidden');
+
+  harness.api.showChatView(libraryView, chatView);
+
+  assert.equal(chatView.classList.contains('hidden'), false, 'entering chat must unhide the chat view');
+  assert.equal(container.scrollTop, container.scrollHeight, 'entering chat must align the latest messages to the viewport bottom');
+
+  container.scrollTop = 300;
+  render(harness);
+  assert.equal(container.scrollTop, 300, 'an ordinary rerender after entry keeps the older reading position');
+}
+
 function testEmptyStateAndConversationSwitch() {
   const harness = createHarness();
   const first = makeConversation('first', 3);
@@ -877,6 +915,7 @@ const tests = [
   testFiveHundredMessageWindow,
   testLoadEarlierKeepsAnchorAndReusesRows,
   testScrollBehavior,
+  testChatViewEntryAlignsToLatest,
   testEmptyStateAndConversationSwitch,
   testStreamingNodeRetentionAndCreation,
   testSidebarKeyedReuse,

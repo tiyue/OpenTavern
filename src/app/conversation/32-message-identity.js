@@ -19,11 +19,16 @@ function fingerprintMessageText(text) {
 }
 
 function getMessageRevision(msg) {
-    var content = JSON.stringify([
+    var revisionParts = [
         msg.role || '', msg.content || '', msg.cot || '', msg.speaker || '',
         msg.stage || (msg.role === 'assistant' ? 'main' : ''), msg.parentId || '',
         msg.attachments || null
-    ]);
+    ];
+    if (typeof getModelToolTraceIdentity === 'function') {
+        var toolIdentity = getModelToolTraceIdentity(msg.toolTrace);
+        if (toolIdentity) revisionParts.push(toolIdentity);
+    }
+    var content = JSON.stringify(revisionParts);
     var cached = messageRevisionCache.get(msg);
     if (cached && cached.content === content) return cached.revision;
     var revision = 'm1:' + fingerprintMessageText(content) + ':' + content.length;
@@ -39,6 +44,11 @@ function normalizeConversationMessageIdentity(conv) {
     var existingIds = new Set(originalIds);
     conv.messages.forEach(function(msg, index) {
         if (!msg || typeof msg !== 'object') return;
+        if (msg.toolTrace !== undefined && typeof normalizeModelToolTrace === 'function') {
+            var normalizedTrace = normalizeModelToolTrace(msg.toolTrace);
+            if (normalizedTrace) msg.toolTrace = normalizedTrace;
+            else delete msg.toolTrace;
+        }
         var oldId = msg.id;
         if (typeof oldId !== 'string' || !oldId || used.has(oldId)) {
             if (used.has(oldId)) duplicates.add(oldId);

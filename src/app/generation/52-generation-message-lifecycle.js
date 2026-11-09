@@ -10,6 +10,10 @@
  */
 // ==================== Generation Message Lifecycle ====================
 function stopGeneration() {
+    if (typeof cancelGroupAutoRounds === 'function') cancelGroupAutoRounds();
+    if (typeof cancelRetrievalRequests === 'function') cancelRetrievalRequests();
+    var automationConv = typeof getActiveConv === 'function' ? getActiveConv() : null;
+    if (automationConv && typeof cancelAutomationRuntime === 'function') cancelAutomationRuntime(t('automation_stopped'), automationConv.id);
     var generationContext = state._generationRuntime;
     var operation = state._promptBuildOperation || generationContext && generationContext.operation;
     if (operation && !(generationContext && generationContext.controller && state.abortController === generationContext.controller)) operation.cancelled = true;
@@ -100,20 +104,29 @@ function updateStreamingBubble(fullContent, conv, label, fullCot, stage, generat
 }
 
 async function finishAssistantMessage(conv, fullContent, speakerForMsg, stage, parentId, fullCot, usage, completion, generationContext) {
-    if (!conv || !fullContent) return null;
+    var toolTrace = completion && completion._modelToolTrace;
+    if (!conv || (!fullContent && !toolTrace)) return null;
     var content = generationContext ? isolatePrimaryStageContentWithSettings(fullContent, generationContext.settings) : fullContent;
     var pushObj = { role: 'assistant', content: content, id: makeId() };
+    if (generationContext && generationContext._streamDraft) pushObj.recoveryDraftId = generationContext._streamDraft.id;
     if (fullCot) pushObj.cot = fullCot;
     if (speakerForMsg) pushObj.speaker = speakerForMsg;
     if (stage) pushObj.stage = stage;
     if (parentId) pushObj.parentId = parentId;
     if (usage) pushObj.usage = usage;
     if (completion && completion.interrupted) pushObj.interrupted = true;
+    if (toolTrace) pushObj.toolTrace = toolTrace;
+    if (toolTrace && generationContext && typeof queueStreamDraft === 'function') {
+        generationContext._streamDraft = generationContext._streamDraft || null;
+        queueStreamDraft(generationContext, fullContent || '', fullCot || '', toolTrace);
+        if (generationContext._streamDraft) pushObj.recoveryDraftId = generationContext._streamDraft.id;
+    }
     pushObj.revision = getMessageRevision(pushObj);
     await persistConversationMessageMutation(conv, function(candidate) {
         candidate.messages.push(pushObj);
         return pushObj;
     });
+    if (typeof finishStreamDraft === 'function') await finishStreamDraft(generationContext);
     appendFinalAssistantMessage(conv, fullContent, fullCot);
     renderTokenBar();
     var savedMessage = conv.messages.find(function(message) { return message.id === pushObj.id; });

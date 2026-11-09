@@ -912,6 +912,7 @@ function makeFrontendSnapshot(overrides = {}) {
     activeConvId: 'c2',
     characters: { alice: { id: 'alice', name: 'Alice' } },
     worldBooks: { lore: { id: 'lore', entries: [{ id: 'one', content: 'Lore' }] } },
+    documents: {},
     charactersMigrated: true,
     lastSaved: 123456,
     ...overrides,

@@ -20,13 +20,13 @@ function generateSummary(messages, callback) {
 
     var promptConfig = buildSummaryPromptConfig(settings);
     var summaryMessages = buildSummaryMessages(messages, settings, promptConfig.prompt);
-    var endpoint = normalizeApiEndpoint(credentials.apiEndpoint);
+    var endpoint = resolveChatEndpoint(credentials.apiEndpoint, credentials.protocol);
 
-    if (shouldUseOllamaCompat(credentials.apiEndpoint)) {
+    if (credentials.protocol !== 'anthropic' && shouldUseOllamaCompat(credentials.apiEndpoint)) {
         summaryMessages = normalizeMessagesForOllamaCompatibility(summaryMessages);
     }
 
-    requestSummaryCompletion(endpoint, credentials.apiKey, credentials.model, summaryMessages, promptConfig.maxTokens)
+    requestSummaryCompletion(endpoint, credentials.apiKey, credentials.model, summaryMessages, promptConfig.maxTokens, credentials.protocol)
         .then(function(data) {
             var text = extractSummaryText(data);
             if (!text) {
@@ -43,6 +43,7 @@ function generateSummary(messages, callback) {
 function getSummarizationCredentials(settings) {
     var useMainAPI = settings.summarizeUseMainAPI !== false;
     return {
+        protocol: getSummaryApiProtocol(settings),
         apiEndpoint: useMainAPI ? settings.apiEndpoint : (settings.summarizeApiEndpoint || settings.apiEndpoint),
         apiKey: useMainAPI ? settings.apiKey : (settings.summarizeApiKey || settings.apiKey),
         model: useMainAPI ? settings.model : (settings.summarizeModel || settings.model || 'deepseek-chat')

@@ -15,7 +15,7 @@ function persistCloudSyncAppliedSnapshot(data) {
 }
 
 function notifyCloudSyncSnapshotApplied() {
-    appStore.notify(['settings', 'conversations', 'characters', 'worldBooks', 'activeConvId']);
+    appStore.notify(['settings', 'conversations', 'characters', 'worldBooks', 'documents', 'activeConvId']);
     refreshOpenSettingsControlsAfterCloudSyncApply();
     if (typeof requestFullRender === 'function') requestFullRender();
     if (typeof updateInputState === 'function') updateInputState();
@@ -39,6 +39,7 @@ function refreshOpenSettingsControlsAfterCloudSyncApply() {
     if (typeof hydrateInterfaceBehaviorSettings === 'function') hydrateInterfaceBehaviorSettings();
     if (typeof hydrateSummarizationApiSettings === 'function') hydrateSummarizationApiSettings();
     if (typeof hydrateImageGenerationSettingsControls === 'function') hydrateImageGenerationSettingsControls();
+    if (typeof hydrateRetrievalSettings === 'function') hydrateRetrievalSettings();
 }
 
 function isSettingsModalOpenForCloudSyncRefresh() {

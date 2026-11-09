@@ -65,6 +65,7 @@ function runSecondStageGeneration(firstStageMessage, onDone, replacementMessage,
     }
 
     var promptConv = conv;
+    var secondDraftContext = { conversation: conv, stage: 'second' };
 
     // 真正的请求步骤被包成内部函数，远程 API 可直接执行；默认提示词格式无效时最多追加一次格式纠正请求。
     function requestSecondStage(messages, isCorrection) {
@@ -114,6 +115,7 @@ function runSecondStageGeneration(firstStageMessage, onDone, replacementMessage,
                     if (fullCot) savedMessage.cot = fullCot;
                     if (usage) savedMessage.usage = usage;
                     savedMessage.revision = getMessageRevision(savedMessage);
+                    if (secondDraftContext._streamDraft) savedMessage.recoveryDraftId = secondDraftContext._streamDraft.id;
                     if (!candidateOnly) {
                         if (replacementMessage) {
                             var versions = prepareResponseVersions(c, parent).versions;
@@ -147,6 +149,7 @@ function runSecondStageGeneration(firstStageMessage, onDone, replacementMessage,
                             if (getActiveConv() === c) { renderMessagesOnly(); renderTokenBar(); }
                         }
                     }
+                    if (!candidateOnly && typeof finishStreamDraft === 'function') await finishStreamDraft(secondDraftContext);
                     if (!candidateOnly && (!generationContext || isGenerationRuntimeOwned(generationContext))) {
                         state.isGenerating = false;
                         appStore.notify('isGenerating');
@@ -154,6 +157,9 @@ function runSecondStageGeneration(firstStageMessage, onDone, replacementMessage,
                     if (onDone) {
                         onDoneCalled = true;
                         await onDone(null, savedMessage);
+                        if (candidateOnly && secondDraftContext._streamDraft && c.messages.some(function(message) {
+                            return message.recoveryDraftId === secondDraftContext._streamDraft.id;
+                        }) && typeof finishStreamDraft === 'function') await finishStreamDraft(secondDraftContext);
                     }
                 } catch (error) {
                     if (onDoneCalled) throw error;
@@ -189,12 +195,14 @@ function runSecondStageGeneration(firstStageMessage, onDone, replacementMessage,
                 stage: 'second',
                 settings: settings,
                 generationContext: generationContext,
+                draftContext: secondDraftContext,
                 operation: generationContext && generationContext.sequence,
                 promptBuildOperation: generationContext && generationContext.operation,
                 corrected: isCorrection === true,
                 temperature: typeof settings.twoStageTemperature === 'number' ? settings.twoStageTemperature : 0.3,
                 topP: typeof settings.twoStageTopP === 'number' ? settings.twoStageTopP : 0.85,
-                maxTokens: Math.min(settings.maxTokens || 1024, 1024)
+                maxTokens: settings.apiProtocol === 'anthropic' && settings.thinking && settings.thinking.type === 'enabled'
+                    ? (settings.maxTokens || 4096) : Math.min(settings.maxTokens || 1024, 1024)
             }
         );
     }

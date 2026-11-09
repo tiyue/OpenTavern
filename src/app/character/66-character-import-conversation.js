@@ -31,6 +31,13 @@ function applyImportedCharacterToConversation(conv, character) {
 }
 
 function attachEmbeddedCharacterBook(json, character, conv) {
+    if (typeof prepareCharacterWorldBookRecords === 'function') {
+        var prepared = prepareCharacterWorldBookRecords(json, character);
+        linkPreparedCharacterWorldBooks(conv, character);
+        var first = prepared.books.length ? Object.assign({}, prepared.books[0]) : null;
+        if (first) Object.defineProperty(first, 'preparedBooks', { value: prepared.books });
+        return first;
+    }
     var embeddedBook = null;
     try {
         var book = getEmbeddedCharacterBook(json);

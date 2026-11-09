@@ -6,6 +6,7 @@ import { performance } from 'node:perf_hooks';
 const source = (name) => fs.readFileSync(new URL(`../src/app/${name}`, import.meta.url), 'utf8');
 const copy = (value) => JSON.parse(JSON.stringify(value));
 const files = [
+    'chat/60-composer-images.js', 'conversation/32-user-message-versions.js',
     'conversation/32-message-identity.js', 'conversation/32-response-versions.js', 'state/35-persist-records.js', 'state/35-state-persistence.js', 'state/35-persist-snapshot-helpers.js',
     'state/35-conversation-mutation-persistence.js', 'summary/41-summary-validity.js',
     'prompt/41-prompt-history-messages.js', 'summary/54-summarization-runtime.js',
@@ -105,6 +106,17 @@ function harness(messages = [
     ctx.normalizeConversationMessageIdentity(conv);
     ctx.rememberCloudSyncConversationBaseline();
     return { ctx, conv, streams, summaries, alerts, writes, bubbles };
+}
+
+// Appending a reliably saved message must preserve pending work on unchanged history objects.
+{
+    const { ctx, conv } = harness();
+    const previousMessages = conv.messages.slice();
+    await ctx.persistConversationMessageMutation(conv, function(candidate) {
+        candidate.messages.push({ id: 'appended-user', role: 'user', content: 'new question' });
+    });
+    previousMessages.forEach((message, index) => assert.equal(conv.messages[index], message, 'Unchanged message objects retain async renderer ownership.'));
+    assert.equal(ctx.durable.conversations.a.messages.at(-1).id, 'appended-user');
 }
 
 function verified(ctx, conv, start, end) {
@@ -380,7 +392,7 @@ for (const outcome of ['network', 'empty', 'fail', 'refused', 'interrupted', 'le
         if (outcome !== 'interrupted') assert.ok(alerts.some((message) => message.includes(outcome)), `${outcome}: the preserved incomplete reason must remain understandable.`);
     } else {
         assert.equal(conv.messages[1].content, 'Original'); assert.equal(conv.messages[2].content, before[2].content);
-        assert.equal(ctx.getResponseVersions(conv.messages[1]).length, 0);
+        assert.equal(ctx.getResponseVersions(conv.messages[1]).length, outcome === 'edited' ? 1 : 0, 'Editing a user turn records its existing reply; failed generation adds no reply version.');
         assert.equal(ctx.uploads, 0);
     }
     await flush(ctx);
@@ -777,6 +789,7 @@ function streamHarness() {
         TextDecoder,
         normalizeStreamIdleTimeoutSec: () => 0,
     });
+    vm.runInContext(source('api/31-api-protocol.js'), ctx);
     vm.runInContext(source('generation/50-generation-cot-utils.js'), ctx);
     vm.runInContext(source('generation/50-generation-usage.js'), ctx);
     vm.runInContext(source('generation/50-generation-stream-state.js'), ctx);
@@ -801,6 +814,7 @@ function wiredGenerationHarness() {
     for (const file of [
         'generation/50-generation-cot-utils.js',
         'generation/50-generation-usage.js',
+        'api/31-api-protocol.js',
         'generation/50-generation-api-request.js',
         'generation/50-generation-stream-state.js',
         'generation/50-generation-transport-module.js',

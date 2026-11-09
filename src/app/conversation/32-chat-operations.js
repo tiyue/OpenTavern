@@ -59,6 +59,7 @@ function validateConversationMembers(members) {
 async function saveConversationMembers(conv, members) {
     if (state.isGenerating || getActiveConv() !== conv || !isLiveConversation(conv)) throw new Error('请在当前会话停止生成后修改成员');
     validateConversationMembers(members);
+    if (typeof cancelGroupAutoRounds === 'function') cancelGroupAutoRounds();
     var original = JSON.stringify([conv.group, conv.character]);
     var past = Object.assign(Object.create(null), conv.pastMemberCharacters || {});
     var authors = Object.assign(Object.create(null), conv.messageAuthorNames || {});

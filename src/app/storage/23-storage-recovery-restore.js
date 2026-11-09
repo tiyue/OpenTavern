@@ -22,6 +22,8 @@ function applyStorageRecoveryData(data) {
     state.activeConvId = getStorageRecoveryActiveConversationId(data.activeConvId);
     if (data.worldBooks) state.worldBooks = data.worldBooks;
     if (data.characters) state.characters = data.characters;
+    if (data.documents) state.documents = data.documents;
+    if (typeof ensureDocumentsState === 'function') ensureDocumentsState();
     if (typeof data.charactersMigrated !== 'undefined') {
         state._charactersMigrated = !!data.charactersMigrated;
     }
@@ -35,6 +37,7 @@ function buildStorageRecoverySaveSnapshot() {
         activeConvId: state.activeConvId,
         worldBooks: state.worldBooks || {},
         characters: state.characters || {},
+        documents: state.documents || {},
         charactersMigrated: !!state._charactersMigrated,
         lastSaved: Date.now()
     };

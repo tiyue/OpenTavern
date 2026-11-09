@@ -19,6 +19,17 @@ function buildChatCompletionPayload(settings, messages, requestOptions) {
     var useStream = typeof requestOptions.stream === 'boolean'
         ? requestOptions.stream
         : settings.streamEnabled !== false;
+    if (typeof squashPresetSystemMessages === 'function' && settings.sillyTavernPreset && settings.sillyTavernPreset.enabled !== false && settings.sillyTavernPreset.squashSystemMessages === true) messages = squashPresetSystemMessages(messages);
+    var protocol = getMainApiProtocol(settings);
+    if (protocol !== 'anthropic' && messages.some(function(message) { return typeof isModelToolProtocolMessage === 'function' && isModelToolProtocolMessage(message); })) {
+        messages = messages.map(function(message) {
+            if (typeof isModelToolProtocolMessage !== 'function' || !isModelToolProtocolMessage(message)) return message;
+            var copy = JSON.parse(JSON.stringify(message));
+            delete copy._modelToolProtocol;
+            delete copy._anthropicContent;
+            return copy;
+        });
+    }
     var payload = {
         model: settings.model,
         messages: messages,
@@ -30,16 +41,16 @@ function buildChatCompletionPayload(settings, messages, requestOptions) {
         stream: useStream
     };
     if (typeof applyExplicitReasoningParameters === 'function') applyExplicitReasoningParameters(payload, settings, false);
-    return payload;
+    if (requestOptions.modelTools && requestOptions.modelTools.toolNames && requestOptions.modelTools.toolNames.length && typeof buildModelToolWireDefinitions === 'function') {
+        payload.tools = buildModelToolWireDefinitions(protocol, requestOptions.modelTools.toolNames);
+    }
+    return toApiProtocolPayload(payload, protocol);
 }
 
 function buildChatCompletionFetchOptions(settings, payload, controller) {
     return {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + settings.apiKey
-        },
+        headers: buildApiAuthHeaders(settings.apiKey, getMainApiProtocol(settings), true),
         body: JSON.stringify(payload),
         signal: controller.signal
     };

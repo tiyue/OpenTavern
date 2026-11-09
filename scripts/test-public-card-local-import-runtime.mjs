@@ -12,6 +12,8 @@ const files = [
     'worldbook/41-world-info-extension-fields.js',
     'worldbook/41-world-info-normalizer.js',
     'worldbook/42-worldbook-import-format.js',
+    'worldbook/42-worldbook-st-export-format.js',
+    'worldbook/42-worldbook-bindings.js',
     'character/40-character-card-import.js',
     'character/40-character-book-import.js',
     'prompt/40-character-regex-runtime.js',

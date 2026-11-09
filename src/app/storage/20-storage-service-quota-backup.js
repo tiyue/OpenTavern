@@ -22,6 +22,7 @@ function buildStorageQuotaBackupSnapshot() {
         activeConvId: state ? getValidConversationIdOrFallback(state.activeConvId, state.conversationOrder, state.conversations) : null,
         worldBooks: state ? (state.worldBooks || {}) : {},
         characters: state ? (state.characters || {}) : {},
+        documents: state ? (state.documents || {}) : {},
         lastSaved: Date.now()
     };
 }

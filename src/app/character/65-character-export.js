@@ -39,6 +39,9 @@ function buildCharacterCardExportPayload(character, characterBook) {
         data.creator_notes_multilingual = cloneCharacterCardExportValue(c.creator_notes_multilingual, {});
     }
     if (c.source != null) data.source = cloneCharacterCardExportValue(c.source, c.source);
+    if (typeof getCharacterExtraWorldBooksForExport === 'function' && Array.isArray(c.linkedExtraWorldBookIds)) {
+        data.extensions.opentavern = Object.assign({}, data.extensions.opentavern, { world_books: getCharacterExtraWorldBooksForExport(c) });
+    }
     if (characterBook) {
         data.character_book = characterBook;
         if (characterBook.name) data.extensions.world = characterBook.name;
