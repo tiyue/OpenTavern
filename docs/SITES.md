@@ -20,6 +20,18 @@ Sites 原样承载现有 OpenTavern 前端。聊天、角色卡、世界书、�
 
 ## 最新发布记录
 
+2026-11-09 13:05:47（北京时间）发布第 20 版，原生部署 succeeded；ECS 于 12:54:14 完成切换、12:59:18 完成公网浏览器验收，随后才发布 Sites，见 [ECS](ECS.md)。本版上线保留的 12 项酒馆扩展功能，范围与未运行项见 [开发验收记录](tavern-feature-acceptance-20261107.md)。
+
+- 已验收入口：[原生 Sites 应用](https://opentavern-ai-chat.longyu9708.chatgpt.site/opentavern)、[自定义域 OpenTavern](https://www.yubanyuban.com/opentavern)。本次两个域都返回 200，并分别完成资源字节核对和浏览器验收；第 19 版的自定义域 403 为历史观察。本轮未改变域名、DNS、WAF 或访问策略。
+- 功能源码 `4650fc0f39928e31d58a1632afbe348312df1b47`；准确推送/打包源码 `9c506acdbbf14e0b030ff688be5c3c0cfc45d433`；版本 `[site-id]~[version-id]`；部署 `[deployment-id]`。原项目、公开访问、DB/D1、R2 未启用及环境版本 0 保持。GitHub 经脱敏的功能快照 `24b69619f5c203f2a27b27a722959b2da81b120b` 已正常推送，发布记录另行提交。
+- releaseId `afa8c8d0d9d836d61cf092ba`；bundle 3,194,708 bytes、SHA-256 `ffc53ada1a79dbab0ae2d2216fadd6887ec2b3ce67325d8f887e19a92a889518`；CSS 86,791 bytes、`3bba621e04d08f07c6a2a5672ad95a2d69cd0f21581774793abd797f65b89c80`。归档逐项核对核心资源与真实项目绑定，未包含私人角色卡。
+- 原 33 组功能验证保持；本轮重新运行构建、完整检查（66 项 Python）、十组浏览器发布门禁，源码/产物稳定、完整预览/dist 一致、自有服务清理通过。源码准备工具提交后再对 1091 项受控文件核对与门禁工作树字节一致；不能用门禁执行时尚未提交的旧 HEAD 代替准确推送提交。
+- 原生域和自定义域各 23 项清单/SW/运行/固定版本/公共卡资源摘要一致，固定 `index.html.txt` 为 text/plain 且与原始外壳摘要一致。两个域的联机 `/opentavern` HTML 都有平台注入，各 165,954 bytes；如实记录与原始外壳不同，不放宽资源校验。
+- 两个域分别运行 D2 整组隔离 Chrome，各 24 流程、5 次合成模型请求、9 张截图、0 pageError。插件实际 Worker、导入/授权/更新/失败保护/回退/停止/卸载、受控网络以及关闭插件后的聊天、模型工具、总结和刷新恢复通过；390/1280px 浅暗/系统代表截图已查看。未使用用户浏览器数据，未调用真实计费模型；Embedding 中文质量和 iPhone 真机仍未验收。
+- 证据：`/path/to/local-release-evidence` 下 `sites-native-release.json`、`archive-verification.json`、`source-provenance-verification.json`、`sites-native-public-http.json`、`sites-public-http.json`、`sites-browser/report.json` 与 `custom-sites-browser/report.json`。数据库绑定和访问策略保持；回退选择已保存的第 19 版部署，不自动回写旧 D1 或浏览器数据。
+
+## 第 19 版历史发布记录
+
 2026-11-06 23:49:54（北京时间）发布第 19 版，原生部署 succeeded；ECS 已于 2026-11-06 23:46:42 先完成发布，见 [ECS](ECS.md)。进入聊天时，消息区域显示并完成侧栏布局后对齐最新消息；普通重绘、加载更早及历史阅读继续保留锚点。生产改动仅两个 JS 分片共 10 行，其他为测试、规格与脚本生成物。
 
 - 本次已验收入口：[原生 Sites 应用](https://opentavern-ai-chat.longyu9708.chatgpt.site/opentavern)；原自定义正式域 [OpenTavern](https://www.yubanyuban.com/opentavern) 在本机 Chrome/curl 及 ECS curl 均收到 Cloudflare 403，不能宣称自定义域名验收成功；相关响应和浏览器超时诊断保留。未修改域名、DNS、WAF 或访问策略。

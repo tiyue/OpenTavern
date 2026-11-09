@@ -1,6 +1,17 @@
 # ECS 备份部署与回退
 
-## 当前发布与边界（2026-11-06）
+## 当前发布与边界（2026-11-09）
+
+2026-11-09 12:54:14（北京时间）先发布 12 项酒馆扩展功能到 [ECS 入口](http://39.105.48.52:8888/)，通过公网验收后于 13:05:47 发布 Sites 第 20 版。功能源码 `4650fc0f39928e31d58a1632afbe348312df1b47`，Sites 推送/打包源码 `9c506acdbbf14e0b030ff688be5c3c0cfc45d433`，两端同一被测 releaseId `afa8c8d0d9d836d61cf092ba`。功能与验证边界见 [开发验收记录](tavern-feature-acceptance-20261107.md)。
+
+- 当前前端 root：`/opt/opentavern/releases/ecs-tavern-features-20261109T045329Z/verified/frontend`；原后端 `/opt/opentavern/releases/ecs-v17-20261022T161850Z/verified/server`、服务进程和环境保持，不执行数据库迁移。
+- 静态包 344 文件、143,962,397 bytes；复用 320 文件，上传 24 文件差量（压缩包 1,792,968 bytes）。全部 344 文件磁盘和回环 HTTP 大小/SHA-256 一致；保留 14 个旧不可变版本共 252 文件。公网 25 项字节核对通过，旧版 bundle 仍可读取。
+- 实际 Python 3.6.8 / SQLite 3.7.17 的 66 项后端测试通过；健康 200、匿名同步 401、OPTIONS 204、图片 ready，其他 8088/8090 站点 200。切换窗口前后数据库 inode/内容摘要相同，5 条 v1、12 条 v2 元数据和 259 分块保持；7 张私有图片共 36,477,591 bytes 摘要保持。未下载用户数据库、图片或凭据到开发机。
+- 在线 SQLite 备份 55,736,320 bytes、quick_check=ok，图片/配置备份位于本版 `backup/` 且仅 root 可读。前端回退仅恢复 `/opt/opentavern/releases/ecs-tavern-features-20261109T045329Z/backup/opentavern.conf`，`nginx -t` 后 reload，确认旧 root `/opt/opentavern/releases/ecs-chat-scroll-20261106T153832Z/verified/frontend`；不自动恢复数据库或图片，不改后端软链，避免覆盖新上传。
+- 原 33 组功能验收及本轮完整检查、十组发布浏览器门禁通过。实际公网 ECS Chrome 再通过 D2 整组 24 流程、5 次合成模型请求、9 张截图，覆盖插件真实 Worker 生命周期/受控网络、普通聊天、模型工具、总结和刷新恢复；390/1280px 浅暗/系统无横向溢出，0 pageError，代表截图已视觉检查。未运行真实模型供应商、Embedding 中文质量或 iPhone 真机。
+- 证据目录 `/path/to/local-release-evidence`：`ecs-ready.json`、`ecs-deployment-final.json`、`ecs-public-http.json`、`ecs-browser/report.json`，以及 `gate-final/release-2026-11-09T04-47-48-479Z-42468/release-report.json`；服务器本版目录保留 `deployment-final.json` 与 `backup/`。当前 ECS 仍为 HTTP，沿用 IndexedDB，不承诺安全来源限定的离线导航；Sites 与 ECS 的用户数据独立。
+
+## 第 19 版历史发布（2026-11-06）
 
 2026-11-06 23:46:42（北京时间）先发布聊天进入定位修复到 [ECS 入口](http://39.105.48.52:8888/)，随后 2026-11-06 23:49:54 发布 Sites 第 19 版。准确功能/发布源码 `c114ab2e010af8304261d57eb3e5376244f1dc2f`，两端同一被测产物 releaseId `fc677344d1452b9817ba3da2`。本次修复进入长会话停在旧消息的问题，普通重绘和上翻历史继续保留阅读位置。
 
